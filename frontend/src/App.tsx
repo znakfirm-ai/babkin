@@ -1,10 +1,7 @@
+import HomeScreen from "./screens/HomeScreen"
+
 function App() {
-  return (
-    <div style={{ padding: 20 }}>
-      <h1>Финансы</h1>
-      <p>Проект запущен</p>
-    </div>
-  )
+  return <HomeScreen />
 }
 
 export default App
