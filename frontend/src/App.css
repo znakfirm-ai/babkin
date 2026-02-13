@@ -152,11 +152,15 @@
 }
 
 .overview-section__list--row .tile-card {
-  flex: 0 0 136px;
-  width: 136px;
-  min-width: 136px;
-  min-height: 128px;
-  padding: 10px 8px;
+  --tile-w: 92px;
+  --tile-h: 86px;
+  --tile-pad-x: 8px;
+  --tile-pad-y: 8px;
+  flex: 0 0 var(--tile-w);
+  width: var(--tile-w);
+  min-width: var(--tile-w);
+  min-height: var(--tile-h);
+  padding: var(--tile-pad-y) var(--tile-pad-x);
 }
 
 .overview-expenses-row {
@@ -183,29 +187,37 @@
 }
 
 .overview .tile-card {
+  --tile-w: 92px;
+  --tile-h: 86px;
+  --tile-pad-x: 8px;
+  --tile-pad-y: 8px;
+  --icon-box: 26px;
+  --icon-font: 14px;
+  --title-size: 11px;
+  --amount-size: 12px;
   border-radius: 10px;
-  padding: 10px;
-  min-height: 108px;
+  padding: var(--tile-pad-y) var(--tile-pad-x);
+  min-height: var(--tile-h);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
-  gap: 6px;
+  gap: 5px;
 }
 
 .overview .tile-card__icon {
-  width: 32px;
-  height: 32px;
-  font-size: 16px;
+  width: var(--icon-box);
+  height: var(--icon-box);
+  font-size: var(--icon-font);
   background: rgba(15, 23, 42, 0.03);
   opacity: 0.7;
 }
 
 .overview .tile-card__title {
-  font-size: 13px;
+  font-size: var(--title-size);
   font-weight: 500;
   color: #6b7280;
 }
 
 .overview .tile-card__amount {
-  font-size: 14px;
+  font-size: var(--amount-size);
   font-weight: 700;
 }
 
@@ -223,16 +235,16 @@
 }
 
 .overview-accounts-row .tile-card {
-  flex: 0 0 136px;
-  width: 136px;
-  min-width: 136px;
-  min-height: 128px;
-  padding: 10px 8px;
+  flex: 0 0 var(--tile-w);
+  width: var(--tile-w);
+  min-width: var(--tile-w);
+  min-height: var(--tile-h);
+  padding: var(--tile-pad-y) var(--tile-pad-x);
 }
 
 .overview-accounts-row .tile-card--add {
-  flex: 0 0 136px;
-  width: 136px;
+  flex: 0 0 var(--tile-w);
+  width: var(--tile-w);
 }
 .account-row {
   display: flex;
