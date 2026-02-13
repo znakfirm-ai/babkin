@@ -230,6 +230,7 @@ function HomeScreen() {
               boxSizing: "border-box",
               height: 180,
               position: "relative",
+              overflow: "hidden",
             }}
           >
             <div style={{ position: "absolute", top: 10, left: 10, fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
@@ -239,12 +240,16 @@ function HomeScreen() {
 
             <div
               style={{
+                position: "relative",
                 height: "100%",
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
                 alignItems: "center",
-                gap: 14,
+                gap: 12,
+                paddingTop: 12,
+                paddingBottom: 32,
+                boxSizing: "border-box",
               }}
             >
               <div style={{ position: "relative", width: 140, height: 140 }}>
@@ -276,7 +281,7 @@ function HomeScreen() {
                         style={{
                           position: "absolute",
                           left: "50%",
-                          top: "-6px",
+                          top: 12,
                           transform: "translate(-50%, -100%)",
                           textAlign: "center",
                           fontSize: 12,
@@ -297,7 +302,7 @@ function HomeScreen() {
                           position: "absolute",
                           left: "100%",
                           top: "50%",
-                          transform: "translate(12px, -50%)",
+                          transform: "translate(8px, -50%)",
                           textAlign: "left",
                           fontSize: 12,
                           color: "#6b7280",
@@ -316,8 +321,8 @@ function HomeScreen() {
                       style={{
                         position: "absolute",
                         right: "100%",
-                        bottom: "0%",
-                        transform: "translate(-12px, 10px)",
+                        bottom: 6,
+                        transform: "translate(-8px, 0)",
                         textAlign: "right",
                         fontSize: 12,
                         color: "#6b7280",
@@ -332,8 +337,18 @@ function HomeScreen() {
                 })}
               </div>
 
-              <div style={{ display: "grid", gap: 2, textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>{mainAmount}</div>
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  bottom: 12,
+                  transform: "translateX(-50%)",
+                  display: "grid",
+                  gap: 2,
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{mainAmount}</div>
                 <div style={{ fontSize: 12, color: "#6b7280" }}>за период</div>
               </div>
             </div>
