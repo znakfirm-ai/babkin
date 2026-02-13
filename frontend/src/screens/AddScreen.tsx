@@ -53,7 +53,7 @@ function AddScreen() {
               setType(next)
               setCategoryId("")
             }}
-            style={{ width: "100%", padding: 10, marginTop: 6 }}
+            style={{ width: "100%", padding: 12, marginTop: 6, fontSize: 16 }}
           >
             <option value="expense">Расход</option>
             <option value="income">Доход</option>
@@ -67,7 +67,7 @@ function AddScreen() {
             <select
               value={effectiveAccountId}
               onChange={(e) => setAccountId(e.target.value)}
-              style={{ width: "100%", padding: 10, marginTop: 6 }}
+              style={{ width: "100%", padding: 12, marginTop: 6, fontSize: 16 }}
               disabled={accounts.length === 0}
             >
               {accounts.length === 0 ? (
@@ -97,7 +97,7 @@ function AddScreen() {
                     setToAccountId(alt)
                   }
                 }}
-                style={{ width: "100%", padding: 10, marginTop: 6 }}
+                style={{ width: "100%", padding: 12, marginTop: 6, fontSize: 16 }}
                 disabled={accounts.length < 2}
               >
                 {accounts.length < 2 ? (
@@ -117,9 +117,9 @@ function AddScreen() {
               <select
                 value={effectiveToAccountId}
                 onChange={(e) => setToAccountId(e.target.value)}
-                style={{ width: "100%", padding: 10, marginTop: 6 }}
-                disabled={accounts.length < 2}
-              >
+              style={{ width: "100%", padding: 12, marginTop: 6, fontSize: 16 }}
+              disabled={accounts.length < 2}
+            >
                 {accounts.length < 2 ? (
                   <option value="">Нужно 2 счёта</option>
                 ) : (
@@ -142,7 +142,7 @@ function AddScreen() {
             <select
               value={effectiveCategoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              style={{ width: "100%", padding: 10, marginTop: 6 }}
+              style={{ width: "100%", padding: 12, marginTop: 6, fontSize: 16 }}
               disabled={filteredCategories.length === 0}
             >
               {filteredCategories.length === 0 ? (
@@ -164,7 +164,7 @@ function AddScreen() {
             <select
               value={effectiveIncomeSourceId}
               onChange={(e) => setIncomeSourceId(e.target.value)}
-              style={{ width: "100%", padding: 10, marginTop: 6 }}
+              style={{ width: "100%", padding: 12, marginTop: 6, fontSize: 16 }}
               disabled={incomeSourceOptions.length === 0}
             >
               {incomeSourceOptions.length === 0 ? (
@@ -187,7 +187,7 @@ function AddScreen() {
             onChange={(e) => setAmount(e.target.value)}
             inputMode="numeric"
             placeholder="Например, 1500"
-            style={{ width: "100%", padding: 10, marginTop: 6 }}
+            style={{ width: "100%", padding: 12, marginTop: 6, fontSize: 18 }}
           />
         </label>
 
@@ -197,7 +197,7 @@ function AddScreen() {
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Например, продукты / перевод на карту"
-            style={{ width: "100%", padding: 10, marginTop: 6 }}
+            style={{ width: "100%", padding: 12, marginTop: 6, fontSize: 16 }}
           />
         </label>
 

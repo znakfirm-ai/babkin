@@ -1,13 +1,16 @@
+
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f5f6f8;
 }
 
 .app-shell__inner {
   max-width: 480px;
   margin: 0 auto;
-  padding: env(safe-area-inset-top) 0 calc(110px + env(safe-area-inset-bottom));
+  padding: env(safe-area-inset-top) 0 calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .dev-banner {
