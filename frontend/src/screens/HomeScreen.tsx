@@ -89,7 +89,7 @@ function HomeScreen() {
     [markViewed, stories]
   )
 
-  const [period] = useState<Period>("today") // визуально показать "Сегодня"
+  const [period] = useState<Period>("today")
 
   const quickActions = useMemo(
     () => [
@@ -105,7 +105,7 @@ function HomeScreen() {
     <button
       type="button"
       onClick={() => {
-        // пока без sheet
+        // sheet пока не делаем
       }}
       style={{
         display: "inline-flex",
@@ -184,7 +184,7 @@ function HomeScreen() {
               position: "relative",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>{periodButton}</div>
+            <div style={{ position: "absolute", top: 10, right: 10 }}>{periodButton}</div>
           </div>
         </div>
       </section>
