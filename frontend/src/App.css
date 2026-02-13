@@ -159,6 +159,23 @@
   padding: 10px 8px;
 }
 
+.overview-expenses-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-columns: 136px;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+
+.overview-expenses-row::-webkit-scrollbar {
+  display: none;
+}
+
 .overview-grid--compact {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -270,7 +270,7 @@ function OverviewScreen() {
 
       <Section title="Источники дохода" items={[...incomeToRender, addCard("income")]} rowScroll />
 
-      <Section title="Расходы" items={[...expenseToRender, addCard("expense")]} rowScroll />
+      <Section title="Расходы" items={[...expenseToRender, addCard("expense")]} rowScroll rowClass="overview-expenses-row" />
 
       <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll />
 
