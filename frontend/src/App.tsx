@@ -8,7 +8,7 @@ import BottomNav from "./BottomNav";
 import type { NavItem } from "./BottomNav";
 import "./BottomNav.css";
 import "./App.css";
-import { initTelegram, isTelegramAvailable } from "./telegram";
+import { initTelegram } from "./telegram";
 
 const SCREENS: Record<NavItem, React.ReactNode> = {
   home: <HomeScreen />,
