@@ -4,7 +4,6 @@ import type { IconName } from "../components/AppIcon"
 
 type Story = { id: string; title: string; image: string }
 type Period = "today" | "week" | "month" | "custom"
-type SheetStep = "list" | "custom"
 
 const VIEWED_KEY = "home_stories_viewed"
 
@@ -22,16 +21,6 @@ function HomeScreen() {
       { id: "story-2", title: "Налоговый вычет", image: "https://fincult.info/upload/iblock/663/975lcctfyqxjbgdko6rka3u14g0ges3u/iis_fc_2812_pr.jpg" },
       { id: "story-3", title: "Fintech гайд", image: "https://static.tildacdn.com/tild3732-6463-4163-b761-666163393264/_FINTECH.png" },
       { id: "story-4", title: "Кэшбэк карта", image: "https://allsoft.by/upload/special_offer_pictograms/da9/zdpket1fl0w6ft3maffg46tb1z8vyl2z.png" },
-    ],
-    []
-  )
-
-  const banners = useMemo(
-    () => [
-      { id: "banner-1", title: "Ускорьте учёт", subtitle: "Подключите автоимпорт операций" },
-      { id: "banner-2", title: "Настройте цели", subtitle: "Делайте откладывания по расписанию" },
-      { id: "banner-3", title: "Контроль бюджета", subtitle: "Лимиты на категории расходов" },
-      { id: "banner-4", title: "Команда", subtitle: "Пригласите семью вести бюджет" },
     ],
     []
   )
@@ -100,11 +89,7 @@ function HomeScreen() {
     [markViewed, stories]
   )
 
-  const [period, setPeriod] = useState<Period>("month")
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [sheetStep, setSheetStep] = useState<SheetStep>("list")
-  const [customFrom, setCustomFrom] = useState("")
-  const [customTo, setCustomTo] = useState("")
+  const [period] = useState<Period>("today") // визуально показать "Сегодня"
 
   const quickActions = useMemo(
     () => [
@@ -116,43 +101,23 @@ function HomeScreen() {
     [clickAddNav]
   )
 
-  const handleSelectPeriod = useCallback(
-    (value: Period) => {
-      if (value === "custom") {
-        setSheetStep("custom")
-      } else {
-        setPeriod(value)
-        setSheetOpen(false)
-        setSheetStep("list")
-      }
-    },
-    []
-  )
-
-  const applyCustom = useCallback(() => {
-    if (!customFrom || !customTo) return
-    setPeriod("custom")
-    setSheetOpen(false)
-    setSheetStep("list")
-  }, [customFrom, customTo])
-
   const periodButton = (
     <button
       type="button"
       onClick={() => {
-        setSheetStep("list")
-        setSheetOpen(true)
+        // пока без sheet
       }}
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
-        border: "1px solid rgba(15,23,42,0.08)",
+        border: "none",
         background: "transparent",
         borderRadius: 10,
-        padding: "6px 10px",
+        padding: "6px 8px",
         fontSize: 12,
         color: "#0f172a",
+        cursor: "pointer",
       }}
     >
       <span>Период · {periodLabel[period]}</span>
@@ -161,104 +126,6 @@ function HomeScreen() {
       </span>
     </button>
   )
-
-  const renderPeriodList = () => {
-    const options: { key: Period; label: string }[] = [
-      { key: "today", label: periodLabel.today },
-      { key: "week", label: periodLabel.week },
-      { key: "month", label: periodLabel.month },
-      { key: "custom", label: periodLabel.custom },
-    ]
-    return (
-      <div style={{ display: "grid", gap: 4 }}>
-        {options.map((opt) => (
-          <button
-            key={opt.key}
-            type="button"
-            onClick={() => handleSelectPeriod(opt.key)}
-            style={{
-              height: 48,
-              border: "none",
-              background: "transparent",
-              padding: "0 8px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              fontSize: 14,
-              color: "#0f172a",
-            }}
-          >
-            <span>{opt.label}</span>
-            {period === opt.key ? (
-              <span style={{ transform: "rotate(-45deg)", display: "inline-flex" }}>
-                <AppIcon name="arrowDown" size={14} />
-              </span>
-            ) : null}
-          </button>
-        ))}
-      </div>
-    )
-  }
-
-  const renderCustom = () => {
-    const disabled = !customFrom || !customTo
-    return (
-      <div style={{ display: "grid", gap: 12 }}>
-        <div style={{ display: "grid", gap: 8 }}>
-          <label style={{ fontSize: 13, color: "#374151" }}>
-            С:
-            <input
-              type="date"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-              style={{
-                marginTop: 6,
-                width: "100%",
-                borderRadius: 10,
-                border: "1px solid rgba(15,23,42,0.12)",
-                padding: "10px 12px",
-                fontSize: 14,
-              }}
-            />
-          </label>
-          <label style={{ fontSize: 13, color: "#374151" }}>
-            По:
-            <input
-              type="date"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-              style={{
-                marginTop: 6,
-                width: "100%",
-                borderRadius: 10,
-                border: "1px solid rgba(15,23,42,0.12)",
-                padding: "10px 12px",
-                fontSize: 14,
-              }}
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          onClick={applyCustom}
-          disabled={disabled}
-          style={{
-            height: 44,
-            borderRadius: 12,
-            border: "none",
-            background: disabled ? "rgba(15,23,42,0.08)" : "#4f46e5",
-            color: disabled ? "#6b7280" : "#ffffff",
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          Применить
-        </button>
-      </div>
-    )
-  }
-
-  const sheetContent = sheetStep === "list" ? renderPeriodList() : renderCustom()
 
   return (
     <div className="home-screen">
@@ -300,41 +167,25 @@ function HomeScreen() {
           style={{
             display: "flex",
             gap: 12,
-            overflowX: "auto",
-            overflowY: "hidden",
-            WebkitOverflowScrolling: "touch",
+            overflowX: "hidden",
             paddingBottom: 6,
-            scrollbarWidth: "none",
           }}
         >
-          {banners.map((banner) => (
-            <div
-              key={banner.id}
-              className="home-banner"
-              style={{
-                flex: "0 0 95%",
-                maxWidth: "95%",
-                minWidth: "95%",
-                borderRadius: 14,
-                border: "1px solid rgba(15,23,42,0.08)",
-                background: "#f9fafb",
-                padding: "12px 14px",
-                boxSizing: "border-box",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <div className="home-banner__title" style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
-                  {banner.title}
-                </div>
-                {periodButton}
-              </div>
-              <div className="home-banner__text">
-                <div className="home-banner__subtitle" style={{ fontSize: 13, color: "#4b5563" }}>
-                  {banner.subtitle}
-                </div>
-              </div>
-            </div>
-          ))}
+          <div
+            className="home-banner"
+            style={{
+              flex: "0 0 100%",
+              borderRadius: 16,
+              border: "1px solid rgba(15,23,42,0.08)",
+              background: "linear-gradient(135deg, #f9fafb, #eef2f7)",
+              padding: "16px 16px 14px",
+              boxSizing: "border-box",
+              height: 180,
+              position: "relative",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>{periodButton}</div>
+          </div>
         </div>
       </section>
 
@@ -379,74 +230,6 @@ function HomeScreen() {
           >
             ›
           </button>
-        </div>
-      ) : null}
-
-      {sheetOpen ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            zIndex: 950,
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-          }}
-          role="presentation"
-          onClick={() => {
-            setSheetOpen(false)
-            setSheetStep("list")
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 480,
-              margin: "0 auto",
-              background: "#ffffff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              padding: "14px 16px",
-              paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
-              boxSizing: "border-box",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 12,
-              }}
-            >
-              <span style={{ width: 32 }} />
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>Период</div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSheetOpen(false)
-                  setSheetStep("list")
-                }}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
-                  border: "none",
-                  background: "rgba(15,23,42,0.06)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transform: "rotate(45deg)",
-                }}
-                aria-label="Закрыть"
-              >
-                <AppIcon name="plus" size={16} />
-              </button>
-            </div>
-            {sheetContent}
-          </div>
         </div>
       ) : null}
     </div>
