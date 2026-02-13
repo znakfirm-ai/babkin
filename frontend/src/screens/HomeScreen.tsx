@@ -3,15 +3,31 @@ import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 
 function HomeScreen() {
-  const stories = useMemo<{ id: string; title: string; icon: IconName; active?: boolean }[]>(
+  const stories = useMemo<
+    { id: string; title: string; icon?: IconName; image: string; active?: boolean }[]
+  >(
     () => [
-      { id: "story-accounts", title: "Счета", icon: "wallet", active: true },
-      { id: "story-income", title: "Доходы", icon: "arrowUp" },
-      { id: "story-expense", title: "Расходы", icon: "arrowDown" },
-      { id: "story-goals", title: "Цели", icon: "goal" },
-      { id: "story-trip", title: "Путешествия", icon: "plane" },
-      { id: "story-car", title: "Авто", icon: "car" },
-      { id: "story-home", title: "Дом", icon: "home" },
+      {
+        id: "story-1",
+        title: "Инвест книга",
+        image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg",
+        active: true,
+      },
+      {
+        id: "story-2",
+        title: "Налоговый вычет",
+        image: "https://fincult.info/upload/iblock/663/975lcctfyqxjbgdko6rka3u14g0ges3u/iis_fc_2812_pr.jpg",
+      },
+      {
+        id: "story-3",
+        title: "Fintech гайд",
+        image: "https://static.tildacdn.com/tild3732-6463-4163-b761-666163393264/_FINTECH.png",
+      },
+      {
+        id: "story-4",
+        title: "Кэшбэк карта",
+        image: "https://allsoft.by/upload/special_offer_pictograms/da9/zdpket1fl0w6ft3maffg46tb1z8vyl2z.png",
+      },
     ],
     []
   )
@@ -55,10 +71,12 @@ function HomeScreen() {
               role="button"
               tabIndex={0}
             >
-              <div className="home-story-card__icon-wrapper">
-                <AppIcon name={story.icon} size={18} />
+              <div className="home-story-card__image-wrap">
+                <img src={story.image} alt={story.title} className="home-story-card__image" />
               </div>
-              <div className="home-story-card__title">{story.title}</div>
+              <div className="home-story-card__title" title={story.title}>
+                {story.title}
+              </div>
             </div>
           ))}
         </div>
