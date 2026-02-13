@@ -45,7 +45,7 @@
 .tile-card {
   background: #ffffff;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 12px 12px;
   display: flex;
   flex-direction: column;
