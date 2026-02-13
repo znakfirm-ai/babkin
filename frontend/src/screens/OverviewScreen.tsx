@@ -33,8 +33,15 @@ const getCurrentMonthTag = () => {
 
 const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag;
 
-const Section: React.FC<{ title: string; items: CardItem[]; rowScroll?: boolean }> = ({ title, items, rowScroll }) => {
-  const listClass = rowScroll ? "overview-section__list overview-section__list--row" : "overview-section__list tile-grid";
+const Section: React.FC<{ title: string; items: CardItem[]; rowScroll?: boolean; compactGrid?: boolean }> = ({
+  title,
+  items,
+  rowScroll,
+  compactGrid,
+}) => {
+  const listClass = rowScroll
+    ? "overview-section__list overview-section__list--row"
+    : `overview-section__list ${compactGrid ? "overview-grid--compact" : "tile-grid"}`;
   return (
     <section className="overview-section">
       <div className="overview-section__title">{title}</div>
@@ -144,6 +151,7 @@ function OverviewScreen() {
       icon: "⬇️",
       color: cardColors[(idx + 2) % cardColors.length],
       type: "category" as const,
+      size: "md" as const,
     }))
     .sort((a, b) => b.amount - a.amount);
 
@@ -168,7 +176,7 @@ function OverviewScreen() {
   };
 
   const maxExpenseAmount = Math.max(0, ...expenseItems.map((i) => i.amount));
-  const sizedExpenseItems = expenseItems.map((i) => ({ ...i, size: computeSize(i.amount, maxExpenseAmount) }));
+  const sizedExpenseItems = expenseItems.map((i) => ({ ...i, size: i.size ?? computeSize(i.amount, maxExpenseAmount) }));
 
   const goalsItems: CardItem[] = [
     { id: "goal-trip", title: "Путешествие", amount: 0, icon: "🧭", color: "#0ea5e9" },
@@ -221,9 +229,9 @@ function OverviewScreen() {
 
       <Section title="Счета" items={[...accountItems, addCard("accounts")]} rowScroll />
 
-      <Section title="Источники дохода" items={[...incomeItems, addCard("income")]} />
+      <Section title="Источники дохода" items={[...incomeItems, addCard("income")]} compactGrid />
 
-      <Section title="Расходы" items={[...sizedExpenseItems, addCard("expense")]} />
+      <Section title="Расходы" items={[...sizedExpenseItems, addCard("expense")]} compactGrid />
 
       <Section title="Цели" items={[...goalsItems, addCard("goals")]} />
 

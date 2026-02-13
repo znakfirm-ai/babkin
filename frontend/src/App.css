@@ -150,15 +150,52 @@
 }
 
 .overview-section__list--row .tile-card {
-  flex: 0 0 140px;
-  width: 140px;
-  min-width: 140px;
-  min-height: 140px;
+  flex: 0 0 136px;
+  width: 136px;
+  min-width: 136px;
+  min-height: 128px;
 }
 
 .overview-section__list--row .tile-card--add {
-  flex: 0 0 140px;
-  width: 140px;
+  flex: 0 0 136px;
+  width: 136px;
+}
+
+.overview-grid--compact {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.overview .tile-card {
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 108px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  gap: 6px;
+}
+
+.overview .tile-card__icon {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  background: rgba(15, 23, 42, 0.03);
+  opacity: 0.7;
+}
+
+.overview .tile-card__title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.overview .tile-card__amount {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.overview .tile-card--add {
+  border-radius: 10px;
 }
 .account-row {
   display: flex;

@@ -51,9 +51,10 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   background: #ffffff;
-  border-radius: 18px;
-  padding: 16px;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.15);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
 .summary__col {
@@ -64,13 +65,13 @@
 
 .summary__label {
   font-size: 11px;
-  letter-spacing: 0.7px;
-  color: #9ca3af;
-  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  font-weight: 600;
 }
 
 .summary__value {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
   color: #0f172a;
 }
