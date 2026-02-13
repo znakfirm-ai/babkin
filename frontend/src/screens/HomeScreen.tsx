@@ -23,6 +23,15 @@ function formatPercent(value: number): string {
 }
 
 function HomeScreen() {
+  const bannerHeight = 180
+  const donutBox = 140
+  const svgRadius = 30
+  const donutOuterRadius = svgRadius * (donutBox / 100)
+  const labelRadius = donutOuterRadius + 24
+  const minLabelY = -(bannerHeight / 2) + 44
+  const maxLabelY = bannerHeight / 2 - 18
+  const minLabelGap = 34
+
   const stories = useMemo<Story[]>(
     () => [
       { id: "story-1", title: "Инвест книга", image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg" },
@@ -145,6 +154,56 @@ function HomeScreen() {
       return arc
     })
   }, [circumference, expenseSlices])
+
+  type PositionedLabel = {
+    id: string
+    name: string
+    amount: number
+    percent: number
+    color: string
+    x: number
+    y: number
+    align: "left" | "right"
+  }
+
+  const positionedLabels = useMemo<PositionedLabel[]>(() => {
+    const labels: PositionedLabel[] = []
+    let startAngle = -Math.PI / 2
+    expenseSlices.forEach((slice) => {
+      const sliceAngle = (slice.percent / 100) * Math.PI * 2
+      const midAngle = startAngle + sliceAngle / 2
+      const x = Math.cos(midAngle) * labelRadius
+      const y = Math.sin(midAngle) * labelRadius
+      labels.push({
+        ...slice,
+        x: x + (x >= 0 ? 12 : -12),
+        y,
+        align: x >= 0 ? "left" : "right",
+      })
+      startAngle += sliceAngle
+    })
+
+    const adjustSide = (side: "left" | "right") => {
+      const sideLabels = labels
+        .filter((l) => l.align === side)
+        .sort((a, b) => a.y - b.y)
+      let prevY = -Infinity
+      sideLabels.forEach((label) => {
+        let y = label.y
+        if (y - prevY < minLabelGap) {
+          y = prevY + minLabelGap
+        }
+        y = Math.min(maxLabelY, Math.max(minLabelY, y))
+        label.y = y
+        prevY = y
+      })
+    }
+
+    adjustSide("left")
+    adjustSide("right")
+
+    return labels
+  }, [expenseSlices, labelRadius, maxLabelY, minLabelGap, minLabelY])
 
   const periodButton = (
     <button
@@ -273,23 +332,48 @@ function HomeScreen() {
               <div
                 style={{
                   position: "absolute",
-                  right: 16,
+                  left: "50%",
                   top: "50%",
-                  transform: "translateY(-50%)",
-                  maxWidth: "44%",
-                  display: "grid",
-                  gap: 10,
+                  transform: "translate(-50%, -50%)",
+                  width: donutBox + 40,
+                  height: donutBox + 40,
+                  pointerEvents: "none",
                 }}
               >
-                {expenseSlices.map((slice) => (
-                  <div key={slice.id} style={{ display: "grid", gap: 2 }}>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>{slice.name}</div>
-                    <div style={{ fontSize: 12, color: slice.color }}>
-                      {formatRub(slice.amount)} ({formatPercent(slice.percent)})
+                {positionedLabels.map((label) => (
+                  <div
+                    key={label.id}
+                    style={{
+                      position: "absolute",
+                      left: (donutBox + 40) / 2 + label.x,
+                      top: (donutBox + 40) / 2 + label.y,
+                      transform: "translate(-50%, -50%)",
+                      textAlign: label.align === "left" ? "left" : "right",
+                      display: "grid",
+                      gap: 2,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>{label.name}</div>
+                    <div style={{ fontSize: 12, color: label.color }}>
+                      {formatRub(label.amount)} ({formatPercent(label.percent)})
                     </div>
                   </div>
                 ))}
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{mainAmount}</div>
+              </div>
+
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  bottom: 12,
+                  transform: "translateX(-50%)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#0f172a",
+                }}
+              >
+                {mainAmount}
               </div>
             </div>
           </div>
