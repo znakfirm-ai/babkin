@@ -34,15 +34,15 @@ const getCurrentMonthTag = () => {
 
 const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag;
 
-const Section: React.FC<{ title: string; items: CardItem[]; rowScroll?: boolean; compactGrid?: boolean }> = ({
+const Section: React.FC<{ title: string; items: CardItem[]; rowScroll?: boolean; rowClass?: string }> = ({
   title,
   items,
   rowScroll,
-  compactGrid,
+  rowClass,
 }) => {
   const listClass = rowScroll
-    ? "overview-section__list overview-section__list--row"
-    : `overview-section__list ${compactGrid ? "overview-grid--compact" : "tile-grid"}`;
+    ? `overview-section__list overview-section__list--row ${rowClass ?? ""}`.trim()
+    : "overview-section__list tile-grid";
   return (
     <section className="overview-section">
       <div className="overview-section__title overview-section__title--muted">{title}</div>
@@ -230,15 +230,15 @@ const goalsItems: CardItem[] = [
         </div>
       </section>
 
-      <Section title="Счета" items={[...accountItems, addCard("accounts")]} rowScroll />
+      <Section title="Счета" items={[...accountItems, addCard("accounts")]} rowScroll rowClass="overview-accounts-row" />
 
-      <Section title="Источники дохода" items={[...incomeItems, addCard("income")]} compactGrid />
+      <Section title="Источники дохода" items={[...incomeItems, addCard("income")]} rowScroll />
 
-      <Section title="Расходы" items={[...sizedExpenseItems, addCard("expense")]} compactGrid />
+      <Section title="Расходы" items={[...sizedExpenseItems, addCard("expense")]} rowScroll />
 
-      <Section title="Цели" items={[...goalsItems, addCard("goals")]} />
+      <Section title="Цели" items={[...goalsItems, addCard("goals")]} rowScroll />
 
-      <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} />
+      <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} rowScroll />
     </div>
   );
 }

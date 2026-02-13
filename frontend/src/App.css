@@ -140,9 +140,11 @@
   display: flex;
   gap: 12px;
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 6px;
   scrollbar-width: none;
+  flex-wrap: nowrap;
 }
 
 .overview-section__list--row::-webkit-scrollbar {
@@ -150,16 +152,7 @@
 }
 
 .overview-section__list--row .tile-card {
-  flex: 0 0 102px;
-  width: 102px;
-  min-width: 102px;
-  min-height: 110px;
-  padding: 10px 8px;
-}
-
-.overview-section__list--row .tile-card--add {
-  flex: 0 0 102px;
-  width: 102px;
+  flex: 0 0 auto;
 }
 
 .overview-grid--compact {
@@ -206,6 +199,19 @@
   justify-content: center;
   text-align: center;
   gap: 10px;
+}
+
+.overview-accounts-row .tile-card {
+  flex: 0 0 102px;
+  width: 102px;
+  min-width: 102px;
+  min-height: 110px;
+  padding: 10px 8px;
+}
+
+.overview-accounts-row .tile-card--add {
+  flex: 0 0 102px;
+  width: 102px;
 }
 .account-row {
   display: flex;
