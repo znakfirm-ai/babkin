@@ -1,5 +1,6 @@
 import React from "react";
 import "./BottomNav.css";
+import { AppIcon } from "./components/AppIcon";
 
 export type NavItem = "home" | "overview" | "add" | "reports" | "settings";
 
@@ -8,12 +9,12 @@ interface BottomNavProps {
   onSelect: (item: NavItem) => void;
 }
 
-const navItems: { key: NavItem; label: string; icon: string }[] = [
-  { key: "home", label: "Главная", icon: "🏠" },
-  { key: "overview", label: "Обзор", icon: "📊" },
-  { key: "add", label: "Добавить", icon: "＋" },
-  { key: "reports", label: "Отчёты", icon: "📈" },
-  { key: "settings", label: "Настройки", icon: "⚙️" },
+const navItems: { key: NavItem; label: string; icon: React.ReactNode; isAdd?: boolean }[] = [
+  { key: "home", label: "Главная", icon: <AppIcon name="home" size={20} /> },
+  { key: "overview", label: "Обзор", icon: <AppIcon name="grid" size={20} /> },
+  { key: "add", label: "Добавить", icon: <AppIcon name="plus" size={22} />, isAdd: true },
+  { key: "reports", label: "Отчёты", icon: <AppIcon name="report" size={20} /> },
+  { key: "settings", label: "Настройки", icon: <AppIcon name="settings" size={20} /> },
 ];
 
 const BottomNav: React.FC<BottomNavProps> = ({ active, onSelect }) => {

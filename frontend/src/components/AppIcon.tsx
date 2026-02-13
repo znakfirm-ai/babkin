@@ -21,6 +21,8 @@ export type IconName =
   | "repeat"
   | "settings"
   | "plus"
+  | "grid"
+  | "report"
   | "circle"
 
 type AppIconProps = {
@@ -198,6 +200,25 @@ export const AppIcon: React.FC<AppIconProps> = ({ name, size = 18, className }) 
         <svg {...common}>
           <path d="M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" {...lineProps} />
           <path d="M4.8 12a7.2 7.2 0 0 1 .06-.9l-1.6-1.2 1.6-2.8 1.9.6a7.2 7.2 0 0 1 1.5-.9l.3-2h3.2l.3 2a7.2 7.2 0 0 1 1.5.9l1.9-.6 1.6 2.8-1.6 1.2a7.2 7.2 0 0 1 0 1.8l1.6 1.2-1.6 2.8-1.9-.6a7.2 7.2 0 0 1-1.5.9l-.3 2h-3.2l-.3-2a7.2 7.2 0 0 1-1.5-.9l-1.9.6-1.6-2.8 1.6-1.2a7.2 7.2 0 0 1-.06-.9z" {...lineProps} />
+        </svg>
+      )
+    case "grid":
+      return (
+        <svg {...common}>
+          <rect x="4" y="4" width="6" height="6" rx="1.2" {...lineProps} />
+          <rect x="14" y="4" width="6" height="6" rx="1.2" {...lineProps} />
+          <rect x="4" y="14" width="6" height="6" rx="1.2" {...lineProps} />
+          <rect x="14" y="14" width="6" height="6" rx="1.2" {...lineProps} />
+        </svg>
+      )
+    case "report":
+      return (
+        <svg {...common}>
+          <rect x="5" y="5" width="14" height="14" rx="2" {...lineProps} />
+          <path d="M9 16v-5" {...lineProps} />
+          <path d="M12 16v-3" {...lineProps} />
+          <path d="M15 16v-6" {...lineProps} />
+          <path d="M9 9.5h6" {...lineProps} />
         </svg>
       )
     case "plus":
