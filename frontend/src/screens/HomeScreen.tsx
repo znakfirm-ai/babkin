@@ -18,26 +18,10 @@ const periodLabel: Record<Period, string> = {
 function HomeScreen() {
   const stories = useMemo<Story[]>(
     () => [
-      {
-        id: "story-1",
-        title: "Инвест книга",
-        image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg",
-      },
-      {
-        id: "story-2",
-        title: "Налоговый вычет",
-        image: "https://fincult.info/upload/iblock/663/975lcctfyqxjbgdko6rka3u14g0ges3u/iis_fc_2812_pr.jpg",
-      },
-      {
-        id: "story-3",
-        title: "Fintech гайд",
-        image: "https://static.tildacdn.com/tild3732-6463-4163-b761-666163393264/_FINTECH.png",
-      },
-      {
-        id: "story-4",
-        title: "Кэшбэк карта",
-        image: "https://allsoft.by/upload/special_offer_pictograms/da9/zdpket1fl0w6ft3maffg46tb1z8vyl2z.png",
-      },
+      { id: "story-1", title: "Инвест книга", image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg" },
+      { id: "story-2", title: "Налоговый вычет", image: "https://fincult.info/upload/iblock/663/975lcctfyqxjbgdko6rka3u14g0ges3u/iis_fc_2812_pr.jpg" },
+      { id: "story-3", title: "Fintech гайд", image: "https://static.tildacdn.com/tild3732-6463-4163-b761-666163393264/_FINTECH.png" },
+      { id: "story-4", title: "Кэшбэк карта", image: "https://allsoft.by/upload/special_offer_pictograms/da9/zdpket1fl0w6ft3maffg46tb1z8vyl2z.png" },
     ],
     []
   )
@@ -171,8 +155,8 @@ function HomeScreen() {
         color: "#0f172a",
       }}
     >
-      <span>{periodLabel[period]}</span>
-      <span style={{ display: "inline-flex", alignItems: "center", transform: "rotate(90deg)" }}>
+      <span>Период · {periodLabel[period]}</span>
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
         <AppIcon name="arrowDown" size={14} />
       </span>
     </button>
@@ -205,7 +189,11 @@ function HomeScreen() {
             }}
           >
             <span>{opt.label}</span>
-            {period === opt.key ? <AppIcon name="circle" size={14} /> : null}
+            {period === opt.key ? (
+              <span style={{ transform: "rotate(-45deg)", display: "inline-flex" }}>
+                <AppIcon name="arrowDown" size={14} />
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -270,12 +258,7 @@ function HomeScreen() {
     )
   }
 
-  const sheetContent =
-    sheetStep === "list" ? (
-      renderPeriodList()
-    ) : (
-      renderCustom()
-    )
+  const sheetContent = sheetStep === "list" ? renderPeriodList() : renderCustom()
 
   return (
     <div className="home-screen">
@@ -312,15 +295,43 @@ function HomeScreen() {
 
       <section className="home-section">
         <div className="home-section__title">Баннеры</div>
-        <div className="home-banners">
+        <div
+          className="home-banners"
+          style={{
+            display: "flex",
+            gap: 12,
+            overflowX: "auto",
+            overflowY: "hidden",
+            WebkitOverflowScrolling: "touch",
+            paddingBottom: 6,
+            scrollbarWidth: "none",
+          }}
+        >
           {banners.map((banner) => (
-            <div key={banner.id} className="home-banner">
+            <div
+              key={banner.id}
+              className="home-banner"
+              style={{
+                flex: "0 0 95%",
+                maxWidth: "95%",
+                minWidth: "95%",
+                borderRadius: 14,
+                border: "1px solid rgba(15,23,42,0.08)",
+                background: "#f9fafb",
+                padding: "12px 14px",
+                boxSizing: "border-box",
+              }}
+            >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <div className="home-banner__title">{banner.title}</div>
+                <div className="home-banner__title" style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+                  {banner.title}
+                </div>
                 {periodButton}
               </div>
               <div className="home-banner__text">
-                <div className="home-banner__subtitle">{banner.subtitle}</div>
+                <div className="home-banner__subtitle" style={{ fontSize: 13, color: "#4b5563" }}>
+                  {banner.subtitle}
+                </div>
               </div>
             </div>
           ))}
