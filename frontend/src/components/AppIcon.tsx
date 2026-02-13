@@ -30,7 +30,13 @@ type AppIconProps = {
 }
 
 const baseStroke = 1.8
-const lineProps = { stroke: "currentColor", strokeWidth: baseStroke, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" as const }
+const lineProps = {
+  stroke: "currentColor",
+  strokeWidth: baseStroke,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  fill: "none" as const,
+}
 
 export const AppIcon: React.FC<AppIconProps> = ({ name, size = 18, className }) => {
   const common = { width: size, height: size, viewBox: "0 0 24 24", className, role: "img", "aria-hidden": true }
