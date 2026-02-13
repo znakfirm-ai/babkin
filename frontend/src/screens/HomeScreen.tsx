@@ -6,13 +6,22 @@ function formatMoney(amount: number) {
 }
 
 function HomeScreen() {
-  const { transactions } = useAppStore()
+  const { transactions, accounts } = useAppStore()
 
   return (
     <div style={{ padding: 20 }}>
       <h2>Главная</h2>
 
       <div style={{ marginTop: 12 }}>
+        <h3 style={{ margin: "12px 0" }}>Счета</h3>
+        {accounts.map((a) => (
+          <div key={a.id} style={{ marginBottom: 8 }}>
+            {a.name}: <strong>{formatMoney(a.balance.amount)}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 16 }}>
         <h3 style={{ margin: "12px 0" }}>Операции</h3>
 
         {transactions.length === 0 ? (

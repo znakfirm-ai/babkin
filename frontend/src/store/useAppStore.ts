@@ -28,6 +28,14 @@ export function useAppStore() {
   function addTransaction(input: Omit<Transaction, "id">) {
     const tx: Transaction = { id: uid(), ...input }
     state.transactions.unshift(tx)
+
+    // пересчёт баланса счёта (пока только income/expense)
+    const acc = state.accounts.find((a) => a.id === tx.accountId)
+    if (acc) {
+      if (tx.type === "income") acc.balance.amount += tx.amount.amount
+      if (tx.type === "expense") acc.balance.amount -= tx.amount.amount
+    }
+
     forceUpdate((x) => x + 1)
   }
 
