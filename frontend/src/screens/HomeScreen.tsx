@@ -2,6 +2,8 @@ import { useMemo, useState } from "react"
 import { TransactionModal } from "../components/TransactionModal"
 import { useAppStore } from "../store/useAppStore"
 import type { Transaction } from "../types/finance"
+import { AppIcon } from "../components/AppIcon"
+import type { IconName } from "../components/AppIcon"
 
 function formatMoney(amount: number) {
   const rub = amount / 100
@@ -11,6 +13,18 @@ function formatMoney(amount: number) {
 function HomeScreen() {
   const { transactions, accounts, categories, removeTransaction, addTransaction } = useAppStore()
   const [editingTx, setEditingTx] = useState<Transaction | undefined>(undefined)
+  const stories = useMemo<{ id: string; title: string; icon: IconName; active?: boolean }[]>(
+    () => [
+      { id: "story-accounts", title: "Счета", icon: "wallet", active: true },
+      { id: "story-income", title: "Доходы", icon: "arrowUp" },
+      { id: "story-expense", title: "Расходы", icon: "arrowDown" },
+      { id: "story-goals", title: "Цели", icon: "goal" },
+      { id: "story-trip", title: "Путешествия", icon: "plane" },
+      { id: "story-car", title: "Авто", icon: "car" },
+      { id: "story-home", title: "Дом", icon: "home" },
+    ],
+    []
+  )
 
   const currentMonthTag = useMemo(() => {
     const now = new Date()
@@ -88,8 +102,24 @@ function HomeScreen() {
 
   return (
     <>
-      <div style={{ padding: 20 }}>
+      <div className="home-screen">
         <h2>Главная</h2>
+
+        <div className="home-stories">
+          {stories.map((story) => (
+            <div
+              key={story.id}
+              className={`home-story-card ${story.active ? "home-story-card--active" : ""}`}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="home-story-card__icon-wrapper">
+                <AppIcon name={story.icon} size={18} />
+              </div>
+              <div className="home-story-card__title">{story.title}</div>
+            </div>
+          ))}
+        </div>
 
         <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
           <div>

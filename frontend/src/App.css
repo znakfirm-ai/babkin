@@ -277,3 +277,60 @@
 .account-row::-webkit-scrollbar {
   display: none;
 }
+
+.home-screen {
+  padding: 20px;
+}
+
+.home-stories {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0 12px;
+  scrollbar-width: none;
+}
+
+.home-stories::-webkit-scrollbar {
+  display: none;
+}
+
+.home-story-card {
+  flex: 0 0 76px;
+  width: 76px;
+  height: 76px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  box-shadow: none;
+}
+
+.home-story-card__icon-wrapper {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.05);
+  color: #1f3c88;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-story-card__title {
+  font-size: 11px;
+  font-weight: 500;
+  color: #4b5563;
+  line-height: 1.2;
+}
+
+.home-story-card--active {
+  border: 1.5px solid #4f46e5;
+  background: #f8fafc;
+}
