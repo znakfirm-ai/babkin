@@ -136,6 +136,30 @@
   grid-column: span 2;
 }
 
+.overview-section__list--row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+
+.overview-section__list--row::-webkit-scrollbar {
+  display: none;
+}
+
+.overview-section__list--row .tile-card {
+  flex: 0 0 140px;
+  width: 140px;
+  min-width: 140px;
+  min-height: 140px;
+}
+
+.overview-section__list--row .tile-card--add {
+  flex: 0 0 140px;
+  width: 140px;
+}
 .account-row {
   display: flex;
   gap: 12px;

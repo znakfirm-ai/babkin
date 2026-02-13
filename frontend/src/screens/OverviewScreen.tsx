@@ -33,11 +33,12 @@ const getCurrentMonthTag = () => {
 
 const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag;
 
-const Section: React.FC<{ title: string; items: CardItem[] }> = ({ title, items }) => {
+const Section: React.FC<{ title: string; items: CardItem[]; rowScroll?: boolean }> = ({ title, items, rowScroll }) => {
+  const listClass = rowScroll ? "overview-section__list overview-section__list--row" : "overview-section__list tile-grid";
   return (
     <section className="overview-section">
       <div className="overview-section__title">{title}</div>
-      <div className="overview-section__list tile-grid">
+      <div className={listClass}>
         {items.map((item) => (
           <div
             key={item.id}
@@ -218,7 +219,7 @@ function OverviewScreen() {
         </div>
       </section>
 
-      <Section title="Счета" items={[...accountItems, addCard("accounts")]} />
+      <Section title="Счета" items={[...accountItems, addCard("accounts")]} rowScroll />
 
       <Section title="Источники дохода" items={[...incomeItems, addCard("income")]} />
 
