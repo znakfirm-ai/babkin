@@ -4,7 +4,6 @@ import type { IconName } from "../components/AppIcon"
 
 type Story = { id: string; title: string; image: string }
 type Period = "today" | "week" | "month" | "custom"
-type LabelPosition = "top" | "left" | "right"
 
 const VIEWED_KEY = "home_stories_viewed"
 
@@ -173,8 +172,6 @@ function HomeScreen() {
     </button>
   )
 
-  const labelPositions: LabelPosition[] = ["left", "right", "top"]
-
   return (
     <div className="home-screen">
       <h2>Главная</h2>
@@ -240,106 +237,51 @@ function HomeScreen() {
 
             <div
               style={{
-                position: "relative",
                 height: "100%",
                 display: "flex",
-                flexDirection: "column",
                 justifyContent: "center",
                 alignItems: "center",
-                gap: 10,
-                paddingTop: 12,
-                paddingBottom: 12,
-                boxSizing: "border-box",
               }}
             >
-              <div style={{ position: "relative", width: 140, height: 140 }}>
-                <svg
-                  viewBox="0 0 100 100"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    transform: "rotate(-90deg)",
-                  }}
-                >
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="30"
-                    fill="none"
-                    stroke="rgba(15,23,42,0.06)"
-                    strokeWidth="8"
-                  />
-                  {donutArcs}
-                </svg>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                }}
+              >
+                <div style={{ width: 140, height: 140 }}>
+                  <svg
+                    viewBox="0 0 100 100"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      transform: "rotate(-90deg)",
+                    }}
+                  >
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="30"
+                      fill="none"
+                      stroke="rgba(15,23,42,0.06)"
+                      strokeWidth="8"
+                    />
+                    {donutArcs}
+                  </svg>
+                </div>
 
-                {expenseSlices.map((slice, idx) => {
-                  const pos = labelPositions[idx] ?? "top"
-                  if (pos === "top") {
-                    return (
-                      <div
-                        key={slice.id}
-                        style={{
-                          position: "absolute",
-                          left: "50%",
-                          top: 12,
-                          transform: "translate(-50%, -100%)",
-                          textAlign: "center",
-                          fontSize: 12,
-                          color: "#6b7280",
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        {slice.name}
-                        <div style={{ color: slice.color }}>{formatPercent(slice.percent)}</div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {expenseSlices.map((slice) => (
+                    <div key={slice.id} style={{ display: "grid", gap: 2 }}>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>{slice.name}</div>
+                      <div style={{ fontSize: 12, color: slice.color }}>
+                        {formatRub(slice.amount)} ({formatPercent(slice.percent)})
                       </div>
-                    )
-                  }
-                  if (pos === "right") {
-                    return (
-                      <div
-                        key={slice.id}
-                        style={{
-                          position: "absolute",
-                          left: "100%",
-                          top: "50%",
-                          transform: "translate(8px, -50%)",
-                          textAlign: "left",
-                          fontSize: 12,
-                          color: "#6b7280",
-                          whiteSpace: "nowrap",
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        {slice.name}
-                        <div style={{ color: slice.color }}>{formatPercent(slice.percent)}</div>
-                      </div>
-                    )
-                  }
-                  return (
-                    <div
-                      key={slice.id}
-                      style={{
-                        position: "absolute",
-                        right: "100%",
-                        bottom: 6,
-                        transform: "translate(-8px, 0)",
-                        textAlign: "right",
-                        fontSize: 12,
-                        color: "#6b7280",
-                        whiteSpace: "nowrap",
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {slice.name}
-                      <div style={{ color: slice.color }}>{formatPercent(slice.percent)}</div>
                     </div>
-                  )
-                })}
-              </div>
-
-              <div style={{ display: "grid", gap: 2, textAlign: "center" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{mainAmount}</div>
-                <div style={{ fontSize: 12, color: "#6b7280" }}>за период</div>
+                  ))}
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", marginTop: 6 }}>{mainAmount}</div>
+                </div>
               </div>
             </div>
           </div>
