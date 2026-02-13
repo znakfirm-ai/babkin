@@ -308,19 +308,33 @@
   display: none;
 }
 
-.home-story-card {
+.home-story-wrap {
+  --story-radius: 12px;
+  --story-border: 1px;
   flex: 0 0 92px;
   width: 92px;
   height: 104px;
-  border-radius: 12px;
-  border: 1.5px solid rgba(15, 23, 42, 0.08);
-  background: transparent;
-  position: relative;
-  overflow: hidden;
-  box-shadow: none;
+  border-radius: var(--story-radius);
+  background: rgba(15, 23, 42, 0.08);
+  padding: var(--story-border);
+  box-sizing: border-box;
 }
 
-.home-story-card__image {
+.home-story-wrap--unread {
+  --story-border: 3px;
+  background: linear-gradient(135deg, #2f54eb, #7c3aed 50%, #06b6d4);
+}
+
+.home-story {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--story-radius) - var(--story-border));
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.home-story__img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -328,46 +342,21 @@
   object-fit: cover;
 }
 
-.home-story-card__title {
-  font-size: 11px;
-  font-weight: 500;
-  color: #ffffff;
-  line-height: 1.2;
-  width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.home-story__label {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   padding: 8px 8px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.4) 100%);
   box-sizing: border-box;
-}
-
-.home-story-card--unseen {
-  border: none;
-}
-
-.home-story-card--unseen::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 3px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #2f54eb, #7c3aed 50%, #06b6d4);
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-.home-story-card--unseen .home-story-card__image {
-  border-radius: 12px;
 }
 
 .home-banners {
