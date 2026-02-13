@@ -117,8 +117,7 @@ function HomeScreen() {
   )
 
   const totalExpense = useMemo(() => expenseSlices.reduce((sum, item) => sum + item.amount, 0), [expenseSlices])
-
-  const mainAmount = formatRub(30800)
+  const mainAmount = formatRub(totalExpense)
 
   const topCategories = expenseSlices.slice(0, 3)
   const restCount = expenseSlices.length > 3 ? expenseSlices.length - 3 : 0
