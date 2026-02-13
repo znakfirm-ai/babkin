@@ -216,6 +216,7 @@
   padding: var(--tile-pad-y) var(--tile-pad-x);
   min-height: var(--tile-h);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  filter: drop-shadow(0 6px 14px rgba(15, 23, 42, 0.06));
   gap: 5px;
 }
 
