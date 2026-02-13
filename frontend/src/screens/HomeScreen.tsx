@@ -4,6 +4,7 @@ import type { IconName } from "../components/AppIcon"
 
 type Story = { id: string; title: string; image: string }
 type Period = "today" | "week" | "month" | "custom"
+type LabelPosition = "top" | "left" | "right"
 
 const VIEWED_KEY = "home_stories_viewed"
 
@@ -172,6 +173,8 @@ function HomeScreen() {
     </button>
   )
 
+  const labelPositions: LabelPosition[] = ["left", "right", "top"]
+
   return (
     <div className="home-screen">
       <h2>Главная</h2>
@@ -264,53 +267,69 @@ function HomeScreen() {
                   {donutArcs}
                 </svg>
 
-                <div
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: "-6px",
-                    transform: "translate(-50%, -100%)",
-                    textAlign: "center",
-                    fontSize: 12,
-                    color: "#6b7280",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  Развлечения
-                  <div style={{ color: expenseSlices[2].color }}>{formatPercent(expenseSlices[2].percent)}</div>
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    left: "100%",
-                    top: "50%",
-                    transform: "translate(12px, -50%)",
-                    textAlign: "left",
-                    fontSize: 12,
-                    color: "#6b7280",
-                    whiteSpace: "nowrap",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  Еда (дом)
-                  <div style={{ color: expenseSlices[1].color }}>{formatPercent(expenseSlices[1].percent)}</div>
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    right: "100%",
-                    bottom: "0%",
-                    transform: "translate(-12px, 10px)",
-                    textAlign: "right",
-                    fontSize: 12,
-                    color: "#6b7280",
-                    whiteSpace: "nowrap",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  Еда (вне дома)
-                  <div style={{ color: expenseSlices[0].color }}>{formatPercent(expenseSlices[0].percent)}</div>
-                </div>
+                {expenseSlices.map((slice, idx) => {
+                  const pos = labelPositions[idx] ?? "top"
+                  if (pos === "top") {
+                    return (
+                      <div
+                        key={slice.id}
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          top: "-6px",
+                          transform: "translate(-50%, -100%)",
+                          textAlign: "center",
+                          fontSize: 12,
+                          color: "#6b7280",
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {slice.name}
+                        <div style={{ color: slice.color }}>{formatPercent(slice.percent)}</div>
+                      </div>
+                    )
+                  }
+                  if (pos === "right") {
+                    return (
+                      <div
+                        key={slice.id}
+                        style={{
+                          position: "absolute",
+                          left: "100%",
+                          top: "50%",
+                          transform: "translate(12px, -50%)",
+                          textAlign: "left",
+                          fontSize: 12,
+                          color: "#6b7280",
+                          whiteSpace: "nowrap",
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {slice.name}
+                        <div style={{ color: slice.color }}>{formatPercent(slice.percent)}</div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div
+                      key={slice.id}
+                      style={{
+                        position: "absolute",
+                        right: "100%",
+                        bottom: "0%",
+                        transform: "translate(-12px, 10px)",
+                        textAlign: "right",
+                        fontSize: 12,
+                        color: "#6b7280",
+                        whiteSpace: "nowrap",
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {slice.name}
+                      <div style={{ color: slice.color }}>{formatPercent(slice.percent)}</div>
+                    </div>
+                  )
+                })}
               </div>
 
               <div style={{ display: "grid", gap: 2, textAlign: "center" }}>
