@@ -8,7 +8,6 @@ import BottomNav from "./BottomNav";
 import type { NavItem } from "./BottomNav";
 import "./BottomNav.css";
 import "./App.css";
-import { initTelegram } from "./telegram";
 
 const SCREENS: Record<NavItem, React.ReactNode> = {
   home: <HomeScreen />,
@@ -22,10 +21,28 @@ function App() {
   const [active, setActive] = useState<NavItem>("home");
   const [isTelegram, setIsTelegram] = useState(false);
 
+  interface TelegramWebApp {
+    ready(): void
+    expand(): void
+    setHeaderColor?: (color: string) => void
+    setBackgroundColor?: (color: string) => void
+  }
+
   useEffect(() => {
-    const available = initTelegram();
+    const tg = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
+    const available = Boolean(tg);
     setIsTelegram(available);
-    if (!available) {
+
+    if (tg) {
+      try {
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor?.("#f5f6f8");
+        tg.setBackgroundColor?.("#f5f6f8");
+      } catch {
+        // ignore to avoid breaking runtime
+      }
+    } else {
       // dev hint in browser
       // eslint-disable-next-line no-console
       console.log("Telegram WebApp не найден — браузерный режим");
