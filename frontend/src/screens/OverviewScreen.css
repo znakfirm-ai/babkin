@@ -92,10 +92,10 @@
 }
 
 .overview-section__title {
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 10px;
-  color: #0f172a;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 6px 0 8px;
+  color: #6b7280;
 }
 
 .overview-section__list {

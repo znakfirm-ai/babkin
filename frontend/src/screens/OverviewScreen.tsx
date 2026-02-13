@@ -44,7 +44,7 @@ const Section: React.FC<{ title: string; items: CardItem[]; rowScroll?: boolean;
     : `overview-section__list ${compactGrid ? "overview-grid--compact" : "tile-grid"}`;
   return (
     <section className="overview-section">
-      <div className="overview-section__title">{title}</div>
+      <div className="overview-section__title overview-section__title--muted">{title}</div>
       <div className={listClass}>
         {items.map((item) => (
           <div
