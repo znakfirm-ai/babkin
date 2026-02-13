@@ -19,7 +19,7 @@ function formatRub(amount: number): string {
 }
 
 function formatPercent(value: number): string {
-  return value.toFixed(1).replace(".", ",") + " %"
+  return value.toFixed(1).replace(".", ",") + "%"
 }
 
 function HomeScreen() {
@@ -241,7 +241,7 @@ function HomeScreen() {
                 flexDirection: "column",
                 justifyContent: "center",
                 alignItems: "center",
-                gap: 12,
+                gap: 14,
               }}
             >
               <div style={{ position: "relative", width: 140, height: 140 }}>
@@ -264,7 +264,6 @@ function HomeScreen() {
                   {donutArcs}
                 </svg>
 
-                {/* labels around */}
                 <div
                   style={{
                     position: "absolute",
@@ -274,6 +273,7 @@ function HomeScreen() {
                     textAlign: "center",
                     fontSize: 12,
                     color: "#6b7280",
+                    lineHeight: 1.3,
                   }}
                 >
                   Развлечения
@@ -289,6 +289,7 @@ function HomeScreen() {
                     fontSize: 12,
                     color: "#6b7280",
                     whiteSpace: "nowrap",
+                    lineHeight: 1.3,
                   }}
                 >
                   Еда (дом)
@@ -304,6 +305,7 @@ function HomeScreen() {
                     fontSize: 12,
                     color: "#6b7280",
                     whiteSpace: "nowrap",
+                    lineHeight: 1.3,
                   }}
                 >
                   Еда (вне дома)
@@ -311,8 +313,8 @@ function HomeScreen() {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gap: 4, textAlign: "center" }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "#0f172a" }}>{mainAmount}</div>
+              <div style={{ display: "grid", gap: 2, textAlign: "center" }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>{mainAmount}</div>
                 <div style={{ fontSize: 12, color: "#6b7280" }}>за период</div>
               </div>
             </div>
