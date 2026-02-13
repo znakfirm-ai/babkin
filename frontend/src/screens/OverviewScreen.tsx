@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { useAppStore } from "../store/useAppStore";
 import type { Transaction } from "../types/finance";
 import "./OverviewScreen.css";
+import { AppIcon, type IconName } from "../components/AppIcon";
 
 type TileType = "account" | "category";
 type TileSize = "sm" | "md" | "lg";
@@ -61,7 +62,7 @@ const Section: React.FC<{ title: string; items: CardItem[]; rowScroll?: boolean;
                   : { background: "rgba(15, 23, 42, 0.05)", color: "rgba(15, 23, 42, 0.85)" }
               }
             >
-              {item.icon}
+              <AppIcon name={item.icon as IconName} size={16} />
             </div>
             <div className="tile-card__title">{item.title}</div>
             {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount)}</div>}
@@ -112,26 +113,26 @@ function OverviewScreen() {
     return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(now);
   }, []);
 
-  const accountItems: CardItem[] = accounts.map((account, idx) => ({
-    id: account.id,
-    title: account.name,
-    amount: account.balance.amount,
-    icon: idx % 2 === 0 ? "👛" : "💳",
-    color: cardColors[idx % cardColors.length],
-    type: "account" as const,
-    size: "lg",
-  }));
+const accountItems: CardItem[] = accounts.map((account, idx) => ({
+  id: account.id,
+  title: account.name,
+  amount: account.balance.amount,
+  icon: idx % 2 === 0 ? "wallet" : "card",
+  color: cardColors[idx % cardColors.length],
+  type: "account" as const,
+  size: "lg",
+}));
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
 
-  const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
-    id: src.id,
-    title: src.name,
-    amount: incomeBySource.get(src.id) ?? 0,
-    icon: "⬇️",
-    color: cardColors[(idx + 1) % cardColors.length],
-    type: "category" as const,
-  }));
+const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
+  id: src.id,
+  title: src.name,
+  amount: incomeBySource.get(src.id) ?? 0,
+  icon: "arrowDown",
+  color: cardColors[(idx + 1) % cardColors.length],
+  type: "category" as const,
+}));
 
   const uncategorizedIncome = incomeBySource.get("uncategorized");
   if (uncategorizedIncome) {
@@ -139,22 +140,22 @@ function OverviewScreen() {
       id: "income-uncategorized",
       title: "Без категории",
       amount: uncategorizedIncome,
-      icon: "⬇️",
+      icon: "arrowDown",
       color: "#0f172a",
       type: "category" as const,
     });
   }
 
-  const expenseItems: CardItem[] = expenseCategories
-    .map((cat, idx) => ({
-      id: cat.id,
-      title: cat.name,
-      amount: expenseByCategory.get(cat.id) ?? 0,
-      icon: "⬇️",
-      color: cardColors[(idx + 2) % cardColors.length],
-      type: "category" as const,
-      size: "md" as const,
-    }))
+const expenseItems: CardItem[] = expenseCategories
+  .map((cat, idx) => ({
+    id: cat.id,
+    title: cat.name,
+    amount: expenseByCategory.get(cat.id) ?? 0,
+    icon: "tag",
+    color: cardColors[(idx + 2) % cardColors.length],
+    type: "category" as const,
+    size: "md" as const,
+  }))
     .sort((a, b) => b.amount - a.amount);
 
   const uncategorizedExpense = expenseByCategory.get("uncategorized");
@@ -180,14 +181,14 @@ function OverviewScreen() {
   const maxExpenseAmount = Math.max(0, ...expenseItems.map((i) => i.amount));
   const sizedExpenseItems = expenseItems.map((i) => ({ ...i, size: i.size ?? computeSize(i.amount, maxExpenseAmount) }));
 
-  const goalsItems: CardItem[] = [
-    { id: "goal-trip", title: "Путешествие", amount: 0, icon: "🧭", color: "#0ea5e9" },
-    { id: "goal-tech", title: "Гаджеты", amount: 0, icon: "💻", color: "#8b5cf6" },
+const goalsItems: CardItem[] = [
+    { id: "goal-trip", title: "Путешествие", amount: 0, icon: "plane", color: "#0ea5e9" },
+    { id: "goal-tech", title: "Гаджеты", amount: 0, icon: "chart", color: "#8b5cf6" },
   ];
 
   const debtsItems: CardItem[] = [
-    { id: "debt-bank", title: "Банк", amount: 0, icon: "🏦", color: "#ea580c" },
-    { id: "debt-friend", title: "Друзья", amount: 0, icon: "👥", color: "#1e293b" },
+    { id: "debt-bank", title: "Банк", amount: 0, icon: "bank", color: "#ea580c" },
+    { id: "debt-friend", title: "Друзья", amount: 0, icon: "repeat", color: "#1e293b" },
   ];
 
   const addCard = (suffix: string): CardItem => ({
