@@ -34,7 +34,12 @@ const getCurrentMonthTag = () => {
 
 const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag;
 
-const Section: React.FC<{ title: string; items: CardItem[]; rowScroll?: boolean; rowClass?: string }> = ({
+const Section: React.FC<{
+  title: string
+  items: CardItem[]
+  rowScroll?: boolean
+  rowClass?: string
+}> = ({
   title,
   items,
   rowScroll,
@@ -113,26 +118,34 @@ function OverviewScreen() {
     return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(now);
   }, []);
 
-const accountItems: CardItem[] = accounts.map((account, idx) => ({
-  id: account.id,
-  title: account.name,
-  amount: account.balance.amount,
-  icon: idx % 2 === 0 ? "wallet" : "card",
-  color: cardColors[idx % cardColors.length],
-  type: "account" as const,
-  size: "lg",
-}));
+  const accountItems: CardItem[] = accounts.map((account, idx) => ({
+    id: account.id,
+    title: account.name,
+    amount: account.balance.amount,
+    icon: idx % 2 === 0 ? "wallet" : "card",
+    color: cardColors[idx % cardColors.length],
+    type: "account" as const,
+    size: "lg",
+  }));
+  const placeholderAccounts: CardItem[] = [
+    { id: "ph-acc-1", title: "Счёт (шаблон)", amount: 0, icon: "wallet", color: "#e5e7eb", type: "account", size: "lg" },
+    { id: "ph-acc-2", title: "Счёт (шаблон)", amount: 0, icon: "card", color: "#e5e7eb", type: "account", size: "lg" },
+  ];
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
 
-const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
-  id: src.id,
-  title: src.name,
-  amount: incomeBySource.get(src.id) ?? 0,
-  icon: "arrowDown",
-  color: cardColors[(idx + 1) % cardColors.length],
-  type: "category" as const,
-}));
+  const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
+    id: src.id,
+    title: src.name,
+    amount: incomeBySource.get(src.id) ?? 0,
+    icon: "arrowDown",
+    color: cardColors[(idx + 1) % cardColors.length],
+    type: "category" as const,
+  }));
+  const placeholderIncome: CardItem[] = [
+    { id: "ph-income-1", title: "Доход (шаблон)", amount: 0, icon: "arrowDown", color: "#e5e7eb", type: "category", size: "lg" },
+    { id: "ph-income-2", title: "Доход (шаблон)", amount: 0, icon: "arrowDown", color: "#e5e7eb", type: "category", size: "lg" },
+  ];
 
   const uncategorizedIncome = incomeBySource.get("uncategorized");
   if (uncategorizedIncome) {
@@ -146,17 +159,27 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
     });
   }
 
-const expenseItems: CardItem[] = expenseCategories
-  .map((cat, idx) => ({
-    id: cat.id,
-    title: cat.name,
-    amount: expenseByCategory.get(cat.id) ?? 0,
+  const expenseItems: CardItem[] = expenseCategories
+    .map((cat, idx) => ({
+      id: cat.id,
+      title: cat.name,
+      amount: expenseByCategory.get(cat.id) ?? 0,
+      icon: "tag",
+      color: cardColors[(idx + 2) % cardColors.length],
+      type: "category" as const,
+      size: "md" as const,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const placeholderExpense: CardItem[] = Array.from({ length: 10 }).map((_, i) => ({
+    id: `ph-exp-${i + 1}`,
+    title: "Расход (шаблон)",
+    amount: 0,
     icon: "tag",
-    color: cardColors[(idx + 2) % cardColors.length],
+    color: "#e5e7eb",
     type: "category" as const,
     size: "md" as const,
-  }))
-    .sort((a, b) => b.amount - a.amount);
+  }));
 
   const uncategorizedExpense = expenseByCategory.get("uncategorized");
   if (uncategorizedExpense) {
@@ -181,9 +204,14 @@ const expenseItems: CardItem[] = expenseCategories
   const maxExpenseAmount = Math.max(0, ...expenseItems.map((i) => i.amount));
   const sizedExpenseItems = expenseItems.map((i) => ({ ...i, size: i.size ?? computeSize(i.amount, maxExpenseAmount) }));
 
-const goalsItems: CardItem[] = [
+  const goalsItems: CardItem[] = [
     { id: "goal-trip", title: "Путешествие", amount: 0, icon: "plane", color: "#0ea5e9" },
     { id: "goal-tech", title: "Гаджеты", amount: 0, icon: "chart", color: "#8b5cf6" },
+  ];
+
+  const placeholderGoals: CardItem[] = [
+    { id: "ph-goal-1", title: "Цель (шаблон)", amount: 0, icon: "goal", color: "#e5e7eb", type: "category", size: "md" },
+    { id: "ph-goal-2", title: "Цель (шаблон)", amount: 0, icon: "goal", color: "#e5e7eb", type: "category", size: "md" },
   ];
 
   const debtsItems: CardItem[] = [
@@ -195,7 +223,7 @@ const goalsItems: CardItem[] = [
     id: `add-${suffix}`,
     title: "Добавить",
     amount: 0,
-    icon: "+",
+    icon: "plus",
     color: "transparent",
     isAdd: true,
   });
