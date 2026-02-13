@@ -1,6 +1,9 @@
 import { useState } from "react"
+import { useAppStore } from "../store/useAppStore"
 
 function AddScreen() {
+  const { addTransaction, accounts } = useAppStore()
+
   const [amount, setAmount] = useState("")
   const [comment, setComment] = useState("")
 
@@ -30,8 +33,27 @@ function AddScreen() {
           />
         </label>
 
-        <button type="button" style={{ padding: 12 }}>
-          Сохранить (пока не работает)
+        <button
+          type="button"
+          style={{ padding: 12 }}
+          onClick={() => {
+            const num = Number(amount.replace(",", "."))
+            if (!Number.isFinite(num) || num <= 0) return
+
+            addTransaction({
+              type: "expense",
+              date: new Date().toISOString().slice(0, 10),
+              amount: { amount: Math.round(num * 100), currency: "RUB" },
+              accountId: accounts[0]?.id ?? "acc_cash",
+              comment: comment.trim() || undefined,
+            })
+
+            setAmount("")
+            setComment("")
+            alert("Сохранено (в памяти)")
+          }}
+        >
+          Сохранить
         </button>
       </div>
     </div>
