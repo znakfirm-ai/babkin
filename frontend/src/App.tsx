@@ -21,6 +21,7 @@ function App() {
   const [active, setActive] = useState<NavItem>("home");
   const [isTelegram, setIsTelegram] = useState(false);
   const baseHeightRef = useRef<number | null>(null);
+  const gestureBlockers = useRef<(() => void) | null>(null);
 
   interface TelegramWebApp {
     ready(): void
@@ -74,9 +75,23 @@ function App() {
       console.log("Telegram WebApp не найден — браузерный режим");
     }
 
+    const handleGesture = (e: Event) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener("gesturestart", handleGesture, { passive: false });
+    document.addEventListener("gesturechange", handleGesture, { passive: false });
+    document.addEventListener("gestureend", handleGesture, { passive: false });
+    gestureBlockers.current = () => {
+      document.removeEventListener("gesturestart", handleGesture);
+      document.removeEventListener("gesturechange", handleGesture);
+      document.removeEventListener("gestureend", handleGesture);
+    };
+
     return () => {
       vv?.removeEventListener("resize", handleViewportChange);
       vv?.removeEventListener("scroll", handleViewportChange);
+      gestureBlockers.current?.();
     };
   }, []);
 
