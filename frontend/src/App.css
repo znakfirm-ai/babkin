@@ -150,15 +150,16 @@
 }
 
 .overview-section__list--row .tile-card {
-  flex: 0 0 136px;
-  width: 136px;
-  min-width: 136px;
-  min-height: 128px;
+  flex: 0 0 102px;
+  width: 102px;
+  min-width: 102px;
+  min-height: 110px;
+  padding: 10px 8px;
 }
 
 .overview-section__list--row .tile-card--add {
-  flex: 0 0 136px;
-  width: 136px;
+  flex: 0 0 102px;
+  width: 102px;
 }
 
 .overview-grid--compact {
