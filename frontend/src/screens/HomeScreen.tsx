@@ -67,13 +67,11 @@ function HomeScreen() {
           {stories.map((story) => (
             <div
               key={story.id}
-              className={`home-story-card ${story.active ? "home-story-card--active" : ""}`}
+              className={`home-story-card ${story.active ? "home-story-card--unseen" : ""}`}
               role="button"
               tabIndex={0}
             >
-              <div className="home-story-card__image-wrap">
-                <img src={story.image} alt={story.title} className="home-story-card__image" />
-              </div>
+              <img src={story.image} alt={story.title} className="home-story-card__image" />
               <div className="home-story-card__title" title={story.title}>
                 {story.title}
               </div>
