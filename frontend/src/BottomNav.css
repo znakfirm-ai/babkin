@@ -1,0 +1,31 @@
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56px;
+  background: #fff;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  z-index: 100;
+}
+
+.bottom-nav__item {
+  flex: 1;
+  height: 100%;
+  border: none;
+  background: none;
+  font-size: 16px;
+  color: #888;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.2s;
+}
+
+.bottom-nav__item--active {
+  color: #222;
+  font-weight: bold;
+  border-top: 2px solid #007aff;
+  background: #f7f7f7;
+}
