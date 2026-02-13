@@ -49,7 +49,9 @@ const Section: React.FC<{ title: string; items: CardItem[]; rowScroll?: boolean;
         {items.map((item) => (
           <div
             key={item.id}
-            className={`tile-card ${item.isAdd ? "tile-card--add" : ""} ${item.type ? `tile-card--${item.type}` : ""} tile--${item.size ?? "md"}`}
+            className={`tile-card ${item.isAdd ? "tile-card--add overview-add-tile" : ""} ${
+              item.type ? `tile-card--${item.type}` : ""
+            } tile--${item.size ?? "md"}`}
           >
             <div
               className="tile-card__icon"
