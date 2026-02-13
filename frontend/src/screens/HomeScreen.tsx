@@ -14,6 +14,10 @@ const periodLabel: Record<Period, string> = {
   custom: "Свой",
 }
 
+function formatRub(amount: number): string {
+  return amount.toLocaleString("ru-RU", { maximumFractionDigits: 0 }) + " ₽"
+}
+
 function HomeScreen() {
   const stories = useMemo<Story[]>(
     () => [
@@ -101,6 +105,49 @@ function HomeScreen() {
     [clickAddNav]
   )
 
+  const expenseSlices = useMemo(
+    () => [
+      { id: "food", name: "Еда", amount: 12500, percent: 38, color: "#4f46e5" },
+      { id: "home", name: "Дом", amount: 7200, percent: 22, color: "#10b981" },
+      { id: "transport", name: "Транспорт", amount: 5400, percent: 16, color: "#06b6d4" },
+      { id: "fun", name: "Развлечения", amount: 3600, percent: 11, color: "#f59e0b" },
+      { id: "other", name: "Другое", amount: 2100, percent: 13, color: "#94a3b8" },
+    ],
+    []
+  )
+
+  const totalExpense = useMemo(() => expenseSlices.reduce((sum, item) => sum + item.amount, 0), [expenseSlices])
+
+  const mainAmount = formatRub(30800)
+
+  const topCategories = expenseSlices.slice(0, 3)
+  const restCount = expenseSlices.length > 3 ? expenseSlices.length - 3 : 0
+
+  const circumference = 2 * Math.PI * 30
+
+  const donutArcs = useMemo(() => {
+    let offset = 0
+    return expenseSlices.map((slice) => {
+      const dash = (slice.percent / 100) * circumference
+      const arc = (
+        <circle
+          key={slice.id}
+          cx="50"
+          cy="50"
+          r="30"
+          fill="none"
+          stroke={slice.color}
+          strokeWidth="9"
+          strokeDasharray={`${dash} ${circumference - dash}`}
+          strokeDashoffset={-offset}
+          strokeLinecap="round"
+        />
+      )
+      offset += dash
+      return arc
+    })
+  }, [circumference, expenseSlices])
+
   const periodButton = (
     <button
       type="button"
@@ -126,47 +173,6 @@ function HomeScreen() {
       </span>
     </button>
   )
-
-  const expenseSlices = useMemo(
-    () => [
-      { id: "food", name: "Еда", amount: 12500, percent: 38, color: "#4f46e5" },
-      { id: "transport", name: "Транспорт", amount: 5400, percent: 16, color: "#06b6d4" },
-      { id: "home", name: "Дом", amount: 7200, percent: 22, color: "#10b981" },
-      { id: "fun", name: "Развлечения", amount: 3600, percent: 11, color: "#f59e0b" },
-      { id: "other", name: "Другое", amount: 2100, percent: 13, color: "#94a3b8" },
-    ],
-    []
-  )
-
-  const totalExpense = useMemo(
-    () => expenseSlices.reduce((sum, item) => sum + item.amount, 0),
-    [expenseSlices]
-  )
-
-  const circumference = 2 * Math.PI * 32
-
-  const donutArcs = useMemo(() => {
-    let offset = 0
-    return expenseSlices.map((slice) => {
-      const dash = (slice.percent / 100) * circumference
-      const arc = (
-        <circle
-          key={slice.id}
-          cx="50"
-          cy="50"
-          r="32"
-          fill="none"
-          stroke={slice.color}
-          strokeWidth="10"
-          strokeDasharray={`${dash} ${circumference - dash}`}
-          strokeDashoffset={-offset}
-          strokeLinecap="round"
-        />
-      )
-      offset += dash
-      return arc
-    })
-  }, [circumference, expenseSlices])
 
   return (
     <div className="home-screen">
@@ -232,7 +238,8 @@ function HomeScreen() {
 
             <div
               style={{
-                display: "flex",
+                display: "grid",
+                gridTemplateColumns: "100px 1fr",
                 gap: 16,
                 alignItems: "center",
                 height: "100%",
@@ -245,77 +252,43 @@ function HomeScreen() {
                   <circle
                     cx="50"
                     cy="50"
-                    r="32"
+                    r="30"
                     fill="none"
                     stroke="rgba(15,23,42,0.08)"
-                    strokeWidth="10"
+                    strokeWidth="9"
                   />
                   {donutArcs}
                 </svg>
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexDirection: "column",
-                    gap: 4,
-                    fontSize: 12,
-                    color: "#475467",
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
-                    {(totalExpense / 1000).toFixed(1)}k ₽
-                  </div>
-                  <div style={{ fontSize: 11, color: "#6b7280" }}>за период</div>
-                </div>
               </div>
 
-              <div style={{ display: "grid", gap: 6, flex: 1 }}>
-                {expenseSlices.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "auto 1fr auto",
-                      alignItems: "center",
-                      gap: 10,
-                      fontSize: 12,
-                      color: "#0f172a",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 99,
-                        background: item.color,
-                        display: "inline-block",
-                      }}
-                    />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
-                    <span style={{ textAlign: "right", color: "#111827", fontWeight: 600 }}>
-                      {(item.amount / 1000).toFixed(1)}k ₽ · {item.percent}%
-                    </span>
-                  </div>
-                ))}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: 4,
-                    fontSize: 12,
-                    color: "#374151",
-                  }}
-                >
-                  <span>Итого</span>
-                  <span style={{ fontWeight: 700, color: "#0f172a" }}>
-                    {(totalExpense / 1000).toFixed(1)}k ₽
-                  </span>
+              <div style={{ display: "grid", gap: 10, alignContent: "start" }}>
+                <div style={{ display: "grid", gap: 4 }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#0f172a" }}>{mainAmount}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>за период</div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+
+                <div style={{ display: "grid", gap: 6 }}>
+                  {topCategories.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: 13,
+                        color: "#0f172a",
+                      }}
+                    >
+                      <span>{item.name}</span>
+                      <span style={{ fontWeight: 600 }}>{formatRub(item.amount)}</span>
+                    </div>
+                  ))}
+                  {restCount > 0 ? (
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>Ещё {restCount} категорий</div>
+                  ) : null}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
                   <button
                     type="button"
                     style={{
