@@ -105,6 +105,8 @@
 .tile-card--account {
   padding: 16px 14px;
   min-height: 140px;
+  flex: 0 0 120px;
+  width: 120px;
 }
 
 .tile-card--account .tile-card__amount {
@@ -132,4 +134,17 @@
 .tile--lg {
   min-height: 140px;
   grid-column: span 2;
+}
+
+.account-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+
+.account-row::-webkit-scrollbar {
+  display: none;
 }

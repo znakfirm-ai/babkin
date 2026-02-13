@@ -94,7 +94,7 @@ function HomeScreen() {
         <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
           <div>
             <h3 style={{ margin: "12px 0" }}>Счета</h3>
-            <div className="tile-grid">
+            <div className="account-row">
               {accountTiles.map(renderTile)}
               {renderTile({ id: "add-account", title: "Добавить", amount: 0, icon: "+", isAdd: true })}
             </div>
