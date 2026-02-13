@@ -12,6 +12,9 @@
   margin: 0 auto;
   padding: env(safe-area-inset-top) 0 calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
   min-height: var(--app-height);
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dev-banner {

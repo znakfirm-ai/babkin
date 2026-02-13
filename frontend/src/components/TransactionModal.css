@@ -16,6 +16,7 @@
   padding: 16px;
   max-height: 80vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.12);
 }
 

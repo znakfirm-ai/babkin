@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import React, { useMemo, useState } from "react"
 import type { Transaction } from "../types/finance"
 import { useAppStore } from "../store/useAppStore"
 import "./TransactionModal.css"
@@ -104,10 +104,18 @@ export function TransactionModal({ transaction, onClose, onSave }: Props) {
     }
   }
 
+  const handleMaybeBlur = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement
+    if (target.closest("input, textarea, select, button")) return
+    const active = document.activeElement as HTMLElement | null
+    active?.blur()
+  }
+
   return (
     <div className="tx-modal__backdrop" onClick={onClose}>
       <div
         className="tx-modal"
+        onPointerDown={handleMaybeBlur}
         onClick={(e) => {
           e.stopPropagation()
         }}

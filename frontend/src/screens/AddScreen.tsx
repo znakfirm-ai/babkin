@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import React, { useMemo, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
 
 type TxKind = "expense" | "income" | "transfer"
@@ -39,8 +39,15 @@ function AddScreen() {
   const showSingleAccount = type === "income" || type === "expense"
   const showTransferAccounts = type === "transfer"
 
+  const handleMaybeBlur = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement
+    if (target.closest("input, textarea, select, button")) return
+    const active = document.activeElement as HTMLElement | null
+    active?.blur()
+  }
+
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, minHeight: "100%", display: "flex", flexDirection: "column" }} onPointerDown={handleMaybeBlur}>
       <h2>Добавить операцию</h2>
 
       <div style={{ display: "grid", gap: 12, maxWidth: 420 }}>
