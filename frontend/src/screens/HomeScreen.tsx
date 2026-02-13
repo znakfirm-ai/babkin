@@ -1,18 +1,8 @@
-import { useMemo, useState } from "react"
-import { TransactionModal } from "../components/TransactionModal"
-import { useAppStore } from "../store/useAppStore"
-import type { Transaction } from "../types/finance"
+import { useCallback, useMemo } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 
-function formatMoney(amount: number) {
-  const rub = amount / 100
-  return rub.toLocaleString("ru-RU", { maximumFractionDigits: 2 }) + " ₽"
-}
-
 function HomeScreen() {
-  const { transactions, accounts, categories, removeTransaction, addTransaction } = useAppStore()
-  const [editingTx, setEditingTx] = useState<Transaction | undefined>(undefined)
   const stories = useMemo<{ id: string; title: string; icon: IconName; active?: boolean }[]>(
     () => [
       { id: "story-accounts", title: "Счета", icon: "wallet", active: true },
@@ -26,85 +16,37 @@ function HomeScreen() {
     []
   )
 
-  const currentMonthTag = useMemo(() => {
-    const now = new Date()
-    const month = String(now.getMonth() + 1).padStart(2, "0")
-    return `${now.getFullYear()}-${month}`
+  const banners = useMemo(
+    () => [
+      { id: "banner-1", title: "Ускорьте учёт", subtitle: "Подключите автоимпорт операций" },
+      { id: "banner-2", title: "Настройте цели", subtitle: "Делайте откладывания по расписанию" },
+      { id: "banner-3", title: "Контроль бюджета", subtitle: "Лимиты на категории расходов" },
+      { id: "banner-4", title: "Команда", subtitle: "Пригласите семью вести бюджет" },
+    ],
+    []
+  )
+
+  const clickAddNav = useCallback(() => {
+    const addBtn = document.querySelector(".bottom-nav__item--add") as HTMLButtonElement | null
+    addBtn?.click()
   }, [])
 
-  const expenseByCategory = useMemo(() => {
-    const map = new Map<string, number>()
-    transactions.forEach((tx) => {
-      if (tx.type !== "expense") return
-      if (tx.date.slice(0, 7) !== currentMonthTag) return
-      const key = tx.categoryId ?? "uncategorized"
-      map.set(key, (map.get(key) ?? 0) + tx.amount.amount)
-    })
-    return map
-  }, [transactions, currentMonthTag])
-
-  const accountTiles = useMemo(
-    () =>
-      accounts.map((a) => ({
-        id: a.id,
-        title: a.name,
-        amount: a.balance.amount,
-        icon: "👛",
-        type: "account" as const,
-        size: "lg" as const,
-      })),
-    [accounts]
+  const quickActions = useMemo(
+    () => [
+      { id: "qa-accounts", title: "Все счета", icon: "wallet" as IconName, action: () => console.log("Все счета") },
+      { id: "qa-income", title: "Доход", icon: "arrowUp" as IconName, action: () => clickAddNav() },
+      { id: "qa-expense", title: "Расход", icon: "arrowDown" as IconName, action: () => clickAddNav() },
+      { id: "qa-more", title: "Другое", icon: "more" as IconName, action: () => console.log("Другое") },
+    ],
+    [clickAddNav]
   )
-
-  const categoryTiles = useMemo(
-    () =>
-      categories.map((c) => ({
-        id: c.id,
-        title: c.name,
-        amount: expenseByCategory.get(c.id) ?? 0,
-        icon: "🏷️",
-        type: "category" as const,
-      })),
-    [categories, expenseByCategory]
-  )
-
-  const computeSize = (amount: number, max: number) => {
-    if (max <= 0) return "md"
-    const ratio = amount / max
-    if (ratio >= 0.66) return "lg"
-    if (ratio >= 0.33) return "md"
-    return "sm"
-  }
-
-  const maxCategoryAmount = useMemo(() => Math.max(0, ...categoryTiles.map((c) => c.amount)), [categoryTiles])
-
-  const renderTile = (item: {
-    id: string
-    title: string
-    amount: number
-    icon: string
-    isAdd?: boolean
-    type?: "account" | "category"
-    size?: "sm" | "md" | "lg"
-  }) => {
-    const size =
-      item.size ??
-      (item.type === "category" ? computeSize(item.amount, maxCategoryAmount) : item.type === "account" ? "lg" : "md")
-    const typeClass = item.type ? `tile-card--${item.type}` : ""
-    return (
-      <div key={item.id} className={`tile-card ${item.isAdd ? "tile-card--add" : ""} ${typeClass} tile--${size}`}>
-        <div className="tile-card__icon">{item.icon}</div>
-        <div className="tile-card__title">{item.title}</div>
-        {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount)}</div>}
-      </div>
-    )
-  }
 
   return (
-    <>
-      <div className="home-screen">
-        <h2>Главная</h2>
+    <div className="home-screen">
+      <h2>Главная</h2>
 
+      <section className="home-section">
+        <div className="home-section__title">Сторис</div>
         <div className="home-stories">
           {stories.map((story) => (
             <div
@@ -120,88 +62,39 @@ function HomeScreen() {
             </div>
           ))}
         </div>
+      </section>
 
-        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-          <div>
-            <h3 style={{ margin: "12px 0" }}>Счета</h3>
-            <div className="account-row">
-              {accountTiles.map(renderTile)}
-              {renderTile({ id: "add-account", title: "Добавить", amount: 0, icon: "+", isAdd: true })}
+      <section className="home-section">
+        <div className="home-section__title">Баннеры</div>
+        <div className="home-banners">
+          {banners.map((banner, idx) => (
+            <div key={banner.id} className="home-banner">
+              <div className="home-banner__badge">
+                <AppIcon name={idx % 2 === 0 ? "chart" : "bag"} size={16} />
+              </div>
+              <div className="home-banner__text">
+                <div className="home-banner__title">{banner.title}</div>
+                <div className="home-banner__subtitle">{banner.subtitle}</div>
+              </div>
             </div>
-          </div>
-
-          <div>
-            <h3 style={{ margin: "12px 0" }}>Категории</h3>
-            <div className="tile-grid">
-              {categoryTiles.map(renderTile)}
-              {renderTile({ id: "add-category", title: "Добавить", amount: 0, icon: "+", isAdd: true })}
-            </div>
-          </div>
+          ))}
         </div>
+      </section>
 
-        <div style={{ marginTop: 16 }}>
-          <h3 style={{ margin: "12px 0" }}>Операции</h3>
-
-          {transactions.length === 0 ? (
-            <p>Пока нет операций</p>
-          ) : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {transactions.map((t) => (
-                <div
-                  key={t.id}
-                  style={{
-                    border: "1px solid #ddd",
-                    borderRadius: 12,
-                    padding: 12,
-                    display: "grid",
-                    gap: 6,
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setEditingTx(t)}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <strong>{t.type}</strong>
-                    <strong>{formatMoney(t.amount.amount)}</strong>
-                  </div>
-                  <div style={{ opacity: 0.7 }}>{t.date}</div>
-                  {t.comment ? <div>{t.comment}</div> : null}
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeTransaction(t.id)
-                      }}
-                      style={{
-                        border: "1px solid #e5e7eb",
-                        background: "#fff",
-                        borderRadius: 8,
-                        padding: "6px 10px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      🗑 Удалить
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      <section className="home-section">
+        <div className="home-section__title">Быстрые действия</div>
+        <div className="home-quick-actions">
+          {quickActions.map((action) => (
+            <button key={action.id} type="button" className="home-quick" onClick={action.action}>
+              <div className="home-quick__icon">
+                <AppIcon name={action.icon} size={18} />
+              </div>
+              <div className="home-quick__title">{action.title}</div>
+            </button>
+          ))}
         </div>
-      </div>
-
-      {editingTx ? (
-        <TransactionModal
-          transaction={editingTx}
-          onClose={() => setEditingTx(undefined)}
-          onSave={(data, originalId) => {
-            if (originalId) removeTransaction(originalId)
-            addTransaction(data)
-            setEditingTx(undefined)
-          }}
-        />
-      ) : null}
-    </>
+      </section>
+    </div>
   )
 }
 

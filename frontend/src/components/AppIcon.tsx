@@ -24,6 +24,7 @@ export type IconName =
   | "grid"
   | "report"
   | "circle"
+  | "more"
 
 type AppIconProps = {
   name: IconName
@@ -226,6 +227,14 @@ export const AppIcon: React.FC<AppIconProps> = ({ name, size = 18, className }) 
         <svg {...common}>
           <path d="M12 5v14" {...lineProps} />
           <path d="M5 12h14" {...lineProps} />
+        </svg>
+      )
+    case "more":
+      return (
+        <svg {...common}>
+          <circle cx="6.5" cy="12" r="1.1" fill="currentColor" />
+          <circle cx="12" cy="12" r="1.1" fill="currentColor" />
+          <circle cx="17.5" cy="12" r="1.1" fill="currentColor" />
         </svg>
       )
     case "circle":
