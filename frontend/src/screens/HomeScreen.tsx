@@ -3,8 +3,17 @@ import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 
 type Story = { id: string; title: string; image: string }
+type Period = "today" | "week" | "month" | "custom"
+type SheetStep = "list" | "custom"
 
 const VIEWED_KEY = "home_stories_viewed"
+
+const periodLabel: Record<Period, string> = {
+  today: "Сегодня",
+  week: "Неделя",
+  month: "Месяц",
+  custom: "Свой",
+}
 
 function HomeScreen() {
   const stories = useMemo<Story[]>(
@@ -43,13 +52,9 @@ function HomeScreen() {
     []
   )
 
-  const clickAddNav = useCallback(() => {
-    const addBtn = document.querySelector(".bottom-nav__item--add") as HTMLButtonElement | null
-    addBtn?.click()
-  }, [])
-
   const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
     try {
+      if (typeof window === "undefined") return new Set<string>()
       const raw = localStorage.getItem(VIEWED_KEY)
       if (!raw) return new Set<string>()
       const parsed: unknown = JSON.parse(raw)
@@ -64,7 +69,9 @@ function HomeScreen() {
 
   const persistViewed = useCallback((next: Set<string>) => {
     setViewedIds(next)
-    localStorage.setItem(VIEWED_KEY, JSON.stringify(Array.from(next)))
+    if (typeof window !== "undefined") {
+      localStorage.setItem(VIEWED_KEY, JSON.stringify(Array.from(next)))
+    }
   }, [])
 
   const markViewed = useCallback(
@@ -76,6 +83,11 @@ function HomeScreen() {
     },
     [persistViewed, viewedIds]
   )
+
+  const clickAddNav = useCallback(() => {
+    const addBtn = document.querySelector(".bottom-nav__item--add") as HTMLButtonElement | null
+    addBtn?.click()
+  }, [])
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
 
@@ -104,6 +116,12 @@ function HomeScreen() {
     [markViewed, stories]
   )
 
+  const [period, setPeriod] = useState<Period>("month")
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetStep, setSheetStep] = useState<SheetStep>("list")
+  const [customFrom, setCustomFrom] = useState("")
+  const [customTo, setCustomTo] = useState("")
+
   const quickActions = useMemo(
     () => [
       { id: "qa-accounts", title: "Все счета", icon: "wallet" as IconName, action: () => console.log("Все счета") },
@@ -113,6 +131,151 @@ function HomeScreen() {
     ],
     [clickAddNav]
   )
+
+  const handleSelectPeriod = useCallback(
+    (value: Period) => {
+      if (value === "custom") {
+        setSheetStep("custom")
+      } else {
+        setPeriod(value)
+        setSheetOpen(false)
+        setSheetStep("list")
+      }
+    },
+    []
+  )
+
+  const applyCustom = useCallback(() => {
+    if (!customFrom || !customTo) return
+    setPeriod("custom")
+    setSheetOpen(false)
+    setSheetStep("list")
+  }, [customFrom, customTo])
+
+  const periodButton = (
+    <button
+      type="button"
+      onClick={() => {
+        setSheetStep("list")
+        setSheetOpen(true)
+      }}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        border: "1px solid rgba(15,23,42,0.08)",
+        background: "transparent",
+        borderRadius: 10,
+        padding: "6px 10px",
+        fontSize: 12,
+        color: "#0f172a",
+      }}
+    >
+      <span>{periodLabel[period]}</span>
+      <span style={{ display: "inline-flex", alignItems: "center", transform: "rotate(90deg)" }}>
+        <AppIcon name="arrowDown" size={14} />
+      </span>
+    </button>
+  )
+
+  const renderPeriodList = () => {
+    const options: { key: Period; label: string }[] = [
+      { key: "today", label: periodLabel.today },
+      { key: "week", label: periodLabel.week },
+      { key: "month", label: periodLabel.month },
+      { key: "custom", label: periodLabel.custom },
+    ]
+    return (
+      <div style={{ display: "grid", gap: 4 }}>
+        {options.map((opt) => (
+          <button
+            key={opt.key}
+            type="button"
+            onClick={() => handleSelectPeriod(opt.key)}
+            style={{
+              height: 48,
+              border: "none",
+              background: "transparent",
+              padding: "0 8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontSize: 14,
+              color: "#0f172a",
+            }}
+          >
+            <span>{opt.label}</span>
+            {period === opt.key ? <AppIcon name="circle" size={14} /> : null}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  const renderCustom = () => {
+    const disabled = !customFrom || !customTo
+    return (
+      <div style={{ display: "grid", gap: 12 }}>
+        <div style={{ display: "grid", gap: 8 }}>
+          <label style={{ fontSize: 13, color: "#374151" }}>
+            С:
+            <input
+              type="date"
+              value={customFrom}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              style={{
+                marginTop: 6,
+                width: "100%",
+                borderRadius: 10,
+                border: "1px solid rgba(15,23,42,0.12)",
+                padding: "10px 12px",
+                fontSize: 14,
+              }}
+            />
+          </label>
+          <label style={{ fontSize: 13, color: "#374151" }}>
+            По:
+            <input
+              type="date"
+              value={customTo}
+              onChange={(e) => setCustomTo(e.target.value)}
+              style={{
+                marginTop: 6,
+                width: "100%",
+                borderRadius: 10,
+                border: "1px solid rgba(15,23,42,0.12)",
+                padding: "10px 12px",
+                fontSize: 14,
+              }}
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          onClick={applyCustom}
+          disabled={disabled}
+          style={{
+            height: 44,
+            borderRadius: 12,
+            border: "none",
+            background: disabled ? "rgba(15,23,42,0.08)" : "#4f46e5",
+            color: disabled ? "#6b7280" : "#ffffff",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          Применить
+        </button>
+      </div>
+    )
+  }
+
+  const sheetContent =
+    sheetStep === "list" ? (
+      renderPeriodList()
+    ) : (
+      renderCustom()
+    )
 
   return (
     <div className="home-screen">
@@ -150,13 +313,13 @@ function HomeScreen() {
       <section className="home-section">
         <div className="home-section__title">Баннеры</div>
         <div className="home-banners">
-          {banners.map((banner, idx) => (
+          {banners.map((banner) => (
             <div key={banner.id} className="home-banner">
-              <div className="home-banner__badge">
-                <AppIcon name={idx % 2 === 0 ? "chart" : "bag"} size={16} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div className="home-banner__title">{banner.title}</div>
+                {periodButton}
               </div>
               <div className="home-banner__text">
-                <div className="home-banner__title">{banner.title}</div>
                 <div className="home-banner__subtitle">{banner.subtitle}</div>
               </div>
             </div>
@@ -205,6 +368,74 @@ function HomeScreen() {
           >
             ›
           </button>
+        </div>
+      ) : null}
+
+      {sheetOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            zIndex: 950,
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+          }}
+          role="presentation"
+          onClick={() => {
+            setSheetOpen(false)
+            setSheetStep("list")
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 480,
+              margin: "0 auto",
+              background: "#ffffff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: "14px 16px",
+              paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
+              boxSizing: "border-box",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
+              <span style={{ width: 32 }} />
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>Период</div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSheetOpen(false)
+                  setSheetStep("list")
+                }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 10,
+                  border: "none",
+                  background: "rgba(15,23,42,0.06)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transform: "rotate(45deg)",
+                }}
+                aria-label="Закрыть"
+              >
+                <AppIcon name="plus" size={16} />
+              </button>
+            </div>
+            {sheetContent}
+          </div>
         </div>
       ) : null}
     </div>
