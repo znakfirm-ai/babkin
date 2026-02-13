@@ -238,50 +238,59 @@ function HomeScreen() {
             <div
               style={{
                 height: "100%",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
+                position: "relative",
               }}
             >
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 16,
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: 140,
+                  height: 140,
                 }}
               >
-                <div style={{ width: 140, height: 140 }}>
-                  <svg
-                    viewBox="0 0 100 100"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      transform: "rotate(-90deg)",
-                    }}
-                  >
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="30"
-                      fill="none"
-                      stroke="rgba(15,23,42,0.06)"
-                      strokeWidth="8"
-                    />
-                    {donutArcs}
-                  </svg>
-                </div>
+                <svg
+                  viewBox="0 0 100 100"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    transform: "rotate(-90deg)",
+                  }}
+                >
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="30"
+                    fill="none"
+                    stroke="rgba(15,23,42,0.06)"
+                    strokeWidth="8"
+                  />
+                  {donutArcs}
+                </svg>
+              </div>
 
-                <div style={{ display: "grid", gap: 10 }}>
-                  {expenseSlices.map((slice) => (
-                    <div key={slice.id} style={{ display: "grid", gap: 2 }}>
-                      <div style={{ fontSize: 12, color: "#6b7280" }}>{slice.name}</div>
-                      <div style={{ fontSize: 12, color: slice.color }}>
-                        {formatRub(slice.amount)} ({formatPercent(slice.percent)})
-                      </div>
+              <div
+                style={{
+                  position: "absolute",
+                  right: 16,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  maxWidth: "44%",
+                  display: "grid",
+                  gap: 10,
+                }}
+              >
+                {expenseSlices.map((slice) => (
+                  <div key={slice.id} style={{ display: "grid", gap: 2 }}>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>{slice.name}</div>
+                    <div style={{ fontSize: 12, color: slice.color }}>
+                      {formatRub(slice.amount)} ({formatPercent(slice.percent)})
                     </div>
-                  ))}
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", marginTop: 6 }}>{mainAmount}</div>
-                </div>
+                  </div>
+                ))}
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{mainAmount}</div>
               </div>
             </div>
           </div>
