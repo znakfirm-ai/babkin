@@ -255,14 +255,14 @@
   flex: 0 0 var(--tile-w);
   width: var(--tile-w);
   min-width: var(--tile-w);
-  min-height: calc(var(--tile-h) + 10px);
+  min-height: calc(var(--tile-h) + 20px);
   padding: var(--tile-pad-y) var(--tile-pad-x);
 }
 
 .overview-accounts-row .tile-card--add {
   flex: 0 0 var(--tile-w);
   width: var(--tile-w);
-  min-height: calc(var(--tile-h) + 10px);
+  min-height: calc(var(--tile-h) + 20px);
 }
 .account-row {
   display: flex;
