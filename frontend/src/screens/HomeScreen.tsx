@@ -246,9 +246,9 @@ function HomeScreen() {
                 flexDirection: "column",
                 justifyContent: "center",
                 alignItems: "center",
-                gap: 12,
+                gap: 10,
                 paddingTop: 12,
-                paddingBottom: 32,
+                paddingBottom: 12,
                 boxSizing: "border-box",
               }}
             >
@@ -337,18 +337,8 @@ function HomeScreen() {
                 })}
               </div>
 
-              <div
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  bottom: 12,
-                  transform: "translateX(-50%)",
-                  display: "grid",
-                  gap: 2,
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{mainAmount}</div>
+              <div style={{ display: "grid", gap: 2, textAlign: "center" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{mainAmount}</div>
                 <div style={{ fontSize: 12, color: "#6b7280" }}>за период</div>
               </div>
             </div>
