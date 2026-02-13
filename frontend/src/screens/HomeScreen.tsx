@@ -12,6 +12,23 @@ function HomeScreen() {
   const { transactions, accounts, categories, removeTransaction, addTransaction } = useAppStore()
   const [editingTx, setEditingTx] = useState<Transaction | undefined>(undefined)
 
+  const currentMonthTag = useMemo(() => {
+    const now = new Date()
+    const month = String(now.getMonth() + 1).padStart(2, "0")
+    return `${now.getFullYear()}-${month}`
+  }, [])
+
+  const expenseByCategory = useMemo(() => {
+    const map = new Map<string, number>()
+    transactions.forEach((tx) => {
+      if (tx.type !== "expense") return
+      if (tx.date.slice(0, 7) !== currentMonthTag) return
+      const key = tx.categoryId ?? "uncategorized"
+      map.set(key, (map.get(key) ?? 0) + tx.amount.amount)
+    })
+    return map
+  }, [transactions, currentMonthTag])
+
   const accountTiles = useMemo(
     () =>
       accounts.map((a) => ({
@@ -19,6 +36,8 @@ function HomeScreen() {
         title: a.name,
         amount: a.balance.amount,
         icon: "👛",
+        type: "account" as const,
+        size: "lg" as const,
       })),
     [accounts]
   )
@@ -28,19 +47,44 @@ function HomeScreen() {
       categories.map((c) => ({
         id: c.id,
         title: c.name,
-        amount: 0,
+        amount: expenseByCategory.get(c.id) ?? 0,
         icon: "🏷️",
+        type: "category" as const,
       })),
-    [categories]
+    [categories, expenseByCategory]
   )
 
-  const renderTile = (item: { id: string; title: string; amount: number; icon: string; isAdd?: boolean }) => (
-    <div key={item.id} className={`tile-card ${item.isAdd ? "tile-card--add" : ""}`}>
-      <div className="tile-card__icon">{item.icon}</div>
-      <div className="tile-card__title">{item.title}</div>
-      {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount)}</div>}
-    </div>
-  )
+  const computeSize = (amount: number, max: number) => {
+    if (max <= 0) return "md"
+    const ratio = amount / max
+    if (ratio >= 0.66) return "lg"
+    if (ratio >= 0.33) return "md"
+    return "sm"
+  }
+
+  const maxCategoryAmount = useMemo(() => Math.max(0, ...categoryTiles.map((c) => c.amount)), [categoryTiles])
+
+  const renderTile = (item: {
+    id: string
+    title: string
+    amount: number
+    icon: string
+    isAdd?: boolean
+    type?: "account" | "category"
+    size?: "sm" | "md" | "lg"
+  }) => {
+    const size =
+      item.size ??
+      (item.type === "category" ? computeSize(item.amount, maxCategoryAmount) : item.type === "account" ? "lg" : "md")
+    const typeClass = item.type ? `tile-card--${item.type}` : ""
+    return (
+      <div key={item.id} className={`tile-card ${item.isAdd ? "tile-card--add" : ""} ${typeClass} tile--${size}`}>
+        <div className="tile-card__icon">{item.icon}</div>
+        <div className="tile-card__title">{item.title}</div>
+        {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount)}</div>}
+      </div>
+    )
+  }
 
   return (
     <>

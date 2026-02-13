@@ -10,6 +10,8 @@ type CardItem = {
   icon: string;
   color: string;
   isAdd?: boolean;
+  type?: "account" | "category";
+  size?: "sm" | "md" | "lg";
 };
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"];
@@ -36,7 +38,7 @@ const Section: React.FC<{ title: string; items: CardItem[] }> = ({ title, items 
         {items.map((item) => (
           <div
             key={item.id}
-            className={`tile-card ${item.isAdd ? "tile-card--add" : ""}`}
+            className={`tile-card ${item.isAdd ? "tile-card--add" : ""} ${item.type ? `tile-card--${item.type}` : ""} tile--${item.size ?? "md"}`}
           >
             <div
               className="tile-card__icon"
@@ -103,6 +105,8 @@ function OverviewScreen() {
     amount: account.balance.amount,
     icon: idx % 2 === 0 ? "👛" : "💳",
     color: cardColors[idx % cardColors.length],
+    type: "account",
+    size: "lg",
   }));
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
@@ -113,6 +117,7 @@ function OverviewScreen() {
     amount: incomeBySource.get(src.id) ?? 0,
     icon: "⬇️",
     color: cardColors[(idx + 1) % cardColors.length],
+    type: "category",
   }));
 
   const uncategorizedIncome = incomeBySource.get("uncategorized");
@@ -133,6 +138,7 @@ function OverviewScreen() {
       amount: expenseByCategory.get(cat.id) ?? 0,
       icon: "⬇️",
       color: cardColors[(idx + 2) % cardColors.length],
+      type: "category",
     }))
     .sort((a, b) => b.amount - a.amount);
 
@@ -144,8 +150,20 @@ function OverviewScreen() {
       amount: uncategorizedExpense,
       icon: "⬇️",
       color: "#111827",
+      type: "category",
     });
   }
+
+  const computeSize = (amount: number, max: number) => {
+    if (max <= 0) return "md" as const;
+    const ratio = amount / max;
+    if (ratio >= 0.66) return "lg" as const;
+    if (ratio >= 0.33) return "md" as const;
+    return "sm" as const;
+  };
+
+  const maxExpenseAmount = Math.max(0, ...expenseItems.map((i) => i.amount));
+  const sizedExpenseItems = expenseItems.map((i) => ({ ...i, size: computeSize(i.amount, maxExpenseAmount) }));
 
   const goalsItems: CardItem[] = [
     { id: "goal-trip", title: "Путешествие", amount: 0, icon: "🧭", color: "#0ea5e9" },
@@ -200,7 +218,7 @@ function OverviewScreen() {
 
       <Section title="Источники дохода" items={[...incomeItems, addCard("income")]} />
 
-      <Section title="Расходы" items={[...expenseItems, addCard("expense")]} />
+      <Section title="Расходы" items={[...sizedExpenseItems, addCard("expense")]} />
 
       <Section title="Цели" items={[...goalsItems, addCard("goals")]} />
 
