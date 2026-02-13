@@ -1,17 +1,18 @@
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 
+type Story = { id: string; title: string; image: string }
+
+const VIEWED_KEY = "home_stories_viewed"
+
 function HomeScreen() {
-  const stories = useMemo<
-    { id: string; title: string; icon?: IconName; image: string; active?: boolean }[]
-  >(
+  const stories = useMemo<Story[]>(
     () => [
       {
         id: "story-1",
         title: "Инвест книга",
         image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg",
-        active: true,
       },
       {
         id: "story-2",
@@ -47,6 +48,62 @@ function HomeScreen() {
     addBtn?.click()
   }, [])
 
+  const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(VIEWED_KEY)
+      if (!raw) return new Set<string>()
+      const parsed: unknown = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        return new Set(parsed.filter((v): v is string => typeof v === "string"))
+      }
+      return new Set<string>()
+    } catch {
+      return new Set<string>()
+    }
+  })
+
+  const persistViewed = useCallback((next: Set<string>) => {
+    setViewedIds(next)
+    localStorage.setItem(VIEWED_KEY, JSON.stringify(Array.from(next)))
+  }, [])
+
+  const markViewed = useCallback(
+    (id: string) => {
+      if (viewedIds.has(id)) return
+      const next = new Set(viewedIds)
+      next.add(id)
+      persistViewed(next)
+    },
+    [persistViewed, viewedIds]
+  )
+
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+
+  const openViewer = useCallback(
+    (index: number) => {
+      const story = stories[index]
+      if (!story) return
+      markViewed(story.id)
+      setViewerIndex(index)
+    },
+    [markViewed, stories]
+  )
+
+  const closeViewer = useCallback(() => setViewerIndex(null), [])
+
+  const stepViewer = useCallback(
+    (delta: number) => {
+      setViewerIndex((prev) => {
+        if (prev === null) return prev
+        const next = prev + delta
+        if (next < 0 || next >= stories.length) return prev
+        markViewed(stories[next].id)
+        return next
+      })
+    },
+    [markViewed, stories]
+  )
+
   const quickActions = useMemo(
     () => [
       { id: "qa-accounts", title: "Все счета", icon: "wallet" as IconName, action: () => console.log("Все счета") },
@@ -64,9 +121,22 @@ function HomeScreen() {
       <section className="home-section">
         <div className="home-section__title">Сторис</div>
         <div className="home-stories">
-          {stories.map((story) => (
-            <div key={story.id} className={`home-story-wrap ${story.active ? "home-story-wrap--unread" : ""}`}>
-              <div className="home-story" role="button" tabIndex={0}>
+          {stories.map((story, idx) => (
+            <div
+              key={story.id}
+              className={`home-story-wrap ${
+                viewedIds.has(story.id) ? "home-story-wrap--viewed" : "home-story-wrap--unread"
+              }`}
+            >
+              <div
+                className="home-story"
+                role="button"
+                tabIndex={0}
+                onClick={() => openViewer(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") openViewer(idx)
+                }}
+              >
                 <img src={story.image} alt={story.title} className="home-story__img" />
                 <div className="home-story__label" title={story.title}>
                   {story.title}
@@ -107,6 +177,36 @@ function HomeScreen() {
           ))}
         </div>
       </section>
+
+      {viewerIndex !== null && stories[viewerIndex] ? (
+        <div className="home-story-viewer" role="dialog" aria-modal="true">
+          <div className="home-story-viewer__image-wrap">
+            <img src={stories[viewerIndex].image} alt={stories[viewerIndex].title} />
+            <div className="home-story-viewer__label">{stories[viewerIndex].title}</div>
+          </div>
+          <button type="button" className="home-story-viewer__close" onClick={closeViewer} aria-label="Закрыть сторис">
+            ✕
+          </button>
+          <button
+            type="button"
+            className="home-story-viewer__nav home-story-viewer__nav--prev"
+            onClick={() => stepViewer(-1)}
+            aria-label="Предыдущая сторис"
+            disabled={viewerIndex <= 0}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="home-story-viewer__nav home-story-viewer__nav--next"
+            onClick={() => stepViewer(1)}
+            aria-label="Следующая сторис"
+            disabled={viewerIndex >= stories.length - 1}
+          >
+            ›
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
