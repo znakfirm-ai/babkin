@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import HomeScreen from "./screens/HomeScreen";
 import OverviewScreen from "./screens/OverviewScreen";
 import AddScreen from "./screens/AddScreen";
@@ -20,6 +20,7 @@ const SCREENS: Record<NavItem, React.ReactNode> = {
 function App() {
   const [active, setActive] = useState<NavItem>("home");
   const [isTelegram, setIsTelegram] = useState(false);
+  const baseHeightRef = useRef<number | null>(null);
 
   interface TelegramWebApp {
     ready(): void
@@ -29,6 +30,31 @@ function App() {
   }
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (baseHeightRef.current === null) {
+      baseHeightRef.current = window.innerHeight;
+      document.documentElement.style.setProperty("--app-height", `${window.innerHeight}px`);
+    }
+
+    const handleViewportChange = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const baseHeight = baseHeightRef.current ?? window.innerHeight;
+      const visibleHeight = vv.height + (vv.offsetTop || 0);
+      const keyboardLikelyClosed = visibleHeight >= baseHeight * 0.9;
+
+      if (keyboardLikelyClosed) {
+        const nextHeight = Math.round(window.innerHeight);
+        baseHeightRef.current = nextHeight;
+        document.documentElement.style.setProperty("--app-height", `${nextHeight}px`);
+      }
+    };
+
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", handleViewportChange);
+    vv?.addEventListener("scroll", handleViewportChange);
+    handleViewportChange();
+
     const tg = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
     const available = Boolean(tg);
     setIsTelegram(available);
@@ -47,6 +73,11 @@ function App() {
       // eslint-disable-next-line no-console
       console.log("Telegram WebApp не найден — браузерный режим");
     }
+
+    return () => {
+      vv?.removeEventListener("resize", handleViewportChange);
+      vv?.removeEventListener("scroll", handleViewportChange);
+    };
   }, []);
 
   return (

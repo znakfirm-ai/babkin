@@ -9,6 +9,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --bottom-nav-height: 104px;
+  --app-height: 100vh;
 }
 
 * {
@@ -18,10 +19,10 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: var(--app-height);
   background: #f5f6f8;
   padding: 0 env(safe-area-inset-left) 0 env(safe-area-inset-right);
+  overflow: hidden;
 }
 
 a {
@@ -30,8 +31,7 @@ a {
 }
 
 #root {
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: var(--app-height);
   background: #f5f6f8;
 }
 
