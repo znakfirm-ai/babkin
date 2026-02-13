@@ -152,7 +152,11 @@
 }
 
 .overview-section__list--row .tile-card {
-  flex: 0 0 auto;
+  flex: 0 0 136px;
+  width: 136px;
+  min-width: 136px;
+  min-height: 128px;
+  padding: 10px 8px;
 }
 
 .overview-grid--compact {
@@ -202,16 +206,16 @@
 }
 
 .overview-accounts-row .tile-card {
-  flex: 0 0 102px;
-  width: 102px;
-  min-width: 102px;
-  min-height: 110px;
+  flex: 0 0 136px;
+  width: 136px;
+  min-width: 136px;
+  min-height: 128px;
   padding: 10px 8px;
 }
 
 .overview-accounts-row .tile-card--add {
-  flex: 0 0 102px;
-  width: 102px;
+  flex: 0 0 136px;
+  width: 136px;
 }
 .account-row {
   display: flex;
