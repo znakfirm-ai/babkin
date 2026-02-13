@@ -1,5 +1,5 @@
 export type Money = {
-  amount: number // храним в минимальных единицах (копейки), чтобы не ловить ошибки округления
+  amount: number // в минимальных единицах (копейки)
   currency: "RUB"
 }
 
@@ -15,6 +15,12 @@ export type Category = {
   type: "income" | "expense"
 }
 
+export type IncomeSource = {
+  id: string
+  name: string
+  icon?: string
+}
+
 export type TransactionType = "income" | "expense" | "transfer" | "debt"
 
 export type Transaction = {
@@ -22,7 +28,14 @@ export type Transaction = {
   type: TransactionType
   date: string // ISO (YYYY-MM-DD)
   amount: Money
+
+  // для income/expense/debt:
   accountId: string
   categoryId?: string
+  incomeSourceId?: string
+
+  // для transfer:
+  toAccountId?: string
+
   comment?: string
 }

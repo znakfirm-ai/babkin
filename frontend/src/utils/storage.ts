@@ -1,0 +1,127 @@
+import type { Account, Category, IncomeSource, Transaction } from "../types/finance"
+
+const STORAGE_KEY = "finance_app_v1"
+
+type AppState = {
+  accounts: Account[]
+  categories: Category[]
+  incomeSources: IncomeSource[]
+  transactions: Transaction[]
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null
+
+const isMoney = (value: unknown): value is Account["balance"] =>
+  isRecord(value) && typeof value.amount === "number" && value.currency === "RUB"
+
+const isAccount = (value: unknown): value is Account =>
+  isRecord(value) &&
+  typeof value.id === "string" &&
+  typeof value.name === "string" &&
+  isMoney(value.balance)
+
+const isCategory = (value: unknown): value is Category =>
+  isRecord(value) &&
+  typeof value.id === "string" &&
+  typeof value.name === "string" &&
+  (value.type === "income" || value.type === "expense")
+
+const isIncomeSource = (value: unknown): value is IncomeSource =>
+  isRecord(value) && typeof value.id === "string" && typeof value.name === "string"
+
+const isTransaction = (value: unknown): value is Transaction => {
+  if (!isRecord(value)) return false
+
+  const validType = value.type === "income" || value.type === "expense" || value.type === "transfer" || value.type === "debt"
+
+  const hasBaseFields =
+    typeof value.id === "string" &&
+    typeof value.date === "string" &&
+    typeof value.accountId === "string" &&
+    isMoney(value.amount)
+
+  if (!validType || !hasBaseFields) return false
+
+  if (value.type === "transfer") {
+    return typeof value.toAccountId === "string"
+  }
+
+  if (value.type === "income") {
+    return typeof value.incomeSourceId === "string"
+  }
+
+  return true
+}
+
+const isAppState = (value: unknown): value is AppState => {
+  if (!isRecord(value)) return false
+  if (
+    !Array.isArray(value.accounts) ||
+    !Array.isArray(value.categories) ||
+    !Array.isArray(value.transactions) ||
+    !Array.isArray(value.incomeSources)
+  )
+    return false
+
+  return (
+    value.accounts.every(isAccount) &&
+    value.categories.every(isCategory) &&
+    value.incomeSources.every(isIncomeSource) &&
+    value.transactions.every(isTransaction)
+  )
+}
+
+const cloneState = (state: AppState): AppState => ({
+  accounts: state.accounts.map((a) => ({ ...a, balance: { ...a.balance } })),
+  categories: state.categories.map((c) => ({ ...c })),
+  incomeSources: state.incomeSources.map((s) => ({ ...s })),
+  transactions: state.transactions.map((t) => ({ ...t, amount: { ...t.amount } })),
+})
+
+const getStorage = (): Storage | null => {
+  if (typeof window === "undefined") return null
+  return window.localStorage ?? null
+}
+
+const clearBrokenKey = (storage: Storage) => {
+  try {
+    storage.removeItem(STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+export function loadFromStorage(defaultState: AppState): AppState {
+  const storage = getStorage()
+  if (!storage) return cloneState(defaultState)
+
+  const raw = storage.getItem(STORAGE_KEY)
+  if (!raw) return cloneState(defaultState)
+
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (isAppState(parsed)) return cloneState(parsed)
+
+    clearBrokenKey(storage)
+    console.warn("Persisted data invalid, reset to defaults")
+    return cloneState(defaultState)
+  } catch {
+    clearBrokenKey(storage)
+    console.warn("Persisted data invalid, reset to defaults")
+    return cloneState(defaultState)
+  }
+}
+
+export function saveToStorage(state: AppState) {
+  const storage = getStorage()
+  if (!storage) return
+
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    console.warn("Failed to save data to localStorage")
+  }
+}
+
+export { STORAGE_KEY }

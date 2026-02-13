@@ -1,0 +1,86 @@
+.tx-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 1000;
+}
+
+.tx-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 18px 18px 0 0;
+  padding: 16px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.tx-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tx-modal__title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tx-modal__close {
+  border: none;
+  background: none;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.tx-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tx-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.tx-modal__field input,
+.tx-modal__field select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.tx-modal__footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.tx-modal__button {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tx-modal__button--ghost {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.tx-modal__button--primary {
+  background: #2563eb;
+  color: #ffffff;
+}
