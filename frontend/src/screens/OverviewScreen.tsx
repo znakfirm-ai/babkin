@@ -3,6 +3,9 @@ import { useAppStore } from "../store/useAppStore";
 import type { Transaction } from "../types/finance";
 import "./OverviewScreen.css";
 
+type TileType = "account" | "category";
+type TileSize = "sm" | "md" | "lg";
+
 type CardItem = {
   id: string;
   title: string;
@@ -10,8 +13,8 @@ type CardItem = {
   icon: string;
   color: string;
   isAdd?: boolean;
-  type?: "account" | "category";
-  size?: "sm" | "md" | "lg";
+  type?: TileType;
+  size?: TileSize;
 };
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"];
@@ -105,7 +108,7 @@ function OverviewScreen() {
     amount: account.balance.amount,
     icon: idx % 2 === 0 ? "👛" : "💳",
     color: cardColors[idx % cardColors.length],
-    type: "account",
+    type: "account" as const,
     size: "lg",
   }));
 
@@ -117,7 +120,7 @@ function OverviewScreen() {
     amount: incomeBySource.get(src.id) ?? 0,
     icon: "⬇️",
     color: cardColors[(idx + 1) % cardColors.length],
-    type: "category",
+    type: "category" as const,
   }));
 
   const uncategorizedIncome = incomeBySource.get("uncategorized");
@@ -128,6 +131,7 @@ function OverviewScreen() {
       amount: uncategorizedIncome,
       icon: "⬇️",
       color: "#0f172a",
+      type: "category" as const,
     });
   }
 
@@ -138,7 +142,7 @@ function OverviewScreen() {
       amount: expenseByCategory.get(cat.id) ?? 0,
       icon: "⬇️",
       color: cardColors[(idx + 2) % cardColors.length],
-      type: "category",
+      type: "category" as const,
     }))
     .sort((a, b) => b.amount - a.amount);
 
@@ -150,7 +154,7 @@ function OverviewScreen() {
       amount: uncategorizedExpense,
       icon: "⬇️",
       color: "#111827",
-      type: "category",
+      type: "category" as const,
     });
   }
 
