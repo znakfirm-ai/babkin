@@ -238,7 +238,6 @@ function HomeScreen() {
             <div
               style={{
                 height: "100%",
-                position: "relative",
               }}
             >
               <div
