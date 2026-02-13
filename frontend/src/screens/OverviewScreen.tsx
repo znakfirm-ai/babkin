@@ -132,6 +132,8 @@ function OverviewScreen() {
     { id: "ph-acc-2", title: "Счёт (шаблон)", amount: 0, icon: "card", color: "#e5e7eb", type: "account", size: "lg" },
   ];
 
+  const accountsToRender = [...accountItems, ...placeholderAccounts];
+
   const expenseCategories = categories.filter((c) => c.type === "expense");
 
   const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
@@ -146,6 +148,8 @@ function OverviewScreen() {
     { id: "ph-income-1", title: "Доход (шаблон)", amount: 0, icon: "arrowDown", color: "#e5e7eb", type: "category", size: "lg" },
     { id: "ph-income-2", title: "Доход (шаблон)", amount: 0, icon: "arrowDown", color: "#e5e7eb", type: "category", size: "lg" },
   ];
+
+  const incomeToRender = [...incomeItems, ...placeholderIncome];
 
   const uncategorizedIncome = incomeBySource.get("uncategorized");
   if (uncategorizedIncome) {
@@ -204,6 +208,8 @@ function OverviewScreen() {
   const maxExpenseAmount = Math.max(0, ...expenseItems.map((i) => i.amount));
   const sizedExpenseItems = expenseItems.map((i) => ({ ...i, size: i.size ?? computeSize(i.amount, maxExpenseAmount) }));
 
+  const expenseToRender = [...sizedExpenseItems, ...placeholderExpense];
+
   const goalsItems: CardItem[] = [
     { id: "goal-trip", title: "Путешествие", amount: 0, icon: "plane", color: "#0ea5e9" },
     { id: "goal-tech", title: "Гаджеты", amount: 0, icon: "chart", color: "#8b5cf6" },
@@ -213,6 +219,8 @@ function OverviewScreen() {
     { id: "ph-goal-1", title: "Цель (шаблон)", amount: 0, icon: "goal", color: "#e5e7eb", type: "category", size: "md" },
     { id: "ph-goal-2", title: "Цель (шаблон)", amount: 0, icon: "goal", color: "#e5e7eb", type: "category", size: "md" },
   ];
+
+  const goalsToRender = [...goalsItems, ...placeholderGoals];
 
   const debtsItems: CardItem[] = [
     { id: "debt-bank", title: "Банк", amount: 0, icon: "bank", color: "#ea580c" },
@@ -258,13 +266,13 @@ function OverviewScreen() {
         </div>
       </section>
 
-      <Section title="Счета" items={[...accountItems, addCard("accounts")]} rowScroll rowClass="overview-accounts-row" />
+      <Section title="Счета" items={[...accountsToRender, addCard("accounts")]} rowScroll rowClass="overview-accounts-row" />
 
-      <Section title="Источники дохода" items={[...incomeItems, addCard("income")]} rowScroll />
+      <Section title="Источники дохода" items={[...incomeToRender, addCard("income")]} rowScroll />
 
-      <Section title="Расходы" items={[...sizedExpenseItems, addCard("expense")]} rowScroll />
+      <Section title="Расходы" items={[...expenseToRender, addCard("expense")]} rowScroll />
 
-      <Section title="Цели" items={[...goalsItems, addCard("goals")]} rowScroll />
+      <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll />
 
       <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} rowScroll />
     </div>
