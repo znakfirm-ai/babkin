@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { TransactionModal } from "../components/TransactionModal"
 import { useAppStore } from "../store/useAppStore"
 import type { Transaction } from "../types/finance"
@@ -9,21 +9,60 @@ function formatMoney(amount: number) {
 }
 
 function HomeScreen() {
-  const { transactions, accounts, removeTransaction, addTransaction } = useAppStore()
+  const { transactions, accounts, categories, removeTransaction, addTransaction } = useAppStore()
   const [editingTx, setEditingTx] = useState<Transaction | undefined>(undefined)
+
+  const accountTiles = useMemo(
+    () =>
+      accounts.map((a) => ({
+        id: a.id,
+        title: a.name,
+        amount: a.balance.amount,
+        icon: "👛",
+      })),
+    [accounts]
+  )
+
+  const categoryTiles = useMemo(
+    () =>
+      categories.map((c) => ({
+        id: c.id,
+        title: c.name,
+        amount: 0,
+        icon: "🏷️",
+      })),
+    [categories]
+  )
+
+  const renderTile = (item: { id: string; title: string; amount: number; icon: string; isAdd?: boolean }) => (
+    <div key={item.id} className={`tile-card ${item.isAdd ? "tile-card--add" : ""}`}>
+      <div className="tile-card__icon">{item.icon}</div>
+      <div className="tile-card__title">{item.title}</div>
+      {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount)}</div>}
+    </div>
+  )
 
   return (
     <>
       <div style={{ padding: 20 }}>
         <h2>Главная</h2>
 
-        <div style={{ marginTop: 12 }}>
-          <h3 style={{ margin: "12px 0" }}>Счета</h3>
-          {accounts.map((a) => (
-            <div key={a.id} style={{ marginBottom: 8 }}>
-              {a.name}: <strong>{formatMoney(a.balance.amount)}</strong>
+        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+          <div>
+            <h3 style={{ margin: "12px 0" }}>Счета</h3>
+            <div className="tile-grid">
+              {accountTiles.map(renderTile)}
+              {renderTile({ id: "add-account", title: "Добавить", amount: 0, icon: "+", isAdd: true })}
             </div>
-          ))}
+          </div>
+
+          <div>
+            <h3 style={{ margin: "12px 0" }}>Категории</h3>
+            <div className="tile-grid">
+              {categoryTiles.map(renderTile)}
+              {renderTile({ id: "add-category", title: "Добавить", amount: 0, icon: "+", isAdd: true })}
+            </div>
+          </div>
         </div>
 
         <div style={{ marginTop: 16 }}>

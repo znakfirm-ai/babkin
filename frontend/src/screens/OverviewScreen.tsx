@@ -32,20 +32,24 @@ const Section: React.FC<{ title: string; items: CardItem[] }> = ({ title, items 
   return (
     <section className="overview-section">
       <div className="overview-section__title">{title}</div>
-      <div className="overview-section__list">
+      <div className="overview-section__list tile-grid">
         {items.map((item) => (
           <div
             key={item.id}
-            className={`overview-card ${item.isAdd ? "overview-card--add" : ""}`}
+            className={`tile-card ${item.isAdd ? "tile-card--add" : ""}`}
           >
             <div
-              className="overview-card__icon"
-              style={{ background: item.isAdd ? "transparent" : item.color, color: item.isAdd ? "#4b5563" : "#ffffff" }}
+              className="tile-card__icon"
+              style={
+                item.isAdd
+                  ? undefined
+                  : { background: "rgba(15, 23, 42, 0.05)", color: "rgba(15, 23, 42, 0.85)" }
+              }
             >
               {item.icon}
             </div>
-            <div className="overview-card__title">{item.title}</div>
-            {!item.isAdd && <div className="overview-card__amount">{formatMoney(item.amount)}</div>}
+            <div className="tile-card__title">{item.title}</div>
+            {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount)}</div>}
           </div>
         ))}
       </div>
