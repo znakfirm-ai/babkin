@@ -354,14 +354,16 @@
   content: "";
   position: absolute;
   inset: 0;
-  padding: 2px;
+  padding: 3px;
   border-radius: 12px;
-  background: linear-gradient(145deg, #5f7bff, #a0c4ff 60%, #cfd9ff);
+  background: linear-gradient(135deg, #2f54eb, #7c3aed 50%, #06b6d4);
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 .home-story-card--unseen .home-story-card__image {
