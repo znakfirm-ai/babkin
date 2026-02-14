@@ -26,11 +26,11 @@ function HomeScreen() {
   const donutSize = 120
   const labelWidth = 140
   const labelSlots = [
-    { xPercent: 50, yPercent: 23, align: "center" as const },
-    { xPercent: 5, yPercent: 39, align: "left" as const },
-    { xPercent: 5, yPercent: 61, align: "left" as const },
-    { xPercent: 95, yPercent: 39, align: "right" as const },
-    { xPercent: 95, yPercent: 61, align: "right" as const },
+    { left: "50%" as const, right: undefined, top: 38, align: "center" as const },
+    { left: 12, right: undefined, top: 70, align: "left" as const },
+    { left: 12, right: undefined, top: 88, align: "left" as const },
+    { left: undefined, right: 12, top: 70, align: "right" as const },
+    { left: undefined, right: 12, top: 88, align: "right" as const },
   ]
 
   const stories = useMemo<Story[]>(
@@ -164,8 +164,9 @@ function HomeScreen() {
     amount: number
     percent: number
     color: string
-    xPercent: number
-    yPercent: number
+    left?: number | string
+    right?: number | string
+    top: number
     align: "left" | "right" | "center"
   }
 
@@ -175,8 +176,9 @@ function HomeScreen() {
       const slot = labelSlots[idx]
       return {
         ...slice,
-        xPercent: slot.xPercent,
-        yPercent: slot.yPercent,
+        left: slot.left,
+        right: slot.right,
+        top: slot.top,
         align: slot.align,
       }
     })
@@ -309,87 +311,44 @@ function HomeScreen() {
               <div
                 style={{
                   position: "absolute",
-                  left: "50%",
-                  top: "50%",
-                  transform: "translate(-50%, -50%)",
-                  width: donutSize,
-                  height: donutSize,
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
                   pointerEvents: "none",
                 }}
               >
-                <svg
-                  viewBox={`0 0 ${donutSize} ${donutSize}`}
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: donutSize,
-                    height: donutSize,
-                    pointerEvents: "none",
-                  }}
-                >
-                  {positionedLabels.map((label) => {
-                    const lx = (label.xPercent / 100) * donutSize
-                    const ly = (label.yPercent / 100) * donutSize
-                    return (
-                      <line
-                        key={`${label.id}-line`}
-                        x1={donutSize / 2}
-                        y1={donutSize / 2}
-                        x2={lx}
-                        y2={ly}
-                        stroke={label.color}
-                        strokeWidth={1.5}
-                        strokeOpacity={0.6}
-                      />
-                    )
-                  })}
-                </svg>
-
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: "100%",
-                    height: "100%",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {positionedLabels.map((label) => {
-                    const lx = (label.xPercent / 100) * donutSize
-                    const ly = (label.yPercent / 100) * donutSize
-                    const textAlign = label.align === "right" ? "right" : label.align === "center" ? "center" : "left"
-                    const translate =
-                      label.align === "right"
-                        ? "translate(-100%, -50%)"
-                        : label.align === "center"
-                          ? "translate(-50%, -50%)"
-                          : "translate(0, -50%)"
-                    return (
-                      <div
-                        key={label.id}
-                        style={{
-                          position: "absolute",
-                          left: lx,
-                          top: ly,
-                          transform: translate,
-                          textAlign,
-                          display: "grid",
-                          gap: 1,
-                          whiteSpace: "nowrap",
-                          width: labelWidth,
-                        }}
-                      >
-                        <div style={{ fontSize: 11, lineHeight: 1.2, color: "#6b7280" }}>{label.name}</div>
-                        <div style={{ fontSize: 11, lineHeight: 1.2, color: label.color }}>
-                          {formatRub(label.amount)} ({formatPercent(label.percent)})
-                        </div>
+                {positionedLabels.map((label) => {
+                  const textAlign = label.align === "right" ? "right" : label.align === "center" ? "center" : "left"
+                  const translate =
+                    label.align === "right"
+                      ? "translate(-100%, -50%)"
+                      : label.align === "center"
+                        ? "translate(-50%, -50%)"
+                        : "translate(0, -50%)"
+                  return (
+                    <div
+                      key={label.id}
+                      style={{
+                        position: "absolute",
+                        left: label.left ?? undefined,
+                        right: label.right ?? undefined,
+                        top: label.top,
+                        transform: translate,
+                        textAlign,
+                        display: "grid",
+                        gap: 1,
+                        whiteSpace: "nowrap",
+                        width: labelWidth,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, lineHeight: 1.2, color: "#6b7280" }}>{label.name}</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.2, color: label.color }}>
+                        {formatRub(label.amount)} ({formatPercent(label.percent)})
                       </div>
-                    )
-                  })}
-                </div>
+                    </div>
+                  )
+                })}
               </div>
 
               <div
