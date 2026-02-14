@@ -132,8 +132,7 @@ function HomeScreen() {
       <h2>Главная</h2>
 
       <section className="home-section">
-        <div className="home-section__title">Сторис</div>
-        <div className="home-stories">
+        <div className="home-stories" style={{ marginTop: 0 }}>
           {stories.map((story, idx) => (
             <div
               key={story.id}
@@ -160,8 +159,7 @@ function HomeScreen() {
         </div>
       </section>
 
-      <section className="home-section">
-        <div className="home-section__title">Баннеры</div>
+      <section className="home-section" style={{ marginTop: 8 }}>
         <div
           className="home-banners"
           style={{
@@ -210,8 +208,7 @@ function HomeScreen() {
         </div>
       </section>
 
-      <section className="home-section">
-        <div className="home-section__title">Быстрые действия</div>
+      <section className="home-section" style={{ marginTop: 8 }}>
         <div className="home-quick-actions">
           {quickActions.map((action) => (
             <button key={action.id} type="button" className="home-quick" onClick={action.action}>
