@@ -28,14 +28,15 @@ function HomeScreen() {
   const outerRadius = donutSize / 2 - strokeWidth / 2
   const gapToDonut = 1
   const labelRadius = outerRadius + gapToDonut
-  const minLabelGap = 34
+  const minLabelGap = 42
   const labelWidth = 140
   const labelHeight = 33
   const bannerHeight = 180
-  const minYRel = -(bannerHeight / 2) + 40 // avoid header
+  const minYRel = -(bannerHeight / 2) + 54 // avoid header
   const maxYRel = bannerHeight / 2 - 44    // avoid buttons/sum
   const minTop = minYRel
   const maxTop = maxYRel
+  const donutCenterYOffset = 8
 
   const stories = useMemo<Story[]>(
     () => [
@@ -329,7 +330,7 @@ function HomeScreen() {
                 style={{
                   position: "absolute",
                   left: "50%",
-                  top: "50%",
+                  top: `calc(50% + ${donutCenterYOffset}px)`,
                   transform: "translate(-50%, -50%)",
                   width: donutSize,
                   height: donutSize,
@@ -359,7 +360,7 @@ function HomeScreen() {
                 style={{
                   position: "absolute",
                   left: "50%",
-                  top: "50%",
+                  top: `calc(50% + ${donutCenterYOffset}px)`,
                   transform: "translate(-50%, -50%)",
                   width: donutSize,
                   height: donutSize,
