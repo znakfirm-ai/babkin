@@ -27,7 +27,13 @@ function HomeScreen() {
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
   const labelWidth = 140
-  const labelOffsetX = outerRadius + 8
+  const labelSlots = [
+    { xPercent: 50, yPercent: 23, align: "center" as const },
+    { xPercent: 5, yPercent: 39, align: "left" as const },
+    { xPercent: 5, yPercent: 61, align: "left" as const },
+    { xPercent: 95, yPercent: 39, align: "right" as const },
+    { xPercent: 95, yPercent: 61, align: "right" as const },
+  ]
 
   const stories = useMemo<Story[]>(
     () => [
@@ -160,34 +166,23 @@ function HomeScreen() {
     amount: number
     percent: number
     color: string
-    x: number
-    y: number
-    align: "left" | "right"
-    angle: number
+    xPercent: number
+    yPercent: number
+    align: "left" | "right" | "center"
   }
 
   const positionedLabels = useMemo<PositionedLabel[]>(() => {
     const sorted = [...expenseSlices].sort((a, b) => b.percent - a.percent)
-    const rightY = [-40, 0, 40]
-    const leftY = [-20, 20]
-
-    const labels: PositionedLabel[] = []
-
-    sorted.forEach((slice, idx) => {
-      const isRight = idx < 3
-      const y = isRight ? rightY[idx] : leftY[idx - 3]
-      const x = isRight ? labelOffsetX : -labelOffsetX
-      labels.push({
+    return sorted.slice(0, 5).map((slice, idx) => {
+      const slot = labelSlots[idx]
+      return {
         ...slice,
-        x,
-        y,
-        align: isRight ? "left" : "right",
-        angle: 0,
-      })
+        xPercent: slot.xPercent,
+        yPercent: slot.yPercent,
+        align: slot.align,
+      }
     })
-
-    return labels
-  }, [expenseSlices, labelOffsetX])
+  }, [expenseSlices, labelSlots])
 
   const periodButton = (
     <button
@@ -324,28 +319,79 @@ function HomeScreen() {
                   pointerEvents: "none",
                 }}
               >
-                {positionedLabels.map((label) => (
-                  <div
-                    key={label.id}
-                    style={{
-                      position: "absolute",
-                      left: donutSize / 2 + label.x,
-                      top: donutSize / 2 + label.y,
-                     transform:
-                       label.align === "left" ? "translate(0, -50%)" : "translate(-100%, -50%)",
-                      textAlign: label.align === "left" ? "left" : "right",
-                      display: "grid",
-                      gap: 1,
-                      whiteSpace: "nowrap",
-                      width: labelWidth,
-                    }}
-                  >
-                    <div style={{ fontSize: 9, lineHeight: 1.2, color: "#6b7280" }}>{label.name}</div>
-                    <div style={{ fontSize: 9, lineHeight: 1.2, color: label.color }}>
-                      {formatRub(label.amount)} ({formatPercent(label.percent)})
-                    </div>
-                  </div>
-                ))}
+                <svg
+                  viewBox={`0 0 ${donutSize} ${donutSize}`}
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: donutSize,
+                    height: donutSize,
+                    pointerEvents: "none",
+                  }}
+                >
+                  {positionedLabels.map((label) => {
+                    const lx = (label.xPercent / 100) * donutSize
+                    const ly = (label.yPercent / 100) * donutSize
+                    return (
+                      <line
+                        key={`${label.id}-line`}
+                        x1={donutSize / 2}
+                        y1={donutSize / 2}
+                        x2={lx}
+                        y2={ly}
+                        stroke={label.color}
+                        strokeWidth={1.5}
+                        strokeOpacity={0.6}
+                      />
+                    )
+                  })}
+                </svg>
+
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {positionedLabels.map((label) => {
+                    const lx = (label.xPercent / 100) * donutSize
+                    const ly = (label.yPercent / 100) * donutSize
+                    const textAlign = label.align === "right" ? "right" : label.align === "center" ? "center" : "left"
+                    const translate =
+                      label.align === "right"
+                        ? "translate(-100%, -50%)"
+                        : label.align === "center"
+                          ? "translate(-50%, -50%)"
+                          : "translate(0, -50%)"
+                    return (
+                      <div
+                        key={label.id}
+                        style={{
+                          position: "absolute",
+                          left: lx,
+                          top: ly,
+                          transform: translate,
+                          textAlign,
+                          display: "grid",
+                          gap: 1,
+                          whiteSpace: "nowrap",
+                          width: labelWidth,
+                        }}
+                      >
+                        <div style={{ fontSize: 11, lineHeight: 1.2, color: "#6b7280" }}>{label.name}</div>
+                        <div style={{ fontSize: 11, lineHeight: 1.2, color: label.color }}>
+                          {formatRub(label.amount)} ({formatPercent(label.percent)})
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
               <div
