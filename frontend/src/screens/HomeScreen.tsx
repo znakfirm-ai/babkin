@@ -26,11 +26,11 @@ function HomeScreen() {
   const donutSize = 156
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
-  const gapToDonut = 2
+  const gapToDonut = 1
   const labelRadius = outerRadius + gapToDonut
   const minLabelGap = 34
   const labelWidth = 140
-  const labelHeight = 22
+  const labelHeight = 33
   const minTop = 34
   const maxTop = donutSize - 16
 
@@ -368,25 +368,25 @@ function HomeScreen() {
                 {positionedLabels.map((label) => (
                   <div
                     key={label.id}
-                   style={{
-                     position: "absolute",
-                     left: donutSize / 2 + label.x,
-                     top: donutSize / 2 + label.y,
+                    style={{
+                      position: "absolute",
+                      left: donutSize / 2 + label.x,
+                      top: donutSize / 2 + label.y,
                      transform:
                        label.align === "left" ? "translate(0, -50%)" : "translate(-100%, -50%)",
-                     textAlign: label.align === "left" ? "left" : "right",
-                     display: "grid",
+                      textAlign: label.align === "left" ? "left" : "right",
+                      display: "grid",
                       gap: 1,
-                     whiteSpace: "nowrap",
-                     width: labelWidth,
-                   }}
-                 >
-                    <div style={{ fontSize: 6, lineHeight: 1.2, color: "#6b7280" }}>{label.name}</div>
-                    <div style={{ fontSize: 6, lineHeight: 1.2, color: label.color }}>
+                      whiteSpace: "nowrap",
+                      width: labelWidth,
+                    }}
+                  >
+                    <div style={{ fontSize: 9, lineHeight: 1.2, color: "#6b7280" }}>{label.name}</div>
+                    <div style={{ fontSize: 9, lineHeight: 1.2, color: label.color }}>
                       {formatRub(label.amount)} ({formatPercent(label.percent)})
                     </div>
-                 </div>
-               ))}
+                  </div>
+                ))}
               </div>
 
               <div
