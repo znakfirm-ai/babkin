@@ -23,17 +23,17 @@ function formatPercent(value: number): string {
 }
 
 function HomeScreen() {
-  const donutSize = 156
+  const donutSize = 124
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
   const gapToDonut = 1
   const labelRadius = outerRadius + gapToDonut
-  const minLabelGap = 42
+  const minLabelGap = 44
   const labelWidth = 140
   const labelHeight = 33
   const bannerHeight = 180
-  const minYRel = -(bannerHeight / 2) + 54 // avoid header
-  const maxYRel = bannerHeight / 2 - 44    // avoid buttons/sum
+  const minYRel = -(bannerHeight / 2) + 56 // avoid header
+  const maxYRel = bannerHeight / 2 - 56    // avoid buttons/sum
   const minTop = minYRel
   const maxTop = maxYRel
   const donutCenterYOffset = 8
@@ -126,10 +126,11 @@ function HomeScreen() {
 
   const expenseSlices = useMemo(
     () => [
-      { id: "food_out", name: "Еда (вне дома)", amount: 14760, percent: 46.1, color: "#6ba7e7" },
-      { id: "food_home", name: "Еда (дом)", amount: 14760, percent: 46.1, color: "#5cc5a7" },
-      { id: "fun", name: "Развлечения", amount: 1500, percent: 4.7, color: "#f29fb0" },
-      { id: "other", name: "Остальное", amount: 1000, percent: 3.1, color: "#9aa6b2" },
+      { id: "food_out", name: "Еда (вне дома)", amount: 14760, percent: 38.0, color: "#6ba7e7" },
+      { id: "food_home", name: "Еда (дом)", amount: 12000, percent: 31.0, color: "#5cc5a7" },
+      { id: "fun", name: "Развлечения", amount: 4500, percent: 11.0, color: "#f29fb0" },
+      { id: "transport", name: "Транспорт", amount: 3200, percent: 8.0, color: "#7aa8d6" },
+      { id: "other", name: "Остальное", amount: 2300, percent: 12.0, color: "#9aa6b2" },
     ],
     []
   )
@@ -193,7 +194,24 @@ function HomeScreen() {
     })
 
    const adjustSide = (side: "left" | "right") => {
-      const sideLabels = labels
+      let sideLabels = labels
+        .filter((l) => l.align === side)
+        .sort((a, b) => a.y - b.y)
+
+      // балансируем 5 лейблов: не допускаем 4 на одной стороне
+      if (labels.length === 5) {
+        const otherSide = labels.filter((l) => l.align !== side).length
+        if (sideLabels.length === 4 && otherSide === 1) {
+          const moved = sideLabels.pop()
+          if (moved) {
+            moved.align = side === "left" ? "right" : "left"
+            labels.push(moved)
+            sideLabels = sideLabels
+          }
+        }
+      }
+
+      sideLabels = labels
         .filter((l) => l.align === side)
         .sort((a, b) => a.y - b.y)
       let prevY = -Infinity
