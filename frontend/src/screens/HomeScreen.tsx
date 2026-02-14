@@ -26,8 +26,8 @@ function HomeScreen() {
   const donutSize = 156
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
-  const numberLineOffset = 26
-  const labelRadius = outerRadius + numberLineOffset
+  const gapToDonut = 6
+  const labelRadius = outerRadius + gapToDonut
   const minLabelGap = 34
   const labelWidth = 140
   const minTop = 34
@@ -195,11 +195,8 @@ function HomeScreen() {
         const topCoord = donutSize / 2 + y
         const clampedTop = Math.min(maxTop, Math.max(minTop, topCoord))
         y = clampedTop - donutSize / 2
-        const dist = Math.hypot(label.x, y)
-        const norm = dist === 0 ? 1 : dist
-        const scale = labelRadius / norm
-        label.x *= scale
-        label.y = y * scale
+        // X сохраняем на фиксированном радиусе, двигаем только Y с учётом clamp
+        label.y = y
         prevY = y
       })
     }
@@ -353,7 +350,7 @@ function HomeScreen() {
                       left: donutSize / 2 + label.x,
                       top: donutSize / 2 + label.y,
                       transform:
-                        label.align === "left" ? "translate(8px, -50%)" : "translate(calc(-100% - 8px), -50%)",
+                        label.align === "left" ? "translate(0, -50%)" : "translate(-100%, -50%)",
                       textAlign: label.align === "left" ? "left" : "right",
                       display: "grid",
                       gap: 2,
