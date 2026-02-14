@@ -27,9 +27,12 @@ function HomeScreen() {
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
   const gapToDonut = 1
+  const labelRadius = outerRadius + gapToDonut
   const minLabelGap = 34
   const labelWidth = 140
   const labelHeight = 33
+  const minTop = 12
+  const maxTop = donutSize - 12
 
   const stories = useMemo<Story[]>(
     () => [
