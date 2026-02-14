@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceType {
+  personal
+  family
+}
+
+enum WorkspaceRole {
+  owner
+  admin
+  member
+  viewer
+}
+
+model users {
+  id                  String    @id @default(uuid())
+  telegram_user_id    String    @unique
+  first_name          String?
+  username            String?
+  active_workspace_id String?
+
+  workspaces_users_active_workspace_idTousers workspaces? @relation("users_active_workspace_id", fields: [active_workspace_id], references: [id])
+  workspaces                                  workspaces[] @relation("workspaces_created_by_user_id")
+  workspace_members                           workspace_members[]
+  workspace_invites                           workspace_invites[] @relation("workspace_invites_created_by_user_id")
+
+  @@index([telegram_user_id])
+}
+
+model workspaces {
+  id                 String             @id @default(uuid())
+  type               WorkspaceType
+  name               String?
+  created_by_user_id String
+  created_at         DateTime           @default(now())
+
+  users_workspaces_created_by_user_idTousers users           @relation("workspaces_created_by_user_id", fields: [created_by_user_id], references: [id])
+  workspace_members                          workspace_members[]
+  workspace_invites                          workspace_invites[] @relation("workspace_invites_workspace_id")
+
+  @@index([created_by_user_id])
+}
+
+model workspace_members {
+  workspace_id String
+  user_id      String
+  role         WorkspaceRole
+
+  workspaces workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  users      users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([workspace_id, user_id])
+  @@index([user_id])
+}
+
+model workspace_invites {
+  id                String   @id @default(uuid())
+  workspace_id      String
+  code              String   @unique
+  created_by_user_id String
+  expires_at        DateTime?
+  max_uses          Int?
+  uses_count        Int      @default(0)
+  is_revoked        Boolean  @default(false)
+  created_at        DateTime @default(now())
+
+  workspaces workspaces @relation("workspace_invites_workspace_id", fields: [workspace_id], references: [id], onDelete: Cascade)
+  users      users      @relation("workspace_invites_created_by_user_id", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+  @@index([created_by_user_id])
+}
