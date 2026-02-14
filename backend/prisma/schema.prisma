@@ -42,6 +42,7 @@ model workspaces {
   created_at         DateTime           @default(now())
 
   users_workspaces_created_by_user_idTousers users           @relation("workspaces_created_by_user_id", fields: [created_by_user_id], references: [id])
+  active_for_users                           users[]         @relation("users_active_workspace_id")
   workspace_members                          workspace_members[]
   workspace_invites                          workspace_invites[] @relation("workspace_invites_workspace_id")
 
