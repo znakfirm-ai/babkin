@@ -31,8 +31,10 @@ function HomeScreen() {
   const minLabelGap = 34
   const labelWidth = 140
   const labelHeight = 33
-  const minTop = 12
-  const maxTop = donutSize - 12
+  const bannerHeight = 180
+  const bannerWidth = 320
+  const minYRel = -(bannerHeight / 2) + 40 // avoid header
+  const maxYRel = bannerHeight / 2 - 44    // avoid buttons/sum
 
   const stories = useMemo<Story[]>(
     () => [
@@ -171,16 +173,13 @@ function HomeScreen() {
   }
 
   const positionedLabels = useMemo<PositionedLabel[]>(() => {
-    const labelRadiusLocal = outerRadius + gapToDonut
-    const minTopLocal = minTop
-    const maxTopLocal = maxTop
     const labels: PositionedLabel[] = []
     let startAngle = -Math.PI / 2
     expenseSlices.forEach((slice) => {
       const sliceAngle = (slice.percent / 100) * Math.PI * 2
       const midAngle = startAngle + sliceAngle / 2
-      const x = Math.cos(midAngle) * labelRadiusLocal
-      const y = Math.sin(midAngle) * labelRadiusLocal
+      const x = Math.cos(midAngle) * labelRadius
+      const y = Math.sin(midAngle) * labelRadius
       labels.push({
         ...slice,
         x,
@@ -191,7 +190,7 @@ function HomeScreen() {
       startAngle += sliceAngle
     })
 
-    const adjustSide = (side: "left" | "right") => {
+   const adjustSide = (side: "left" | "right") => {
       const sideLabels = labels
         .filter((l) => l.align === side)
         .sort((a, b) => a.y - b.y)
@@ -199,9 +198,7 @@ function HomeScreen() {
       sideLabels.forEach((label) => {
         let y = label.y
         if (y - prevY < minLabelGap) y = prevY + minLabelGap
-        const topCoord = donutSize / 2 + y
-        const clampedTop = Math.min(maxTopLocal, Math.max(minTopLocal, topCoord))
-        y = clampedTop - donutSize / 2
+        y = Math.min(maxTop, Math.max(minTop, y + donutSize / 2)) - donutSize / 2
         let lx = label.x
         let ly = y
         const forbiddenR = outerRadius + gapToDonut
