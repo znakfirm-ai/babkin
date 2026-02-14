@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 
@@ -30,23 +30,6 @@ function HomeScreen() {
   const minLabelGap = 34
   const labelWidth = 140
   const labelHeight = 33
-
-  const bannerRef = useRef<HTMLDivElement | null>(null)
-  const [bannerSize, setBannerSize] = useState({ width: 320, height: 180 })
-
-  useLayoutEffect(() => {
-    const el = bannerRef.current
-    if (!el || typeof ResizeObserver === "undefined") return
-    const obs = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (entry) {
-        const { width, height } = entry.contentRect
-        setBannerSize({ width, height })
-      }
-    })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
 
   const stories = useMemo<Story[]>(
     () => [
@@ -185,13 +168,16 @@ function HomeScreen() {
   }
 
   const positionedLabels = useMemo<PositionedLabel[]>(() => {
+    const labelRadiusLocal = outerRadius + gapToDonut
+    const minTopLocal = minTop
+    const maxTopLocal = maxTop
     const labels: PositionedLabel[] = []
     let startAngle = -Math.PI / 2
     expenseSlices.forEach((slice) => {
       const sliceAngle = (slice.percent / 100) * Math.PI * 2
       const midAngle = startAngle + sliceAngle / 2
-      const x = Math.cos(midAngle) * labelRadius
-      const y = Math.sin(midAngle) * labelRadius
+      const x = Math.cos(midAngle) * labelRadiusLocal
+      const y = Math.sin(midAngle) * labelRadiusLocal
       labels.push({
         ...slice,
         x,
@@ -211,7 +197,7 @@ function HomeScreen() {
         let y = label.y
         if (y - prevY < minLabelGap) y = prevY + minLabelGap
         const topCoord = donutSize / 2 + y
-        const clampedTop = Math.min(maxTop, Math.max(minTop, topCoord))
+        const clampedTop = Math.min(maxTopLocal, Math.max(minTopLocal, topCoord))
         y = clampedTop - donutSize / 2
         let lx = label.x
         let ly = y
