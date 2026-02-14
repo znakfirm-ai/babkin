@@ -27,9 +27,9 @@ function HomeScreen() {
   const donutBox = 140
   const svgRadius = 30
   const donutOuterRadius = svgRadius * (donutBox / 100)
-  const labelRadius = donutOuterRadius + 24
-  const minLabelY = -(bannerHeight / 2) + 44
-  const maxLabelY = bannerHeight / 2 - 18
+  const labelRadius = donutOuterRadius + 28
+  const minLabelY = -(donutBox / 2) + 34
+  const maxLabelY = donutBox / 2 - 18
   const minLabelGap = 34
 
   const stories = useMemo<Story[]>(
@@ -174,9 +174,10 @@ function HomeScreen() {
       const midAngle = startAngle + sliceAngle / 2
       const x = Math.cos(midAngle) * labelRadius
       const y = Math.sin(midAngle) * labelRadius
+      const paddedX = x + (x >= 0 ? 12 : -12)
       labels.push({
         ...slice,
-        x: x + (x >= 0 ? 12 : -12),
+        x: paddedX,
         y,
         align: x >= 0 ? "left" : "right",
       })
@@ -190,9 +191,7 @@ function HomeScreen() {
       let prevY = -Infinity
       sideLabels.forEach((label) => {
         let y = label.y
-        if (y - prevY < minLabelGap) {
-          y = prevY + minLabelGap
-        }
+        if (y - prevY < minLabelGap) y = prevY + minLabelGap
         y = Math.min(maxLabelY, Math.max(minLabelY, y))
         label.y = y
         prevY = y
