@@ -23,20 +23,12 @@ function formatPercent(value: number): string {
 }
 
 function HomeScreen() {
-  const donutSize = 124
+  const donutSize = 120
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
   const gapToDonut = 1
-  const labelRadius = outerRadius + gapToDonut
-  const minLabelGap = 44
   const labelWidth = 140
-  const labelHeight = 33
-  const bannerHeight = 180
-  const minYRel = -(bannerHeight / 2) + 56 // avoid header
-  const maxYRel = bannerHeight / 2 - 56    // avoid buttons/sum
-  const minTop = minYRel
-  const maxTop = maxYRel
-  const donutCenterYOffset = 8
+  const labelOffsetX = outerRadius + 8
 
   const stories = useMemo<Story[]>(
     () => [
@@ -176,79 +168,27 @@ function HomeScreen() {
   }
 
   const positionedLabels = useMemo<PositionedLabel[]>(() => {
+    const sorted = [...expenseSlices].sort((a, b) => b.percent - a.percent)
+    const rightY = [-40, 0, 40]
+    const leftY = [-20, 20]
+
     const labels: PositionedLabel[] = []
-    let startAngle = -Math.PI / 2
-    expenseSlices.forEach((slice) => {
-      const sliceAngle = (slice.percent / 100) * Math.PI * 2
-      const midAngle = startAngle + sliceAngle / 2
-      const x = Math.cos(midAngle) * labelRadius
-      const y = Math.sin(midAngle) * labelRadius
+
+    sorted.forEach((slice, idx) => {
+      const isRight = idx < 3
+      const y = isRight ? rightY[idx] : leftY[idx - 3]
+      const x = isRight ? labelOffsetX : -labelOffsetX
       labels.push({
         ...slice,
         x,
         y,
-        align: x >= 0 ? "left" : "right",
-        angle: midAngle,
+        align: isRight ? "left" : "right",
+        angle: 0,
       })
-      startAngle += sliceAngle
     })
 
-   const adjustSide = (side: "left" | "right") => {
-      let sideLabels = labels
-        .filter((l) => l.align === side)
-        .sort((a, b) => a.y - b.y)
-
-      // балансируем 5 лейблов: не допускаем 4 на одной стороне
-      if (labels.length === 5) {
-        const otherSide = labels.filter((l) => l.align !== side).length
-        if (sideLabels.length === 4 && otherSide === 1) {
-          const moved = sideLabels.pop()
-          if (moved) {
-            moved.align = side === "left" ? "right" : "left"
-            labels.push(moved)
-            sideLabels = sideLabels
-          }
-        }
-      }
-
-      sideLabels = labels
-        .filter((l) => l.align === side)
-        .sort((a, b) => a.y - b.y)
-      let prevY = -Infinity
-      sideLabels.forEach((label) => {
-        let y = label.y
-        if (y - prevY < minLabelGap) y = prevY + minLabelGap
-        y = Math.min(maxTop, Math.max(minTop, y + donutSize / 2)) - donutSize / 2
-        let lx = label.x
-        let ly = y
-        const forbiddenR = outerRadius + gapToDonut
-
-        for (let i = 0; i < 12; i += 1) {
-          const rectLeft = lx >= 0 ? donutSize / 2 + lx : donutSize / 2 + lx - labelWidth
-          const rectRight = rectLeft + labelWidth
-          const rectTop = donutSize / 2 + ly - labelHeight / 2
-          const rectBottom = rectTop + labelHeight
-          const closestX = Math.min(rectRight, Math.max(rectLeft, donutSize / 2))
-          const closestY = Math.min(rectBottom, Math.max(rectTop, donutSize / 2))
-          const dist = Math.hypot(closestX - donutSize / 2, closestY - donutSize / 2)
-          if (dist >= forbiddenR) break
-          const currentDist = Math.hypot(lx, ly) || 1
-          const scale = (forbiddenR + 0.5) / currentDist
-          lx = Math.cos(label.angle) * (currentDist * scale)
-          ly = Math.sin(label.angle) * (currentDist * scale)
-        }
-
-        label.x = lx
-        label.y = ly
-        prevY = y
-      })
-    }
-
-    adjustSide("left")
-    adjustSide("right")
-
     return labels
-  }, [expenseSlices, labelRadius, maxTop, minLabelGap, minTop])
+  }, [expenseSlices, labelOffsetX])
 
   const periodButton = (
     <button
