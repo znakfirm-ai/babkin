@@ -23,7 +23,6 @@ function formatPercent(value: number): string {
 }
 
 function HomeScreen() {
-  const bannerHeight = 180
   const donutBox = 140
   const svgRadius = 30
   const donutOuterRadius = svgRadius * (donutBox / 100)
