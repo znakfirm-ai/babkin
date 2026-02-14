@@ -26,10 +26,11 @@ function HomeScreen() {
   const donutSize = 156
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
-  const gapToDonut = 6
+  const gapToDonut = 2
   const labelRadius = outerRadius + gapToDonut
   const minLabelGap = 34
   const labelWidth = 140
+  const labelHeight = 40
   const minTop = 34
   const maxTop = donutSize - 16
 
