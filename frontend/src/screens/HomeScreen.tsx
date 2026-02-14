@@ -29,8 +29,8 @@ function HomeScreen() {
     { left: "50%" as const, right: undefined, top: 32, align: "center" as const },
     { left: 50, right: undefined, top: 75, align: "left" as const },
     { left: 50, right: undefined, top: 105, align: "left" as const },
-    { left: undefined, right: 50, top: 75, align: "right" as const },
-    { left: undefined, right: 50, top: 105, align: "right" as const },
+    { left: undefined, right: -150, top: 75, align: "right" as const },
+    { left: undefined, right: -150, top: 105, align: "right" as const },
   ]
 
   const stories = useMemo<Story[]>(
