@@ -26,7 +26,6 @@ function HomeScreen() {
   const donutSize = 120
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
-  const gapToDonut = 1
   const labelWidth = 140
   const labelOffsetX = outerRadius + 8
 
@@ -288,7 +287,7 @@ function HomeScreen() {
                 style={{
                   position: "absolute",
                   left: "50%",
-                  top: `calc(50% + ${donutCenterYOffset}px)`,
+                  top: "50%",
                   transform: "translate(-50%, -50%)",
                   width: donutSize,
                   height: donutSize,
@@ -318,7 +317,7 @@ function HomeScreen() {
                 style={{
                   position: "absolute",
                   left: "50%",
-                  top: `calc(50% + ${donutCenterYOffset}px)`,
+                  top: "50%",
                   transform: "translate(-50%, -50%)",
                   width: donutSize,
                   height: donutSize,
