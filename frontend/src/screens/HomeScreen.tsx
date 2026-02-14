@@ -14,6 +14,8 @@ const periodLabel: Record<Period, string> = {
   custom: "Свой",
 }
 
+type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
+
 function HomeScreen() {
   const stories = useMemo<Story[]>(
     () => [
@@ -129,7 +131,39 @@ function HomeScreen() {
 
   return (
     <div className="home-screen">
-      <h2>Главная</h2>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginTop: 16,
+          marginBottom: 16,
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
+            background: "var(--tg-theme-secondary-bg-color, #e5e7eb)",
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
+          <AppIcon name="user" size={20} />
+        </div>
+        <div
+          style={{
+            fontSize: 18,
+            fontWeight: 500,
+            color: "#0f172a",
+          }}
+        >
+          {typeof window !== "undefined"
+            ? ((window as unknown as TelegramUser).Telegram?.WebApp?.initDataUnsafe?.user?.first_name ?? "Пользователь")
+            : "Пользователь"}
+        </div>
+      </div>
 
       <section className="home-section">
         <div className="home-stories" style={{ marginTop: 0 }}>
