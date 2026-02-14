@@ -30,7 +30,7 @@ function HomeScreen() {
   const labelRadius = outerRadius + gapToDonut
   const minLabelGap = 34
   const labelWidth = 140
-  const labelHeight = 20
+  const labelHeight = 22
   const minTop = 34
   const maxTop = donutSize - 16
 
@@ -122,9 +122,10 @@ function HomeScreen() {
 
   const expenseSlices = useMemo(
     () => [
-      { id: "food_out", name: "Еда (вне дома)", amount: 14760, percent: 47.6, color: "#6ba7e7" },
-      { id: "food_home", name: "Еда (дом)", amount: 14760, percent: 47.6, color: "#5cc5a7" },
-      { id: "fun", name: "Развлечения", amount: 1500, percent: 4.8, color: "#f29fb0" },
+      { id: "food_out", name: "Еда (вне дома)", amount: 14760, percent: 46.1, color: "#6ba7e7" },
+      { id: "food_home", name: "Еда (дом)", amount: 14760, percent: 46.1, color: "#5cc5a7" },
+      { id: "fun", name: "Развлечения", amount: 1500, percent: 4.7, color: "#f29fb0" },
+      { id: "other", name: "Остальное", amount: 1000, percent: 3.1, color: "#9aa6b2" },
     ],
     []
   )
@@ -401,6 +402,24 @@ function HomeScreen() {
               >
                 {mainAmount}
               </div>
+
+              <button
+                type="button"
+                style={{
+                  position: "absolute",
+                  right: 10,
+                  bottom: 10,
+                  border: "1px solid rgba(15,23,42,0.12)",
+                  background: "rgba(255,255,255,0.8)",
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                  fontSize: 12,
+                  color: "#0f172a",
+                  cursor: "pointer",
+                }}
+              >
+                Подробнее
+              </button>
             </div>
           </div>
         </div>
