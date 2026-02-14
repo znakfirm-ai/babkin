@@ -32,9 +32,10 @@ function HomeScreen() {
   const labelWidth = 140
   const labelHeight = 33
   const bannerHeight = 180
-  const bannerWidth = 320
   const minYRel = -(bannerHeight / 2) + 40 // avoid header
   const maxYRel = bannerHeight / 2 - 44    // avoid buttons/sum
+  const minTop = minYRel
+  const maxTop = maxYRel
 
   const stories = useMemo<Story[]>(
     () => [
