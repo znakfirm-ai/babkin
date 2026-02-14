@@ -24,7 +24,6 @@ function formatPercent(value: number): string {
 
 function HomeScreen() {
   const donutSize = 156
-  const svgRadius = 30
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
   const labelRadius = outerRadius + 6
