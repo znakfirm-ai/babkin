@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 
@@ -27,9 +27,12 @@ function HomeScreen() {
   const labelWidth = 140
   const labelHeight = 24
   const strokeWidth = 8
+  const rightOffset = 50
+  const rightGap = 30
   const bannerRef = useRef<HTMLDivElement | null>(null)
   const titleRef = useRef<HTMLDivElement | null>(null)
   const periodRef = useRef<HTMLButtonElement | null>(null)
+  const detailsRef = useRef<HTMLButtonElement | null>(null)
 
   const stories = useMemo<Story[]>(
     () => [
@@ -162,8 +165,13 @@ function HomeScreen() {
     width: labelWidth,
     fontSize: 11,
   })
+  const [rightLabelMetrics, setRightLabelMetrics] = useState<{ top: number; width: number; fontSize: number }>({
+    top: 75,
+    width: labelWidth,
+    fontSize: 11,
+  })
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const measure = () => {
       if (!bannerRef.current) return
       const bannerRect = bannerRef.current.getBoundingClientRect()
@@ -188,11 +196,36 @@ function HomeScreen() {
           setTopLabelMetrics((prev) => ({ ...prev, x: fallbackX }))
         }
       }
+
+      const periodBottom = periodRect ? periodRect.bottom - bannerRect.top : 32
+      const detailsRect = detailsRef.current?.getBoundingClientRect()
+      const detailsTop = detailsRect ? detailsRect.top - bannerRect.top : bannerRect.height - 30
+      const topMin = periodBottom + 14
+      const topMax = detailsTop - 14
+      const centerX = bannerRect.width / 2
+      const outerRadius = (30 + strokeWidth / 2) * (donutSize / 100)
+      const leftBound = centerX + outerRadius + 18
+      const maxWidth = Math.max(60, bannerRect.width - rightOffset - leftBound)
+      const desiredWidth = Math.min(labelWidth, maxWidth)
+      const totalHeight = labelHeight * 2 + rightGap
+      let baseTop = topMin
+      if (baseTop + totalHeight > topMax) {
+        baseTop = Math.max(topMin, topMax - totalHeight)
+      }
+      let fontSize = 11
+      if (maxWidth < 110 || topMax - topMin < totalHeight + 4) {
+        fontSize = 10
+      }
+      setRightLabelMetrics((prev) =>
+        prev.top !== baseTop || prev.width !== desiredWidth || prev.fontSize !== fontSize
+          ? { top: baseTop, width: desiredWidth, fontSize }
+          : prev
+      )
     }
     measure()
     window.addEventListener("resize", measure)
     return () => window.removeEventListener("resize", measure)
-  }, [bannerSize.height, bannerSize.width, topLabelMetrics.x])
+  }, [bannerSize.height, bannerSize.width, topLabelMetrics.x, donutSize, strokeWidth, rightOffset, rightGap, labelWidth, labelHeight])
 
   type LabelSlot = {
     left?: number | string
@@ -209,10 +242,29 @@ function HomeScreen() {
       { left: topLabelMetrics.x, right: undefined, top: 32, align: "center", width: topLabelMetrics.width, fontSize: topLabelMetrics.fontSize },
       { left: 50, right: undefined, top: centerY - 15, align: "left", width: labelWidth, fontSize: 11 },
       { left: 50, right: undefined, top: centerY + 15, align: "left", width: labelWidth, fontSize: 11 },
-      { left: undefined, right: 50, top: centerY - 15, align: "right", width: labelWidth, fontSize: 11 },
-      { left: undefined, right: 50, top: centerY + 15, align: "right", width: labelWidth, fontSize: 11 },
+      { left: undefined, right: rightOffset, top: rightLabelMetrics.top, align: "right", width: rightLabelMetrics.width, fontSize: rightLabelMetrics.fontSize },
+      {
+        left: undefined,
+        right: rightOffset,
+        top: rightLabelMetrics.top + labelHeight + rightGap,
+        align: "right",
+        width: rightLabelMetrics.width,
+        fontSize: rightLabelMetrics.fontSize,
+      },
     ]
-  }, [bannerSize.height, topLabelMetrics.fontSize, topLabelMetrics.width, topLabelMetrics.x])
+  }, [
+    bannerSize.height,
+    topLabelMetrics.fontSize,
+    topLabelMetrics.width,
+    topLabelMetrics.x,
+    rightOffset,
+    rightLabelMetrics.fontSize,
+    rightLabelMetrics.top,
+    rightLabelMetrics.width,
+    rightGap,
+    labelHeight,
+    labelWidth,
+  ])
 
   type PositionedLabel = {
     id: string
@@ -502,13 +554,14 @@ function HomeScreen() {
                 {mainAmount}
               </div>
 
-              <button
-                type="button"
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  bottom: 10,
-                  border: "1px solid rgba(15,23,42,0.12)",
+      <button
+        type="button"
+        ref={detailsRef}
+        style={{
+          position: "absolute",
+          right: 10,
+          bottom: 10,
+          border: "1px solid rgba(15,23,42,0.12)",
                   background: "rgba(255,255,255,0.8)",
                   borderRadius: 10,
                   padding: "6px 10px",
