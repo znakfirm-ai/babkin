@@ -165,6 +165,7 @@ function HomeScreen() {
     x: number
     y: number
     align: "left" | "right"
+    angle: number
   }
 
   const positionedLabels = useMemo<PositionedLabel[]>(() => {
@@ -180,6 +181,7 @@ function HomeScreen() {
         x,
         y,
         align: x >= 0 ? "left" : "right",
+        angle: midAngle,
       })
       startAngle += sliceAngle
     })
@@ -195,8 +197,27 @@ function HomeScreen() {
         const topCoord = donutSize / 2 + y
         const clampedTop = Math.min(maxTop, Math.max(minTop, topCoord))
         y = clampedTop - donutSize / 2
-        // X сохраняем на фиксированном радиусе, двигаем только Y с учётом clamp
-        label.y = y
+        let lx = label.x
+        let ly = y
+        const forbiddenR = outerRadius + gapToDonut
+
+        for (let i = 0; i < 12; i += 1) {
+          const rectLeft = lx >= 0 ? donutSize / 2 + lx : donutSize / 2 + lx - labelWidth
+          const rectRight = rectLeft + labelWidth
+          const rectTop = donutSize / 2 + ly - labelHeight / 2
+          const rectBottom = rectTop + labelHeight
+          const closestX = Math.min(rectRight, Math.max(rectLeft, donutSize / 2))
+          const closestY = Math.min(rectBottom, Math.max(rectTop, donutSize / 2))
+          const dist = Math.hypot(closestX - donutSize / 2, closestY - donutSize / 2)
+          if (dist >= forbiddenR) break
+          const currentDist = Math.hypot(lx, ly) || 1
+          const scale = (forbiddenR + 0.5) / currentDist
+          lx = Math.cos(label.angle) * (currentDist * scale)
+          ly = Math.sin(label.angle) * (currentDist * scale)
+        }
+
+        label.x = lx
+        label.y = ly
         prevY = y
       })
     }
