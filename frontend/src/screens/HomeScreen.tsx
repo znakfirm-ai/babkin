@@ -25,12 +25,13 @@ function formatPercent(value: number): string {
 function HomeScreen() {
   const donutSize = 120
   const labelWidth = 140
+  const donutCenterY = 90
   const labelSlots = [
     { left: "50%" as const, right: undefined, top: 38, align: "center" as const },
     { left: 50, right: undefined, top: 75, align: "left" as const },
     { left: 50, right: undefined, top: 105, align: "left" as const },
-    { left: undefined, right: 50, top: 75, align: "right" as const },
-    { left: undefined, right: 50, top: 105, align: "right" as const },
+    { left: undefined, right: 50, top: donutCenterY - 15, align: "right" as const },
+    { left: undefined, right: 50, top: donutCenterY + 15, align: "right" as const },
   ]
 
   const stories = useMemo<Story[]>(
