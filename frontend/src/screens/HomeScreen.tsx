@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 
@@ -25,13 +25,11 @@ function formatPercent(value: number): string {
 function HomeScreen() {
   const donutSize = 120
   const labelWidth = 140
-  const labelSlots = [
-    { left: "50%" as const, right: undefined, top: 32, align: "center" as const },
-    { left: 50, right: undefined, top: 75, align: "left" as const },
-    { left: 50, right: undefined, top: 105, align: "left" as const },
-    { left: undefined, right: -150, top: 75, align: "right" as const },
-    { left: undefined, right: -150, top: 105, align: "right" as const },
-  ]
+  const labelHeight = 24
+  const strokeWidth = 8
+  const bannerRef = useRef<HTMLDivElement | null>(null)
+  const titleRef = useRef<HTMLDivElement | null>(null)
+  const periodRef = useRef<HTMLButtonElement | null>(null)
 
   const stories = useMemo<Story[]>(
     () => [
@@ -147,7 +145,7 @@ function HomeScreen() {
           r="30"
           fill="none"
           stroke={slice.color}
-          strokeWidth="8"
+          strokeWidth={strokeWidth}
           strokeDasharray={`${dash} ${circumference - dash}`}
           strokeDashoffset={-offset}
           strokeLinecap="butt"
@@ -158,6 +156,64 @@ function HomeScreen() {
     })
   }, [circumference, expenseSlices])
 
+  const [bannerSize, setBannerSize] = useState<{ width: number; height: number }>({ width: 320, height: 180 })
+  const [topLabelMetrics, setTopLabelMetrics] = useState<{ x: number; width: number; fontSize: number }>({
+    x: 160,
+    width: labelWidth,
+    fontSize: 11,
+  })
+
+  useEffect(() => {
+    const measure = () => {
+      if (!bannerRef.current) return
+      const bannerRect = bannerRef.current.getBoundingClientRect()
+      const titleRect = titleRef.current?.getBoundingClientRect()
+      const periodRect = periodRef.current?.getBoundingClientRect()
+      if (bannerRect.width !== bannerSize.width || bannerRect.height !== bannerSize.height) {
+        setBannerSize({ width: bannerRect.width, height: bannerRect.height })
+      }
+      if (titleRect && periodRect) {
+        const available = Math.max(80, periodRect.left - titleRect.right - 8)
+        const nextWidth = Math.min(labelWidth, available)
+        const nextFontSize = available < 110 ? 10 : 11
+        const nextX = (titleRect.right + periodRect.left) / 2 - bannerRect.left
+        setTopLabelMetrics((prev) =>
+          prev.x !== nextX || prev.width !== nextWidth || prev.fontSize !== nextFontSize
+            ? { x: nextX, width: nextWidth, fontSize: nextFontSize }
+            : prev
+        )
+      } else {
+        const fallbackX = bannerRect.width / 2
+        if (topLabelMetrics.x !== fallbackX) {
+          setTopLabelMetrics((prev) => ({ ...prev, x: fallbackX }))
+        }
+      }
+    }
+    measure()
+    window.addEventListener("resize", measure)
+    return () => window.removeEventListener("resize", measure)
+  }, [bannerSize.height, bannerSize.width, topLabelMetrics.x])
+
+  type LabelSlot = {
+    left?: number | string
+    right?: number
+    top: number
+    align: "left" | "right" | "center"
+    width: number
+    fontSize: number
+  }
+
+  const labelSlots: LabelSlot[] = useMemo(() => {
+    const centerY = bannerSize.height / 2
+    return [
+      { left: topLabelMetrics.x, right: undefined, top: 32, align: "center", width: topLabelMetrics.width, fontSize: topLabelMetrics.fontSize },
+      { left: 50, right: undefined, top: centerY - 15, align: "left", width: labelWidth, fontSize: 11 },
+      { left: 50, right: undefined, top: centerY + 15, align: "left", width: labelWidth, fontSize: 11 },
+      { left: undefined, right: 50, top: centerY - 15, align: "right", width: labelWidth, fontSize: 11 },
+      { left: undefined, right: 50, top: centerY + 15, align: "right", width: labelWidth, fontSize: 11 },
+    ]
+  }, [bannerSize.height, topLabelMetrics.fontSize, topLabelMetrics.width, topLabelMetrics.x])
+
   type PositionedLabel = {
     id: string
     name: string
@@ -165,9 +221,11 @@ function HomeScreen() {
     percent: number
     color: string
     left?: number | string
-    right?: number | string
+    right?: number
     top: number
     align: "left" | "right" | "center"
+    width: number
+    fontSize: number
   }
 
   const positionedLabels = useMemo<PositionedLabel[]>(() => {
@@ -180,13 +238,65 @@ function HomeScreen() {
         right: slot.right,
         top: slot.top,
         align: slot.align,
+        width: slot.width,
+        fontSize: slot.fontSize,
       }
     })
   }, [expenseSlices, labelSlots])
 
+  type LeaderLine = { id: string; color: string; points: string }
+
+  const leaderLines = useMemo<LeaderLine[]>(() => {
+    const centerX = bannerSize.width / 2
+    const centerY = bannerSize.height / 2
+    const svgScale = donutSize / 100
+    const outerRadius = (30 + strokeWidth / 2) * svgScale
+    const radialStep = 8
+
+    let startAngle = -Math.PI / 2
+    return positionedLabels.map((label, idx) => {
+      const slice = expenseSlices.find((s) => s.id === label.id) ?? expenseSlices[idx]
+      const sliceAngle = (slice.percent / 100) * Math.PI * 2
+      const midAngle = startAngle + sliceAngle / 2
+      startAngle += sliceAngle
+
+      const arcX = centerX + Math.cos(midAngle) * outerRadius
+      const arcY = centerY + Math.sin(midAngle) * outerRadius
+      const midX = centerX + Math.cos(midAngle) * (outerRadius + radialStep)
+      const midY = centerY + Math.sin(midAngle) * (outerRadius + radialStep)
+
+      let anchorX = centerX
+      let anchorY = label.top
+      if (label.align === "left") {
+        const numericLeft = typeof label.left === "number" ? label.left : centerX
+        anchorX = numericLeft + label.width
+      } else if (label.align === "right") {
+        const numericRight = label.right ?? 0
+        anchorX = bannerSize.width - numericRight - label.width
+      } else {
+        anchorX = typeof label.left === "number" ? label.left : centerX
+        anchorY = label.top + labelHeight / 2
+      }
+
+      let endX = anchorX
+      let endY = anchorY
+      if (label.align === "left") {
+        endX = anchorX - 4
+      } else if (label.align === "right") {
+        endX = anchorX + 4
+      } else {
+        endY = anchorY - 4
+      }
+
+      const points = `${arcX.toFixed(1)},${arcY.toFixed(1)} ${midX.toFixed(1)},${midY.toFixed(1)} ${endX.toFixed(1)},${endY.toFixed(1)}`
+      return { id: label.id, color: label.color, points }
+    })
+  }, [bannerSize.height, bannerSize.width, donutSize, positionedLabels, expenseSlices, strokeWidth])
+
   const periodButton = (
     <button
       type="button"
+      ref={periodRef}
       onClick={() => {
         // sheet пока не делаем
       }}
@@ -256,6 +366,7 @@ function HomeScreen() {
         >
           <div
             className="home-banner"
+            ref={bannerRef}
             style={{
               flex: "0 0 100%",
               borderRadius: 16,
@@ -268,7 +379,10 @@ function HomeScreen() {
               overflow: "hidden",
             }}
           >
-            <div style={{ position: "absolute", top: 10, left: 10, fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
+            <div
+              ref={titleRef}
+              style={{ position: "absolute", top: 10, left: 10, fontSize: 14, fontWeight: 600, color: "#0f172a" }}
+            >
               Расходы
             </div>
             <div style={{ position: "absolute", top: 10, right: 10 }}>{periodButton}</div>
@@ -302,11 +416,34 @@ function HomeScreen() {
                     r="30"
                     fill="none"
                     stroke="rgba(15,23,42,0.06)"
-                    strokeWidth="8"
+                    strokeWidth={strokeWidth}
                   />
                   {donutArcs}
                 </svg>
               </div>
+
+              <svg
+                viewBox={`0 0 ${bannerSize.width} ${bannerSize.height}`}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                }}
+              >
+                {leaderLines.map((line) => (
+                  <polyline
+                    key={line.id}
+                    points={line.points}
+                    fill="none"
+                    stroke={line.color}
+                    strokeWidth={1.25}
+                    strokeOpacity={0.65}
+                  />
+                ))}
+              </svg>
 
               <div
                 style={{
@@ -339,11 +476,11 @@ function HomeScreen() {
                         display: "grid",
                         gap: 1,
                         whiteSpace: "nowrap",
-                        width: labelWidth,
+                        width: label.width,
                       }}
                     >
-                      <div style={{ fontSize: 11, lineHeight: 1.2, color: "#6b7280" }}>{label.name}</div>
-                      <div style={{ fontSize: 11, lineHeight: 1.2, color: label.color }}>
+                      <div style={{ fontSize: label.fontSize, lineHeight: 1.2, color: "#6b7280" }}>{label.name}</div>
+                      <div style={{ fontSize: label.fontSize, lineHeight: 1.2, color: label.color }}>
                         {formatRub(label.amount)} ({formatPercent(label.percent)})
                       </div>
                     </div>
