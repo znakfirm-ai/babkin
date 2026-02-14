@@ -24,7 +24,6 @@ function formatPercent(value: number): string {
 
 function HomeScreen() {
   const donutSize = 120
-  const strokeWidth = 8
   const labelWidth = 140
   const labelSlots = [
     { xPercent: 50, yPercent: 23, align: "center" as const },
