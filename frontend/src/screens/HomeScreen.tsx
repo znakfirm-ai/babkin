@@ -23,13 +23,15 @@ function formatPercent(value: number): string {
 }
 
 function HomeScreen() {
-  const donutBox = 140
+  const donutSize = 156
   const svgRadius = 30
-  const donutOuterRadius = svgRadius * (donutBox / 100)
-  const labelRadius = donutOuterRadius + 28
-  const minLabelY = -(donutBox / 2) + 34
-  const maxLabelY = donutBox / 2 - 18
+  const strokeWidth = 8
+  const outerRadius = (svgRadius + strokeWidth / 2) * (donutSize / 100)
+  const minLabelRadius = outerRadius + 30
   const minLabelGap = 34
+  const labelWidth = 140
+  const minTop = 34
+  const maxTop = donutSize - 16
 
   const stories = useMemo<Story[]>(
     () => [
@@ -171,9 +173,9 @@ function HomeScreen() {
     expenseSlices.forEach((slice) => {
       const sliceAngle = (slice.percent / 100) * Math.PI * 2
       const midAngle = startAngle + sliceAngle / 2
-      const x = Math.cos(midAngle) * labelRadius
-      const y = Math.sin(midAngle) * labelRadius
-      const paddedX = x + (x >= 0 ? 12 : -12)
+      const x = Math.cos(midAngle) * minLabelRadius
+      const y = Math.sin(midAngle) * minLabelRadius
+      const paddedX = x + (x >= 0 ? 8 : -8)
       labels.push({
         ...slice,
         x: paddedX,
@@ -191,7 +193,14 @@ function HomeScreen() {
       sideLabels.forEach((label) => {
         let y = label.y
         if (y - prevY < minLabelGap) y = prevY + minLabelGap
-        y = Math.min(maxLabelY, Math.max(minLabelY, y))
+        const topCoord = donutSize / 2 + y
+        const clampedTop = Math.min(maxTop, Math.max(minTop, topCoord))
+        y = clampedTop - donutSize / 2
+        const dist = Math.hypot(label.x, y)
+        if (dist < minLabelRadius) {
+          const factor = minLabelRadius / (dist || 1)
+          y *= factor
+        }
         label.y = y
         prevY = y
       })
@@ -201,7 +210,7 @@ function HomeScreen() {
     adjustSide("right")
 
     return labels
-  }, [expenseSlices, labelRadius, maxLabelY, minLabelGap, minLabelY])
+  }, [expenseSlices, maxTop, minLabelGap, minLabelRadius, minTop])
 
   const periodButton = (
     <button
@@ -303,8 +312,8 @@ function HomeScreen() {
                   left: "50%",
                   top: "50%",
                   transform: "translate(-50%, -50%)",
-                  width: 140,
-                  height: 140,
+                  width: donutSize,
+                  height: donutSize,
                 }}
               >
                 <svg
@@ -333,8 +342,8 @@ function HomeScreen() {
                   left: "50%",
                   top: "50%",
                   transform: "translate(-50%, -50%)",
-                  width: donutBox + 40,
-                  height: donutBox + 40,
+                  width: donutSize,
+                  height: donutSize,
                   pointerEvents: "none",
                 }}
               >
@@ -343,13 +352,15 @@ function HomeScreen() {
                     key={label.id}
                     style={{
                       position: "absolute",
-                      left: (donutBox + 40) / 2 + label.x,
-                      top: (donutBox + 40) / 2 + label.y,
-                      transform: "translate(-50%, -50%)",
+                      left: donutSize / 2 + label.x,
+                      top: donutSize / 2 + label.y,
+                      transform:
+                        label.align === "left" ? "translate(8px, -50%)" : "translate(calc(-100% - 8px), -50%)",
                       textAlign: label.align === "left" ? "left" : "right",
                       display: "grid",
                       gap: 2,
                       whiteSpace: "nowrap",
+                      width: labelWidth,
                     }}
                   >
                     <div style={{ fontSize: 12, color: "#6b7280" }}>{label.name}</div>
