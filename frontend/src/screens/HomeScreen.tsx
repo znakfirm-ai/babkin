@@ -150,7 +150,7 @@ function HomeScreen() {
             placeItems: "center",
           }}
         >
-          <AppIcon name="user" size={20} />
+          <AppIcon name="more" size={20} />
         </div>
         <div
           style={{
