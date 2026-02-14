@@ -209,8 +209,8 @@ function HomeScreen() {
       { left: topLabelMetrics.x, right: undefined, top: 32, align: "center", width: topLabelMetrics.width, fontSize: topLabelMetrics.fontSize },
       { left: 50, right: undefined, top: centerY - 15, align: "left", width: labelWidth, fontSize: 11 },
       { left: 50, right: undefined, top: centerY + 15, align: "left", width: labelWidth, fontSize: 11 },
-      { left: undefined, right: 150, top: centerY - 15, align: "right", width: labelWidth, fontSize: 11 },
-      { left: undefined, right: 150, top: centerY + 15, align: "right", width: labelWidth, fontSize: 11 },
+      { left: undefined, right: 50, top: centerY - 15, align: "right", width: labelWidth, fontSize: 11 },
+      { left: undefined, right: 50, top: centerY + 15, align: "right", width: labelWidth, fontSize: 11 },
     ]
   }, [bannerSize.height, topLabelMetrics.fontSize, topLabelMetrics.width, topLabelMetrics.x])
 
