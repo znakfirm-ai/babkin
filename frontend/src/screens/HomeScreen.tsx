@@ -26,8 +26,8 @@ function HomeScreen() {
   const donutSize = 156
   const svgRadius = 30
   const strokeWidth = 8
-  const outerRadius = (svgRadius + strokeWidth / 2) * (donutSize / 100)
-  const minLabelRadius = outerRadius + 30
+  const outerRadius = donutSize / 2 - strokeWidth / 2
+  const labelRadius = outerRadius + 6
   const minLabelGap = 34
   const labelWidth = 140
   const minTop = 34
@@ -173,12 +173,11 @@ function HomeScreen() {
     expenseSlices.forEach((slice) => {
       const sliceAngle = (slice.percent / 100) * Math.PI * 2
       const midAngle = startAngle + sliceAngle / 2
-      const x = Math.cos(midAngle) * minLabelRadius
-      const y = Math.sin(midAngle) * minLabelRadius
-      const paddedX = x + (x >= 0 ? 8 : -8)
+      const x = Math.cos(midAngle) * labelRadius
+      const y = Math.sin(midAngle) * labelRadius
       labels.push({
         ...slice,
-        x: paddedX,
+        x,
         y,
         align: x >= 0 ? "left" : "right",
       })
@@ -197,11 +196,10 @@ function HomeScreen() {
         const clampedTop = Math.min(maxTop, Math.max(minTop, topCoord))
         y = clampedTop - donutSize / 2
         const dist = Math.hypot(label.x, y)
-        if (dist < minLabelRadius) {
-          const factor = minLabelRadius / (dist || 1)
-          y *= factor
-        }
-        label.y = y
+        const norm = dist === 0 ? 1 : dist
+        const scale = labelRadius / norm
+        label.x *= scale
+        label.y = y * scale
         prevY = y
       })
     }
@@ -210,7 +208,7 @@ function HomeScreen() {
     adjustSide("right")
 
     return labels
-  }, [expenseSlices, maxTop, minLabelGap, minLabelRadius, minTop])
+  }, [expenseSlices, labelRadius, maxTop, minLabelGap, minTop])
 
   const periodButton = (
     <button
