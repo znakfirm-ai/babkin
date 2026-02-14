@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 
@@ -27,12 +27,26 @@ function HomeScreen() {
   const strokeWidth = 8
   const outerRadius = donutSize / 2 - strokeWidth / 2
   const gapToDonut = 1
-  const labelRadius = outerRadius + gapToDonut
   const minLabelGap = 34
   const labelWidth = 140
   const labelHeight = 33
-  const minTop = 34
-  const maxTop = donutSize - 16
+
+  const bannerRef = useRef<HTMLDivElement | null>(null)
+  const [bannerSize, setBannerSize] = useState({ width: 320, height: 180 })
+
+  useLayoutEffect(() => {
+    const el = bannerRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const obs = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        const { width, height } = entry.contentRect
+        setBannerSize({ width, height })
+      }
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
 
   const stories = useMemo<Story[]>(
     () => [
