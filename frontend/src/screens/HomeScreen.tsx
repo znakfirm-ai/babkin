@@ -165,6 +165,16 @@ function HomeScreen() {
         </div>
       </div>
 
+      <button
+        style={{ margin: 20, padding: 10 }}
+        onClick={() => {
+          const data = (window as typeof window & { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData
+          alert(data || "no initData")
+        }}
+      >
+        Показать initData
+      </button>
+
       <section className="home-section">
         <div className="home-stories" style={{ marginTop: 0 }}>
           {stories.map((story, idx) => (
