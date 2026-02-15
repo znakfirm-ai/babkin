@@ -225,7 +225,7 @@ function OverviewScreen() {
       await createAccount(token, {
         name: name.trim(),
         type: type || "cash",
-        currency: normalizeCurrency(currency),
+        currency: baseCurrency,
         balance: balanceNumber,
       });
       const res = await getAccounts(token);
@@ -394,20 +394,6 @@ function OverviewScreen() {
                   <option value="cash">Наличные</option>
                   <option value="card">Карта</option>
                   <option value="bank">Банк</option>
-                </select>
-              </label>
-              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                Валюта
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code} — {c.label}
-                    </option>
-                  ))}
                 </select>
               </label>
               <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
