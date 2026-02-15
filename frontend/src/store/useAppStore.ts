@@ -1,6 +1,7 @@
 import { useState } from "react"
 import type { Account, Category, IncomeSource, Transaction } from "../types/finance"
 import { loadFromStorage, saveToStorage } from "../utils/storage"
+import { normalizeCurrency } from "../utils/formatMoney"
 
 function uid() {
   return Math.random().toString(36).slice(2, 10)
@@ -11,6 +12,7 @@ type AppState = {
   categories: Category[]
   incomeSources: IncomeSource[]
   transactions: Transaction[]
+  currency: string
 }
 
 const defaultState: AppState = {
@@ -23,6 +25,7 @@ const defaultState: AppState = {
     { id: "src_business", name: "Бизнес" },
   ],
   transactions: [],
+  currency: "RUB",
 }
 
 const createDefaultState = (): AppState => ({
@@ -30,6 +33,7 @@ const createDefaultState = (): AppState => ({
   categories: defaultState.categories.map((c) => ({ ...c })),
   incomeSources: defaultState.incomeSources.map((s) => ({ ...s })),
   transactions: [],
+  currency: defaultState.currency,
 })
 
 let state: AppState = loadFromStorage(createDefaultState())
@@ -97,13 +101,21 @@ export function useAppStore() {
     forceUpdate((x) => x + 1)
   }
 
+  function setCurrency(currency: string) {
+    state.currency = normalizeCurrency(currency)
+    saveToStorage(state)
+    forceUpdate((x) => x + 1)
+  }
+
   return {
     accounts: state.accounts,
     categories: state.categories,
     incomeSources: state.incomeSources,
     transactions: state.transactions,
+    currency: state.currency,
     addTransaction,
     removeTransaction,
     setAccounts,
+    setCurrency,
   }
 }

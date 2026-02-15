@@ -3,6 +3,7 @@ import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 import { createAccount, getAccounts } from "../api/accounts"
 import { useAppStore } from "../store/useAppStore"
+import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
 type Story = { id: string; title: string; image: string }
 type Period = "today" | "week" | "month" | "custom"
@@ -20,7 +21,7 @@ type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 
 function HomeScreen() {
-  const { setAccounts } = useAppStore()
+  const { setAccounts, currency } = useAppStore()
   const [authStatus, setAuthStatus] = useState<string>("")
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -29,7 +30,7 @@ function HomeScreen() {
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
   const [accountName, setAccountName] = useState("")
   const [accountType, setAccountType] = useState("cash")
-  const [accountCurrency, setAccountCurrency] = useState("RUB")
+  const [accountCurrency, setAccountCurrency] = useState(currency)
   const [accountBalance, setAccountBalance] = useState("0")
   const stories = useMemo<Story[]>(
     () => [
@@ -129,7 +130,7 @@ function HomeScreen() {
         const mapped = data.accounts.map((a) => ({
           id: a.id,
           name: a.name,
-          balance: { amount: a.balance, currency: "RUB" as const },
+          balance: { amount: a.balance, currency: a.currency },
         }))
         setAccounts(mapped)
       } catch {
@@ -701,13 +702,19 @@ function HomeScreen() {
                   <option value="bank">Банк</option>
                 </select>
               </label>
-              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+             <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
                 Валюта
-                <input
+                <select
                   value={accountCurrency}
                   onChange={(e) => setAccountCurrency(e.target.value)}
                   style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
-                />
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} — {c.label}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
                 Баланс
@@ -730,25 +737,25 @@ function HomeScreen() {
                     alert("Введите название")
                     return
                   }
-                  const parsed = Number(accountBalance.trim().replace(",", "."))
-                  if (!Number.isFinite(parsed)) {
-                    alert("Некорректная сумма")
-                    return
-                  }
-                  const balanceNumber = Math.round(parsed * 100) / 100
-                  try {
-                    await createAccount(token, {
-                      name: accountName.trim(),
-                      type: accountType || "cash",
-                      currency: accountCurrency || "RUB",
-                      balance: balanceNumber,
-                    })
-                    const accounts = await getAccounts(token)
-                    const mapped = accounts.accounts.map((a) => ({
-                      id: a.id,
-                      name: a.name,
-                      balance: { amount: a.balance, currency: "RUB" as const },
-                    }))
+                 const parsed = Number(accountBalance.trim().replace(",", "."))
+                 if (!Number.isFinite(parsed)) {
+                   alert("Некорректная сумма")
+                   return
+                 }
+                 const balanceNumber = Math.round(parsed * 100) / 100
+                 try {
+                   await createAccount(token, {
+                     name: accountName.trim(),
+                     type: accountType || "cash",
+                     currency: normalizeCurrency(accountCurrency),
+                     balance: balanceNumber,
+                   })
+                   const accounts = await getAccounts(token)
+                   const mapped = accounts.accounts.map((a) => ({
+                     id: a.id,
+                     name: a.name,
+                     balance: { amount: a.balance, currency: a.currency },
+                   }))
                     setAccounts(mapped)
                     setIsAccountSheetOpen(false)
                     setAccountName("")

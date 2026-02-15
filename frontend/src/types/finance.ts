@@ -1,6 +1,6 @@
 export type Money = {
-  amount: number // в минимальных единицах (копейки)
-  currency: "RUB"
+  amount: number // в рублях
+  currency: string
 }
 
 export type Account = {

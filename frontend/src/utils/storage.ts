@@ -1,4 +1,5 @@
 import type { Account, Category, IncomeSource, Transaction } from "../types/finance"
+import { normalizeCurrency } from "./formatMoney"
 
 const STORAGE_KEY = "finance_app_v1"
 
@@ -7,13 +8,14 @@ type AppState = {
   categories: Category[]
   incomeSources: IncomeSource[]
   transactions: Transaction[]
+  currency: string
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
 const isMoney = (value: unknown): value is Account["balance"] =>
-  isRecord(value) && typeof value.amount === "number" && value.currency === "RUB"
+  isRecord(value) && typeof value.amount === "number" && typeof value.currency === "string"
 
 const isAccount = (value: unknown): value is Account =>
   isRecord(value) &&
@@ -60,7 +62,8 @@ const isAppState = (value: unknown): value is AppState => {
     !Array.isArray(value.accounts) ||
     !Array.isArray(value.categories) ||
     !Array.isArray(value.transactions) ||
-    !Array.isArray(value.incomeSources)
+    !Array.isArray(value.incomeSources) ||
+    typeof value.currency !== "string"
   )
     return false
 
@@ -77,6 +80,7 @@ const cloneState = (state: AppState): AppState => ({
   categories: state.categories.map((c) => ({ ...c })),
   incomeSources: state.incomeSources.map((s) => ({ ...s })),
   transactions: state.transactions.map((t) => ({ ...t, amount: { ...t.amount } })),
+  currency: state.currency,
 })
 
 const getStorage = (): Storage | null => {
@@ -101,7 +105,10 @@ export function loadFromStorage(defaultState: AppState): AppState {
 
   try {
     const parsed = JSON.parse(raw) as unknown
-    if (isAppState(parsed)) return cloneState(parsed)
+    if (isAppState(parsed)) {
+      const normalized = { ...parsed, currency: normalizeCurrency(parsed.currency) }
+      return cloneState(normalized)
+    }
 
     clearBrokenKey(storage)
     console.warn("Persisted data invalid, reset to defaults")

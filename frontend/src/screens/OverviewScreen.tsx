@@ -4,6 +4,7 @@ import type { Transaction } from "../types/finance";
 import "./OverviewScreen.css";
 import { AppIcon, type IconName } from "../components/AppIcon";
 import { createAccount, getAccounts } from "../api/accounts";
+import { CURRENCIES, formatMoney, normalizeCurrency } from "../utils/formatMoney";
 
 type TileType = "account" | "category";
 type TileSize = "sm" | "md" | "lg";
@@ -20,15 +21,6 @@ type CardItem = {
 };
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"];
-
-const formatMoney = (value: number) => {
-  const hasFraction = Math.round(value * 100) % 100 !== 0
-  const formatter = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: hasFraction ? 2 : 0,
-    maximumFractionDigits: hasFraction ? 2 : 0,
-  })
-  return formatter.format(value).replace(/,/g, " ") + " ₽"
-};
 
 const getCurrentMonthTag = () => {
   const now = new Date();
@@ -83,7 +75,7 @@ const Section: React.FC<{
               <AppIcon name={item.icon as IconName} size={16} />
             </div>
             <div className="tile-card__title">{item.title}</div>
-            {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount)}</div>}
+            {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount, currency)}</div>}
           </div>
         ))}
       </div>
@@ -92,11 +84,10 @@ const Section: React.FC<{
 };
 
 function OverviewScreen() {
-  const { accounts, categories, incomeSources, transactions, setAccounts } = useAppStore();
+  const { accounts, categories, incomeSources, transactions, setAccounts, currency, setCurrency } = useAppStore();
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState("cash");
-  const [currency, setCurrency] = useState("RUB");
   const [balance, setBalance] = useState("0");
   const currentMonthTag = getCurrentMonthTag();
 
@@ -239,14 +230,14 @@ function OverviewScreen() {
       await createAccount(token, {
         name: name.trim(),
         type: type || "cash",
-        currency: currency || "RUB",
+        currency: normalizeCurrency(currency),
         balance: balanceNumber,
       });
       const res = await getAccounts(token);
       const mapped = res.accounts.map((a) => ({
         id: a.id,
         name: a.name,
-        balance: { amount: a.balance, currency: "RUB" as const },
+        balance: { amount: a.balance, currency: a.currency },
       }));
       setAccounts(mapped);
       setIsAccountSheetOpen(false);
@@ -305,15 +296,15 @@ function OverviewScreen() {
         <div className="summary__pill">
           <div className="summary__col">
             <div className="summary__label">РАСХОДЫ</div>
-            <div className="summary__value summary__value--negative">{formatMoney(expenseSum)}</div>
+            <div className="summary__value summary__value--negative">{formatMoney(expenseSum, currency)}</div>
           </div>
           <div className="summary__col">
             <div className="summary__label">БАЛАНС</div>
-            <div className="summary__value">{formatMoney(summaryBalance)}</div>
+            <div className="summary__value">{formatMoney(summaryBalance, currency)}</div>
           </div>
           <div className="summary__col">
             <div className="summary__label">ДОХОДЫ</div>
-            <div className="summary__value summary__value--positive">{formatMoney(incomeSum)}</div>
+            <div className="summary__value summary__value--positive">{formatMoney(incomeSum, currency)}</div>
           </div>
         </div>
       </section>
@@ -393,11 +384,17 @@ function OverviewScreen() {
               </label>
               <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
                 Валюта
-                <input
+                <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
                   style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
-                />
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} — {c.label}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
                 Баланс
