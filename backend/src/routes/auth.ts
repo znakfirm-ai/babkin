@@ -7,9 +7,22 @@ import { validateInitData, TELEGRAM_INITDATA_HEADER } from "../middleware/telegr
 export async function authRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   fastify.post("/auth/telegram", async (request, reply) => {
     const initDataRaw = request.headers[TELEGRAM_INITDATA_HEADER] as string | undefined
+    const hasInitData = Boolean(initDataRaw && initDataRaw.length > 0)
+    const authDate = (() => {
+      const params = initDataRaw ? new URLSearchParams(initDataRaw) : null
+      const ad = params?.get("auth_date")
+      return ad ? Number(ad) : undefined
+    })()
+
+    if (!env.BOT_TOKEN) {
+      fastify.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason: "missing_bot_token" })
+      return reply.status(401).send({ error: "Unauthorized", reason: "missing_bot_token" })
+    }
+
     const auth = await validateInitData(initDataRaw)
     if (!auth) {
-      return reply.status(401).send({ error: "Unauthorized" })
+      fastify.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason: "invalid_initdata" })
+      return reply.status(401).send({ error: "Unauthorized", reason: hasInitData ? "invalid_initdata" : "missing_initdata" })
     }
 
     const user = await prisma.users.findUnique({
@@ -24,7 +37,8 @@ export async function authRoutes(fastify: FastifyInstance, _opts: FastifyPluginO
     })
 
     if (!user) {
-      return reply.status(401).send({ error: "Unauthorized" })
+      fastify.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason: "invalid_initdata" })
+      return reply.status(401).send({ error: "Unauthorized", reason: "invalid_initdata" })
     }
 
     const memberships = await prisma.workspace_members.findMany({

@@ -9,6 +9,7 @@ export async function meRoutes(fastify: FastifyInstance, _opts: FastifyPluginOpt
     const authHeader = request.headers.authorization
     let userId: string | null = null
     let telegramUserId: string | null = null
+    let reason: string | null = null
 
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.slice("Bearer ".length)
@@ -17,16 +18,39 @@ export async function meRoutes(fastify: FastifyInstance, _opts: FastifyPluginOpt
         userId = payload.sub
         telegramUserId = payload.telegramUserId ?? null
       } catch {
-        return reply.status(401).send({ error: "Unauthorized" })
+        reason = "invalid_jwt"
+        return reply.status(401).send({ error: "Unauthorized", reason })
       }
     }
 
     if (!userId) {
       const initDataRaw = request.headers[TELEGRAM_INITDATA_HEADER] as string | undefined
+      const hasInitData = Boolean(initDataRaw && initDataRaw.length > 0)
+      const authDate = (() => {
+        const params = initDataRaw ? new URLSearchParams(initDataRaw) : null
+        const ad = params?.get("auth_date")
+        return ad ? Number(ad) : undefined
+      })()
+
+      if (!env.BOT_TOKEN) {
+        reason = "missing_bot_token"
+        request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason })
+        return reply.status(401).send({ error: "Unauthorized", reason })
+      }
+
       const auth = await validateInitData(initDataRaw)
       if (!auth) {
-        return reply.status(401).send({ error: "Unauthorized" })
+        reason = hasInitData ? "invalid_initdata" : "missing_initdata"
+        request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason })
+        return reply.status(401).send({ error: "Unauthorized", reason })
       }
+      request.log.info({
+        hasInitData,
+        initDataLength: initDataRaw?.length ?? 0,
+        authDate,
+        userId: auth.telegramUserId,
+        reason: "ok",
+      })
       userId = auth.userId
       telegramUserId = auth.telegramUserId
     }
@@ -43,7 +67,7 @@ export async function meRoutes(fastify: FastifyInstance, _opts: FastifyPluginOpt
     })
 
     if (!user) {
-      return reply.status(401).send({ error: "Unauthorized" })
+      return reply.status(401).send({ error: "Unauthorized", reason: reason ?? "invalid_initdata" })
     }
 
     const memberships = await prisma.workspace_members.findMany({

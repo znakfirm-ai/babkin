@@ -38,12 +38,19 @@ function computeSignature(params: URLSearchParams): { hash?: string; dataCheckSt
   return { hash, dataCheckString: pairs.join("\n") }
 }
 
+function timingSafeEqualHex(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "hex")
+  const bufB = Buffer.from(b, "hex")
+  if (bufA.length !== bufB.length) return false
+  return crypto.timingSafeEqual(bufA, bufB)
+}
+
 function isSignatureValid(params: URLSearchParams, botToken: string): boolean {
   const { hash, dataCheckString } = computeSignature(params)
   if (!hash) return false
-  const secretKey = crypto.createHash("sha256").update(botToken).digest()
+  const secretKey = crypto.createHmac("sha256", "WebAppData").update(botToken).digest()
   const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex")
-  return hmac === hash
+  return timingSafeEqualHex(hmac, hash)
 }
 
 async function ensureUserAndWorkspace(tgUser: InitDataUser): Promise<AuthPayload> {
