@@ -14,9 +14,14 @@ fastify.register(healthRoutes)
 fastify.register(authRoutes, { prefix: "/api/v1" })
 fastify.register(meRoutes, { prefix: "/api/v1" })
 
-const port = env.PORT
+const port = Number(process.env.PORT) || env.PORT
 
-fastify.listen({ port, host: "0.0.0.0" }).catch((err) => {
-  fastify.log.error(err)
-  process.exit(1)
-})
+fastify
+  .listen({ port, host: "0.0.0.0" })
+  .then(() => {
+    fastify.log.info(`listening on http://0.0.0.0:${port}`)
+  })
+  .catch((err) => {
+    fastify.log.error(err)
+    process.exit(1)
+  })
