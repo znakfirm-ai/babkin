@@ -22,6 +22,7 @@ function HomeScreen() {
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
+  const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false)
   const stories = useMemo<Story[]>(
     () => [
       { id: "story-1", title: "Инвест книга", image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg" },
@@ -97,17 +98,19 @@ function HomeScreen() {
   )
 
   const [period] = useState<Period>("today")
+
   const fetchWorkspaces = useCallback(async (token: string) => {
     try {
       const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) return
+      if (!res.ok) return null
       const data: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await res.json()
       setActiveWorkspace(data.activeWorkspace)
       setWorkspaces(data.workspaces ?? [])
+      return data
     } catch {
-      // silent
+      return null
     }
   }, [])
 
@@ -128,8 +131,34 @@ function HomeScreen() {
       const data: { activeWorkspaceId: string; activeWorkspace: Workspace } = await res.json()
       setActiveWorkspace(data.activeWorkspace)
       setIsWorkspaceSheetOpen(false)
+      setIsFamilySheetOpen(false)
     },
     []
+  )
+
+  const createFamilyWorkspace = useCallback(
+    async (token: string) => {
+      const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ type: "family", name: null }),
+      })
+      if (!res.ok) {
+        alert(`Не удалось создать совместный доступ: ${res.status}`)
+        return
+      }
+      const refreshed = await fetchWorkspaces(token)
+      const family = refreshed?.workspaces.find((w) => w.type === "family") ?? null
+      if (family) {
+        await setActiveWorkspaceRemote(family.id, token)
+      } else {
+        setIsFamilySheetOpen(false)
+      }
+    },
+    [fetchWorkspaces, setActiveWorkspaceRemote]
   )
 
   useEffect(() => {
@@ -137,7 +166,7 @@ function HomeScreen() {
     const existing = localStorage.getItem("auth_access_token")
     if (existing) {
       setAuthStatus("Авторизовано")
-      fetchWorkspaces(existing)
+      void fetchWorkspaces(existing)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -166,7 +195,7 @@ function HomeScreen() {
         }
         localStorage.setItem("auth_access_token", data.accessToken)
         setAuthStatus("Авторизовано")
-        fetchWorkspaces(data.accessToken)
+        void fetchWorkspaces(data.accessToken)
       } catch {
         setAuthStatus("Auth error")
       }
@@ -209,6 +238,9 @@ function HomeScreen() {
     </button>
   )
 
+  const personalWorkspace = workspaces.find((w) => w.type === "personal") ?? null
+  const familyWorkspace = workspaces.find((w) => w.type === "family") ?? null
+
   return (
     <div className="home-screen">
       <div
@@ -246,9 +278,8 @@ function HomeScreen() {
         {activeWorkspace ? (
           <button
             type="button"
-            disabled={workspaces.length <= 1}
             onClick={() => {
-              if (workspaces.length > 1) setIsWorkspaceSheetOpen(true)
+              if (workspaces.length > 0) setIsWorkspaceSheetOpen(true)
             }}
             style={{
               display: "grid",
@@ -259,12 +290,11 @@ function HomeScreen() {
               border: "none",
               background: "transparent",
               padding: 0,
-              cursor: workspaces.length > 1 ? "pointer" : "default",
+              cursor: workspaces.length > 0 ? "pointer" : "default",
             }}
           >
             <span>
-              {activeWorkspace.name ??
-                (activeWorkspace.type === "personal" ? "Личный" : "Семейный")}
+              {activeWorkspace.name ?? (activeWorkspace.type === "personal" ? "Личный" : "Семейный")}
             </span>
             <span style={{ fontSize: 11 }}>{activeWorkspace.type}</span>
           </button>
@@ -393,6 +423,7 @@ function HomeScreen() {
           </button>
         </div>
       ) : null}
+
       {isWorkspaceSheetOpen ? (
         <div
           role="dialog"
@@ -427,45 +458,154 @@ function HomeScreen() {
               Пространство
             </div>
             <div style={{ display: "grid", gap: 8 }}>
-              {workspaces.map((ws) => {
-                const isActive = activeWorkspace?.id === ws.id
-                const title = ws.name ?? (ws.type === "personal" ? "Личный" : "Семейный")
-                return (
-                  <button
-                    key={ws.id}
-                    type="button"
-                    onClick={() => {
-                      if (isActive) {
-                        setIsWorkspaceSheetOpen(false)
-                        return
-                      }
-                      const token = localStorage.getItem("auth_access_token")
-                      if (!token) {
-                        alert("Нет токена")
-                        return
-                      }
-                      void setActiveWorkspaceRemote(ws.id, token)
-                    }}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "12px 14px",
-                      borderRadius: 12,
-                      border: isActive ? "1px solid rgba(59,130,246,0.4)" : "1px solid rgba(15,23,42,0.08)",
-                      background: isActive ? "rgba(59,130,246,0.06)" : "#fff",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{title}</div>
-                      <div style={{ fontSize: 12, color: "#6b7280" }}>{ws.type}</div>
-                    </div>
-                    {isActive ? <AppIcon name="more" size={16} /> : null}
-                  </button>
-                )
-              })}
+              <button
+                type="button"
+                onClick={() => {
+                  const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                  if (!token) {
+                    alert("Нет токена")
+                    return
+                  }
+                  if (personalWorkspace) {
+                    void setActiveWorkspaceRemote(personalWorkspace.id, token)
+                  } else {
+                    setIsWorkspaceSheetOpen(false)
+                  }
+                }}
+                disabled={!personalWorkspace}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border:
+                    personalWorkspace && activeWorkspace?.id === personalWorkspace.id
+                      ? "1px solid rgba(59,130,246,0.4)"
+                      : "1px solid rgba(15,23,42,0.08)",
+                  background:
+                    personalWorkspace && activeWorkspace?.id === personalWorkspace.id
+                      ? "rgba(59,130,246,0.06)"
+                      : "#fff",
+                  color: personalWorkspace ? "#0f172a" : "#9ca3af",
+                  cursor: personalWorkspace ? "pointer" : "not-allowed",
+                }}
+              >
+                <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Личный аккаунт</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>personal</div>
+                </div>
+                {personalWorkspace && activeWorkspace?.id === personalWorkspace.id ? (
+                  <AppIcon name="more" size={16} />
+                ) : null}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                  if (!token) {
+                    alert("Нет токена")
+                    return
+                  }
+                  if (familyWorkspace) {
+                    void setActiveWorkspaceRemote(familyWorkspace.id, token)
+                    return
+                  }
+                  setIsWorkspaceSheetOpen(false)
+                  setIsFamilySheetOpen(true)
+                }}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border:
+                    familyWorkspace && activeWorkspace?.id === familyWorkspace.id
+                      ? "1px solid rgba(59,130,246,0.4)"
+                      : "1px solid rgba(15,23,42,0.08)",
+                  background:
+                    familyWorkspace && activeWorkspace?.id === familyWorkspace.id
+                      ? "rgba(59,130,246,0.06)"
+                      : "#fff",
+                  color: "#0f172a",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Совместный доступ</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>family</div>
+                </div>
+                {familyWorkspace && activeWorkspace?.id === familyWorkspace.id ? (
+                  <AppIcon name="more" size={16} />
+                ) : null}
+              </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isFamilySheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 31,
+          }}
+          onClick={() => setIsFamilySheetOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: "16px 16px 20px",
+              boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 10 }}>
+              Совместный доступ
+            </div>
+            <div style={{ fontSize: 14, color: "#4b5563", textAlign: "center", marginBottom: 16 }}>
+              Настройте совместный доступ, чтобы вести общий бюджет.
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const token = localStorage.getItem("auth_access_token")
+                if (!token) {
+                  alert("Нет токена")
+                  return
+                }
+                void createFamilyWorkspace(token)
+              }}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "none",
+                background: "#2563eb",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Создать совместный доступ
+            </button>
           </div>
         </div>
       ) : null}
