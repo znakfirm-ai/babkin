@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
+import { getAccounts } from "../api/accounts"
+import { useAppStore } from "../store/useAppStore"
 
 type Story = { id: string; title: string; image: string }
 type Period = "today" | "week" | "month" | "custom"
@@ -18,6 +20,7 @@ type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 
 function HomeScreen() {
+  const { setAccounts } = useAppStore()
   const [authStatus, setAuthStatus] = useState<string>("")
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -114,6 +117,23 @@ function HomeScreen() {
     }
   }, [])
 
+  const fetchAccounts = useCallback(
+    async (token: string) => {
+      try {
+        const data = await getAccounts(token)
+        const mapped = data.accounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: { amount: a.balance, currency: "RUB" as const },
+        }))
+        setAccounts(mapped)
+      } catch {
+        alert("Не удалось загрузить счета")
+      }
+    },
+    [setAccounts]
+  )
+
   const setActiveWorkspaceRemote = useCallback(
     async (workspaceId: string, token: string) => {
       const res = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
@@ -132,8 +152,9 @@ function HomeScreen() {
       setActiveWorkspace(data.activeWorkspace)
       setIsWorkspaceSheetOpen(false)
       setIsFamilySheetOpen(false)
+      await fetchAccounts(token)
     },
-    []
+    [fetchAccounts]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -167,6 +188,7 @@ function HomeScreen() {
     if (existing) {
       setAuthStatus("Авторизовано")
       void fetchWorkspaces(existing)
+      void fetchAccounts(existing)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -196,11 +218,12 @@ function HomeScreen() {
         localStorage.setItem("auth_access_token", data.accessToken)
         setAuthStatus("Авторизовано")
         void fetchWorkspaces(data.accessToken)
+        void fetchAccounts(data.accessToken)
       } catch {
         setAuthStatus("Auth error")
       }
     })()
-  }, [fetchWorkspaces])
+  }, [fetchAccounts, fetchWorkspaces])
 
   const quickActions = useMemo(
     () => [

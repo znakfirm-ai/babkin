@@ -97,6 +97,12 @@ export function useAppStore() {
     forceUpdate((x) => x + 1)
   }
 
+  function setAccounts(accounts: Account[]) {
+    state.accounts = accounts.map((a) => ({ ...a, balance: { ...a.balance } }))
+    saveToStorage(state)
+    forceUpdate((x) => x + 1)
+  }
+
   return {
     accounts: state.accounts,
     categories: state.categories,
@@ -104,5 +110,6 @@ export function useAppStore() {
     transactions: state.transactions,
     addTransaction,
     removeTransaction,
+    setAccounts,
   }
 }
