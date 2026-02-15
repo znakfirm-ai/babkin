@@ -1,4 +1,4 @@
-import { createHmac, createHash } from "crypto"
+import crypto from "crypto"
 import { FastifyRequest, FastifyReply } from "fastify"
 import { prisma } from "../db/prisma"
 import { env } from "../env"
@@ -41,8 +41,8 @@ function computeSignature(params: URLSearchParams): { hash?: string; dataCheckSt
 function isSignatureValid(params: URLSearchParams, botToken: string): boolean {
   const { hash, dataCheckString } = computeSignature(params)
   if (!hash) return false
-  const secretKey = createHash("sha256").update(botToken).digest()
-  const hmac = createHmac("sha256", secretKey).update(dataCheckString).digest("hex")
+  const secretKey = crypto.createHash("sha256").update(botToken).digest()
+  const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex")
   return hmac === hash
 }
 

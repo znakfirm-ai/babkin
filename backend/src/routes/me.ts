@@ -6,10 +6,10 @@ export async function meRoutes(fastify: FastifyInstance, _opts: FastifyPluginOpt
   fastify.get(
     "/me",
     { preHandler: telegramAuth },
-    async (request) => {
+    async (request, reply) => {
       const auth = request.auth
       if (!auth) {
-        return request.reply.status(401).send({ error: "Unauthorized" })
+        return reply.status(401).send({ error: "Unauthorized" })
       }
 
       const user = await prisma.users.findUnique({
@@ -24,7 +24,7 @@ export async function meRoutes(fastify: FastifyInstance, _opts: FastifyPluginOpt
       })
 
       if (!user) {
-        return request.reply.status(401).send({ error: "Unauthorized" })
+        return reply.status(401).send({ error: "Unauthorized" })
       }
 
       const memberships = await prisma.workspace_members.findMany({
@@ -41,7 +41,7 @@ export async function meRoutes(fastify: FastifyInstance, _opts: FastifyPluginOpt
         role: m.role,
       }))
 
-      return {
+      return reply.send({
         user: {
           telegramUserId: user.telegram_user_id,
           firstName: user.first_name ?? undefined,
@@ -49,7 +49,7 @@ export async function meRoutes(fastify: FastifyInstance, _opts: FastifyPluginOpt
         },
         activeWorkspaceId: user.active_workspace_id,
         workspaces,
-      }
+      })
     }
   )
 }
