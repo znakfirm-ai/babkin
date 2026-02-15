@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
-import { getAccounts } from "../api/accounts"
+import { createAccount, getAccounts } from "../api/accounts"
 import { useAppStore } from "../store/useAppStore"
 
 type Story = { id: string; title: string; image: string }
@@ -26,6 +26,11 @@ function HomeScreen() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
   const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false)
+  const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
+  const [accountName, setAccountName] = useState("")
+  const [accountType, setAccountType] = useState("cash")
+  const [accountCurrency, setAccountCurrency] = useState("RUB")
+  const [accountBalance, setAccountBalance] = useState("0")
   const stories = useMemo<Story[]>(
     () => [
       { id: "story-1", title: "Инвест книга", image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg" },
@@ -227,7 +232,7 @@ function HomeScreen() {
 
   const quickActions = useMemo(
     () => [
-      { id: "qa-accounts", title: "Все счета", icon: "wallet" as IconName, action: () => console.log("Все счета") },
+      { id: "qa-accounts", title: "Все счета", icon: "wallet" as IconName, action: () => setIsAccountSheetOpen(true) },
       { id: "qa-income", title: "Доход", icon: "arrowUp" as IconName, action: () => clickAddNav() },
       { id: "qa-expense", title: "Расход", icon: "arrowDown" as IconName, action: () => clickAddNav() },
       { id: "qa-more", title: "Другое", icon: "more" as IconName, action: () => console.log("Другое") },
@@ -635,6 +640,133 @@ function HomeScreen() {
             >
               Создать совместный доступ
             </button>
+          </div>
+        </div>
+      ) : null}
+      {isAccountSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 32,
+          }}
+          onClick={() => setIsAccountSheetOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: "16px 16px 20px",
+              boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+              Новый счёт
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                Название
+                <input
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  placeholder="Например, Кошелёк"
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                Тип
+                <select
+                  value={accountType}
+                  onChange={(e) => setAccountType(e.target.value)}
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                >
+                  <option value="cash">Наличные</option>
+                  <option value="card">Карта</option>
+                  <option value="bank">Банк</option>
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                Валюта
+                <input
+                  value={accountCurrency}
+                  onChange={(e) => setAccountCurrency(e.target.value)}
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                Баланс
+                <input
+                  value={accountBalance}
+                  onChange={(e) => setAccountBalance(e.target.value)}
+                  inputMode="decimal"
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={async () => {
+                  const token = localStorage.getItem("auth_access_token")
+                  if (!token) {
+                    alert("Нет токена")
+                    return
+                  }
+                  if (!accountName.trim()) {
+                    alert("Введите название")
+                    return
+                  }
+                  const balanceNumber = Number(accountBalance) || 0
+                  try {
+                    await createAccount(token, {
+                      name: accountName.trim(),
+                      type: accountType || "cash",
+                      currency: accountCurrency || "RUB",
+                      balance: balanceNumber,
+                    })
+                    const accounts = await getAccounts(token)
+                    const mapped = accounts.accounts.map((a) => ({
+                      id: a.id,
+                      name: a.name,
+                      balance: { amount: a.balance, currency: "RUB" as const },
+                    }))
+                    setAccounts(mapped)
+                    setIsAccountSheetOpen(false)
+                    setAccountName("")
+                    setAccountBalance("0")
+                  } catch {
+                    alert("Не удалось создать счёт")
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#2563eb",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Создать
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
