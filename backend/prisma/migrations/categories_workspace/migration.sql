@@ -1,5 +1,10 @@
 -- CreateEnum
-CREATE TYPE "WorkspaceType" AS ENUM ('personal', 'family');
+DO $$
+BEGIN
+  CREATE TYPE "WorkspaceType" AS ENUM ('personal', 'family');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
 CREATE TYPE "WorkspaceRole" AS ENUM ('owner', 'admin', 'member', 'viewer');
@@ -130,4 +135,3 @@ ALTER TABLE "accounts" ADD CONSTRAINT "accounts_workspace_id_fkey" FOREIGN KEY (
 
 -- AddForeignKey
 ALTER TABLE "categories" ADD CONSTRAINT "categories_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
