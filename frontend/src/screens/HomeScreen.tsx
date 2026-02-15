@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 
@@ -17,6 +17,7 @@ const periodLabel: Record<Period, string> = {
 type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
 
 function HomeScreen() {
+  const [authStatus, setAuthStatus] = useState<string>("")
   const stories = useMemo<Story[]>(
     () => [
       { id: "story-1", title: "Инвест книга", image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg" },
@@ -92,6 +93,44 @@ function HomeScreen() {
   )
 
   const [period] = useState<Period>("today")
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const existing = localStorage.getItem("auth_access_token")
+    if (existing) {
+      setAuthStatus("Авторизовано")
+      return
+    }
+    const initData = window.Telegram?.WebApp?.initData ?? ""
+    if (!initData) {
+      setAuthStatus("Нет Telegram initData")
+      return
+    }
+    ;(async () => {
+      try {
+        const res = await fetch("https://babkin.onrender.com/api/v1/auth/telegram", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Telegram-InitData": initData,
+          },
+          body: "{}",
+        })
+        if (!res.ok) {
+          setAuthStatus(`Auth error: ${res.status}`)
+          return
+        }
+        const data: { accessToken?: string } = await res.json()
+        if (!data.accessToken) {
+          setAuthStatus("Auth error")
+          return
+        }
+        localStorage.setItem("auth_access_token", data.accessToken)
+        setAuthStatus("Авторизовано")
+      } catch {
+        setAuthStatus("Auth error")
+      }
+    })()
+  }, [])
 
   const quickActions = useMemo(
     () => [
@@ -164,16 +203,9 @@ function HomeScreen() {
             : "Пользователь"}
         </div>
       </div>
-
-      <button
-        style={{ margin: 20, padding: 10 }}
-        onClick={() => {
-          const data = (window as typeof window & { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData
-          alert(data || "no initData")
-        }}
-      >
-        Показать initData
-      </button>
+      {authStatus ? (
+        <div style={{ margin: "0 16px 12px", fontSize: 12, color: "#6b7280" }}>{authStatus}</div>
+      ) : null}
 
       <section className="home-section">
         <div className="home-stories" style={{ marginTop: 0 }}>
