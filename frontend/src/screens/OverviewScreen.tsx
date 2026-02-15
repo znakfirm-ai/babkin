@@ -18,6 +18,7 @@ type CardItem = {
   isAdd?: boolean;
   type?: TileType;
   size?: TileSize;
+  currency?: string;
 };
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"];
@@ -36,12 +37,14 @@ const Section: React.FC<{
   rowScroll?: boolean
   rowClass?: string
   onAddAccounts?: () => void
+  fallbackCurrency: string
 }> = ({
   title,
   items,
   rowScroll,
   rowClass,
   onAddAccounts,
+  fallbackCurrency,
 }) => {
   const listClass = rowScroll
     ? `overview-section__list overview-section__list--row ${rowClass ?? ""}`.trim()
@@ -75,7 +78,9 @@ const Section: React.FC<{
               <AppIcon name={item.icon as IconName} size={16} />
             </div>
             <div className="tile-card__title">{item.title}</div>
-            {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount, currency)}</div>}
+            {!item.isAdd && (
+              <div className="tile-card__amount">{formatMoney(item.amount, item.currency ?? fallbackCurrency)}</div>
+            )}
           </div>
         ))}
       </div>
@@ -131,6 +136,7 @@ function OverviewScreen() {
     id: account.id,
     title: account.name,
     amount: account.balance.amount,
+    currency: account.balance.currency,
     icon: idx % 2 === 0 ? "wallet" : "card",
     color: cardColors[idx % cardColors.length],
     type: "account" as const,
@@ -281,6 +287,10 @@ function OverviewScreen() {
 
   const summaryBalance = accounts.reduce((sum, acc) => sum + acc.balance.amount, 0);
 
+  const defaultCurrency = normalizeCurrency(
+    currency || accounts[0]?.balance.currency || "RUB",
+  );
+
   return (
     <div className="overview">
       <div className="overview__header">
@@ -296,15 +306,15 @@ function OverviewScreen() {
         <div className="summary__pill">
           <div className="summary__col">
             <div className="summary__label">РАСХОДЫ</div>
-            <div className="summary__value summary__value--negative">{formatMoney(expenseSum, currency)}</div>
+            <div className="summary__value summary__value--negative">{formatMoney(expenseSum, defaultCurrency)}</div>
           </div>
           <div className="summary__col">
             <div className="summary__label">БАЛАНС</div>
-            <div className="summary__value">{formatMoney(summaryBalance, currency)}</div>
+            <div className="summary__value">{formatMoney(summaryBalance, defaultCurrency)}</div>
           </div>
           <div className="summary__col">
             <div className="summary__label">ДОХОДЫ</div>
-            <div className="summary__value summary__value--positive">{formatMoney(incomeSum, currency)}</div>
+            <div className="summary__value summary__value--positive">{formatMoney(incomeSum, defaultCurrency)}</div>
           </div>
         </div>
       </section>
@@ -315,14 +325,31 @@ function OverviewScreen() {
         rowScroll
         rowClass="overview-accounts-row"
         onAddAccounts={() => setIsAccountSheetOpen(true)}
+        fallbackCurrency={defaultCurrency}
       />
 
-      <Section title="Источники дохода" items={[...incomeToRender, addCard("income")]} rowScroll />
+      <Section
+        title="Источники дохода"
+        items={[...incomeToRender, addCard("income")]}
+        rowScroll
+        fallbackCurrency={defaultCurrency}
+      />
 
-      <Section title="Расходы" items={[...expenseToRender, addCard("expense")]} rowScroll rowClass="overview-expenses-row" />
+      <Section
+        title="Расходы"
+        items={[...expenseToRender, addCard("expense")]}
+        rowScroll
+        rowClass="overview-expenses-row"
+        fallbackCurrency={defaultCurrency}
+      />
 
-      <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll />
-      <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} rowScroll />
+      <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll fallbackCurrency={defaultCurrency} />
+      <Section
+        title="Долги / Кредиты"
+        items={[...debtsItems, addCard("debts")]}
+        rowScroll
+        fallbackCurrency={defaultCurrency}
+      />
 
       {isAccountSheetOpen ? (
         <div
