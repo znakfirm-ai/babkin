@@ -46,6 +46,7 @@ model workspaces {
   workspace_members                          workspace_members[]
   workspace_invites                          workspace_invites[] @relation("workspace_invites_workspace_id")
   accounts                                   accounts[]
+  categories                                 categories[]
 
   @@index([created_by_user_id])
 }
@@ -93,4 +94,23 @@ model accounts {
   workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
 
   @@index([workspace_id])
+}
+
+model categories {
+  id           String   @id @default(uuid())
+  workspace_id String
+  name         String
+  kind         CategoryKind
+  icon         String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+}
+
+enum CategoryKind {
+  income
+  expense
 }
