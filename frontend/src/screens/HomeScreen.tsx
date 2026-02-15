@@ -147,8 +147,12 @@ function HomeScreen() {
         const data = await getCategories(token)
         const mapped = data.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon }))
         setCategories(mapped)
-      } catch {
-        alert("Не удалось загрузить категории")
+      } catch (err) {
+        if (err instanceof Error) {
+          alert(err.message)
+        } else {
+          alert("Не удалось загрузить категории")
+        }
       }
     },
     [setCategories]

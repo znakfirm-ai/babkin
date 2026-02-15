@@ -16,7 +16,8 @@ export async function getCategories(token: string): Promise<GetCategoriesRespons
     },
   })
   if (!res.ok) {
-    throw new Error(`Failed to load categories: ${res.status}`)
+    const text = await res.text().catch(() => "")
+    throw new Error(`GET /categories failed: ${res.status} ${res.statusText} ${text}`)
   }
   return res.json()
 }
