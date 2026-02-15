@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 import { createAccount, getAccounts } from "../api/accounts"
+import { getCategories } from "../api/categories"
 import { useAppStore } from "../store/useAppStore"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
@@ -21,7 +22,7 @@ type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 
 function HomeScreen() {
-  const { setAccounts, currency } = useAppStore()
+  const { setAccounts, setCategories, currency } = useAppStore()
   const [authStatus, setAuthStatus] = useState<string>("")
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -140,6 +141,19 @@ function HomeScreen() {
     [setAccounts]
   )
 
+  const fetchCategories = useCallback(
+    async (token: string) => {
+      try {
+        const data = await getCategories(token)
+        const mapped = data.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon }))
+        setCategories(mapped)
+      } catch {
+        alert("Не удалось загрузить категории")
+      }
+    },
+    [setCategories]
+  )
+
   const setActiveWorkspaceRemote = useCallback(
     async (workspaceId: string, token: string) => {
       const res = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
@@ -159,8 +173,9 @@ function HomeScreen() {
       setIsWorkspaceSheetOpen(false)
       setIsFamilySheetOpen(false)
       await fetchAccounts(token)
+      await fetchCategories(token)
     },
-    [fetchAccounts]
+    [fetchAccounts, fetchCategories]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -195,6 +210,7 @@ function HomeScreen() {
       setAuthStatus("Авторизовано")
       void fetchWorkspaces(existing)
       void fetchAccounts(existing)
+      void fetchCategories(existing)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -225,11 +241,12 @@ function HomeScreen() {
         setAuthStatus("Авторизовано")
         void fetchWorkspaces(data.accessToken)
         void fetchAccounts(data.accessToken)
+        void fetchCategories(data.accessToken)
       } catch {
         setAuthStatus("Auth error")
       }
     })()
-  }, [fetchAccounts, fetchWorkspaces])
+  }, [fetchAccounts, fetchCategories, fetchWorkspaces])
 
   const quickActions = useMemo(
     () => [

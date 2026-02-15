@@ -17,9 +17,7 @@ type AppState = {
 
 const defaultState: AppState = {
   accounts: [],
-  categories: [
-    { id: "cat_food", name: "Еда", type: "expense" },
-  ],
+  categories: [],
   incomeSources: [
     { id: "src_salary", name: "Зарплата" },
     { id: "src_business", name: "Бизнес" },
@@ -101,6 +99,12 @@ export function useAppStore() {
     forceUpdate((x) => x + 1)
   }
 
+  function setCategories(categories: Category[]) {
+    state.categories = categories.map((c) => ({ ...c }))
+    saveToStorage(state)
+    forceUpdate((x) => x + 1)
+  }
+
   function setCurrency(currency: string) {
     state.currency = normalizeCurrency(currency)
     saveToStorage(state)
@@ -116,6 +120,7 @@ export function useAppStore() {
     addTransaction,
     removeTransaction,
     setAccounts,
+    setCategories,
     setCurrency,
   }
 }

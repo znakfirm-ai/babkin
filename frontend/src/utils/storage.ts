@@ -27,7 +27,8 @@ const isCategory = (value: unknown): value is Category =>
   isRecord(value) &&
   typeof value.id === "string" &&
   typeof value.name === "string" &&
-  (value.type === "income" || value.type === "expense")
+  (value.type === "income" || value.type === "expense") &&
+  (value.icon === undefined || value.icon === null || typeof value.icon === "string")
 
 const isIncomeSource = (value: unknown): value is IncomeSource =>
   isRecord(value) && typeof value.id === "string" && typeof value.name === "string"

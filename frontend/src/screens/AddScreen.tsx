@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
+import { createCategory } from "../api/categories"
 
 type TxKind = "expense" | "income" | "transfer"
 
