@@ -233,7 +233,12 @@ function OverviewScreen() {
       alert("Введите название");
       return;
     }
-    const balanceNumber = Number(balance) || 0;
+    const parsed = Number(balance.trim().replace(",", "."));
+    if (!Number.isFinite(parsed)) {
+      alert("Некорректная сумма");
+      return;
+    }
+    const balanceNumber = Math.round(parsed * 100) / 100;
     try {
       await createAccount(token, {
         name: name.trim(),
@@ -245,7 +250,7 @@ function OverviewScreen() {
       const mapped = res.accounts.map((a) => ({
         id: a.id,
         name: a.name,
-        balance: { amount: a.balance * 100, currency: "RUB" as const },
+        balance: { amount: a.balance, currency: "RUB" as const },
       }));
       setAccounts(mapped);
       setIsAccountSheetOpen(false);

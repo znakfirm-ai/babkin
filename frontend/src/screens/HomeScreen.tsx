@@ -129,7 +129,7 @@ function HomeScreen() {
         const mapped = data.accounts.map((a) => ({
           id: a.id,
           name: a.name,
-          balance: { amount: a.balance * 100, currency: "RUB" as const },
+          balance: { amount: a.balance, currency: "RUB" as const },
         }))
         setAccounts(mapped)
       } catch {
@@ -730,7 +730,12 @@ function HomeScreen() {
                     alert("Введите название")
                     return
                   }
-                  const balanceNumber = Number(accountBalance) || 0
+                  const parsed = Number(accountBalance.trim().replace(",", "."))
+                  if (!Number.isFinite(parsed)) {
+                    alert("Некорректная сумма")
+                    return
+                  }
+                  const balanceNumber = Math.round(parsed * 100) / 100
                   try {
                     await createAccount(token, {
                       name: accountName.trim(),
@@ -742,7 +747,7 @@ function HomeScreen() {
                     const mapped = accounts.accounts.map((a) => ({
                       id: a.id,
                       name: a.name,
-                      balance: { amount: a.balance * 100, currency: "RUB" as const },
+                      balance: { amount: a.balance, currency: "RUB" as const },
                     }))
                     setAccounts(mapped)
                     setIsAccountSheetOpen(false)
