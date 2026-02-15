@@ -17,7 +17,7 @@ declare module "fastify" {
 
 type InitDataUser = { id: number; first_name?: string; username?: string }
 
-const headerName = "x-telegram-initdata"
+export const TELEGRAM_INITDATA_HEADER = "x-telegram-initdata"
 
 function parseInitData(initData: string | null): URLSearchParams | null {
   if (!initData) return null
@@ -83,33 +83,40 @@ async function ensureUserAndWorkspace(tgUser: InitDataUser): Promise<AuthPayload
   }
 }
 
-export async function telegramAuth(request: FastifyRequest, reply: FastifyReply) {
-  const initDataRaw = request.headers[headerName] as string | undefined
+export async function validateInitData(initDataRaw: string | undefined): Promise<AuthPayload | null> {
   const params = parseInitData(initDataRaw ?? null)
   if (!params) {
-    return reply.status(401).send({ error: "Unauthorized" })
+    return null
   }
 
   if (!isSignatureValid(params, env.BOT_TOKEN)) {
-    return reply.status(401).send({ error: "Unauthorized" })
+    return null
   }
 
   const userJson = params.get("user")
   if (!userJson) {
-    return reply.status(401).send({ error: "Unauthorized" })
+    return null
   }
 
   let tgUser: InitDataUser | null = null
   try {
     tgUser = JSON.parse(userJson) as InitDataUser
   } catch {
-    return reply.status(401).send({ error: "Unauthorized" })
+    return null
   }
 
   if (!tgUser || typeof tgUser.id !== "number") {
-    return reply.status(401).send({ error: "Unauthorized" })
+    return null
   }
 
-  const auth = await ensureUserAndWorkspace(tgUser)
+  return ensureUserAndWorkspace(tgUser)
+}
+
+export async function telegramAuth(request: FastifyRequest, reply: FastifyReply) {
+  const initDataRaw = request.headers[TELEGRAM_INITDATA_HEADER] as string | undefined
+  const auth = await validateInitData(initDataRaw)
+  if (!auth) {
+    return reply.status(401).send({ error: "Unauthorized" })
+  }
   request.auth = auth
 }
