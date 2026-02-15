@@ -4,6 +4,7 @@ import { env } from "./env"
 import { healthRoutes } from "./routes/health"
 import { meRoutes } from "./routes/me"
 import { authRoutes } from "./routes/auth"
+import { workspacesRoutes } from "./routes/workspaces"
 
 const fastify = Fastify({
   logger: true,
@@ -13,6 +14,7 @@ fastify.register(cors, { origin: true })
 fastify.register(healthRoutes)
 fastify.register(authRoutes, { prefix: "/api/v1" })
 fastify.register(meRoutes, { prefix: "/api/v1" })
+fastify.register(workspacesRoutes, { prefix: "/api/v1" })
 
 const port = Number(process.env.PORT) || env.PORT
 

@@ -18,6 +18,10 @@ type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_
 
 function HomeScreen() {
   const [authStatus, setAuthStatus] = useState<string>("")
+  const [workspaces, setWorkspaces] = useState<
+    { id: string; type: "personal" | "family"; name: string | null }[]
+  >([])
+  const [activeWorkspace, setActiveWorkspace] = useState<{ id: string; type: "personal" | "family"; name: string | null } | null>(null)
   const stories = useMemo<Story[]>(
     () => [
       { id: "story-1", title: "Инвест книга", image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg" },
@@ -98,6 +102,23 @@ function HomeScreen() {
     const existing = localStorage.getItem("auth_access_token")
     if (existing) {
       setAuthStatus("Авторизовано")
+      ;(async () => {
+        try {
+          const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
+            headers: { Authorization: `Bearer ${existing}` },
+          })
+          if (!res.ok) return
+          const data: {
+            workspaces: { id: string; type: "personal" | "family"; name: string | null }[]
+            activeWorkspaceId: string | null
+            activeWorkspace: { id: string; type: "personal" | "family"; name: string | null } | null
+          } = await res.json()
+          setWorkspaces(data.workspaces)
+          setActiveWorkspace(data.activeWorkspace)
+        } catch {
+          // silent
+        }
+      })()
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -126,6 +147,22 @@ function HomeScreen() {
         }
         localStorage.setItem("auth_access_token", data.accessToken)
         setAuthStatus("Авторизовано")
+        try {
+          const resWs = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
+            headers: { Authorization: `Bearer ${data.accessToken}` },
+          })
+          if (resWs.ok) {
+            const wsData: {
+              workspaces: { id: string; type: "personal" | "family"; name: string | null }[]
+              activeWorkspaceId: string | null
+              activeWorkspace: { id: string; type: "personal" | "family"; name: string | null } | null
+            } = await resWs.json()
+            setWorkspaces(wsData.workspaces)
+            setActiveWorkspace(wsData.activeWorkspace)
+          }
+        } catch {
+          // silent
+        }
       } catch {
         setAuthStatus("Auth error")
       }
@@ -202,6 +239,15 @@ function HomeScreen() {
             ? ((window as unknown as TelegramUser).Telegram?.WebApp?.initDataUnsafe?.user?.first_name ?? "Пользователь")
             : "Пользователь"}
         </div>
+        {activeWorkspace ? (
+          <div style={{ display: "grid", gap: 2, fontSize: 12, color: "#6b7280" }}>
+            <span>
+              {activeWorkspace.name ??
+                (activeWorkspace.type === "personal" ? "Личный" : "Семейный")}
+            </span>
+            <span style={{ fontSize: 11 }}>{activeWorkspace.type}</span>
+          </div>
+        ) : null}
       </div>
       {authStatus ? (
         <div style={{ margin: "0 16px 12px", fontSize: 12, color: "#6b7280" }}>{authStatus}</div>

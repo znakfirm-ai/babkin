@@ -41,6 +41,26 @@ export async function authRoutes(fastify: FastifyInstance, _opts: FastifyPluginO
       return reply.status(401).send({ error: "Unauthorized", reason: "invalid_initdata" })
     }
 
+    await prisma.$transaction(async (tx) => {
+      const membershipCount = await tx.workspace_members.count({ where: { user_id: user.id } })
+      if (membershipCount === 0) {
+        const workspace = await tx.workspaces.create({
+          data: {
+            type: "personal",
+            name: null,
+            created_by_user_id: user.id,
+          },
+        })
+        await tx.workspace_members.create({
+          data: { workspace_id: workspace.id, user_id: user.id, role: "owner" },
+        })
+        await tx.users.update({
+          where: { id: user.id },
+          data: { active_workspace_id: workspace.id },
+        })
+      }
+    })
+
     const memberships = await prisma.workspace_members.findMany({
       where: { user_id: auth.userId },
       include: { workspaces: true },
