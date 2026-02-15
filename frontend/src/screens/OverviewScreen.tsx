@@ -4,7 +4,7 @@ import type { Transaction } from "../types/finance";
 import "./OverviewScreen.css";
 import { AppIcon, type IconName } from "../components/AppIcon";
 import { createAccount, getAccounts } from "../api/accounts";
-import { CURRENCIES, formatMoney, normalizeCurrency } from "../utils/formatMoney";
+import { formatMoney, normalizeCurrency } from "../utils/formatMoney";
 
 type TileType = "account" | "category";
 type TileSize = "sm" | "md" | "lg";
@@ -18,7 +18,6 @@ type CardItem = {
   isAdd?: boolean;
   type?: TileType;
   size?: TileSize;
-  currency?: string;
 };
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"];
@@ -32,20 +31,13 @@ const getCurrentMonthTag = () => {
 const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag;
 
 const Section: React.FC<{
-  title: string
-  items: CardItem[]
-  rowScroll?: boolean
-  rowClass?: string
-  onAddAccounts?: () => void
-  fallbackCurrency: string
-}> = ({
-  title,
-  items,
-  rowScroll,
-  rowClass,
-  onAddAccounts,
-  fallbackCurrency,
-}) => {
+  title: string;
+  items: CardItem[];
+  rowScroll?: boolean;
+  rowClass?: string;
+  onAddAccounts?: () => void;
+  baseCurrency: string;
+}> = ({ title, items, rowScroll, rowClass, onAddAccounts, baseCurrency }) => {
   const listClass = rowScroll
     ? `overview-section__list overview-section__list--row ${rowClass ?? ""}`.trim()
     : "overview-section__list tile-grid";
@@ -78,9 +70,7 @@ const Section: React.FC<{
               <AppIcon name={item.icon as IconName} size={16} />
             </div>
             <div className="tile-card__title">{item.title}</div>
-            {!item.isAdd && (
-              <div className="tile-card__amount">{formatMoney(item.amount, item.currency ?? fallbackCurrency)}</div>
-            )}
+            {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount, baseCurrency)}</div>}
           </div>
         ))}
       </div>
@@ -89,7 +79,7 @@ const Section: React.FC<{
 };
 
 function OverviewScreen() {
-  const { accounts, categories, incomeSources, transactions, setAccounts, currency, setCurrency } = useAppStore();
+  const { accounts, categories, incomeSources, transactions, setAccounts, currency } = useAppStore();
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState("cash");
@@ -136,7 +126,6 @@ function OverviewScreen() {
     id: account.id,
     title: account.name,
     amount: account.balance.amount,
-    currency: account.balance.currency,
     icon: idx % 2 === 0 ? "wallet" : "card",
     color: cardColors[idx % cardColors.length],
     type: "account" as const,
@@ -287,9 +276,7 @@ function OverviewScreen() {
 
   const summaryBalance = accounts.reduce((sum, acc) => sum + acc.balance.amount, 0);
 
-  const defaultCurrency = normalizeCurrency(
-    currency || accounts[0]?.balance.currency || "RUB",
-  );
+  const baseCurrency = normalizeCurrency(currency || "RUB");
 
   return (
     <div className="overview">
@@ -306,15 +293,15 @@ function OverviewScreen() {
         <div className="summary__pill">
           <div className="summary__col">
             <div className="summary__label">РАСХОДЫ</div>
-            <div className="summary__value summary__value--negative">{formatMoney(expenseSum, defaultCurrency)}</div>
+            <div className="summary__value summary__value--negative">{formatMoney(expenseSum, baseCurrency)}</div>
           </div>
           <div className="summary__col">
             <div className="summary__label">БАЛАНС</div>
-            <div className="summary__value">{formatMoney(summaryBalance, defaultCurrency)}</div>
+            <div className="summary__value">{formatMoney(summaryBalance, baseCurrency)}</div>
           </div>
           <div className="summary__col">
             <div className="summary__label">ДОХОДЫ</div>
-            <div className="summary__value summary__value--positive">{formatMoney(incomeSum, defaultCurrency)}</div>
+            <div className="summary__value summary__value--positive">{formatMoney(incomeSum, baseCurrency)}</div>
           </div>
         </div>
       </section>
@@ -325,14 +312,14 @@ function OverviewScreen() {
         rowScroll
         rowClass="overview-accounts-row"
         onAddAccounts={() => setIsAccountSheetOpen(true)}
-        fallbackCurrency={defaultCurrency}
+        baseCurrency={baseCurrency}
       />
 
       <Section
         title="Источники дохода"
         items={[...incomeToRender, addCard("income")]}
         rowScroll
-        fallbackCurrency={defaultCurrency}
+        baseCurrency={baseCurrency}
       />
 
       <Section
@@ -340,15 +327,15 @@ function OverviewScreen() {
         items={[...expenseToRender, addCard("expense")]}
         rowScroll
         rowClass="overview-expenses-row"
-        fallbackCurrency={defaultCurrency}
+        baseCurrency={baseCurrency}
       />
 
-      <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll fallbackCurrency={defaultCurrency} />
+      <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll baseCurrency={baseCurrency} />
       <Section
         title="Долги / Кредиты"
         items={[...debtsItems, addCard("debts")]}
         rowScroll
-        fallbackCurrency={defaultCurrency}
+        baseCurrency={baseCurrency}
       />
 
       {isAccountSheetOpen ? (
