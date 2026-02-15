@@ -45,6 +45,7 @@ model workspaces {
   active_for_users                           users[]         @relation("users_active_workspace_id")
   workspace_members                          workspace_members[]
   workspace_invites                          workspace_invites[] @relation("workspace_invites_workspace_id")
+  accounts                                   accounts[]
 
   @@index([created_by_user_id])
 }
@@ -89,7 +90,7 @@ model accounts {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  workspaces workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
 
   @@index([workspace_id])
 }
