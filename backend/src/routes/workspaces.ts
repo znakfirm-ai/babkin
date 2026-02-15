@@ -86,6 +86,80 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
     })
   })
 
+  fastify.post("/workspaces", async (request, reply) => {
+    const authHeader = request.headers.authorization
+    let userId: string | null = null
+    let reason: string | null = null
+
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.slice("Bearer ".length)
+      try {
+        const payload = jwt.verify(token, env.JWT_SECRET) as { sub: string }
+        userId = payload.sub
+      } catch {
+        reason = "invalid_jwt"
+        return reply.status(401).send({ error: "Unauthorized", reason })
+      }
+    }
+
+    if (!userId) {
+      const initDataRaw = request.headers[TELEGRAM_INITDATA_HEADER] as string | undefined
+      const hasInitData = Boolean(initDataRaw && initDataRaw.length > 0)
+      const authDate = (() => {
+        const params = initDataRaw ? new URLSearchParams(initDataRaw) : null
+        const ad = params?.get("auth_date")
+        return ad ? Number(ad) : undefined
+      })()
+
+      if (!env.BOT_TOKEN) {
+        reason = "missing_bot_token"
+        request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason })
+        return reply.status(401).send({ error: "Unauthorized", reason })
+      }
+
+      const auth = await validateInitData(initDataRaw)
+      if (!auth) {
+        reason = hasInitData ? "invalid_initdata" : "missing_initdata"
+        request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason })
+        return reply.status(401).send({ error: "Unauthorized", reason })
+      }
+      userId = auth.userId
+    }
+
+    const body = request.body as { type?: string; name?: string | null }
+    if (body?.type !== "family") {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_type" })
+    }
+
+    const name = body.name ?? null
+
+    const workspace = await prisma.$transaction(async (tx) => {
+      const created = await tx.workspaces.create({
+        data: {
+          type: "family",
+          name,
+          created_by_user_id: userId as string,
+        },
+      })
+      await tx.workspace_members.create({
+        data: {
+          workspace_id: created.id,
+          user_id: userId as string,
+          role: "owner",
+        },
+      })
+      return created
+    })
+
+    return reply.send({
+      workspace: {
+        id: workspace.id,
+        type: workspace.type,
+        name: workspace.name,
+      },
+    })
+  })
+
   fastify.patch("/workspaces/active", async (request, reply) => {
     const authHeader = request.headers.authorization
     let userId: string | null = null
