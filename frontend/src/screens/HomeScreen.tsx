@@ -18,9 +18,6 @@ type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_
 
 function HomeScreen() {
   const [authStatus, setAuthStatus] = useState<string>("")
-  const [workspaces, setWorkspaces] = useState<
-    { id: string; type: "personal" | "family"; name: string | null }[]
-  >([])
   const [activeWorkspace, setActiveWorkspace] = useState<{ id: string; type: "personal" | "family"; name: string | null } | null>(null)
   const stories = useMemo<Story[]>(
     () => [
@@ -109,11 +106,8 @@ function HomeScreen() {
           })
           if (!res.ok) return
           const data: {
-            workspaces: { id: string; type: "personal" | "family"; name: string | null }[]
-            activeWorkspaceId: string | null
             activeWorkspace: { id: string; type: "personal" | "family"; name: string | null } | null
           } = await res.json()
-          setWorkspaces(data.workspaces)
           setActiveWorkspace(data.activeWorkspace)
         } catch {
           // silent
@@ -153,11 +147,8 @@ function HomeScreen() {
           })
           if (resWs.ok) {
             const wsData: {
-              workspaces: { id: string; type: "personal" | "family"; name: string | null }[]
-              activeWorkspaceId: string | null
               activeWorkspace: { id: string; type: "personal" | "family"; name: string | null } | null
             } = await resWs.json()
-            setWorkspaces(wsData.workspaces)
             setActiveWorkspace(wsData.activeWorkspace)
           }
         } catch {
