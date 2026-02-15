@@ -1,8 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useAppStore } from "../store/useAppStore";
 import type { Transaction } from "../types/finance";
 import "./OverviewScreen.css";
 import { AppIcon, type IconName } from "../components/AppIcon";
+import { createAccount, getAccounts } from "../api/accounts";
 
 type TileType = "account" | "category";
 type TileSize = "sm" | "md" | "lg";
@@ -39,11 +40,13 @@ const Section: React.FC<{
   items: CardItem[]
   rowScroll?: boolean
   rowClass?: string
+  onAddAccounts?: () => void
 }> = ({
   title,
   items,
   rowScroll,
   rowClass,
+  onAddAccounts,
 }) => {
   const listClass = rowScroll
     ? `overview-section__list overview-section__list--row ${rowClass ?? ""}`.trim()
@@ -58,6 +61,13 @@ const Section: React.FC<{
             className={`tile-card ${item.isAdd ? "tile-card--add overview-add-tile" : ""} ${
               item.type ? `tile-card--${item.type}` : ""
             } tile--${item.size ?? "md"}`}
+            role={item.isAdd ? "button" : undefined}
+            tabIndex={item.isAdd ? 0 : undefined}
+            onClick={() => {
+              if (item.isAdd && item.id === "add-accounts") {
+                onAddAccounts?.();
+              }
+            }}
           >
             <div
               className="tile-card__icon"
@@ -79,7 +89,12 @@ const Section: React.FC<{
 };
 
 function OverviewScreen() {
-  const { accounts, categories, incomeSources, transactions } = useAppStore();
+  const { accounts, categories, incomeSources, transactions, setAccounts } = useAppStore();
+  const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("cash");
+  const [currency, setCurrency] = useState("RUB");
+  const [balance, setBalance] = useState("0");
   const currentMonthTag = getCurrentMonthTag();
 
   const { incomeSum, expenseSum, incomeBySource, expenseByCategory } = useMemo(() => {
@@ -205,6 +220,39 @@ function OverviewScreen() {
     return "sm" as const;
   };
 
+  const handleCreateAccount = async () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+    if (!token) {
+      alert("Нет токена");
+      return;
+    }
+    if (!name.trim()) {
+      alert("Введите название");
+      return;
+    }
+    const balanceNumber = Number(balance) || 0;
+    try {
+      await createAccount(token, {
+        name: name.trim(),
+        type: type || "cash",
+        currency: currency || "RUB",
+        balance: balanceNumber,
+      });
+      const res = await getAccounts(token);
+      const mapped = res.accounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        balance: { amount: a.balance, currency: "RUB" as const },
+      }));
+      setAccounts(mapped);
+      setIsAccountSheetOpen(false);
+      setName("");
+      setBalance("0");
+    } catch {
+      alert("Не удалось создать счёт");
+    }
+  };
+
   const maxExpenseAmount = Math.max(0, ...expenseItems.map((i) => i.amount));
   const sizedExpenseItems = expenseItems.map((i) => ({ ...i, size: i.size ?? computeSize(i.amount, maxExpenseAmount) }));
 
@@ -266,15 +314,117 @@ function OverviewScreen() {
         </div>
       </section>
 
-      <Section title="Счета" items={[...accountsToRender, addCard("accounts")]} rowScroll rowClass="overview-accounts-row" />
+      <Section
+        title="Счета"
+        items={[...accountsToRender, addCard("accounts")]}
+        rowScroll
+        rowClass="overview-accounts-row"
+        onAddAccounts={() => setIsAccountSheetOpen(true)}
+      />
 
       <Section title="Источники дохода" items={[...incomeToRender, addCard("income")]} rowScroll />
 
       <Section title="Расходы" items={[...expenseToRender, addCard("expense")]} rowScroll rowClass="overview-expenses-row" />
 
       <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll />
-
       <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} rowScroll />
+
+      {isAccountSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 40,
+          }}
+          onClick={() => setIsAccountSheetOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: "16px 16px 20px",
+              boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+              Новый счёт
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                Название
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Например, Кошелёк"
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                Тип
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                >
+                  <option value="cash">Наличные</option>
+                  <option value="card">Карта</option>
+                  <option value="bank">Банк</option>
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                Валюта
+                <input
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                Баланс
+                <input
+                  value={balance}
+                  onChange={(e) => setBalance(e.target.value)}
+                  inputMode="decimal"
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={handleCreateAccount}
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#2563eb",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
