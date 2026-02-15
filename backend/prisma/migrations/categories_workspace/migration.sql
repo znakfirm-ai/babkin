@@ -7,10 +7,20 @@ EXCEPTION
 END $$;
 
 -- CreateEnum
-CREATE TYPE "WorkspaceRole" AS ENUM ('owner', 'admin', 'member', 'viewer');
+DO $$
+BEGIN
+  CREATE TYPE "WorkspaceRole" AS ENUM ('owner', 'admin', 'member', 'viewer');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "CategoryKind" AS ENUM ('income', 'expense');
+DO $$
+BEGIN
+  CREATE TYPE "CategoryKind" AS ENUM ('income', 'expense');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable
 CREATE TABLE "users" (
