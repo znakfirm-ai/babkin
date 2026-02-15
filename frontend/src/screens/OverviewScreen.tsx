@@ -21,11 +21,14 @@ type CardItem = {
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"];
 
-const formatMoney = (amountMinor: number) =>
-  (amountMinor / 100).toLocaleString("ru-RU", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }) + " ₽";
+const formatMoney = (value: number) => {
+  const hasFraction = Math.round(value * 100) % 100 !== 0
+  const formatter = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  })
+  return formatter.format(value).replace(/,/g, " ") + " ₽"
+};
 
 const getCurrentMonthTag = () => {
   const now = new Date();
@@ -242,7 +245,7 @@ function OverviewScreen() {
       const mapped = res.accounts.map((a) => ({
         id: a.id,
         name: a.name,
-        balance: { amount: a.balance, currency: "RUB" as const },
+        balance: { amount: a.balance * 100, currency: "RUB" as const },
       }));
       setAccounts(mapped);
       setIsAccountSheetOpen(false);

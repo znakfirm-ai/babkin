@@ -129,7 +129,7 @@ function HomeScreen() {
         const mapped = data.accounts.map((a) => ({
           id: a.id,
           name: a.name,
-          balance: { amount: a.balance, currency: "RUB" as const },
+          balance: { amount: a.balance * 100, currency: "RUB" as const },
         }))
         setAccounts(mapped)
       } catch {
@@ -742,7 +742,7 @@ function HomeScreen() {
                     const mapped = accounts.accounts.map((a) => ({
                       id: a.id,
                       name: a.name,
-                      balance: { amount: a.balance, currency: "RUB" as const },
+                      balance: { amount: a.balance * 100, currency: "RUB" as const },
                     }))
                     setAccounts(mapped)
                     setIsAccountSheetOpen(false)
