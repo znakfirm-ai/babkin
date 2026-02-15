@@ -448,6 +448,9 @@ function HomeScreen() {
               borderTopRightRadius: 16,
               padding: "14px 16px 20px",
               boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -570,6 +573,9 @@ function HomeScreen() {
               borderTopRightRadius: 16,
               padding: "16px 16px 20px",
               boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
