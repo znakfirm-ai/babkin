@@ -145,12 +145,8 @@ function OverviewScreen() {
     type: "account" as const,
     size: "lg",
   }));
-  const placeholderAccounts: CardItem[] = [
-    { id: "ph-acc-1", title: "Счёт (шаблон)", amount: 0, icon: "wallet", color: "#e5e7eb", type: "account", size: "lg" },
-    { id: "ph-acc-2", title: "Счёт (шаблон)", amount: 0, icon: "card", color: "#e5e7eb", type: "account", size: "lg" },
-  ];
 
-  const accountsToRender = [...accountItems, ...placeholderAccounts];
+  const accountsToRender = accountItems;
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
 
@@ -292,7 +288,7 @@ function OverviewScreen() {
     isAdd: true,
   });
 
-  const summaryBalance = incomeSum - expenseSum;
+  const summaryBalance = accounts.reduce((sum, acc) => sum + acc.balance.amount, 0);
 
   return (
     <div className="overview">

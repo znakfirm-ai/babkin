@@ -14,10 +14,7 @@ type AppState = {
 }
 
 const defaultState: AppState = {
-  accounts: [
-    { id: "acc_cash", name: "Наличные", balance: { amount: 0, currency: "RUB" } },
-    { id: "acc_card", name: "Карта", balance: { amount: 0, currency: "RUB" } },
-  ],
+  accounts: [],
   categories: [
     { id: "cat_food", name: "Еда", type: "expense" },
   ],
@@ -29,10 +26,7 @@ const defaultState: AppState = {
 }
 
 const createDefaultState = (): AppState => ({
-  accounts: defaultState.accounts.map((a) => ({
-    ...a,
-    balance: { ...a.balance },
-  })),
+  accounts: [],
   categories: defaultState.categories.map((c) => ({ ...c })),
   incomeSources: defaultState.incomeSources.map((s) => ({ ...s })),
   transactions: [],
