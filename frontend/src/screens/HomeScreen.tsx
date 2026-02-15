@@ -15,10 +15,13 @@ const periodLabel: Record<Period, string> = {
 }
 
 type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
+type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 
 function HomeScreen() {
   const [authStatus, setAuthStatus] = useState<string>("")
-  const [activeWorkspace, setActiveWorkspace] = useState<{ id: string; type: "personal" | "family"; name: string | null } | null>(null)
+  const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
   const stories = useMemo<Story[]>(
     () => [
       { id: "story-1", title: "Инвест книга", image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg" },
@@ -94,25 +97,47 @@ function HomeScreen() {
   )
 
   const [period] = useState<Period>("today")
+  const fetchWorkspaces = useCallback(async (token: string) => {
+    try {
+      const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return
+      const data: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await res.json()
+      setActiveWorkspace(data.activeWorkspace)
+      setWorkspaces(data.workspaces ?? [])
+    } catch {
+      // silent
+    }
+  }, [])
+
+  const setActiveWorkspaceRemote = useCallback(
+    async (workspaceId: string, token: string) => {
+      const res = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ workspaceId }),
+      })
+      if (!res.ok) {
+        alert(`Не удалось переключить пространство: ${res.status}`)
+        return
+      }
+      const data: { activeWorkspaceId: string; activeWorkspace: Workspace } = await res.json()
+      setActiveWorkspace(data.activeWorkspace)
+      setIsWorkspaceSheetOpen(false)
+    },
+    []
+  )
+
   useEffect(() => {
     if (typeof window === "undefined") return
     const existing = localStorage.getItem("auth_access_token")
     if (existing) {
       setAuthStatus("Авторизовано")
-      ;(async () => {
-        try {
-          const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
-            headers: { Authorization: `Bearer ${existing}` },
-          })
-          if (!res.ok) return
-          const data: {
-            activeWorkspace: { id: string; type: "personal" | "family"; name: string | null } | null
-          } = await res.json()
-          setActiveWorkspace(data.activeWorkspace)
-        } catch {
-          // silent
-        }
-      })()
+      fetchWorkspaces(existing)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -141,24 +166,12 @@ function HomeScreen() {
         }
         localStorage.setItem("auth_access_token", data.accessToken)
         setAuthStatus("Авторизовано")
-        try {
-          const resWs = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
-            headers: { Authorization: `Bearer ${data.accessToken}` },
-          })
-          if (resWs.ok) {
-            const wsData: {
-              activeWorkspace: { id: string; type: "personal" | "family"; name: string | null } | null
-            } = await resWs.json()
-            setActiveWorkspace(wsData.activeWorkspace)
-          }
-        } catch {
-          // silent
-        }
+        fetchWorkspaces(data.accessToken)
       } catch {
         setAuthStatus("Auth error")
       }
     })()
-  }, [])
+  }, [fetchWorkspaces])
 
   const quickActions = useMemo(
     () => [
@@ -231,13 +244,30 @@ function HomeScreen() {
             : "Пользователь"}
         </div>
         {activeWorkspace ? (
-          <div style={{ display: "grid", gap: 2, fontSize: 12, color: "#6b7280" }}>
+          <button
+            type="button"
+            disabled={workspaces.length <= 1}
+            onClick={() => {
+              if (workspaces.length > 1) setIsWorkspaceSheetOpen(true)
+            }}
+            style={{
+              display: "grid",
+              gap: 2,
+              fontSize: 12,
+              color: "#6b7280",
+              textAlign: "left",
+              border: "none",
+              background: "transparent",
+              padding: 0,
+              cursor: workspaces.length > 1 ? "pointer" : "default",
+            }}
+          >
             <span>
               {activeWorkspace.name ??
                 (activeWorkspace.type === "personal" ? "Личный" : "Семейный")}
             </span>
             <span style={{ fontSize: 11 }}>{activeWorkspace.type}</span>
-          </div>
+          </button>
         ) : null}
       </div>
       {authStatus ? (
@@ -361,6 +391,82 @@ function HomeScreen() {
           >
             ›
           </button>
+        </div>
+      ) : null}
+      {isWorkspaceSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 30,
+          }}
+          onClick={() => setIsWorkspaceSheetOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: "14px 16px 20px",
+              boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+              Пространство
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {workspaces.map((ws) => {
+                const isActive = activeWorkspace?.id === ws.id
+                const title = ws.name ?? (ws.type === "personal" ? "Личный" : "Семейный")
+                return (
+                  <button
+                    key={ws.id}
+                    type="button"
+                    onClick={() => {
+                      if (isActive) {
+                        setIsWorkspaceSheetOpen(false)
+                        return
+                      }
+                      const token = localStorage.getItem("auth_access_token")
+                      if (!token) {
+                        alert("Нет токена")
+                        return
+                      }
+                      void setActiveWorkspaceRemote(ws.id, token)
+                    }}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: isActive ? "1px solid rgba(59,130,246,0.4)" : "1px solid rgba(15,23,42,0.08)",
+                      background: isActive ? "rgba(59,130,246,0.06)" : "#fff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{title}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>{ws.type}</div>
+                    </div>
+                    {isActive ? <AppIcon name="more" size={16} /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
