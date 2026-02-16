@@ -68,12 +68,14 @@ export async function analyticsRoutes(fastify: FastifyInstance, _opts: FastifyPl
       return reply.status(400).send({ error: "Bad Request", reason: "missing_dates" })
     }
 
-    const fromDate = new Date(from)
-    const toDate = new Date(to)
-    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+    const fromDate = new Date(`${from}T00:00:00.000Z`)
+    const toDateStart = new Date(`${to}T00:00:00.000Z`)
+    const toExclusive = new Date(toDateStart.getTime() + 24 * 60 * 60 * 1000)
+
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDateStart.getTime())) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_dates" })
     }
-    if (fromDate > toDate) {
+    if (fromDate > toDateStart) {
       return reply.status(400).send({ error: "Bad Request", reason: "from_after_to" })
     }
 
@@ -83,7 +85,7 @@ export async function analyticsRoutes(fastify: FastifyInstance, _opts: FastifyPl
         where: {
           workspace_id: user.active_workspace_id,
           kind: "income",
-          happened_at: { gte: fromDate, lte: toDate },
+          happened_at: { gte: fromDate, lt: toExclusive },
         },
       }),
       prisma.transactions.aggregate({
@@ -91,7 +93,7 @@ export async function analyticsRoutes(fastify: FastifyInstance, _opts: FastifyPl
         where: {
           workspace_id: user.active_workspace_id,
           kind: "expense",
-          happened_at: { gte: fromDate, lte: toDate },
+          happened_at: { gte: fromDate, lt: toExclusive },
         },
       }),
     ])
