@@ -2,7 +2,11 @@ import React from "react"
 import { useAppStore } from "../store/useAppStore"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
-const SettingsScreen: React.FC = () => {
+type Props = {
+  onOpenCategories?: () => void
+}
+
+const SettingsScreen: React.FC<Props> = ({ onOpenCategories }) => {
   const { currency, setCurrency } = useAppStore()
   const current = normalizeCurrency(currency)
 
@@ -24,6 +28,22 @@ const SettingsScreen: React.FC = () => {
           ))}
         </select>
       </label>
+
+      <button
+        type="button"
+        onClick={onOpenCategories}
+        style={{
+          padding: 12,
+          borderRadius: 10,
+          border: "1px solid #e5e7eb",
+          background: "#fff",
+          fontSize: 14,
+          textAlign: "left",
+          cursor: "pointer",
+        }}
+      >
+        Категории
+      </button>
     </div>
   )
 }

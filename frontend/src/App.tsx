@@ -4,21 +4,17 @@ import OverviewScreen from "./screens/OverviewScreen";
 import AddScreen from "./screens/AddScreen";
 import ReportsScreen from "./screens/ReportsScreen";
 import SettingsScreen from "./screens/SettingsScreen";
+import CategoriesScreen from "./screens/CategoriesScreen";
 import BottomNav from "./BottomNav";
 import type { NavItem } from "./BottomNav";
 import "./BottomNav.css";
 import "./App.css";
 
-const SCREENS: Record<NavItem, React.ReactNode> = {
-  home: <HomeScreen />,
-  overview: <OverviewScreen />,
-  add: <AddScreen />,
-  reports: <ReportsScreen />,
-  settings: <SettingsScreen />,
-};
+type ScreenKey = NavItem | "categories";
 
 function App() {
-  const [active, setActive] = useState<NavItem>("home");
+  const [activeNav, setActiveNav] = useState<NavItem>("home");
+  const [activeScreen, setActiveScreen] = useState<ScreenKey>("home");
   const [isTelegram, setIsTelegram] = useState(false);
   const baseHeightRef = useRef<number | null>(null);
   const gestureBlockers = useRef<(() => void) | null>(null);
@@ -95,12 +91,51 @@ function App() {
     };
   }, []);
 
+  const renderScreen = () => {
+    switch (activeScreen) {
+      case "home":
+        return <HomeScreen />;
+      case "overview":
+        return <OverviewScreen />;
+      case "add":
+        return <AddScreen />;
+      case "reports":
+        return <ReportsScreen />;
+      case "settings":
+        return (
+          <SettingsScreen
+            onOpenCategories={() => {
+              setActiveNav("settings");
+              setActiveScreen("categories");
+            }}
+          />
+        );
+      case "categories":
+        return (
+          <CategoriesScreen
+            onBack={() => {
+              setActiveNav("settings");
+              setActiveScreen("settings");
+            }}
+          />
+        );
+      default:
+        return <HomeScreen />;
+    }
+  };
+
   return (
     <div className="app-shell">
       {!isTelegram ? <div className="dev-banner">Telegram WebApp не найден — браузерный режим</div> : null}
       <div className="app-shell__inner">
-        {SCREENS[active]}
-        <BottomNav active={active} onSelect={setActive} />
+        {renderScreen()}
+        <BottomNav
+          active={activeNav}
+          onSelect={(key) => {
+            setActiveNav(key);
+            setActiveScreen(key);
+          }}
+        />
       </div>
     </div>
   );
