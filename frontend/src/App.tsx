@@ -1,20 +1,16 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import HomeScreen from "./screens/HomeScreen";
 import OverviewScreen from "./screens/OverviewScreen";
 import AddScreen from "./screens/AddScreen";
 import ReportsScreen from "./screens/ReportsScreen";
 import SettingsScreen from "./screens/SettingsScreen";
-import CategoriesScreen from "./screens/CategoriesScreen";
 import BottomNav from "./BottomNav";
 import type { NavItem } from "./BottomNav";
 import "./BottomNav.css";
 import "./App.css";
 
-type ScreenKey = NavItem | "categories";
-
 function App() {
   const [activeNav, setActiveNav] = useState<NavItem>("home");
-  const [activeScreen, setActiveScreen] = useState<ScreenKey>("home");
   const [isTelegram, setIsTelegram] = useState(false);
   const baseHeightRef = useRef<number | null>(null);
   const gestureBlockers = useRef<(() => void) | null>(null);
@@ -92,7 +88,7 @@ function App() {
   }, []);
 
   const renderScreen = () => {
-    switch (activeScreen) {
+    switch (activeNav) {
       case "home":
         return <HomeScreen />;
       case "overview":
@@ -102,23 +98,7 @@ function App() {
       case "reports":
         return <ReportsScreen />;
       case "settings":
-        return (
-          <SettingsScreen
-            onOpenCategories={() => {
-              setActiveNav("settings");
-              setActiveScreen("categories");
-            }}
-          />
-        );
-      case "categories":
-        return (
-          <CategoriesScreen
-            onBack={() => {
-              setActiveNav("settings");
-              setActiveScreen("settings");
-            }}
-          />
-        );
+        return <SettingsScreen />;
       default:
         return <HomeScreen />;
     }
@@ -133,7 +113,6 @@ function App() {
           active={activeNav}
           onSelect={(key) => {
             setActiveNav(key);
-            setActiveScreen(key);
           }}
         />
       </div>
