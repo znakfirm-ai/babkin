@@ -21,6 +21,13 @@ function App() {
   const [isTelegram, setIsTelegram] = useState(telegramAvailable);
   const baseHeightRef = useRef<number | null>(null);
   const gestureBlockers = useRef<(() => void) | null>(null);
+  const normalLiteAbort = useRef<AbortController | null>(null);
+  const [workspacesDiag, setWorkspacesDiag] = useState<{
+    status: "idle" | "loading" | "success" | "error";
+    count: number | null;
+    activeId: string | null;
+    error: string | null;
+  }>({ status: "idle", count: null, activeId: null, error: null });
 
   interface TelegramWebApp {
     ready(): void
@@ -39,7 +46,9 @@ function App() {
     if (normalLiteMode) {
       const tg = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
       setIsTelegram(Boolean(tg));
-      return;
+      return () => {
+        normalLiteAbort.current?.abort();
+      };
     }
     if (baseHeightRef.current === null) {
       baseHeightRef.current = window.innerHeight;
@@ -119,6 +128,44 @@ function App() {
     }
   };
 
+  const fetchWorkspacesDiag = async () => {
+    if (normalLiteMode === false) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+    if (!token) {
+      setWorkspacesDiag({ status: "error", count: null, activeId: null, error: "Нет токена" });
+      return;
+    }
+    normalLiteAbort.current?.abort();
+    const controller = new AbortController();
+    normalLiteAbort.current = controller;
+    setWorkspacesDiag({ status: "loading", count: null, activeId: null, error: null });
+    try {
+      const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Ошибка ${res.status} ${text}`);
+      }
+      const data: { activeWorkspace: { id: string } | null; workspaces: { id: string }[] } = await res.json();
+      setWorkspacesDiag({
+        status: "success",
+        count: Array.isArray(data.workspaces) ? data.workspaces.length : 0,
+        activeId: data.activeWorkspace?.id ?? null,
+        error: null,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setWorkspacesDiag({
+        status: "error",
+        count: null,
+        activeId: null,
+        error: err instanceof Error ? err.message : "Не удалось загрузить workspaces",
+      });
+    }
+  };
+
   if (safeMode) {
     return (
       <div className="app-shell">
@@ -171,7 +218,30 @@ function App() {
       <div className="app-shell">
         <div className="app-shell__inner" style={{ padding: 24 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Normal lite</h1>
-          <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 16 }}>init ok, data fetch disabled</p>
+          <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 12 }}>init ok, data fetch disabled</p>
+          <button
+            type="button"
+            onClick={fetchWorkspacesDiag}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid #2563eb",
+              background: "#fff",
+              color: "#2563eb",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              marginBottom: 12,
+            }}
+          >
+            Fetch workspaces
+          </button>
+          <div style={{ fontSize: 13, color: "#0f172a", marginBottom: 16, lineHeight: 1.5 }}>
+            <div>Статус: {workspacesDiag.status}</div>
+            {workspacesDiag.count !== null ? <div>Workspaces: {workspacesDiag.count}</div> : null}
+            {workspacesDiag.activeId ? <div>Active workspace: {workspacesDiag.activeId}</div> : null}
+            {workspacesDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {workspacesDiag.error}</div> : null}
+          </div>
           <button
             type="button"
             onClick={() => {
