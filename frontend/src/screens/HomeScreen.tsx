@@ -29,6 +29,7 @@ function HomeScreen() {
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
   const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false)
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false)
+  const [switchingToWorkspaceId, setSwitchingToWorkspaceId] = useState<string | null>(null)
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
   const [accountName, setAccountName] = useState("")
   const [accountType, setAccountType] = useState("cash")
@@ -167,26 +168,36 @@ function HomeScreen() {
     async (workspaceId: string, token: string) => {
       if (isSwitchingWorkspace) return
       setIsSwitchingWorkspace(true)
-      const res = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ workspaceId }),
-      })
-      if (!res.ok) {
+      setSwitchingToWorkspaceId(workspaceId)
+      try {
+        const res = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ workspaceId }),
+        })
+        if (!res.ok) {
+          const text = await res.text().catch(() => "")
+          throw new Error(`Не удалось переключить пространство: ${res.status} ${text}`)
+        }
+        const data: { activeWorkspaceId: string; activeWorkspace: Workspace } = await res.json()
+        setActiveWorkspace(data.activeWorkspace)
+        setIsWorkspaceSheetOpen(false)
+        setIsFamilySheetOpen(false)
+        await fetchAccounts(token)
+        await fetchCategories(token)
+      } catch (err) {
+        if (err instanceof Error) {
+          alert(err.message)
+        } else {
+          alert("Не удалось переключить пространство")
+        }
+      } finally {
         setIsSwitchingWorkspace(false)
-        alert(`Не удалось переключить пространство: ${res.status}`)
-        return
+        setSwitchingToWorkspaceId(null)
       }
-      const data: { activeWorkspaceId: string; activeWorkspace: Workspace } = await res.json()
-      setActiveWorkspace(data.activeWorkspace)
-      setIsWorkspaceSheetOpen(false)
-      setIsFamilySheetOpen(false)
-      await fetchAccounts(token)
-      await fetchCategories(token)
-      setIsSwitchingWorkspace(false)
     },
     [fetchAccounts, fetchCategories, isSwitchingWorkspace]
   )
@@ -550,15 +561,17 @@ function HomeScreen() {
                     personalWorkspace && activeWorkspace?.id === personalWorkspace.id
                       ? "rgba(59,130,246,0.06)"
                       : "#fff",
-                  color: personalWorkspace ? "#0f172a" : "#9ca3af",
-                  cursor: personalWorkspace ? "pointer" : "not-allowed",
+                  color: personalWorkspace && !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
+                  cursor: personalWorkspace && !isSwitchingWorkspace ? "pointer" : "not-allowed",
                 }}
               >
                 <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>Личный аккаунт</div>
                   <div style={{ fontSize: 12, color: "#6b7280" }}>personal</div>
                 </div>
-                {personalWorkspace && activeWorkspace?.id === personalWorkspace.id ? (
+                {switchingToWorkspaceId === personalWorkspace?.id && isSwitchingWorkspace ? (
+                  <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
+                ) : personalWorkspace && activeWorkspace?.id === personalWorkspace.id ? (
                   <AppIcon name="more" size={16} />
                 ) : null}
               </button>
@@ -593,15 +606,17 @@ function HomeScreen() {
                     familyWorkspace && activeWorkspace?.id === familyWorkspace.id
                       ? "rgba(59,130,246,0.06)"
                       : "#fff",
-                  color: isSwitchingWorkspace ? "#9ca3af" : "#0f172a",
-                  cursor: isSwitchingWorkspace ? "not-allowed" : "pointer",
+                  color: !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
+                  cursor: !isSwitchingWorkspace ? "pointer" : "not-allowed",
                 }}
               >
                 <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>Совместный доступ</div>
                   <div style={{ fontSize: 12, color: "#6b7280" }}>family</div>
                 </div>
-                {familyWorkspace && activeWorkspace?.id === familyWorkspace.id ? (
+                {switchingToWorkspaceId === familyWorkspace?.id && isSwitchingWorkspace ? (
+                  <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
+                ) : familyWorkspace && activeWorkspace?.id === familyWorkspace.id ? (
                   <AppIcon name="more" size={16} />
                 ) : null}
               </button>
