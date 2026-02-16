@@ -45,7 +45,14 @@ const SummaryReportScreen: React.FC<Props> = ({ onBack }) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
     const f = customFrom ?? from
     const t = customTo ?? to
-    if (!token || !f || !t) return
+    if (!f || !t) {
+      setErrorText("Не выбран период")
+      return
+    }
+    if (!token) {
+      setErrorText("Нет токена")
+      return
+    }
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -208,7 +215,9 @@ const SummaryReportScreen: React.FC<Props> = ({ onBack }) => {
             </div>
           </div>
         ) : (
-          <div style={{ color: "#6b7280", fontSize: 14 }}>Нет данных</div>
+          <div style={{ color: "#6b7280", fontSize: 14 }}>
+            Нет данных за период
+          </div>
         )}
       </div>
     </div>

@@ -18,7 +18,8 @@ async function fetchWithRetry(url: string, options: { headers: Record<string, st
         attempt += 1
         continue
       }
-      throw err
+      if (err instanceof Error) throw err
+      throw new Error("Network error")
     }
 
     if (res.status >= 500 && res.status <= 599 && attempt === 0) {

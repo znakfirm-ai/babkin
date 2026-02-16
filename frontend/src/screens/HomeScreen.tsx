@@ -313,7 +313,7 @@ function HomeScreen() {
         abortController.current?.abort()
         const controller = new AbortController()
         abortController.current = controller
-        await fetchExpensesAnalytics(token, period, activeWorkspace?.id ?? null, controller.signal)
+        await fetchExpensesAnalytics(token, period, workspaceId, controller.signal, true)
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)

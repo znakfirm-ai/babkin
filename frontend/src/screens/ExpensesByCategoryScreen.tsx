@@ -52,7 +52,14 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
     const f = customFrom ?? from
     const t = customTo ?? to
-    if (!token || !f || !t) return
+    if (!f || !t) {
+      setErrorText("Не выбран период")
+      return
+    }
+    if (!token) {
+      setErrorText("Нет токена")
+      return
+    }
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -202,33 +209,37 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
             </button>
           </div>
         ) : data ? (
-          <>
-            {data.top.map((item) => (
-              <div key={item.categoryId} style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>{item.name}</span>
-                <span style={{ fontWeight: 600 }}>{item.total}</span>
+          data.totalExpense === "0.00" ? (
+            <div style={{ color: "#6b7280", fontSize: 14 }}>Нет данных за период</div>
+          ) : (
+            <>
+              {data.top.map((item) => (
+                <div key={item.categoryId} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{item.name}</span>
+                  <span style={{ fontWeight: 600 }}>{item.total}</span>
+                </div>
+              ))}
+              {data.otherTotal !== "0.00" ? (
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#6b7280" }}>
+                  <span>Остальное</span>
+                  <span>{data.otherTotal}</span>
+                </div>
+              ) : null}
+              <div
+                style={{
+                  marginTop: 6,
+                  paddingTop: 6,
+                  borderTop: "1px dashed #e5e7eb",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontWeight: 700,
+                }}
+              >
+                <span>Всего расходы</span>
+                <span>{data.totalExpense}</span>
               </div>
-            ))}
-            {data.otherTotal !== "0.00" ? (
-              <div style={{ display: "flex", justifyContent: "space-between", color: "#6b7280" }}>
-                <span>Остальное</span>
-                <span>{data.otherTotal}</span>
-              </div>
-            ) : null}
-            <div
-              style={{
-                marginTop: 6,
-                paddingTop: 6,
-                borderTop: "1px dashed #e5e7eb",
-                display: "flex",
-                justifyContent: "space-between",
-                fontWeight: 700,
-              }}
-            >
-              <span>Всего расходы</span>
-              <span>{data.totalExpense}</span>
-            </div>
-          </>
+            </>
+          )
         ) : (
           <div style={{ color: "#6b7280", fontSize: 14 }}>Нет данных</div>
         )}
