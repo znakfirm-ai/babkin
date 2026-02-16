@@ -21,13 +21,19 @@ function App() {
   const [isTelegram, setIsTelegram] = useState(telegramAvailable);
   const baseHeightRef = useRef<number | null>(null);
   const gestureBlockers = useRef<(() => void) | null>(null);
-  const normalLiteAbort = useRef<AbortController | null>(null);
+  const normalLiteWsAbort = useRef<AbortController | null>(null);
+  const normalLiteAccAbort = useRef<AbortController | null>(null);
   const [workspacesDiag, setWorkspacesDiag] = useState<{
     status: "idle" | "loading" | "success" | "error";
     count: number | null;
     activeId: string | null;
     error: string | null;
   }>({ status: "idle", count: null, activeId: null, error: null });
+  const [accountsDiag, setAccountsDiag] = useState<{
+    status: "idle" | "loading" | "success" | "error";
+    count: number | null;
+    error: string | null;
+  }>({ status: "idle", count: null, error: null });
 
   interface TelegramWebApp {
     ready(): void
@@ -47,7 +53,8 @@ function App() {
       const tg = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
       setIsTelegram(Boolean(tg));
       return () => {
-        normalLiteAbort.current?.abort();
+        normalLiteWsAbort.current?.abort();
+        normalLiteAccAbort.current?.abort();
       };
     }
     if (baseHeightRef.current === null) {
@@ -135,9 +142,9 @@ function App() {
       setWorkspacesDiag({ status: "error", count: null, activeId: null, error: "Нет токена" });
       return;
     }
-    normalLiteAbort.current?.abort();
+    normalLiteWsAbort.current?.abort();
     const controller = new AbortController();
-    normalLiteAbort.current = controller;
+    normalLiteWsAbort.current = controller;
     setWorkspacesDiag({ status: "loading", count: null, activeId: null, error: null });
     try {
       const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
@@ -162,6 +169,42 @@ function App() {
         count: null,
         activeId: null,
         error: err instanceof Error ? err.message : "Не удалось загрузить workspaces",
+      });
+    }
+  };
+
+  const fetchAccountsDiag = async () => {
+    if (normalLiteMode === false) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+    if (!token) {
+      setAccountsDiag({ status: "error", count: null, error: "Нет токена" });
+      return;
+    }
+    normalLiteAccAbort.current?.abort();
+    const controller = new AbortController();
+    normalLiteAccAbort.current = controller;
+    setAccountsDiag({ status: "loading", count: null, error: null });
+    try {
+      const res = await fetch("https://babkin.onrender.com/api/v1/accounts", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Ошибка ${res.status} ${text}`);
+      }
+      const data: { accounts: unknown[] } = await res.json();
+      setAccountsDiag({
+        status: "success",
+        count: Array.isArray(data.accounts) ? data.accounts.length : 0,
+        error: null,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setAccountsDiag({
+        status: "error",
+        count: null,
+        error: err instanceof Error ? err.message : "Не удалось загрузить accounts",
       });
     }
   };
@@ -236,11 +279,31 @@ function App() {
           >
             Fetch workspaces
           </button>
+          <button
+            type="button"
+            onClick={fetchAccountsDiag}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid #2563eb",
+              background: "#fff",
+              color: "#2563eb",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              marginBottom: 12,
+            }}
+          >
+            Fetch accounts
+          </button>
           <div style={{ fontSize: 13, color: "#0f172a", marginBottom: 16, lineHeight: 1.5 }}>
             <div>Статус: {workspacesDiag.status}</div>
             {workspacesDiag.count !== null ? <div>Workspaces: {workspacesDiag.count}</div> : null}
             {workspacesDiag.activeId ? <div>Active workspace: {workspacesDiag.activeId}</div> : null}
             {workspacesDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {workspacesDiag.error}</div> : null}
+            <div style={{ marginTop: 10 }}>Accounts: {accountsDiag.status}</div>
+            {accountsDiag.count !== null ? <div>Accounts count: {accountsDiag.count}</div> : null}
+            {accountsDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {accountsDiag.error}</div> : null}
           </div>
           <button
             type="button"
