@@ -4,6 +4,18 @@ import { prisma } from "../db/prisma"
 import { env } from "../env"
 import { validateInitData, TELEGRAM_INITDATA_HEADER } from "../middleware/telegramAuth"
 
+const DEFAULT_CATEGORIES = [
+  { name: "Еда", kind: "expense" as const },
+  { name: "Транспорт", kind: "expense" as const },
+  { name: "Дом", kind: "expense" as const },
+  { name: "Развлечения", kind: "expense" as const },
+  { name: "Здоровье", kind: "expense" as const },
+  { name: "Покупки", kind: "expense" as const },
+  { name: "Зарплата", kind: "income" as const },
+  { name: "Бизнес", kind: "income" as const },
+  { name: "Подарки", kind: "income" as const },
+]
+
 export async function authRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   fastify.post("/auth/telegram", async (request, reply) => {
     const initDataRaw = request.headers[TELEGRAM_INITDATA_HEADER] as string | undefined
@@ -50,6 +62,16 @@ export async function authRoutes(fastify: FastifyInstance, _opts: FastifyPluginO
             name: null,
             created_by_user_id: user.id,
           },
+        })
+        await tx.categories.createMany({
+          data: DEFAULT_CATEGORIES.map((c) => ({
+            id: undefined,
+            workspace_id: workspace.id,
+            name: c.name,
+            kind: c.kind,
+            icon: null,
+          })),
+          skipDuplicates: true,
         })
         await tx.workspace_members.create({
           data: { workspace_id: workspace.id, user_id: user.id, role: "owner" },
