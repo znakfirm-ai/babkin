@@ -11,9 +11,13 @@ import "./App.css";
 type ScreenKey = NavItem;
 
 function App() {
+  const telegramAvailable =
+    typeof window !== "undefined" &&
+    Boolean((window as typeof window & { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp);
+  const [safeMode, setSafeMode] = useState<boolean>(telegramAvailable);
   const [activeNav, setActiveNav] = useState<NavItem>("home");
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("home");
-  const [isTelegram, setIsTelegram] = useState(false);
+  const [isTelegram, setIsTelegram] = useState(telegramAvailable);
   const baseHeightRef = useRef<number | null>(null);
   const gestureBlockers = useRef<(() => void) | null>(null);
 
@@ -25,6 +29,11 @@ function App() {
   }
 
   useEffect(() => {
+    if (safeMode) {
+      const tg = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
+      setIsTelegram(Boolean(tg));
+      return;
+    }
     if (typeof window === "undefined") return;
     if (baseHeightRef.current === null) {
       baseHeightRef.current = window.innerHeight;
@@ -87,7 +96,7 @@ function App() {
       vv?.removeEventListener("scroll", handleViewportChange);
       gestureBlockers.current?.();
     };
-  }, []);
+  }, [safeMode]);
 
   const renderScreen = () => {
     switch (activeScreen) {
@@ -103,6 +112,33 @@ function App() {
         return <HomeScreen />;
     }
   };
+
+  if (safeMode) {
+    return (
+      <div className="app-shell">
+        <div className="app-shell__inner" style={{ padding: 24 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Safe mode</h1>
+          <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 16 }}>Диагностика iOS Telegram WebView</p>
+          <button
+            type="button"
+            onClick={() => setSafeMode(false)}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "none",
+              background: "#2563eb",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Выключить safe mode
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
