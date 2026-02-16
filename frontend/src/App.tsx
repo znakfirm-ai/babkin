@@ -15,6 +15,7 @@ function App() {
     typeof window !== "undefined" &&
     Boolean((window as typeof window & { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp);
   const [safeMode, setSafeMode] = useState<boolean>(telegramAvailable);
+  const [normalLiteMode, setNormalLiteMode] = useState<boolean>(false);
   const [activeNav, setActiveNav] = useState<NavItem>("home");
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("home");
   const [isTelegram, setIsTelegram] = useState(telegramAvailable);
@@ -35,6 +36,11 @@ function App() {
       return;
     }
     if (typeof window === "undefined") return;
+    if (normalLiteMode) {
+      const tg = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
+      setIsTelegram(Boolean(tg));
+      return;
+    }
     if (baseHeightRef.current === null) {
       baseHeightRef.current = window.innerHeight;
       document.documentElement.style.setProperty("--app-height", `${window.innerHeight}px`);
@@ -96,7 +102,7 @@ function App() {
       vv?.removeEventListener("scroll", handleViewportChange);
       gestureBlockers.current?.();
     };
-  }, [safeMode]);
+  }, [safeMode, normalLiteMode]);
 
   const renderScreen = () => {
     switch (activeScreen) {
@@ -134,6 +140,56 @@ function App() {
             }}
           >
             Выключить safe mode
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSafeMode(false);
+              setNormalLiteMode(true);
+            }}
+            style={{
+              marginTop: 12,
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid #2563eb",
+              background: "#fff",
+              color: "#2563eb",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Перейти в normal lite
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (normalLiteMode) {
+    return (
+      <div className="app-shell">
+        <div className="app-shell__inner" style={{ padding: 24 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Normal lite</h1>
+          <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 16 }}>init ok, data fetch disabled</p>
+          <button
+            type="button"
+            onClick={() => {
+              setNormalLiteMode(false);
+              setSafeMode(true);
+            }}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "none",
+              background: "#2563eb",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Вернуться в safe mode
           </button>
         </div>
       </div>
