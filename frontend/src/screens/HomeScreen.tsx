@@ -134,8 +134,12 @@ function HomeScreen() {
           balance: { amount: a.balance, currency: a.currency },
         }))
         setAccounts(mapped)
-      } catch {
-        alert("Не удалось загрузить счета")
+      } catch (err) {
+        if (err instanceof Error) {
+          alert(err.message)
+        } else {
+          alert("Не удалось загрузить счета")
+        }
       }
     },
     [setAccounts]

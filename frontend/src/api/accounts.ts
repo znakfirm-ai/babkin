@@ -17,7 +17,8 @@ export async function getAccounts(token: string): Promise<GetAccountsResponse> {
     },
   })
   if (!res.ok) {
-    throw new Error(`Failed to load accounts: ${res.status}`)
+    const text = await res.text().catch(() => "")
+    throw new Error(`GET /accounts failed: ${res.status} ${res.statusText} ${text}`)
   }
   return res.json()
 }
