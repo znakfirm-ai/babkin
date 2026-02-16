@@ -4,13 +4,18 @@ import OverviewScreen from "./screens/OverviewScreen";
 import AddScreen from "./screens/AddScreen";
 import ReportsScreen from "./screens/ReportsScreen";
 import SettingsScreen from "./screens/SettingsScreen";
+import SummaryReportScreen from "./screens/SummaryReportScreen";
+import ExpensesByCategoryScreen from "./screens/ExpensesByCategoryScreen";
 import BottomNav from "./BottomNav";
 import type { NavItem } from "./BottomNav";
 import "./BottomNav.css";
 import "./App.css";
 
+type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category";
+
 function App() {
   const [activeNav, setActiveNav] = useState<NavItem>("home");
+  const [activeScreen, setActiveScreen] = useState<ScreenKey>("home");
   const [isTelegram, setIsTelegram] = useState(false);
   const baseHeightRef = useRef<number | null>(null);
   const gestureBlockers = useRef<(() => void) | null>(null);
@@ -88,7 +93,7 @@ function App() {
   }, []);
 
   const renderScreen = () => {
-    switch (activeNav) {
+    switch (activeScreen) {
       case "home":
         return <HomeScreen />;
       case "overview":
@@ -96,9 +101,18 @@ function App() {
       case "add":
         return <AddScreen />;
       case "reports":
-        return <ReportsScreen />;
+        return (
+          <ReportsScreen
+            onOpenSummary={() => setActiveScreen("report-summary")}
+            onOpenExpensesByCategory={() => setActiveScreen("report-expenses-by-category")}
+          />
+        );
       case "settings":
         return <SettingsScreen />;
+      case "report-summary":
+        return <SummaryReportScreen onBack={() => setActiveScreen("reports")} />;
+      case "report-expenses-by-category":
+        return <ExpensesByCategoryScreen onBack={() => setActiveScreen("reports")} />;
       default:
         return <HomeScreen />;
     }
@@ -113,6 +127,7 @@ function App() {
           active={activeNav}
           onSelect={(key) => {
             setActiveNav(key);
+            setActiveScreen(key);
           }}
         />
       </div>
