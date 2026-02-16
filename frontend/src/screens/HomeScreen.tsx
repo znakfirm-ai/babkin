@@ -28,6 +28,7 @@ function HomeScreen() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
   const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false)
+  const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false)
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
   const [accountName, setAccountName] = useState("")
   const [accountType, setAccountType] = useState("cash")
@@ -164,6 +165,8 @@ function HomeScreen() {
 
   const setActiveWorkspaceRemote = useCallback(
     async (workspaceId: string, token: string) => {
+      if (isSwitchingWorkspace) return
+      setIsSwitchingWorkspace(true)
       const res = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
         method: "PATCH",
         headers: {
@@ -173,6 +176,7 @@ function HomeScreen() {
         body: JSON.stringify({ workspaceId }),
       })
       if (!res.ok) {
+        setIsSwitchingWorkspace(false)
         alert(`Не удалось переключить пространство: ${res.status}`)
         return
       }
@@ -182,8 +186,9 @@ function HomeScreen() {
       setIsFamilySheetOpen(false)
       await fetchAccounts(token)
       await fetchCategories(token)
+      setIsSwitchingWorkspace(false)
     },
-    [fetchAccounts, fetchCategories]
+    [fetchAccounts, fetchCategories, isSwitchingWorkspace]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -518,6 +523,7 @@ function HomeScreen() {
               <button
                 type="button"
                 onClick={() => {
+                  if (isSwitchingWorkspace) return
                   const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
                   if (!token) {
                     alert("Нет токена")
@@ -560,6 +566,7 @@ function HomeScreen() {
               <button
                 type="button"
                 onClick={() => {
+                  if (isSwitchingWorkspace) return
                   const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
                   if (!token) {
                     alert("Нет токена")
@@ -586,8 +593,8 @@ function HomeScreen() {
                     familyWorkspace && activeWorkspace?.id === familyWorkspace.id
                       ? "rgba(59,130,246,0.06)"
                       : "#fff",
-                  color: "#0f172a",
-                  cursor: "pointer",
+                  color: isSwitchingWorkspace ? "#9ca3af" : "#0f172a",
+                  cursor: isSwitchingWorkspace ? "not-allowed" : "pointer",
                 }}
               >
                 <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
