@@ -2,16 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import HomeScreen from "./screens/HomeScreen";
 import OverviewScreen from "./screens/OverviewScreen";
 import AddScreen from "./screens/AddScreen";
-import ReportsScreen from "./screens/ReportsScreen";
 import SettingsScreen from "./screens/SettingsScreen";
-import SummaryReportScreen from "./screens/SummaryReportScreen";
-import ExpensesByCategoryScreen from "./screens/ExpensesByCategoryScreen";
 import BottomNav from "./BottomNav";
 import type { NavItem } from "./BottomNav";
 import "./BottomNav.css";
 import "./App.css";
 
-type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category";
+type ScreenKey = NavItem;
 
 function App() {
   const [activeNav, setActiveNav] = useState<NavItem>("home");
@@ -100,19 +97,8 @@ function App() {
         return <OverviewScreen />;
       case "add":
         return <AddScreen />;
-      case "reports":
-        return (
-          <ReportsScreen
-            onOpenSummary={() => setActiveScreen("report-summary")}
-            onOpenExpensesByCategory={() => setActiveScreen("report-expenses-by-category")}
-          />
-        );
       case "settings":
         return <SettingsScreen />;
-      case "report-summary":
-        return <SummaryReportScreen onBack={() => setActiveScreen("reports")} />;
-      case "report-expenses-by-category":
-        return <ExpensesByCategoryScreen onBack={() => setActiveScreen("reports")} />;
       default:
         return <HomeScreen />;
     }

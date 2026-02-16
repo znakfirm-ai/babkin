@@ -2,7 +2,7 @@ import React from "react";
 import "./BottomNav.css";
 import { AppIcon } from "./components/AppIcon";
 
-export type NavItem = "home" | "overview" | "add" | "reports" | "settings";
+export type NavItem = "home" | "overview" | "add" | "settings";
 
 interface BottomNavProps {
   active: NavItem;
@@ -13,7 +13,6 @@ const navItems: { key: NavItem; label: string; icon: React.ReactNode; isAdd?: bo
   { key: "home", label: "Главная", icon: <AppIcon name="home" size={20} /> },
   { key: "overview", label: "Обзор", icon: <AppIcon name="grid" size={20} /> },
   { key: "add", label: "Добавить", icon: <AppIcon name="plus" size={22} />, isAdd: true },
-  { key: "reports", label: "Отчёты", icon: <AppIcon name="report" size={20} /> },
   { key: "settings", label: "Настройки", icon: <AppIcon name="settings" size={20} /> },
 ];
 
