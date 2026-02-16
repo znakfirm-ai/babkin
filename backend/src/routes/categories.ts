@@ -81,14 +81,16 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       return reply.status(400).send({ error: "No active workspace" })
     }
 
+    const workspaceId: string = user.active_workspace_id
+
     const existing = await prisma.categories.findMany({
-      where: { workspace_id: user.active_workspace_id },
+      where: { workspace_id: workspaceId },
     })
 
     if (existing.length === 0) {
       await prisma.categories.createMany({
         data: DEFAULT_CATEGORIES.map((c) => ({
-          workspace_id: user.active_workspace_id,
+          workspace_id: workspaceId,
           name: c.name,
           kind: c.kind,
           icon: null,
@@ -99,7 +101,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
 
     const categories = existing.length
       ? existing
-      : await prisma.categories.findMany({ where: { workspace_id: user.active_workspace_id } })
+      : await prisma.categories.findMany({ where: { workspace_id: workspaceId } })
 
     const payload: { categories: CategoryResponse[] } = {
       categories: categories.map((c) => ({
