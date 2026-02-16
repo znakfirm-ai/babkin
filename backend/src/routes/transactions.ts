@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyPluginOptions } from "fastify"
 import jwt from "jsonwebtoken"
-import { Prisma } from "@prisma/client"
+import { Prisma, TransactionKind } from "@prisma/client"
 import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
@@ -120,6 +120,8 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_kind" })
     }
 
+    const kind: TransactionKind = body.kind
+
     if (!body.amount || !Number.isFinite(body.amount) || body.amount <= 0) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_amount" })
     }
@@ -132,7 +134,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
 
     const workspaceId = user.active_workspace_id
 
-    if (body.kind === "income" || body.kind === "expense") {
+    if (kind === "income" || kind === "expense") {
       if (!body.accountId) {
         return reply.status(400).send({ error: "Bad Request", reason: "missing_account" })
       }
@@ -150,7 +152,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
       }
 
       const tx = await prisma.$transaction(async (trx) => {
-        const delta = body.kind === "income" ? amount : amount.neg()
+        const delta = kind === "income" ? amount : amount.neg()
 
         await trx.accounts.update({
           where: { id: account.id },
@@ -160,7 +162,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
         const created = await trx.transactions.create({
           data: {
             workspace_id: workspaceId,
-            kind: body.kind,
+            kind,
             amount,
             happened_at: happenedAt,
             note: body.note ?? null,
@@ -203,7 +205,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
       const created = await trx.transactions.create({
         data: {
           workspace_id: workspaceId,
-          kind: "transfer",
+          kind,
           amount,
           happened_at: happenedAt,
           note: body.note ?? null,
