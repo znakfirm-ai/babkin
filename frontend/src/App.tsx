@@ -24,6 +24,7 @@ function App() {
   const normalLiteWsAbort = useRef<AbortController | null>(null);
   const normalLiteAccAbort = useRef<AbortController | null>(null);
   const normalLiteCatAbort = useRef<AbortController | null>(null);
+  const normalLiteTxAbort = useRef<AbortController | null>(null);
   const [workspacesDiag, setWorkspacesDiag] = useState<{
     status: "idle" | "loading" | "success" | "error";
     count: number | null;
@@ -40,6 +41,12 @@ function App() {
     count: number | null;
     error: string | null;
   }>({ status: "idle", count: null, error: null });
+  const [transactionsDiag, setTransactionsDiag] = useState<{
+    status: "idle" | "loading" | "success" | "error";
+    count: number | null;
+    sample: string | null;
+    error: string | null;
+  }>({ status: "idle", count: null, sample: null, error: null });
 
   interface TelegramWebApp {
     ready(): void
@@ -62,6 +69,7 @@ function App() {
         normalLiteWsAbort.current?.abort();
         normalLiteAccAbort.current?.abort();
         normalLiteCatAbort.current?.abort();
+        normalLiteTxAbort.current?.abort();
       };
     }
     if (baseHeightRef.current === null) {
@@ -252,6 +260,52 @@ function App() {
     }
   };
 
+  const fetchTransactionsDiag = async () => {
+    if (normalLiteMode === false) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+    if (!token) {
+      setTransactionsDiag({ status: "error", count: null, sample: null, error: "Нет токена" });
+      return;
+    }
+    normalLiteTxAbort.current?.abort();
+    const controller = new AbortController();
+    normalLiteTxAbort.current = controller;
+    setTransactionsDiag({ status: "loading", count: null, sample: null, error: null });
+    try {
+      const res = await fetch("https://babkin.onrender.com/api/v1/transactions", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Ошибка ${res.status} ${text}`);
+      }
+      const data: { transactions: { id?: string; kind?: string; amount?: unknown }[] } = await res.json();
+      const list = Array.isArray(data.transactions) ? data.transactions : [];
+      const first = list[0];
+      const sample =
+        first && typeof first === "object"
+          ? `${first.id ?? "?"} / ${first.kind ?? "?"} / ${
+              typeof first.amount === "string" || typeof first.amount === "number" ? first.amount : "?"
+            }`
+          : null;
+      setTransactionsDiag({
+        status: "success",
+        count: list.length,
+        sample,
+        error: null,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setTransactionsDiag({
+        status: "error",
+        count: null,
+        sample: null,
+        error: err instanceof Error ? err.message : "Не удалось загрузить transactions",
+      });
+    }
+  };
+
   if (safeMode) {
     return (
       <div className="app-shell">
@@ -356,6 +410,23 @@ function App() {
           >
             Fetch categories
           </button>
+          <button
+            type="button"
+            onClick={fetchTransactionsDiag}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid #2563eb",
+              background: "#fff",
+              color: "#2563eb",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              marginBottom: 12,
+            }}
+          >
+            Fetch transactions
+          </button>
           <div style={{ fontSize: 13, color: "#0f172a", marginBottom: 16, lineHeight: 1.5 }}>
             <div>Статус: {workspacesDiag.status}</div>
             {workspacesDiag.count !== null ? <div>Workspaces: {workspacesDiag.count}</div> : null}
@@ -367,6 +438,10 @@ function App() {
             <div style={{ marginTop: 10 }}>Categories: {categoriesDiag.status}</div>
             {categoriesDiag.count !== null ? <div>Categories count: {categoriesDiag.count}</div> : null}
             {categoriesDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {categoriesDiag.error}</div> : null}
+            <div style={{ marginTop: 10 }}>Transactions: {transactionsDiag.status}</div>
+            {transactionsDiag.count !== null ? <div>Transactions count: {transactionsDiag.count}</div> : null}
+            {transactionsDiag.sample ? <div>Sample: {transactionsDiag.sample}</div> : null}
+            {transactionsDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {transactionsDiag.error}</div> : null}
           </div>
           <button
             type="button"
