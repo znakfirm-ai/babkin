@@ -237,6 +237,7 @@ function OverviewScreen() {
   const accountsToRender = accountItems
 
   const expenseCategories = categories.filter((c) => c.type === "expense")
+  const expenseCategoryIdSet = useMemo(() => new Set(expenseCategories.map((c) => c.id)), [expenseCategories])
 
   const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
     id: src.id,
@@ -428,7 +429,13 @@ function OverviewScreen() {
         rowScroll
         rowClass="overview-expenses-row"
         onAddCategory={openCreateCategory}
-        onCategoryClick={openEditCategory}
+        onCategoryClick={(id, title) => {
+          if (expenseCategoryIdSet.has(id)) {
+            openEditCategory(id, title)
+          } else {
+            openCreateCategory()
+          }
+        }}
         baseCurrency={baseCurrency}
       />
 
@@ -569,7 +576,7 @@ function OverviewScreen() {
                 style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
               />
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                {categorySheetMode === "edit" && editingCategoryId ? (
+                {categorySheetMode === "edit" && editingCategoryId && expenseCategoryIdSet.has(editingCategoryId) ? (
                   <button
                     type="button"
                     onClick={() => handleDeleteCategory(editingCategoryId)}
