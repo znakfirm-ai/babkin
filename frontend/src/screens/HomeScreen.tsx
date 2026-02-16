@@ -1,26 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 import { createAccount, getAccounts } from "../api/accounts"
 import { getCategories } from "../api/categories"
 import { getTransactions } from "../api/transactions"
 import { getIncomeSources } from "../api/incomeSources"
-import { fetchExpensesByCategory } from "../api/analytics"
 import { useAppStore } from "../store/useAppStore"
-import { CURRENCIES, formatMoney as formatMoneyUtil, normalizeCurrency } from "../utils/formatMoney"
-import { format } from "../utils/date"
+import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
 type Story = { id: string; title: string; image: string }
-type Period = "today" | "week" | "month" | "custom"
-
 const VIEWED_KEY = "home_stories_viewed"
-
-const periodLabel: Record<Period, string> = {
-  today: "Сегодня",
-  week: "Неделя",
-  month: "Месяц",
-  custom: "Свой",
-}
 
 type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
@@ -48,14 +37,6 @@ function HomeScreen() {
     ],
     []
   )
-  const [expenseSlices, setExpenseSlices] = useState<
-    { id: string; name: string; amount: number; percent: number; color: string }[]
-  >([])
-  const [totalExpenseText, setTotalExpenseText] = useState("0.00")
-  const [expenseError, setExpenseError] = useState<string | null>(null)
-  const donutSize = 120
-  const lastExpensesParams = useRef<string | null>(null)
-  const abortController = useRef<AbortController | null>(null)
 
   const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
     try {
@@ -120,8 +101,6 @@ function HomeScreen() {
     },
     [markViewed, stories]
   )
-
-  const [period] = useState<Period>("today")
 
   const fetchWorkspaces = useCallback(async (token: string) => {
     try {
@@ -222,68 +201,6 @@ function HomeScreen() {
     [setTransactions]
   )
 
-  const computeRange = useCallback(
-    (p: Period): { from: string; to: string } => {
-      const now = new Date()
-      if (p === "today") {
-        const d = format(now)
-        return { from: d, to: d }
-      }
-      if (p === "week") {
-        const fromDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
-        return { from: format(fromDate), to: format(now) }
-      }
-      if (p === "month") {
-        const fromDate = new Date(now.getFullYear(), now.getMonth(), 1)
-        return { from: format(fromDate), to: format(now) }
-      }
-      const d = format(now)
-      return { from: d, to: d }
-    },
-    []
-  )
-
-  const fetchExpensesAnalytics = useCallback(
-    async (token: string, p: Period, workspaceId: string | null, signal?: AbortSignal, force = false) => {
-      if (!workspaceId) return
-      const key = `${token}-${workspaceId}-${p}`
-      if (!force && lastExpensesParams.current === key) return
-      const range = computeRange(p)
-      try {
-        const data = await fetchExpensesByCategory(token, { from: range.from, to: range.to, top: 4 }, signal)
-        lastExpensesParams.current = key
-        const total = Number(data.totalExpense)
-        setTotalExpenseText(total.toFixed(2))
-        if (total <= 0) {
-          setExpenseError(null)
-          return
-        }
-        const palette = ["#6ba7e7", "#5cc5a7", "#f29fb0", "#7aa8d6", "#9aa6b2"]
-        const baseSlices = data.top.slice(0, 4).map((item, idx) => ({
-          id: item.categoryId,
-          name: item.name,
-          amount: Number(item.total),
-          percent: total > 0 ? (Number(item.total) / total) * 100 : 0,
-          color: palette[idx % palette.length],
-        }))
-        const otherVal = Number(data.otherTotal)
-        const slices =
-          otherVal > 0
-            ? [
-                ...baseSlices,
-                { id: "other", name: "Остальное", amount: otherVal, percent: (otherVal / total) * 100, color: palette[4 % palette.length] },
-              ]
-            : baseSlices
-        setExpenseSlices(slices)
-        setExpenseError(null)
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return
-        setExpenseError(err instanceof Error ? err.message : "Не удалось обновить")
-      }
-    },
-    [computeRange]
-  )
-
   const setActiveWorkspaceRemote = useCallback(
     async (workspaceId: string, token: string) => {
       if (isSwitchingWorkspace) return
@@ -310,10 +227,6 @@ function HomeScreen() {
         await fetchCategories(token)
         await fetchIncomeSources(token)
         await fetchTransactions(token)
-        abortController.current?.abort()
-        const controller = new AbortController()
-        abortController.current = controller
-        await fetchExpensesAnalytics(token, period, workspaceId, controller.signal, true)
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)
@@ -325,7 +238,7 @@ function HomeScreen() {
         setSwitchingToWorkspaceId(null)
       }
     },
-    [fetchAccounts, fetchCategories, fetchExpensesAnalytics, fetchIncomeSources, fetchTransactions, isSwitchingWorkspace]
+    [fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, isSwitchingWorkspace]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -363,10 +276,6 @@ function HomeScreen() {
       void fetchCategories(existing)
       void fetchIncomeSources(existing)
       void fetchTransactions(existing)
-      abortController.current?.abort()
-      const controller = new AbortController()
-      abortController.current = controller
-      void fetchExpensesAnalytics(existing, period, activeWorkspace?.id ?? null, controller.signal)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -400,28 +309,12 @@ function HomeScreen() {
         void fetchCategories(data.accessToken)
         void fetchIncomeSources(data.accessToken)
         void fetchTransactions(data.accessToken)
-        abortController.current?.abort()
-        const controller = new AbortController()
-        abortController.current = controller
-        void fetchExpensesAnalytics(data.accessToken, period, activeWorkspace?.id ?? null, controller.signal)
       } catch {
         setAuthStatus("Auth error")
       }
     })()
 
-    return () => {
-      abortController.current?.abort()
-    }
-  }, [
-    fetchAccounts,
-    fetchCategories,
-    fetchExpensesAnalytics,
-    fetchIncomeSources,
-    fetchTransactions,
-    fetchWorkspaces,
-    period,
-    activeWorkspace?.id,
-  ])
+  }, [fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, fetchWorkspaces])
 
   const quickActions = useMemo(
     () => [
@@ -431,32 +324,6 @@ function HomeScreen() {
       { id: "qa-more", title: "Другое", icon: "more" as IconName, action: () => console.log("Другое") },
     ],
     [clickAddNav]
-  )
-
-  const periodButton = (
-    <button
-      type="button"
-      onClick={() => {
-        // sheet пока не делаем
-      }}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        border: "none",
-        background: "transparent",
-        borderRadius: 10,
-        padding: "6px 8px",
-        fontSize: 12,
-        color: "#0f172a",
-        cursor: "pointer",
-      }}
-    >
-      <span>Период · {periodLabel[period]}</span>
-      <span style={{ display: "inline-flex", alignItems: "center" }}>
-        <AppIcon name="arrowDown" size={14} />
-      </span>
-    </button>
   )
 
   const personalWorkspace = workspaces.find((w) => w.type === "personal") ?? null
@@ -550,288 +417,6 @@ function HomeScreen() {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="home-section" style={{ marginTop: 8 }}>
-        <div
-          className="home-banners"
-          style={{
-            display: "flex",
-            gap: 12,
-            overflowX: "hidden",
-            paddingBottom: 6,
-          }}
-        >
-          <div
-            className="home-banner"
-            style={{
-              flex: "0 0 100%",
-              borderRadius: 16,
-              border: "1px solid rgba(15,23,42,0.08)",
-              background: "linear-gradient(135deg, #f9fafb, #eef2f7)",
-              padding: "16px 16px 14px",
-              boxSizing: "border-box",
-              height: 180,
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: 10,
-                left: 10,
-                fontSize: 14,
-                fontWeight: 600,
-                color: "#0f172a",
-                zIndex: 2,
-                pointerEvents: "auto",
-              }}
-            >
-              Расходы
-            </div>
-            <div
-              style={{ position: "absolute", top: 10, right: 10, zIndex: 2, pointerEvents: "auto" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {periodButton}
-            </div>
-
-            <div
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                transform: "translate(-50%, -50%)",
-                width: donutSize,
-                height: donutSize,
-                pointerEvents: "none",
-                zIndex: 1,
-              }}
-            >
-              <svg
-                viewBox="0 0 100 100"
-                style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}
-              >
-                <circle cx="50" cy="50" r="36" fill="none" stroke="rgba(15,23,42,0.08)" strokeWidth="12" />
-                {expenseSlices.length > 0
-                  ? (() => {
-                      const r = 36
-                      const circumference = 2 * Math.PI * r
-                      let offset = 0
-                      return expenseSlices.map((s) => {
-                        const dash = (s.percent / 100) * circumference
-                        const arc = (
-                          <circle
-                            key={s.id}
-                            cx="50"
-                            cy="50"
-                            r={r}
-                            fill="none"
-                            stroke={s.color}
-                            strokeWidth="12"
-                            strokeDasharray={`${dash} ${circumference - dash}`}
-                            strokeDashoffset={-offset}
-                            strokeLinecap="butt"
-                          />
-                        )
-                        offset += dash
-                        return arc
-                      })
-                    })()
-                  : null}
-              </svg>
-            </div>
-
-            <div
-              style={{
-                position: "absolute",
-                left: 16,
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: "calc(50% - 90px)",
-                display: "grid",
-                gap: 10,
-                pointerEvents: "none",
-                zIndex: 1,
-              }}
-            >
-              {expenseSlices.slice(0, 2).map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    maxWidth: "100%",
-                  }}
-                >
-                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-                  <div style={{ display: "grid", gap: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {s.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: s.color }}>{`${s.amount.toFixed(2)} ₽ (${s.percent.toFixed(1)}%)`}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                position: "absolute",
-                right: 16,
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: "calc(50% - 90px)",
-                display: "grid",
-                gap: 10,
-                pointerEvents: "none",
-                zIndex: 1,
-              }}
-            >
-              {expenseSlices.slice(2, 4).map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    justifyContent: "flex-end",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    maxWidth: "100%",
-                  }}
-                >
-                  <div style={{ display: "grid", gap: 1, minWidth: 0, textAlign: "right" }}>
-                    <div style={{ fontSize: 12, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {s.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: s.color }}>{`${s.amount.toFixed(2)} ₽ (${s.percent.toFixed(1)}%)`}</div>
-                  </div>
-                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-                </div>
-              ))}
-            </div>
-
-            {expenseSlices.length > 4 ? (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 44,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  maxWidth: "calc(100% - 32px)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  pointerEvents: "none",
-                  zIndex: 1,
-                }}
-              >
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: expenseSlices[4].color,
-                    flexShrink: 0,
-                  }}
-                />
-                <div style={{ display: "grid", gap: 1, minWidth: 0, textAlign: "center" }}>
-                  <div style={{ fontSize: 12, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {expenseSlices[4].name}
-                  </div>
-                  <div style={{ fontSize: 11, color: expenseSlices[4].color }}>{`${expenseSlices[4].amount.toFixed(2)} ₽ (${expenseSlices[4].percent.toFixed(1)}%)`}</div>
-                </div>
-              </div>
-            ) : null}
-
-            <div
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                transform: "translate(-50%, 70px)",
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#0f172a",
-                whiteSpace: "nowrap",
-                pointerEvents: "none",
-                zIndex: 1,
-              }}
-            >
-              {`Всего: ${formatMoneyUtil(Number(totalExpenseText), "RUB")}`}
-            </div>
-
-            {expenseError ? (
-              <div
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "50%",
-                  transform: "translate(-50%, 90px)",
-                  fontSize: 11,
-                  color: "#b91c1c",
-                  whiteSpace: "nowrap",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  pointerEvents: "auto",
-                  zIndex: 2,
-                }}
-              >
-                <span>Не удалось обновить</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-                    if (!token) return
-                    abortController.current?.abort()
-                    const controller = new AbortController()
-                    abortController.current = controller
-                    void fetchExpensesAnalytics(token, period, activeWorkspace?.id ?? null, controller.signal)
-                  }}
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    borderRadius: 8,
-                    padding: "4px 8px",
-                    cursor: "pointer",
-                    fontSize: 11,
-                  }}
-                >
-                  Повторить
-                </button>
-              </div>
-            ) : null}
-
-            <button
-              type="button"
-              style={{
-                position: "absolute",
-                right: 10,
-                bottom: 10,
-                border: "1px solid rgba(15,23,42,0.12)",
-                background: "rgba(255,255,255,0.8)",
-                borderRadius: 10,
-                padding: "6px 10px",
-                fontSize: 12,
-                color: "#0f172a",
-                cursor: "pointer",
-              }}
-            >
-              Подробнее
-            </button>
-          </div>
         </div>
       </section>
 
