@@ -244,14 +244,14 @@ function HomeScreen() {
   )
 
   const fetchExpensesAnalytics = useCallback(
-    async (token: string, p: Period, workspaceId: string | null, signal?: AbortSignal) => {
+    async (token: string, p: Period, workspaceId: string | null, signal?: AbortSignal, force = false) => {
       if (!workspaceId) return
       const key = `${token}-${workspaceId}-${p}`
-      if (lastExpensesParams.current === key) return
-      lastExpensesParams.current = key
+      if (!force && lastExpensesParams.current === key) return
       const range = computeRange(p)
       try {
         const data = await fetchExpensesByCategory(token, { from: range.from, to: range.to, top: 4 }, signal)
+        lastExpensesParams.current = key
         const total = Number(data.totalExpense)
         setTotalExpenseText(total.toFixed(2))
         if (total <= 0) {
@@ -577,10 +577,26 @@ function HomeScreen() {
               overflow: "hidden",
             }}
           >
-            <div style={{ position: "absolute", top: 10, left: 10, fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
+            <div
+              style={{
+                position: "absolute",
+                top: 10,
+                left: 10,
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#0f172a",
+                zIndex: 2,
+                pointerEvents: "auto",
+              }}
+            >
               Расходы
             </div>
-            <div style={{ position: "absolute", top: 10, right: 10 }}>{periodButton}</div>
+            <div
+              style={{ position: "absolute", top: 10, right: 10, zIndex: 2, pointerEvents: "auto" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {periodButton}
+            </div>
 
             <div
               style={{
@@ -590,6 +606,8 @@ function HomeScreen() {
                 transform: "translate(-50%, -50%)",
                 width: donutSize,
                 height: donutSize,
+                pointerEvents: "none",
+                zIndex: 1,
               }}
             >
               <svg
@@ -635,6 +653,8 @@ function HomeScreen() {
                 width: "calc(50% - 90px)",
                 display: "grid",
                 gap: 10,
+                pointerEvents: "none",
+                zIndex: 1,
               }}
             >
               {expenseSlices.slice(0, 2).map((s) => (
@@ -670,6 +690,8 @@ function HomeScreen() {
                 width: "calc(50% - 90px)",
                 display: "grid",
                 gap: 10,
+                pointerEvents: "none",
+                zIndex: 1,
               }}
             >
               {expenseSlices.slice(2, 4).map((s) => (
@@ -711,6 +733,8 @@ function HomeScreen() {
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  pointerEvents: "none",
+                  zIndex: 1,
                 }}
               >
                 <span
@@ -741,6 +765,8 @@ function HomeScreen() {
                 fontWeight: 700,
                 color: "#0f172a",
                 whiteSpace: "nowrap",
+                pointerEvents: "none",
+                zIndex: 1,
               }}
             >
               {`Всего: ${formatMoneyUtil(Number(totalExpenseText), "RUB")}`}
@@ -759,6 +785,8 @@ function HomeScreen() {
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
+                  pointerEvents: "auto",
+                  zIndex: 2,
                 }}
               >
                 <span>Не удалось обновить</span>
