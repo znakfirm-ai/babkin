@@ -23,6 +23,7 @@ function App() {
   const gestureBlockers = useRef<(() => void) | null>(null);
   const normalLiteWsAbort = useRef<AbortController | null>(null);
   const normalLiteAccAbort = useRef<AbortController | null>(null);
+  const normalLiteCatAbort = useRef<AbortController | null>(null);
   const [workspacesDiag, setWorkspacesDiag] = useState<{
     status: "idle" | "loading" | "success" | "error";
     count: number | null;
@@ -30,6 +31,11 @@ function App() {
     error: string | null;
   }>({ status: "idle", count: null, activeId: null, error: null });
   const [accountsDiag, setAccountsDiag] = useState<{
+    status: "idle" | "loading" | "success" | "error";
+    count: number | null;
+    error: string | null;
+  }>({ status: "idle", count: null, error: null });
+  const [categoriesDiag, setCategoriesDiag] = useState<{
     status: "idle" | "loading" | "success" | "error";
     count: number | null;
     error: string | null;
@@ -55,6 +61,7 @@ function App() {
       return () => {
         normalLiteWsAbort.current?.abort();
         normalLiteAccAbort.current?.abort();
+        normalLiteCatAbort.current?.abort();
       };
     }
     if (baseHeightRef.current === null) {
@@ -209,6 +216,42 @@ function App() {
     }
   };
 
+  const fetchCategoriesDiag = async () => {
+    if (normalLiteMode === false) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+    if (!token) {
+      setCategoriesDiag({ status: "error", count: null, error: "Нет токена" });
+      return;
+    }
+    normalLiteCatAbort.current?.abort();
+    const controller = new AbortController();
+    normalLiteCatAbort.current = controller;
+    setCategoriesDiag({ status: "loading", count: null, error: null });
+    try {
+      const res = await fetch("https://babkin.onrender.com/api/v1/categories", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Ошибка ${res.status} ${text}`);
+      }
+      const data: { categories: unknown[] } = await res.json();
+      setCategoriesDiag({
+        status: "success",
+        count: Array.isArray(data.categories) ? data.categories.length : 0,
+        error: null,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setCategoriesDiag({
+        status: "error",
+        count: null,
+        error: err instanceof Error ? err.message : "Не удалось загрузить categories",
+      });
+    }
+  };
+
   if (safeMode) {
     return (
       <div className="app-shell">
@@ -296,6 +339,23 @@ function App() {
           >
             Fetch accounts
           </button>
+          <button
+            type="button"
+            onClick={fetchCategoriesDiag}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid #2563eb",
+              background: "#fff",
+              color: "#2563eb",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              marginBottom: 12,
+            }}
+          >
+            Fetch categories
+          </button>
           <div style={{ fontSize: 13, color: "#0f172a", marginBottom: 16, lineHeight: 1.5 }}>
             <div>Статус: {workspacesDiag.status}</div>
             {workspacesDiag.count !== null ? <div>Workspaces: {workspacesDiag.count}</div> : null}
@@ -304,6 +364,9 @@ function App() {
             <div style={{ marginTop: 10 }}>Accounts: {accountsDiag.status}</div>
             {accountsDiag.count !== null ? <div>Accounts count: {accountsDiag.count}</div> : null}
             {accountsDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {accountsDiag.error}</div> : null}
+            <div style={{ marginTop: 10 }}>Categories: {categoriesDiag.status}</div>
+            {categoriesDiag.count !== null ? <div>Categories count: {categoriesDiag.count}</div> : null}
+            {categoriesDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {categoriesDiag.error}</div> : null}
           </div>
           <button
             type="button"
