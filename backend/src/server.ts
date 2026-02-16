@@ -7,6 +7,7 @@ import { authRoutes } from "./routes/auth"
 import { workspacesRoutes } from "./routes/workspaces"
 import { accountsRoutes } from "./routes/accounts"
 import { categoriesRoutes } from "./routes/categories"
+import { transactionsRoutes } from "./routes/transactions"
 
 const fastify = Fastify({
   logger: true,
@@ -19,6 +20,7 @@ fastify.register(meRoutes, { prefix: "/api/v1" })
 fastify.register(workspacesRoutes, { prefix: "/api/v1" })
 fastify.register(accountsRoutes, { prefix: "/api/v1" })
 fastify.register(categoriesRoutes, { prefix: "/api/v1" })
+fastify.register(transactionsRoutes, { prefix: "/api/v1" })
 
 const port = Number(process.env.PORT) || env.PORT
 
