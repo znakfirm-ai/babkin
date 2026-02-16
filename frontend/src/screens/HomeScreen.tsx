@@ -7,7 +7,7 @@ import { getTransactions } from "../api/transactions"
 import { getIncomeSources } from "../api/incomeSources"
 import { fetchExpensesByCategory } from "../api/analytics"
 import { useAppStore } from "../store/useAppStore"
-import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
+import { CURRENCIES, formatMoney as formatMoneyUtil, normalizeCurrency } from "../utils/formatMoney"
 import { format } from "../utils/date"
 
 type Story = { id: string; title: string; image: string }
@@ -716,7 +716,7 @@ function HomeScreen() {
                 whiteSpace: "nowrap",
               }}
             >
-              {`Всего: ${formatRub(Number(totalExpenseText))}`}
+              {`Всего: ${formatMoneyUtil(Number(totalExpenseText), "RUB")}`}
             </div>
 
             <button
