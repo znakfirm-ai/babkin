@@ -10,17 +10,49 @@ export type GetAccountsResponse = {
   accounts: ApiAccount[]
 }
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 export async function getAccounts(token: string): Promise<GetAccountsResponse> {
-  const res = await fetch("https://babkin.onrender.com/api/v1/accounts", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => "")
-    throw new Error(`GET /accounts failed: ${res.status} ${res.statusText} ${text}`)
+  const url = "https://babkin.onrender.com/api/v1/accounts"
+  let attempt = 0
+
+  // retry once on network error or 5xx
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let res: Response
+    try {
+      res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+    } catch (err) {
+      if (attempt === 0) {
+        attempt += 1
+        await delay(1000)
+        continue
+      }
+      if (err instanceof Error) throw err
+      throw new Error("Network error")
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      const text = await res.text().catch(() => "")
+      throw new Error(`GET /accounts failed: ${res.status} ${res.statusText} ${text}`)
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "")
+      if (res.status >= 500 && attempt === 0) {
+        attempt += 1
+        await delay(1000)
+        continue
+      }
+      throw new Error(`GET /accounts failed: ${res.status} ${res.statusText} ${text}`)
+    }
+
+    return res.json()
   }
-  return res.json()
 }
 
 export type CreateAccountBody = {
