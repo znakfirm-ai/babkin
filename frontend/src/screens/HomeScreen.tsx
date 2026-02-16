@@ -5,8 +5,10 @@ import { createAccount, getAccounts } from "../api/accounts"
 import { getCategories } from "../api/categories"
 import { getTransactions } from "../api/transactions"
 import { getIncomeSources } from "../api/incomeSources"
+import { fetchExpensesByCategory } from "../api/analytics"
 import { useAppStore } from "../store/useAppStore"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
+import { format } from "../utils/date"
 
 type Story = { id: string; title: string; image: string }
 type Period = "today" | "week" | "month" | "custom"
@@ -46,6 +48,11 @@ function HomeScreen() {
     ],
     []
   )
+  const [expenseSlices, setExpenseSlices] = useState<
+    { id: string; name: string; amount: number; percent: number; color: string }[]
+  >([])
+  const [totalExpenseText, setTotalExpenseText] = useState("0.00")
+  const [isExpenseLoading, setIsExpenseLoading] = useState(false)
 
   const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
     try {
@@ -238,6 +245,7 @@ function HomeScreen() {
         await fetchCategories(token)
         await fetchIncomeSources(token)
         await fetchTransactions(token)
+        await fetchExpensesAnalytics(token, period)
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)
@@ -249,7 +257,7 @@ function HomeScreen() {
         setSwitchingToWorkspaceId(null)
       }
     },
-    [fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, isSwitchingWorkspace]
+    [fetchAccounts, fetchCategories, fetchExpensesAnalytics, fetchIncomeSources, fetchTransactions, isSwitchingWorkspace]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -287,6 +295,7 @@ function HomeScreen() {
       void fetchCategories(existing)
       void fetchIncomeSources(existing)
       void fetchTransactions(existing)
+      void fetchExpensesAnalytics(existing, period)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -320,11 +329,12 @@ function HomeScreen() {
         void fetchCategories(data.accessToken)
         void fetchIncomeSources(data.accessToken)
         void fetchTransactions(data.accessToken)
+        void fetchExpensesAnalytics(data.accessToken, period)
       } catch {
         setAuthStatus("Auth error")
       }
     })()
-  }, [fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, fetchWorkspaces])
+  }, [fetchAccounts, fetchCategories, fetchExpensesAnalytics, fetchIncomeSources, fetchTransactions, fetchWorkspaces, period])
 
   const quickActions = useMemo(
     () => [
@@ -360,6 +370,61 @@ function HomeScreen() {
         <AppIcon name="arrowDown" size={14} />
       </span>
     </button>
+  )
+
+  const computeRange = useCallback(
+    (p: Period): { from: string; to: string } => {
+      const now = new Date()
+      if (p === "today") {
+        const d = format(now)
+        return { from: d, to: d }
+      }
+      if (p === "week") {
+        const fromDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
+        return { from: format(fromDate), to: format(now) }
+      }
+      if (p === "month") {
+        const fromDate = new Date(now.getFullYear(), now.getMonth(), 1)
+        return { from: format(fromDate), to: format(now) }
+      }
+      const d = format(now)
+      return { from: d, to: d }
+    },
+    []
+  )
+
+  const fetchExpensesAnalytics = useCallback(
+    async (token: string, p: Period) => {
+      const range = computeRange(p)
+      setIsExpenseLoading(true)
+      try {
+        const data = await fetchExpensesByCategory(token, { from: range.from, to: range.to, top: 4 })
+        const total = Number(data.totalExpense)
+        setTotalExpenseText(total.toFixed(2))
+        if (total <= 0) {
+          setExpenseSlices([])
+          return
+        }
+        const palette = ["#6ba7e7", "#5cc5a7", "#f29fb0", "#7aa8d6", "#9aa6b2"]
+        const baseSlices = data.top.slice(0, 4).map((item, idx) => ({
+          id: item.categoryId,
+          name: item.name,
+          amount: Number(item.total),
+          percent: total > 0 ? (Number(item.total) / total) * 100 : 0,
+          color: palette[idx % palette.length],
+        }))
+        const otherVal = Number(data.otherTotal)
+        const slices = otherVal > 0
+          ? [...baseSlices, { id: "other", name: "Остальное", amount: otherVal, percent: (otherVal / total) * 100, color: palette[4 % palette.length] }]
+          : baseSlices
+        setExpenseSlices(slices)
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Не удалось загрузить аналитику расходов")
+      } finally {
+        setIsExpenseLoading(false)
+      }
+    },
+    [computeRange]
   )
 
   const personalWorkspace = workspaces.find((w) => w.type === "personal") ?? null
@@ -483,7 +548,115 @@ function HomeScreen() {
             <div style={{ position: "absolute", top: 10, left: 10, fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
               Расходы
             </div>
-            <div style={{ position: "absolute", top: 10, right: 10 }}>{periodButton}</div>
+            <div style={{ position: "absolute", top: 10, right: 10, display: "grid", gap: 6, justifyItems: "end" }}>
+              {periodButton}
+              <div style={{ fontSize: 12, color: "#0f172a" }}>{`Всего: ${totalExpenseText}`}</div>
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                transform: "translate(-50%, -50%)",
+                width: 120,
+                height: 120,
+              }}
+            >
+              <svg
+                viewBox="0 0 100 100"
+                style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}
+              >
+                <circle cx="50" cy="50" r="36" fill="none" stroke="rgba(15,23,42,0.08)" strokeWidth="12" />
+                {expenseSlices.length > 0
+                  ? (() => {
+                      const r = 36
+                      const circumference = 2 * Math.PI * r
+                      let offset = 0
+                      return expenseSlices.map((s) => {
+                        const dash = (s.percent / 100) * circumference
+                        const arc = (
+                          <circle
+                            key={s.id}
+                            cx="50"
+                            cy="50"
+                            r={r}
+                            fill="none"
+                            stroke={s.color}
+                            strokeWidth="12"
+                            strokeDasharray={`${dash} ${circumference - dash}`}
+                            strokeDashoffset={-offset}
+                            strokeLinecap="butt"
+                          />
+                        )
+                        offset += dash
+                        return arc
+                      })
+                    })()
+                  : null}
+              </svg>
+              {isExpenseLoading ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "grid",
+                    placeItems: "center",
+                    fontSize: 12,
+                    color: "#6b7280",
+                  }}
+                >
+                  Загрузка...
+                </div>
+              ) : null}
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                left: 16,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "42%",
+                display: "grid",
+                gap: 8,
+              }}
+            >
+              {expenseSlices.slice(0, 2).map((s) => (
+                <div key={s.id} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ fontSize: 12, color: "#0f172a" }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: s.color }}>{`${s.amount.toFixed(2)} ₽ (${s.percent.toFixed(1)}%)`}</div>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                right: 16,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "42%",
+                display: "grid",
+                gap: 8,
+              }}
+            >
+              {expenseSlices.slice(2).map((s) => (
+                <div
+                  key={s.id}
+                  style={{
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    textAlign: "right",
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#0f172a" }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: s.color }}>{`${s.amount.toFixed(2)} ₽ (${s.percent.toFixed(1)}%)`}</div>
+                </div>
+              ))}
+            </div>
+
             <button
               type="button"
               style={{
