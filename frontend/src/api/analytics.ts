@@ -4,13 +4,39 @@ export type SummaryResponse = {
   net: string
 }
 
+async function fetchWithRetry(url: string, options: { headers: Record<string, string>; signal?: AbortSignal }): Promise<Response> {
+  let attempt = 0
+  // retry at most once (total 2 attempts)
+  while (true) {
+    let res: Response
+    try {
+      res = await fetch(url, { ...options })
+    } catch (err) {
+      if (options.signal?.aborted) throw err
+      const isNetworkError = err instanceof TypeError
+      if (isNetworkError && attempt === 0) {
+        attempt += 1
+        continue
+      }
+      throw err
+    }
+
+    if (res.status >= 500 && res.status <= 599 && attempt === 0) {
+      attempt += 1
+      continue
+    }
+
+    return res
+  }
+}
+
 export async function fetchSummary(
   token: string,
   params: { from: string; to: string },
   signal?: AbortSignal
 ): Promise<SummaryResponse> {
   const query = new URLSearchParams({ from: params.from, to: params.to })
-  const res = await fetch(`https://babkin.onrender.com/api/v1/analytics/summary?${query.toString()}`, {
+  const res = await fetchWithRetry(`https://babkin.onrender.com/api/v1/analytics/summary?${query.toString()}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -45,12 +71,15 @@ export async function fetchExpensesByCategory(
     to: params.to,
     top: String(params.top ?? 50),
   })
-  const res = await fetch(`https://babkin.onrender.com/api/v1/analytics/expenses-by-category?${query.toString()}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    signal,
-  })
+  const res = await fetchWithRetry(
+    `https://babkin.onrender.com/api/v1/analytics/expenses-by-category?${query.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      signal,
+    }
+  )
   if (!res.ok) {
     const text = await res.text().catch(() => "")
     throw new Error(`GET /analytics/expenses-by-category failed: ${res.status} ${res.statusText} ${text}`)

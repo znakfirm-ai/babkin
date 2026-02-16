@@ -52,6 +52,7 @@ function HomeScreen() {
     { id: string; name: string; amount: number; percent: number; color: string }[]
   >([])
   const [totalExpenseText, setTotalExpenseText] = useState("0.00")
+  const [expenseError, setExpenseError] = useState<string | null>(null)
   const donutSize = 120
   const lastExpensesParams = useRef<string | null>(null)
   const abortController = useRef<AbortController | null>(null)
@@ -253,7 +254,8 @@ function HomeScreen() {
         const total = Number(data.totalExpense)
         setTotalExpenseText(total.toFixed(2))
         if (total <= 0) {
-          setExpenseSlices([])
+          // keep previous slices to avoid blinking; do not overwrite with empty
+          setExpenseError(null)
           return
         }
         const palette = ["#6ba7e7", "#5cc5a7", "#f29fb0", "#7aa8d6", "#9aa6b2"]
@@ -273,9 +275,10 @@ function HomeScreen() {
               ]
             : baseSlices
         setExpenseSlices(slices)
+        setExpenseError(null)
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return
-        // тихо игнорируем, оставляя предыдущие данные
+        setExpenseError(err instanceof Error ? err.message : "Не удалось обновить")
       }
     },
     [computeRange]
@@ -733,6 +736,22 @@ function HomeScreen() {
             >
               {`Всего: ${formatMoneyUtil(Number(totalExpenseText), "RUB")}`}
             </div>
+
+            {expenseError ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, 90px)",
+                  fontSize: 11,
+                  color: "#b91c1c",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Не удалось обновить
+              </div>
+            ) : null}
 
             <button
               type="button"
