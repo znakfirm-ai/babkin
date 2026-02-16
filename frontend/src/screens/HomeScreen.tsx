@@ -54,6 +54,7 @@ function HomeScreen() {
   const [totalExpenseText, setTotalExpenseText] = useState("0.00")
   const [isExpenseLoading, setIsExpenseLoading] = useState(false)
   const donutSize = 120
+  const lastExpensesParams = useRef<string | null>(null)
 
   const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
     try {
@@ -243,6 +244,9 @@ function HomeScreen() {
 
   const fetchExpensesAnalytics = useCallback(
     async (token: string, p: Period) => {
+      const key = `${token}-${p}`
+      if (lastExpensesParams.current === key) return
+      lastExpensesParams.current = key
       const range = computeRange(p)
       setIsExpenseLoading(true)
       try {
@@ -570,7 +574,7 @@ function HomeScreen() {
                 style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}
               >
                 <circle cx="50" cy="50" r="36" fill="none" stroke="rgba(15,23,42,0.08)" strokeWidth="12" />
-                {!isExpenseLoading && expenseSlices.length > 0
+                {expenseSlices.length > 0
                   ? (() => {
                       const r = 36
                       const circumference = 2 * Math.PI * r
