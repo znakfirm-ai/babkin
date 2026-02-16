@@ -54,6 +54,7 @@ function HomeScreen() {
   const [totalExpenseText, setTotalExpenseText] = useState("0.00")
   const donutSize = 120
   const lastExpensesParams = useRef<string | null>(null)
+  const abortController = useRef<AbortController>(new AbortController())
 
   const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
     try {
@@ -242,13 +243,13 @@ function HomeScreen() {
   )
 
   const fetchExpensesAnalytics = useCallback(
-    async (token: string, p: Period) => {
+    async (token: string, p: Period, signal?: AbortSignal) => {
       const key = `${token}-${p}`
       if (lastExpensesParams.current === key) return
       lastExpensesParams.current = key
       const range = computeRange(p)
       try {
-        const data = await fetchExpensesByCategory(token, { from: range.from, to: range.to, top: 4 })
+        const data = await fetchExpensesByCategory(token, { from: range.from, to: range.to, top: 4 }, signal)
         const total = Number(data.totalExpense)
         setTotalExpenseText(total.toFixed(2))
         if (total <= 0) {
@@ -273,7 +274,8 @@ function HomeScreen() {
             : baseSlices
         setExpenseSlices(slices)
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Не удалось загрузить аналитику расходов")
+        if (err instanceof DOMException && err.name === "AbortError") return
+        // тихо игнорируем, оставляя предыдущие данные
       }
     },
     [computeRange]
@@ -305,7 +307,7 @@ function HomeScreen() {
         await fetchCategories(token)
         await fetchIncomeSources(token)
         await fetchTransactions(token)
-        await fetchExpensesAnalytics(token, period)
+        await fetchExpensesAnalytics(token, period, abortController.current.signal)
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)
@@ -355,7 +357,7 @@ function HomeScreen() {
       void fetchCategories(existing)
       void fetchIncomeSources(existing)
       void fetchTransactions(existing)
-      void fetchExpensesAnalytics(existing, period)
+      void fetchExpensesAnalytics(existing, period, abortController.current.signal)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -389,11 +391,15 @@ function HomeScreen() {
         void fetchCategories(data.accessToken)
         void fetchIncomeSources(data.accessToken)
         void fetchTransactions(data.accessToken)
-        void fetchExpensesAnalytics(data.accessToken, period)
+        void fetchExpensesAnalytics(data.accessToken, period, abortController.current.signal)
       } catch {
         setAuthStatus("Auth error")
       }
     })()
+
+    return () => {
+      abortController.current.abort()
+    }
   }, [fetchAccounts, fetchCategories, fetchExpensesAnalytics, fetchIncomeSources, fetchTransactions, fetchWorkspaces, period])
 
   const quickActions = useMemo(

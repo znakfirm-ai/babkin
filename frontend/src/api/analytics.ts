@@ -4,12 +4,17 @@ export type SummaryResponse = {
   net: string
 }
 
-export async function fetchSummary(token: string, params: { from: string; to: string }): Promise<SummaryResponse> {
+export async function fetchSummary(
+  token: string,
+  params: { from: string; to: string },
+  signal?: AbortSignal
+): Promise<SummaryResponse> {
   const query = new URLSearchParams({ from: params.from, to: params.to })
   const res = await fetch(`https://babkin.onrender.com/api/v1/analytics/summary?${query.toString()}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    signal,
   })
   if (!res.ok) {
     const text = await res.text().catch(() => "")
@@ -32,7 +37,8 @@ export type ExpensesByCategoryResponse = {
 
 export async function fetchExpensesByCategory(
   token: string,
-  params: { from: string; to: string; top?: number }
+  params: { from: string; to: string; top?: number },
+  signal?: AbortSignal
 ): Promise<ExpensesByCategoryResponse> {
   const query = new URLSearchParams({
     from: params.from,
@@ -43,6 +49,7 @@ export async function fetchExpensesByCategory(
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    signal,
   })
   if (!res.ok) {
     const text = await res.text().catch(() => "")
