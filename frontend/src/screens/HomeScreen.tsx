@@ -53,6 +53,7 @@ function HomeScreen() {
   >([])
   const [totalExpenseText, setTotalExpenseText] = useState("0.00")
   const [isExpenseLoading, setIsExpenseLoading] = useState(false)
+  const donutSize = 120
 
   const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
     try {
@@ -552,10 +553,7 @@ function HomeScreen() {
             <div style={{ position: "absolute", top: 10, left: 10, fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
               Расходы
             </div>
-            <div style={{ position: "absolute", top: 10, right: 10, display: "grid", gap: 6, justifyItems: "end" }}>
-              {periodButton}
-              <div style={{ fontSize: 12, color: "#0f172a" }}>{`Всего: ${totalExpenseText}`}</div>
-            </div>
+            <div style={{ position: "absolute", top: 10, right: 10 }}>{periodButton}</div>
 
             <div
               style={{
@@ -563,8 +561,8 @@ function HomeScreen() {
                 left: "50%",
                 top: "50%",
                 transform: "translate(-50%, -50%)",
-                width: 120,
-                height: 120,
+                width: donutSize,
+                height: donutSize,
               }}
             >
               <svg
@@ -572,7 +570,7 @@ function HomeScreen() {
                 style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}
               >
                 <circle cx="50" cy="50" r="36" fill="none" stroke="rgba(15,23,42,0.08)" strokeWidth="12" />
-                {expenseSlices.length > 0
+                {!isExpenseLoading && expenseSlices.length > 0
                   ? (() => {
                       const r = 36
                       const circumference = 2 * Math.PI * r
@@ -599,20 +597,6 @@ function HomeScreen() {
                     })()
                   : null}
               </svg>
-              {isExpenseLoading ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "grid",
-                    placeItems: "center",
-                    fontSize: 12,
-                    color: "#6b7280",
-                  }}
-                >
-                  Загрузка...
-                </div>
-              ) : null}
             </div>
 
             <div
@@ -621,15 +605,31 @@ function HomeScreen() {
                 left: 16,
                 top: "50%",
                 transform: "translateY(-50%)",
-                width: "42%",
+                width: "calc(50% - 90px)",
                 display: "grid",
-                gap: 8,
+                gap: 10,
               }}
             >
               {expenseSlices.slice(0, 2).map((s) => (
-                <div key={s.id} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  <div style={{ fontSize: 12, color: "#0f172a" }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: s.color }}>{`${s.amount.toFixed(2)} ₽ (${s.percent.toFixed(1)}%)`}</div>
+                <div
+                  key={s.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: "100%",
+                  }}
+                >
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                  <div style={{ display: "grid", gap: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: s.color }}>{`${s.amount.toFixed(2)} ₽ (${s.percent.toFixed(1)}%)`}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -640,25 +640,83 @@ function HomeScreen() {
                 right: 16,
                 top: "50%",
                 transform: "translateY(-50%)",
-                width: "42%",
+                width: "calc(50% - 90px)",
                 display: "grid",
-                gap: 8,
+                gap: 10,
               }}
             >
-              {expenseSlices.slice(2).map((s) => (
+              {expenseSlices.slice(2, 4).map((s) => (
                 <div
                   key={s.id}
                   style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    justifyContent: "flex-end",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                    textAlign: "right",
+                    maxWidth: "100%",
                   }}
                 >
-                  <div style={{ fontSize: 12, color: "#0f172a" }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: s.color }}>{`${s.amount.toFixed(2)} ₽ (${s.percent.toFixed(1)}%)`}</div>
+                  <div style={{ display: "grid", gap: 1, minWidth: 0, textAlign: "right" }}>
+                    <div style={{ fontSize: 12, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: s.color }}>{`${s.amount.toFixed(2)} ₽ (${s.percent.toFixed(1)}%)`}</div>
+                  </div>
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
                 </div>
               ))}
+            </div>
+
+            {expenseSlices.length > 4 ? (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 44,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  maxWidth: "calc(100% - 32px)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: expenseSlices[4].color,
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ display: "grid", gap: 1, minWidth: 0, textAlign: "center" }}>
+                  <div style={{ fontSize: 12, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {expenseSlices[4].name}
+                  </div>
+                  <div style={{ fontSize: 11, color: expenseSlices[4].color }}>{`${expenseSlices[4].amount.toFixed(2)} ₽ (${expenseSlices[4].percent.toFixed(1)}%)`}</div>
+                </div>
+              </div>
+            ) : null}
+
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                transform: "translate(-50%, 70px)",
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#0f172a",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {`Всего: ${formatRub(Number(totalExpenseText))}`}
             </div>
 
             <button
