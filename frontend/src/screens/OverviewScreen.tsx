@@ -237,7 +237,6 @@ function OverviewScreen() {
   const accountsToRender = accountItems
 
   const expenseCategories = categories.filter((c) => c.type === "expense")
-  const expenseCategoryIdSet = useMemo(() => new Set(expenseCategories.map((c) => c.id)), [expenseCategories])
 
   const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
     id: src.id,
@@ -247,12 +246,7 @@ function OverviewScreen() {
     color: cardColors[(idx + 1) % cardColors.length],
     type: "category" as const,
   }))
-  const placeholderIncome: CardItem[] = [
-    { id: "ph-income-1", title: "Доход (шаблон)", amount: 0, icon: "arrowDown", color: "#e5e7eb", type: "category", size: "lg" },
-    { id: "ph-income-2", title: "Доход (шаблон)", amount: 0, icon: "arrowDown", color: "#e5e7eb", type: "category", size: "lg" },
-  ]
-
-  const incomeToRender = [...incomeItems, ...placeholderIncome]
+  const incomeToRender = [...incomeItems]
 
   const uncategorizedIncome = incomeBySource.get("uncategorized")
   if (uncategorizedIncome) {
@@ -277,16 +271,6 @@ function OverviewScreen() {
       size: "md" as const,
     }))
     .sort((a, b) => b.amount - a.amount)
-
-  const placeholderExpense: CardItem[] = Array.from({ length: 10 }).map((_, i) => ({
-    id: `ph-exp-${i + 1}`,
-    title: "Расход (шаблон)",
-    amount: 0,
-    icon: "tag",
-    color: "#e5e7eb",
-    type: "category" as const,
-    size: "md" as const,
-  }))
 
   const uncategorizedExpense = expenseByCategory.get("uncategorized")
   if (uncategorizedExpense) {
@@ -349,7 +333,7 @@ function OverviewScreen() {
   const maxExpenseAmount = Math.max(0, ...expenseItems.map((i) => i.amount))
   const sizedExpenseItems = expenseItems.map((i) => ({ ...i, size: i.size ?? computeSize(i.amount, maxExpenseAmount) }))
 
-  const expenseToRender = [...sizedExpenseItems, ...placeholderExpense]
+  const expenseToRender = [...sizedExpenseItems]
 
   const goalsItems: CardItem[] = [
     { id: "goal-trip", title: "Путешествие", amount: 0, icon: "plane", color: "#0ea5e9" },
@@ -429,13 +413,7 @@ function OverviewScreen() {
         rowScroll
         rowClass="overview-expenses-row"
         onAddCategory={openCreateCategory}
-        onCategoryClick={(id, title) => {
-          if (expenseCategoryIdSet.has(id)) {
-            openEditCategory(id, title)
-          } else {
-            openCreateCategory()
-          }
-        }}
+        onCategoryClick={openEditCategory}
         baseCurrency={baseCurrency}
       />
 
@@ -576,7 +554,7 @@ function OverviewScreen() {
                 style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
               />
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                {categorySheetMode === "edit" && editingCategoryId && expenseCategoryIdSet.has(editingCategoryId) ? (
+                {categorySheetMode === "edit" && editingCategoryId ? (
                   <button
                     type="button"
                     onClick={() => handleDeleteCategory(editingCategoryId)}
