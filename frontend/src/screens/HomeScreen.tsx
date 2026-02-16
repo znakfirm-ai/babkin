@@ -219,6 +219,65 @@ function HomeScreen() {
     [setTransactions]
   )
 
+  const computeRange = useCallback(
+    (p: Period): { from: string; to: string } => {
+      const now = new Date()
+      if (p === "today") {
+        const d = format(now)
+        return { from: d, to: d }
+      }
+      if (p === "week") {
+        const fromDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
+        return { from: format(fromDate), to: format(now) }
+      }
+      if (p === "month") {
+        const fromDate = new Date(now.getFullYear(), now.getMonth(), 1)
+        return { from: format(fromDate), to: format(now) }
+      }
+      const d = format(now)
+      return { from: d, to: d }
+    },
+    []
+  )
+
+  const fetchExpensesAnalytics = useCallback(
+    async (token: string, p: Period) => {
+      const range = computeRange(p)
+      setIsExpenseLoading(true)
+      try {
+        const data = await fetchExpensesByCategory(token, { from: range.from, to: range.to, top: 4 })
+        const total = Number(data.totalExpense)
+        setTotalExpenseText(total.toFixed(2))
+        if (total <= 0) {
+          setExpenseSlices([])
+          return
+        }
+        const palette = ["#6ba7e7", "#5cc5a7", "#f29fb0", "#7aa8d6", "#9aa6b2"]
+        const baseSlices = data.top.slice(0, 4).map((item, idx) => ({
+          id: item.categoryId,
+          name: item.name,
+          amount: Number(item.total),
+          percent: total > 0 ? (Number(item.total) / total) * 100 : 0,
+          color: palette[idx % palette.length],
+        }))
+        const otherVal = Number(data.otherTotal)
+        const slices =
+          otherVal > 0
+            ? [
+                ...baseSlices,
+                { id: "other", name: "Остальное", amount: otherVal, percent: (otherVal / total) * 100, color: palette[4 % palette.length] },
+              ]
+            : baseSlices
+        setExpenseSlices(slices)
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Не удалось загрузить аналитику расходов")
+      } finally {
+        setIsExpenseLoading(false)
+      }
+    },
+    [computeRange]
+  )
+
   const setActiveWorkspaceRemote = useCallback(
     async (workspaceId: string, token: string) => {
       if (isSwitchingWorkspace) return
@@ -370,61 +429,6 @@ function HomeScreen() {
         <AppIcon name="arrowDown" size={14} />
       </span>
     </button>
-  )
-
-  const computeRange = useCallback(
-    (p: Period): { from: string; to: string } => {
-      const now = new Date()
-      if (p === "today") {
-        const d = format(now)
-        return { from: d, to: d }
-      }
-      if (p === "week") {
-        const fromDate = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000)
-        return { from: format(fromDate), to: format(now) }
-      }
-      if (p === "month") {
-        const fromDate = new Date(now.getFullYear(), now.getMonth(), 1)
-        return { from: format(fromDate), to: format(now) }
-      }
-      const d = format(now)
-      return { from: d, to: d }
-    },
-    []
-  )
-
-  const fetchExpensesAnalytics = useCallback(
-    async (token: string, p: Period) => {
-      const range = computeRange(p)
-      setIsExpenseLoading(true)
-      try {
-        const data = await fetchExpensesByCategory(token, { from: range.from, to: range.to, top: 4 })
-        const total = Number(data.totalExpense)
-        setTotalExpenseText(total.toFixed(2))
-        if (total <= 0) {
-          setExpenseSlices([])
-          return
-        }
-        const palette = ["#6ba7e7", "#5cc5a7", "#f29fb0", "#7aa8d6", "#9aa6b2"]
-        const baseSlices = data.top.slice(0, 4).map((item, idx) => ({
-          id: item.categoryId,
-          name: item.name,
-          amount: Number(item.total),
-          percent: total > 0 ? (Number(item.total) / total) * 100 : 0,
-          color: palette[idx % palette.length],
-        }))
-        const otherVal = Number(data.otherTotal)
-        const slices = otherVal > 0
-          ? [...baseSlices, { id: "other", name: "Остальное", amount: otherVal, percent: (otherVal / total) * 100, color: palette[4 % palette.length] }]
-          : baseSlices
-        setExpenseSlices(slices)
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "Не удалось загрузить аналитику расходов")
-      } finally {
-        setIsExpenseLoading(false)
-      }
-    },
-    [computeRange]
   )
 
   const personalWorkspace = workspaces.find((w) => w.type === "personal") ?? null
