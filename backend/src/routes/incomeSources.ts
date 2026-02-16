@@ -112,6 +112,13 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
     }
 
+    const duplicate = await prisma.income_sources.findFirst({
+      where: { workspace_id: user.active_workspace_id, name: { equals: name, mode: "insensitive" } },
+    })
+    if (duplicate) {
+      return reply.status(409).send({ error: "Conflict", code: "INCOME_SOURCE_NAME_EXISTS" })
+    }
+
     const created = await prisma.income_sources.create({
       data: {
         workspace_id: user.active_workspace_id,
@@ -124,5 +131,83 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
     }
 
     return reply.send(payload)
+  })
+
+  fastify.patch("/income-sources/:id", async (request, reply) => {
+    const userId = await resolveUserId(request, reply)
+    if (!userId) return
+
+    const user = await prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } })
+    if (!user?.active_workspace_id) {
+      return reply.status(400).send({ error: "No active workspace" })
+    }
+
+    const incomeSourceId = (request.params as { id?: string }).id
+    if (!incomeSourceId) {
+      return reply.status(400).send({ error: "Bad Request", reason: "missing_id" })
+    }
+
+    const body = request.body as { name?: string }
+    const name = body?.name?.trim()
+    if (!name) {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
+    }
+
+    const existing = await prisma.income_sources.findFirst({
+      where: { id: incomeSourceId, workspace_id: user.active_workspace_id },
+    })
+    if (!existing) {
+      return reply.status(404).send({ error: "Not Found" })
+    }
+
+    const duplicate = await prisma.income_sources.findFirst({
+      where: {
+        workspace_id: user.active_workspace_id,
+        name: { equals: name, mode: "insensitive" },
+        NOT: { id: incomeSourceId },
+      },
+    })
+    if (duplicate) {
+      return reply.status(409).send({ error: "Conflict", code: "INCOME_SOURCE_NAME_EXISTS" })
+    }
+
+    const updated = await prisma.income_sources.update({
+      where: { id: incomeSourceId },
+      data: { name },
+    })
+
+    return reply.send({ incomeSource: { id: updated.id, name: updated.name } })
+  })
+
+  fastify.delete("/income-sources/:id", async (request, reply) => {
+    const userId = await resolveUserId(request, reply)
+    if (!userId) return
+
+    const user = await prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } })
+    if (!user?.active_workspace_id) {
+      return reply.status(400).send({ error: "No active workspace" })
+    }
+
+    const incomeSourceId = (request.params as { id?: string }).id
+    if (!incomeSourceId) {
+      return reply.status(400).send({ error: "Bad Request", reason: "missing_id" })
+    }
+
+    const existing = await prisma.income_sources.findFirst({
+      where: { id: incomeSourceId, workspace_id: user.active_workspace_id },
+    })
+    if (!existing) {
+      return reply.status(404).send({ error: "Not Found" })
+    }
+
+    const txCount = await prisma.transactions.count({
+      where: { workspace_id: user.active_workspace_id, income_source_id: incomeSourceId },
+    })
+    if (txCount > 0) {
+      return reply.status(409).send({ error: "Conflict", code: "INCOME_SOURCE_IN_USE" })
+    }
+
+    await prisma.income_sources.delete({ where: { id: incomeSourceId } })
+    return reply.status(204).send()
   })
 }

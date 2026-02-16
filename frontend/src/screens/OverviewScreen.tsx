@@ -1,10 +1,11 @@
-import React, { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
 import type { Transaction } from "../types/finance"
 import "./OverviewScreen.css"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { createAccount, getAccounts } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
+import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 
 type TileType = "account" | "category"
@@ -88,7 +89,8 @@ const Section: React.FC<{
 }
 
 function OverviewScreen() {
-  const { accounts, categories, incomeSources, transactions, setAccounts, setCategories, currency } = useAppStore()
+  const { accounts, categories, incomeSources, transactions, setAccounts, setCategories, setIncomeSources, currency } =
+    useAppStore()
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
   const [name, setName] = useState("")
   const [type, setType] = useState("cash")
@@ -98,6 +100,11 @@ function OverviewScreen() {
   const [categoryName, setCategoryName] = useState("")
   const [isSavingCategory, setIsSavingCategory] = useState(false)
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
+  const [incomeSourceSheetMode, setIncomeSourceSheetMode] = useState<"create" | "edit" | null>(null)
+  const [editingIncomeSourceId, setEditingIncomeSourceId] = useState<string | null>(null)
+  const [incomeSourceName, setIncomeSourceName] = useState("")
+  const [isSavingIncomeSource, setIsSavingIncomeSource] = useState(false)
+  const [deletingIncomeSourceId, setDeletingIncomeSourceId] = useState<string | null>(null)
   const currentMonthTag = getCurrentMonthTag()
 
   const { incomeSum, expenseSum, incomeBySource, expenseByCategory } = useMemo(() => {
@@ -146,6 +153,13 @@ function OverviewScreen() {
     setCategories(mapped)
   }, [setCategories, token])
 
+  const refetchIncomeSources = useCallback(async () => {
+    if (!token) return
+    const data = await getIncomeSources(token)
+    const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name }))
+    setIncomeSources(mapped)
+  }, [setIncomeSources, token])
+
   const openCreateCategory = useCallback(() => {
     setCategorySheetMode("create")
     setEditingCategoryId(null)
@@ -158,12 +172,32 @@ function OverviewScreen() {
     setCategoryName(title)
   }, [])
 
+  const openCreateIncomeSource = useCallback(() => {
+    setIncomeSourceSheetMode("create")
+    setEditingIncomeSourceId(null)
+    setIncomeSourceName("")
+  }, [])
+
+  const openEditIncomeSource = useCallback((id: string, title: string) => {
+    setIncomeSourceSheetMode("edit")
+    setEditingIncomeSourceId(id)
+    setIncomeSourceName(title)
+  }, [])
+
   const closeCategorySheet = useCallback(() => {
     setCategorySheetMode(null)
     setEditingCategoryId(null)
     setCategoryName("")
     setIsSavingCategory(false)
     setDeletingCategoryId(null)
+  }, [])
+
+  const closeIncomeSourceSheet = useCallback(() => {
+    setIncomeSourceSheetMode(null)
+    setEditingIncomeSourceId(null)
+    setIncomeSourceName("")
+    setIsSavingIncomeSource(false)
+    setDeletingIncomeSourceId(null)
   }, [])
 
   const handleSaveCategory = useCallback(async () => {
@@ -197,6 +231,44 @@ function OverviewScreen() {
     }
   }, [categoryName, categorySheetMode, closeCategorySheet, editingCategoryId, refetchCategories, token])
 
+  const handleSaveIncomeSource = useCallback(async () => {
+    if (!token) {
+      alert("Нет токена")
+      return
+    }
+    const trimmed = incomeSourceName.trim()
+    if (!trimmed) {
+      alert("Введите название источника")
+      return
+    }
+    setIsSavingIncomeSource(true)
+    try {
+      if (incomeSourceSheetMode === "create") {
+        await createIncomeSource(token, trimmed)
+      } else if (incomeSourceSheetMode === "edit" && editingIncomeSourceId) {
+        await renameIncomeSource(token, editingIncomeSourceId, trimmed)
+      }
+      await refetchIncomeSources()
+      closeIncomeSourceSheet()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Ошибка"
+      if (msg.includes("INCOME_SOURCE_NAME_EXISTS")) {
+        alert("Источник с таким названием уже есть")
+      } else {
+        alert(msg)
+      }
+    } finally {
+      setIsSavingIncomeSource(false)
+    }
+  }, [
+    closeIncomeSourceSheet,
+    editingIncomeSourceId,
+    incomeSourceName,
+    incomeSourceSheetMode,
+    refetchIncomeSources,
+    token,
+  ])
+
   const handleDeleteCategory = useCallback(
     async (id: string) => {
       if (!token) {
@@ -224,6 +296,33 @@ function OverviewScreen() {
     [closeCategorySheet, refetchCategories, token]
   )
 
+  const handleDeleteIncomeSource = useCallback(
+    async (id: string) => {
+      if (!token) {
+        alert("Нет токена")
+        return
+      }
+      const confirmed = window.confirm("Удалить источник дохода?")
+      if (!confirmed) return
+      setDeletingIncomeSourceId(id)
+      try {
+        await deleteIncomeSource(token, id)
+        await refetchIncomeSources()
+        closeIncomeSourceSheet()
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Ошибка"
+        if (msg.includes("INCOME_SOURCE_IN_USE")) {
+          alert("Источник используется в транзакциях и не может быть удалён")
+        } else {
+          alert(msg)
+        }
+      } finally {
+        setDeletingIncomeSourceId(null)
+      }
+    },
+    [closeIncomeSourceSheet, refetchIncomeSources, token]
+  )
+
   const accountItems: CardItem[] = accounts.map((account, idx) => ({
     id: account.id,
     title: account.name,
@@ -247,18 +346,6 @@ function OverviewScreen() {
     type: "category" as const,
   }))
   const incomeToRender = [...incomeItems]
-
-  const uncategorizedIncome = incomeBySource.get("uncategorized")
-  if (uncategorizedIncome) {
-    incomeItems.push({
-      id: "income-uncategorized",
-      title: "Без категории",
-      amount: uncategorizedIncome,
-      icon: "arrowDown",
-      color: "#0f172a",
-      type: "category" as const,
-    })
-  }
 
   const expenseItems: CardItem[] = expenseCategories
     .map((cat, idx) => ({
@@ -402,8 +489,10 @@ function OverviewScreen() {
 
       <Section
         title="Источники дохода"
-        items={[...incomeToRender, addCard("income")]}
+        items={[...incomeToRender, addCard("income-source")]}
         rowScroll
+        onAddCategory={openCreateIncomeSource}
+        onCategoryClick={openEditIncomeSource}
         baseCurrency={baseCurrency}
       />
 
@@ -598,6 +687,102 @@ function OverviewScreen() {
                   }}
                 >
                   {isSavingCategory ? "Сохраняем…" : "Сохранить"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {incomeSourceSheetMode ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 45,
+            padding: "0 12px 12px",
+          }}
+          onClick={closeIncomeSourceSheet}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: 16,
+              boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+              {incomeSourceSheetMode === "create" ? "Новый источник дохода" : "Редактировать источник"}
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              <input
+                value={incomeSourceName}
+                onChange={(e) => setIncomeSourceName(e.target.value)}
+                placeholder="Название"
+                style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
+              />
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
+                    disabled={deletingIncomeSourceId === editingIncomeSourceId}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #fee2e2",
+                      background: deletingIncomeSourceId === editingIncomeSourceId ? "#fecdd3" : "#fff",
+                      color: "#b91c1c",
+                      cursor: deletingIncomeSourceId === editingIncomeSourceId ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {deletingIncomeSourceId === editingIncomeSourceId ? "Удаляем…" : "Удалить"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={closeIncomeSourceSheet}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    cursor: "pointer",
+                  }}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveIncomeSource}
+                  disabled={isSavingIncomeSource}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: isSavingIncomeSource ? "#e5e7eb" : "#0f172a",
+                    color: isSavingIncomeSource ? "#6b7280" : "#fff",
+                    cursor: isSavingIncomeSource ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isSavingIncomeSource ? "Сохраняем…" : "Сохранить"}
                 </button>
               </div>
             </div>
