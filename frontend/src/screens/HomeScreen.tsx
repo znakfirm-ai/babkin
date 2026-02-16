@@ -54,7 +54,7 @@ function HomeScreen() {
   const [totalExpenseText, setTotalExpenseText] = useState("0.00")
   const donutSize = 120
   const lastExpensesParams = useRef<string | null>(null)
-  const abortController = useRef<AbortController>(new AbortController())
+  const abortController = useRef<AbortController | null>(null)
 
   const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
     try {
@@ -307,7 +307,10 @@ function HomeScreen() {
         await fetchCategories(token)
         await fetchIncomeSources(token)
         await fetchTransactions(token)
-        await fetchExpensesAnalytics(token, period, abortController.current.signal)
+        abortController.current?.abort()
+        const controller = new AbortController()
+        abortController.current = controller
+        await fetchExpensesAnalytics(token, period, controller.signal)
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)
@@ -357,7 +360,10 @@ function HomeScreen() {
       void fetchCategories(existing)
       void fetchIncomeSources(existing)
       void fetchTransactions(existing)
-      void fetchExpensesAnalytics(existing, period, abortController.current.signal)
+      abortController.current?.abort()
+      const controller = new AbortController()
+      abortController.current = controller
+      void fetchExpensesAnalytics(existing, period, controller.signal)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -391,14 +397,17 @@ function HomeScreen() {
         void fetchCategories(data.accessToken)
         void fetchIncomeSources(data.accessToken)
         void fetchTransactions(data.accessToken)
-        void fetchExpensesAnalytics(data.accessToken, period, abortController.current.signal)
+        abortController.current?.abort()
+        const controller = new AbortController()
+        abortController.current = controller
+        void fetchExpensesAnalytics(data.accessToken, period, controller.signal)
       } catch {
         setAuthStatus("Auth error")
       }
     })()
 
     return () => {
-      abortController.current.abort()
+      abortController.current?.abort()
     }
   }, [fetchAccounts, fetchCategories, fetchExpensesAnalytics, fetchIncomeSources, fetchTransactions, fetchWorkspaces, period])
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { fetchExpensesByCategory } from "../api/analytics"
 import { format } from "../utils/date"
 
@@ -13,6 +13,7 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [errorText, setErrorText] = useState<string | null>(null)
   const [data, setData] = useState<
     | {
         top: { categoryId: string; name: string; total: string }[]
@@ -21,6 +22,7 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
       }
     | null
   >(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const today = useMemo(() => format(new Date()), [])
 
@@ -51,12 +53,17 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
     const f = customFrom ?? from
     const t = customTo ?? to
     if (!token || !f || !t) return
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     setIsLoading(true)
+    setErrorText(null)
     try {
-      const res = await fetchExpensesByCategory(token, { from: f, to: t, top: 50 })
+      const res = await fetchExpensesByCategory(token, { from: f, to: t, top: 50 }, controller.signal)
       setData(res)
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Ошибка загрузки отчёта")
+      if (err instanceof DOMException && err.name === "AbortError") return
+      setErrorText(err instanceof Error ? err.message : "Ошибка загрузки отчёта")
     } finally {
       setIsLoading(false)
     }
@@ -65,6 +72,9 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
   useEffect(() => {
     if (from && to) {
       void load()
+    }
+    return () => {
+      abortRef.current?.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to])
@@ -173,6 +183,24 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
       >
         {isLoading ? (
           <div style={{ color: "#6b7280", fontSize: 14 }}>Загрузка...</div>
+        ) : errorText ? (
+          <div style={{ color: "#b91c1c", fontSize: 13 }}>
+            {errorText}
+            <button
+              type="button"
+              onClick={() => load()}
+              style={{
+                marginLeft: 8,
+                padding: "4px 8px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              Повторить
+            </button>
+          </div>
         ) : data ? (
           <>
             {data.top.map((item) => (

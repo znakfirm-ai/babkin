@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { fetchSummary } from "../api/analytics"
 import { format } from "../utils/date"
 
@@ -13,7 +13,9 @@ const SummaryReportScreen: React.FC<Props> = ({ onBack }) => {
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [errorText, setErrorText] = useState<string | null>(null)
   const [data, setData] = useState<{ totalIncome: string; totalExpense: string; net: string } | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const today = useMemo(() => format(new Date()), [])
 
@@ -44,12 +46,17 @@ const SummaryReportScreen: React.FC<Props> = ({ onBack }) => {
     const f = customFrom ?? from
     const t = customTo ?? to
     if (!token || !f || !t) return
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     setIsLoading(true)
+    setErrorText(null)
     try {
-      const res = await fetchSummary(token, { from: f, to: t })
+      const res = await fetchSummary(token, { from: f, to: t }, controller.signal)
       setData(res)
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Ошибка загрузки отчёта")
+      if (err instanceof DOMException && err.name === "AbortError") return
+      setErrorText(err instanceof Error ? err.message : "Ошибка загрузки отчёта")
     } finally {
       setIsLoading(false)
     }
@@ -58,6 +65,9 @@ const SummaryReportScreen: React.FC<Props> = ({ onBack }) => {
   useEffect(() => {
     if (from && to) {
       void load()
+    }
+    return () => {
+      abortRef.current?.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to])
@@ -164,6 +174,24 @@ const SummaryReportScreen: React.FC<Props> = ({ onBack }) => {
       >
         {isLoading ? (
           <div style={{ color: "#6b7280", fontSize: 14 }}>Загрузка...</div>
+        ) : errorText ? (
+          <div style={{ color: "#b91c1c", fontSize: 13 }}>
+            {errorText}
+            <button
+              type="button"
+              onClick={() => load()}
+              style={{
+                marginLeft: 8,
+                padding: "4px 8px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              Повторить
+            </button>
+          </div>
         ) : data ? (
           <div style={{ display: "grid", gap: 6 }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
