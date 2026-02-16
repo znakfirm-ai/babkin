@@ -244,8 +244,9 @@ function HomeScreen() {
   )
 
   const fetchExpensesAnalytics = useCallback(
-    async (token: string, p: Period, signal?: AbortSignal) => {
-      const key = `${token}-${p}`
+    async (token: string, p: Period, workspaceId: string | null, signal?: AbortSignal) => {
+      if (!workspaceId) return
+      const key = `${token}-${workspaceId}-${p}`
       if (lastExpensesParams.current === key) return
       lastExpensesParams.current = key
       const range = computeRange(p)
@@ -254,7 +255,6 @@ function HomeScreen() {
         const total = Number(data.totalExpense)
         setTotalExpenseText(total.toFixed(2))
         if (total <= 0) {
-          // keep previous slices to avoid blinking; do not overwrite with empty
           setExpenseError(null)
           return
         }
@@ -313,7 +313,7 @@ function HomeScreen() {
         abortController.current?.abort()
         const controller = new AbortController()
         abortController.current = controller
-        await fetchExpensesAnalytics(token, period, controller.signal)
+        await fetchExpensesAnalytics(token, period, activeWorkspace?.id ?? null, controller.signal)
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)
@@ -366,7 +366,7 @@ function HomeScreen() {
       abortController.current?.abort()
       const controller = new AbortController()
       abortController.current = controller
-      void fetchExpensesAnalytics(existing, period, controller.signal)
+      void fetchExpensesAnalytics(existing, period, activeWorkspace?.id ?? null, controller.signal)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -403,7 +403,7 @@ function HomeScreen() {
         abortController.current?.abort()
         const controller = new AbortController()
         abortController.current = controller
-        void fetchExpensesAnalytics(data.accessToken, period, controller.signal)
+        void fetchExpensesAnalytics(data.accessToken, period, activeWorkspace?.id ?? null, controller.signal)
       } catch {
         setAuthStatus("Auth error")
       }
@@ -412,7 +412,16 @@ function HomeScreen() {
     return () => {
       abortController.current?.abort()
     }
-  }, [fetchAccounts, fetchCategories, fetchExpensesAnalytics, fetchIncomeSources, fetchTransactions, fetchWorkspaces, period])
+  }, [
+    fetchAccounts,
+    fetchCategories,
+    fetchExpensesAnalytics,
+    fetchIncomeSources,
+    fetchTransactions,
+    fetchWorkspaces,
+    period,
+    activeWorkspace?.id,
+  ])
 
   const quickActions = useMemo(
     () => [
@@ -747,9 +756,33 @@ function HomeScreen() {
                   fontSize: 11,
                   color: "#b91c1c",
                   whiteSpace: "nowrap",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                 }}
               >
-                Не удалось обновить
+                <span>Не удалось обновить</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                    if (!token) return
+                    abortController.current?.abort()
+                    const controller = new AbortController()
+                    abortController.current = controller
+                    void fetchExpensesAnalytics(token, period, activeWorkspace?.id ?? null, controller.signal)
+                  }}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    borderRadius: 8,
+                    padding: "4px 8px",
+                    cursor: "pointer",
+                    fontSize: 11,
+                  }}
+                >
+                  Повторить
+                </button>
               </div>
             ) : null}
 
