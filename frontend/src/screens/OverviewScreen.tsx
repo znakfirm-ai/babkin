@@ -39,9 +39,20 @@ const Section: React.FC<{
   rowClass?: string
   onAddAccounts?: () => void
   onAddCategory?: () => void
+  onAddIncomeSource?: () => void
   onCategoryClick?: (id: string, title: string) => void
   baseCurrency: string
-}> = ({ title, items, rowScroll, rowClass, onAddAccounts, onAddCategory, onCategoryClick, baseCurrency }) => {
+}> = ({
+  title,
+  items,
+  rowScroll,
+  rowClass,
+  onAddAccounts,
+  onAddCategory,
+  onAddIncomeSource,
+  onCategoryClick,
+  baseCurrency,
+}) => {
   const listClass = rowScroll
     ? `overview-section__list overview-section__list--row ${rowClass ?? ""}`.trim()
     : "overview-section__list tile-grid"
@@ -60,12 +71,14 @@ const Section: React.FC<{
             onClick={() => {
               if (item.isAdd && item.id === "add-accounts") onAddAccounts?.()
               if (item.isAdd && item.id === "add-category") onAddCategory?.()
+              if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
               if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
             }}
             onKeyDown={(e) => {
               if (e.key !== "Enter" && e.key !== " ") return
               if (item.isAdd && item.id === "add-accounts") onAddAccounts?.()
               if (item.isAdd && item.id === "add-category") onAddCategory?.()
+              if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
               if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
             }}
           >
@@ -491,7 +504,7 @@ function OverviewScreen() {
         title="Источники дохода"
         items={[...incomeToRender, addCard("income-source")]}
         rowScroll
-        onAddCategory={openCreateIncomeSource}
+        onAddIncomeSource={openCreateIncomeSource}
         onCategoryClick={openEditIncomeSource}
         baseCurrency={baseCurrency}
       />
