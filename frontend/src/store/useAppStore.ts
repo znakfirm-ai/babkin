@@ -99,6 +99,12 @@ export function useAppStore() {
     forceUpdate((x) => x + 1)
   }
 
+  function setTransactions(transactions: Transaction[]) {
+    state.transactions = transactions.map((t) => ({ ...t, amount: { ...t.amount } }))
+    saveToStorage(state)
+    forceUpdate((x) => x + 1)
+  }
+
   function setCategories(categories: Category[]) {
     state.categories = categories.map((c) => ({ ...c }))
     saveToStorage(state)
@@ -120,6 +126,7 @@ export function useAppStore() {
     addTransaction,
     removeTransaction,
     setAccounts,
+    setTransactions,
     setCategories,
     setCurrency,
   }

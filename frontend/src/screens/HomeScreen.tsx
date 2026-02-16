@@ -3,6 +3,7 @@ import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 import { createAccount, getAccounts } from "../api/accounts"
 import { getCategories } from "../api/categories"
+import { getTransactions } from "../api/transactions"
 import { useAppStore } from "../store/useAppStore"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
@@ -22,7 +23,7 @@ type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 
 function HomeScreen() {
-  const { setAccounts, setCategories, currency } = useAppStore()
+  const { setAccounts, setCategories, setTransactions, currency } = useAppStore()
   const [authStatus, setAuthStatus] = useState<string>("")
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -164,6 +165,35 @@ function HomeScreen() {
     [setCategories]
   )
 
+  const fetchTransactions = useCallback(
+    async (token: string) => {
+      try {
+        const data = await getTransactions(token)
+        const mapped = data.transactions.map((t) => ({
+          id: t.id,
+          type: t.kind,
+          amount: {
+            amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+            currency: "RUB",
+          },
+          date: t.happenedAt,
+          accountId: t.accountId ?? t.fromAccountId ?? "",
+          categoryId: t.categoryId ?? undefined,
+          incomeSourceId: undefined,
+          toAccountId: t.toAccountId ?? undefined,
+        }))
+        setTransactions(mapped)
+      } catch (err) {
+        if (err instanceof Error) {
+          alert(err.message)
+        } else {
+          alert("Не удалось загрузить транзакции")
+        }
+      }
+    },
+    [setTransactions]
+  )
+
   const setActiveWorkspaceRemote = useCallback(
     async (workspaceId: string, token: string) => {
       if (isSwitchingWorkspace) return
@@ -235,6 +265,7 @@ function HomeScreen() {
       void fetchWorkspaces(existing)
       void fetchAccounts(existing)
       void fetchCategories(existing)
+      void fetchTransactions(existing)
       return
     }
     const initData = window.Telegram?.WebApp?.initData ?? ""
@@ -266,11 +297,12 @@ function HomeScreen() {
         void fetchWorkspaces(data.accessToken)
         void fetchAccounts(data.accessToken)
         void fetchCategories(data.accessToken)
+        void fetchTransactions(data.accessToken)
       } catch {
         setAuthStatus("Auth error")
       }
     })()
-  }, [fetchAccounts, fetchCategories, fetchWorkspaces])
+  }, [fetchAccounts, fetchCategories, fetchTransactions, fetchWorkspaces])
 
   const quickActions = useMemo(
     () => [
