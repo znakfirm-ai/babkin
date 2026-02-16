@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
+import { createTransaction, getTransactions } from "../api/transactions"
+import { getAccounts } from "../api/accounts"
 
 type TxKind = "expense" | "income" | "transfer"
 
 function AddScreen() {
-  const { addTransaction, accounts, categories, incomeSources } = useAppStore()
+  const { accounts, categories, incomeSources, setTransactions, setAccounts } = useAppStore()
 
   const [type, setType] = useState<TxKind>("expense")
 
@@ -211,53 +213,88 @@ function AddScreen() {
         <button
           type="button"
           style={{ padding: 12 }}
-          onClick={() => {
+          onClick={async () => {
             const num = Number(amount.replace(",", "."))
             if (!Number.isFinite(num) || num <= 0) return
 
-            const money = { amount: Math.round(num * 100), currency: "RUB" as const }
-            const date = new Date().toISOString().slice(0, 10)
-
-            if (type === "transfer") {
-              if (!effectiveFromAccountId || !effectiveToAccountId) return
-              if (effectiveFromAccountId === effectiveToAccountId) return
-
-              addTransaction({
-                type: "transfer",
-                date,
-                amount: money,
-                accountId: effectiveFromAccountId,
-                toAccountId: effectiveToAccountId,
-                comment: comment.trim() || undefined,
-              })
-            } else {
-              if (!effectiveAccountId) return
-
-              if (type === "income") {
-                if (!effectiveIncomeSourceId) return
-                addTransaction({
-                  type: "income",
-                  date,
-                  amount: money,
-                  accountId: effectiveAccountId,
-                  incomeSourceId: effectiveIncomeSourceId,
-                  comment: comment.trim() || undefined,
-                })
-              } else {
-                addTransaction({
-                  type: "expense",
-                  date,
-                  amount: money,
-                  accountId: effectiveAccountId,
-                  categoryId: effectiveCategoryId || undefined,
-                  comment: comment.trim() || undefined,
-                })
-              }
+            const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+            if (!token) {
+              alert("Нет токена")
+              return
             }
 
-            setAmount("")
-            setComment("")
-            alert("Сохранено")
+            const payloadBase = {
+              note: comment.trim() || undefined,
+              amount: num,
+              happenedAt: new Date().toISOString(),
+            }
+
+            try {
+              if (type === "transfer") {
+                if (!effectiveFromAccountId || !effectiveToAccountId) return
+                if (effectiveFromAccountId === effectiveToAccountId) return
+
+                await createTransaction(token, {
+                  kind: "transfer",
+                  fromAccountId: effectiveFromAccountId,
+                  toAccountId: effectiveToAccountId,
+                  amount: num,
+                  note: payloadBase.note,
+                  happenedAt: payloadBase.happenedAt,
+                })
+              } else if (type === "income") {
+                if (!effectiveAccountId) return
+                await createTransaction(token, {
+                  kind: "income",
+                  accountId: effectiveAccountId,
+                  categoryId: null,
+                  amount: num,
+                  note: payloadBase.note,
+                  happenedAt: payloadBase.happenedAt,
+                })
+              } else {
+                if (!effectiveAccountId) return
+                await createTransaction(token, {
+                  kind: "expense",
+                  accountId: effectiveAccountId,
+                  categoryId: effectiveCategoryId || null,
+                  amount: num,
+                  note: payloadBase.note,
+                  happenedAt: payloadBase.happenedAt,
+                })
+              }
+
+              const [txRes, accRes] = await Promise.all([getTransactions(token), getAccounts(token)])
+
+              const mappedTx = txRes.transactions.map((t) => ({
+                id: t.id,
+                type: t.kind,
+                amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
+                date: t.happenedAt,
+                accountId: t.accountId ?? t.fromAccountId ?? "",
+                categoryId: t.categoryId ?? undefined,
+                incomeSourceId: undefined,
+                toAccountId: t.toAccountId ?? undefined,
+              }))
+              setTransactions(mappedTx)
+
+              const mappedAcc = accRes.accounts.map((a) => ({
+                id: a.id,
+                name: a.name,
+                balance: { amount: a.balance, currency: a.currency },
+              }))
+              setAccounts(mappedAcc)
+
+              setAmount("")
+              setComment("")
+              alert("Сохранено")
+            } catch (err) {
+              if (err instanceof Error) {
+                alert(err.message)
+              } else {
+                alert("Не удалось сохранить операцию")
+              }
+            }
           }}
         >
           Сохранить
