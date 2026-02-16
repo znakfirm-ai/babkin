@@ -111,6 +111,12 @@ export function useAppStore() {
     forceUpdate((x) => x + 1)
   }
 
+  function setIncomeSources(next: IncomeSource[]) {
+    state.incomeSources = next.map((s) => ({ ...s }))
+    saveToStorage(state)
+    forceUpdate((x) => x + 1)
+  }
+
   function setCurrency(currency: string) {
     state.currency = normalizeCurrency(currency)
     saveToStorage(state)
@@ -128,6 +134,7 @@ export function useAppStore() {
     setAccounts,
     setTransactions,
     setCategories,
+    setIncomeSources,
     setCurrency,
   }
 }

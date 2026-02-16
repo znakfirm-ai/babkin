@@ -248,6 +248,7 @@ function AddScreen() {
                   kind: "income",
                   accountId: effectiveAccountId,
                   categoryId: null,
+                  incomeSourceId: effectiveIncomeSourceId || null,
                   amount: num,
                   note: payloadBase.note,
                   happenedAt: payloadBase.happenedAt,
@@ -273,7 +274,7 @@ function AddScreen() {
                 date: t.happenedAt,
                 accountId: t.accountId ?? t.fromAccountId ?? "",
                 categoryId: t.categoryId ?? undefined,
-                incomeSourceId: undefined,
+                incomeSourceId: t.incomeSourceId ?? undefined,
                 toAccountId: t.toAccountId ?? undefined,
               }))
               setTransactions(mappedTx)

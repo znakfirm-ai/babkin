@@ -15,6 +15,7 @@ type TransactionResponse = {
   categoryId: string | null
   fromAccountId: string | null
   toAccountId: string | null
+  incomeSourceId: string | null
 }
 
 async function resolveUserId(request: any, reply: any): Promise<string | null> {
@@ -74,6 +75,7 @@ function mapTx(tx: any): TransactionResponse {
     categoryId: tx.category_id ?? null,
     fromAccountId: tx.from_account_id ?? null,
     toAccountId: tx.to_account_id ?? null,
+    incomeSourceId: tx.income_source_id ?? null,
   }
 }
 
@@ -114,6 +116,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
       amount?: number
       happenedAt?: string
       note?: string
+      incomeSourceId?: string
     }
 
     if (!body?.kind || (body.kind !== "income" && body.kind !== "expense" && body.kind !== "transfer")) {
@@ -151,6 +154,23 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
         }
       }
 
+      if (body.incomeSourceId && kind !== "income") {
+        return reply.status(400).send({ error: "Bad Request", reason: "income_source_only_for_income" })
+      }
+
+      let incomeSourceId: string | null = null
+      if (kind === "income") {
+        if (body.incomeSourceId) {
+          const src = await prisma.income_sources.findFirst({
+            where: { id: body.incomeSourceId, workspace_id: workspaceId },
+          })
+          if (!src) {
+            return reply.status(403).send({ error: "Forbidden", reason: "income_source_not_in_workspace" })
+          }
+          incomeSourceId = src.id
+        }
+      }
+
       const tx = await prisma.$transaction(async (trx) => {
         const delta = kind === "income" ? amount : amount.neg()
 
@@ -168,6 +188,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
             note: body.note ?? null,
             account_id: account.id,
             category_id: body.categoryId ?? null,
+            income_source_id: incomeSourceId,
           },
         })
 

@@ -4,6 +4,7 @@ import type { IconName } from "../components/AppIcon"
 import { createAccount, getAccounts } from "../api/accounts"
 import { getCategories } from "../api/categories"
 import { getTransactions } from "../api/transactions"
+import { getIncomeSources } from "../api/incomeSources"
 import { useAppStore } from "../store/useAppStore"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
@@ -23,7 +24,7 @@ type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 
 function HomeScreen() {
-  const { setAccounts, setCategories, setTransactions, currency } = useAppStore()
+  const { setAccounts, setCategories, setIncomeSources, setTransactions, currency } = useAppStore()
   const [authStatus, setAuthStatus] = useState<string>("")
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -165,6 +166,23 @@ function HomeScreen() {
     [setCategories]
   )
 
+  const fetchIncomeSources = useCallback(
+    async (token: string) => {
+      try {
+        const data = await getIncomeSources(token)
+        const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name }))
+        setIncomeSources(mapped)
+      } catch (err) {
+        if (err instanceof Error) {
+          alert(err.message)
+        } else {
+          alert("Не удалось загрузить источники дохода")
+        }
+      }
+    },
+    [setIncomeSources]
+  )
+
   const fetchTransactions = useCallback(
     async (token: string) => {
       try {
@@ -179,7 +197,7 @@ function HomeScreen() {
           date: t.happenedAt,
           accountId: t.accountId ?? t.fromAccountId ?? "",
           categoryId: t.categoryId ?? undefined,
-          incomeSourceId: undefined,
+          incomeSourceId: t.incomeSourceId ?? undefined,
           toAccountId: t.toAccountId ?? undefined,
         }))
         setTransactions(mapped)
@@ -218,6 +236,8 @@ function HomeScreen() {
         setIsFamilySheetOpen(false)
         await fetchAccounts(token)
         await fetchCategories(token)
+        await fetchIncomeSources(token)
+        await fetchTransactions(token)
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)
@@ -229,7 +249,7 @@ function HomeScreen() {
         setSwitchingToWorkspaceId(null)
       }
     },
-    [fetchAccounts, fetchCategories, isSwitchingWorkspace]
+    [fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, isSwitchingWorkspace]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -265,6 +285,7 @@ function HomeScreen() {
       void fetchWorkspaces(existing)
       void fetchAccounts(existing)
       void fetchCategories(existing)
+      void fetchIncomeSources(existing)
       void fetchTransactions(existing)
       return
     }
@@ -297,12 +318,13 @@ function HomeScreen() {
         void fetchWorkspaces(data.accessToken)
         void fetchAccounts(data.accessToken)
         void fetchCategories(data.accessToken)
+        void fetchIncomeSources(data.accessToken)
         void fetchTransactions(data.accessToken)
       } catch {
         setAuthStatus("Auth error")
       }
     })()
-  }, [fetchAccounts, fetchCategories, fetchTransactions, fetchWorkspaces])
+  }, [fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, fetchWorkspaces])
 
   const quickActions = useMemo(
     () => [

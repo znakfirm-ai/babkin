@@ -8,6 +8,7 @@ export type TransactionDto = {
   categoryId?: string | null
   fromAccountId?: string | null
   toAccountId?: string | null
+  incomeSourceId?: string | null
 }
 
 export type GetTransactionsResponse = {
@@ -21,6 +22,7 @@ export type CreateTransactionBody = {
   categoryId?: string | null
   fromAccountId?: string
   toAccountId?: string
+  incomeSourceId?: string | null
   happenedAt?: string
   note?: string | null
 }

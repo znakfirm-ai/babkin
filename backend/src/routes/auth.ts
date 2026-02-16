@@ -16,6 +16,8 @@ const DEFAULT_CATEGORIES = [
   { name: "Подарки", kind: "income" as const },
 ]
 
+const DEFAULT_INCOME_SOURCES = [{ name: "Зарплата" }, { name: "Бизнес" }]
+
 export async function authRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   fastify.post("/auth/telegram", async (request, reply) => {
     const initDataRaw = request.headers[TELEGRAM_INITDATA_HEADER] as string | undefined
@@ -70,6 +72,13 @@ export async function authRoutes(fastify: FastifyInstance, _opts: FastifyPluginO
             name: c.name,
             kind: c.kind,
             icon: null,
+          })),
+          skipDuplicates: true,
+        })
+        await tx.income_sources.createMany({
+          data: DEFAULT_INCOME_SOURCES.map((s) => ({
+            workspace_id: workspace.id,
+            name: s.name,
           })),
           skipDuplicates: true,
         })

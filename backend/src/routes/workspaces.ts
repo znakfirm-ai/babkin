@@ -16,6 +16,8 @@ const DEFAULT_CATEGORIES = [
   { name: "Подарки", kind: "income" as const },
 ]
 
+const DEFAULT_INCOME_SOURCES = [{ name: "Зарплата" }, { name: "Бизнес" }]
+
 export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   fastify.get("/workspaces", async (request, reply) => {
     const authHeader = request.headers.authorization
@@ -159,6 +161,13 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
           name: c.name,
           kind: c.kind,
           icon: null,
+        })),
+        skipDuplicates: true,
+      })
+      await tx.income_sources.createMany({
+        data: DEFAULT_INCOME_SOURCES.map((s) => ({
+          workspace_id: created.id,
+          name: s.name,
         })),
         skipDuplicates: true,
       })
