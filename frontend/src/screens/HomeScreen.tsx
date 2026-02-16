@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 import { createAccount, getAccounts } from "../api/accounts"
@@ -52,7 +52,6 @@ function HomeScreen() {
     { id: string; name: string; amount: number; percent: number; color: string }[]
   >([])
   const [totalExpenseText, setTotalExpenseText] = useState("0.00")
-  const [isExpenseLoading, setIsExpenseLoading] = useState(false)
   const donutSize = 120
   const lastExpensesParams = useRef<string | null>(null)
 
@@ -248,7 +247,6 @@ function HomeScreen() {
       if (lastExpensesParams.current === key) return
       lastExpensesParams.current = key
       const range = computeRange(p)
-      setIsExpenseLoading(true)
       try {
         const data = await fetchExpensesByCategory(token, { from: range.from, to: range.to, top: 4 })
         const total = Number(data.totalExpense)
@@ -276,8 +274,6 @@ function HomeScreen() {
         setExpenseSlices(slices)
       } catch (err) {
         alert(err instanceof Error ? err.message : "Не удалось загрузить аналитику расходов")
-      } finally {
-        setIsExpenseLoading(false)
       }
     },
     [computeRange]
