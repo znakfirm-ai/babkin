@@ -4,6 +4,18 @@ import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
 
+const DEFAULT_CATEGORIES = [
+  { name: "Еда", kind: "expense" as const },
+  { name: "Транспорт", kind: "expense" as const },
+  { name: "Дом", kind: "expense" as const },
+  { name: "Развлечения", kind: "expense" as const },
+  { name: "Здоровье", kind: "expense" as const },
+  { name: "Покупки", kind: "expense" as const },
+  { name: "Зарплата", kind: "income" as const },
+  { name: "Бизнес", kind: "income" as const },
+  { name: "Подарки", kind: "income" as const },
+]
+
 type CategoryResponse = {
   id: string
   name: string
@@ -69,9 +81,25 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       return reply.status(400).send({ error: "No active workspace" })
     }
 
-    const categories = await prisma.categories.findMany({
+    const existing = await prisma.categories.findMany({
       where: { workspace_id: user.active_workspace_id },
     })
+
+    if (existing.length === 0) {
+      await prisma.categories.createMany({
+        data: DEFAULT_CATEGORIES.map((c) => ({
+          workspace_id: user.active_workspace_id,
+          name: c.name,
+          kind: c.kind,
+          icon: null,
+        })),
+        skipDuplicates: true,
+      })
+    }
+
+    const categories = existing.length
+      ? existing
+      : await prisma.categories.findMany({ where: { workspace_id: user.active_workspace_id } })
 
     const payload: { categories: CategoryResponse[] } = {
       categories: categories.map((c) => ({
