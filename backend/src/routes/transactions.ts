@@ -240,4 +240,55 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
 
     return reply.send({ transaction: mapTx(tx) })
   })
+
+  fastify.delete("/transactions/:id", async (request, reply) => {
+    const userId = await resolveUserId(request, reply)
+    if (!userId) return
+
+    const user = await prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } })
+    if (!user?.active_workspace_id) {
+      return reply.status(400).send({ error: "No active workspace" })
+    }
+
+    const txId = (request.params as { id: string }).id
+    const existing = await prisma.transactions.findFirst({
+      where: { id: txId, workspace_id: user.active_workspace_id },
+    })
+
+    if (!existing) {
+      return reply.status(404).send({ error: "Not Found" })
+    }
+
+    const amount = existing.amount
+    const kind = existing.kind
+
+    await prisma.$transaction(async (trx) => {
+      if (kind === "income" || kind === "expense") {
+        if (!existing.account_id) {
+          throw new Error("Transaction missing account_id")
+        }
+        const delta = kind === "income" ? amount.neg() : amount
+        await trx.accounts.update({
+          where: { id: existing.account_id },
+          data: { balance: { increment: delta } },
+        })
+      } else if (kind === "transfer") {
+        if (!existing.from_account_id || !existing.to_account_id) {
+          throw new Error("Transaction missing transfer accounts")
+        }
+        await trx.accounts.update({
+          where: { id: existing.from_account_id },
+          data: { balance: { increment: amount } },
+        })
+        await trx.accounts.update({
+          where: { id: existing.to_account_id },
+          data: { balance: { decrement: amount } },
+        })
+      }
+
+      await trx.transactions.delete({ where: { id: existing.id } })
+    })
+
+    return reply.status(204).send()
+  })
 }

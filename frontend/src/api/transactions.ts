@@ -54,3 +54,16 @@ export async function createTransaction(token: string, body: CreateTransactionBo
     throw new Error(`POST /transactions failed: ${res.status} ${res.statusText} ${text}`)
   }
 }
+
+export async function deleteTransaction(token: string, id: string): Promise<void> {
+  const res = await fetch(`https://babkin.onrender.com/api/v1/transactions/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`DELETE /transactions/${id} failed: ${res.status} ${res.statusText} ${text}`)
+  }
+}
