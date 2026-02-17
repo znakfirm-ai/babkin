@@ -9,12 +9,13 @@ import { useAppStore } from "../store/useAppStore"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
 type Story = { id: string; title: string; image: string }
+type HomeScreenProps = { disableDataFetch?: boolean }
 const VIEWED_KEY = "home_stories_viewed"
 
 type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 
-function HomeScreen() {
+function HomeScreen({ disableDataFetch = false }: HomeScreenProps) {
   const { setAccounts, setCategories, setIncomeSources, setTransactions, currency } = useAppStore()
   const [authStatus, setAuthStatus] = useState<string>("")
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
@@ -203,6 +204,7 @@ function HomeScreen() {
 
   const setActiveWorkspaceRemote = useCallback(
     async (workspaceId: string, token: string) => {
+      if (disableDataFetch) return
       if (isSwitchingWorkspace) return
       setIsSwitchingWorkspace(true)
       setSwitchingToWorkspaceId(workspaceId)
@@ -243,6 +245,7 @@ function HomeScreen() {
 
   const createFamilyWorkspace = useCallback(
     async (token: string) => {
+      if (disableDataFetch) return
       const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
         method: "POST",
         headers: {
@@ -267,6 +270,7 @@ function HomeScreen() {
   )
 
   useEffect(() => {
+    if (disableDataFetch) return
     if (typeof window === "undefined") return
     const existing = localStorage.getItem("auth_access_token")
     if (existing) {
@@ -313,8 +317,7 @@ function HomeScreen() {
         setAuthStatus("Auth error")
       }
     })()
-
-  }, [fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, fetchWorkspaces])
+  }, [disableDataFetch, fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, fetchWorkspaces])
 
   const quickActions = useMemo(
     () => [
@@ -743,12 +746,13 @@ function HomeScreen() {
               </label>
               <button
                 type="button"
-                onClick={async () => {
-                  const token = localStorage.getItem("auth_access_token")
-                  if (!token) {
-                    alert("Нет токена")
-                    return
-                  }
+              onClick={async () => {
+                const token = localStorage.getItem("auth_access_token")
+                if (disableDataFetch) return
+                if (!token) {
+                  alert("Нет токена")
+                  return
+                }
                   if (!accountName.trim()) {
                     alert("Введите название")
                     return

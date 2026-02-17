@@ -160,7 +160,7 @@ function App() {
   const renderScreen = () => {
     switch (activeScreen) {
       case "home":
-        return <HomeScreen />;
+        return <HomeScreen disableDataFetch={uiOnlyMode} />;
       case "overview":
         return <OverviewScreen />;
       case "add":
@@ -643,6 +643,7 @@ function App() {
   if (uiOnlyMode) {
     return (
       <div className="app-shell">
+        {!isTelegram ? <div className="dev-banner">Telegram WebApp не найден — браузерный режим</div> : null}
         <div className="app-shell__inner">
           {renderScreen()}
           <BottomNav
