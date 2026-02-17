@@ -931,7 +931,7 @@ function OverviewScreen() {
                 Закрыть
               </button>
             </div>
-            {detailAccountId ? (
+                        {detailAccountId ? (
               <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
                 <label style={{ display: "grid", gap: 6 }}>
                   <input
@@ -945,6 +945,7 @@ function OverviewScreen() {
                     style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 15 }}
                   />
                 </label>
+
                 <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
                   <button
                     type="button"
@@ -965,6 +966,7 @@ function OverviewScreen() {
                     Период
                     <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
                   </button>
+
                   <div
                     style={{
                       fontSize: 12.5,
@@ -980,6 +982,7 @@ function OverviewScreen() {
                     {accountPeriod.label}
                   </div>
                 </div>
+
                 <div
                   style={{
                     border: "1px solid #e5e7eb",
@@ -1004,7 +1007,7 @@ function OverviewScreen() {
                     ) : (
                       groupedAccountTx.map((group) => {
                         const dayExpense = group.items
-                          .filter((tx) => tx.type === "expense")
+                          .filter((tx) => tx.type === "expense" /* expense (расход) */)
                           .reduce((sum, tx) => sum + tx.amount.amount, 0)
 
                         return (
@@ -1012,14 +1015,16 @@ function OverviewScreen() {
                             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
                               <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
                               {dayExpense > 0 ? (
-                                <div style={{ fontSize: 12, color: "#94a3b8" }}>{formatMoney(dayExpense, baseCurrency)}</div>
+                                <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                                  {formatMoney(dayExpense, baseCurrency)}
+                                </div>
                               ) : null}
                             </div>
 
                             {group.items.map((tx, idx) => {
-                              const isIncome = tx.type === "income"
-                              const isExpense = tx.type === "expense"
-                              const sign = isIncome ? "+" : isExpense ? "-" : ""
+                              const isIncome = tx.type === "income" /* income (доход) */
+                              const isExpense = tx.type === "expense" /* expense (расход) */
+                              const sign = isIncome ? "+" : isExpense ? "-" : "" // transfer (перевод) без знака
                               const color = isIncome ? "#16a34a" : "#0f172a"
                               const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
 
@@ -1083,27 +1088,27 @@ function OverviewScreen() {
                     )}
                   </div>
                 </div>
-                {/* список */}
+
+                {(!searchFocused && !accountSearch) && (
+                  <button
+                    type="button"
+                    style={{
+                      width: "100%",
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontWeight: 700,
+                      marginTop: 10,
+                      marginBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
+                    }}
+                    onClick={() => setIsAccountSheetOpen(true)}
+                  >
+                    Редактировать счет
+                  </button>
+                )}
               </div>
-              {!searchFocused && !accountSearch ? (
-                <button
-                  type="button"
-                  style={{
-                    width: "100%",
-                    padding: "14px 16px",
-                    borderRadius: 12,
-                    border: "1px solid #0f172a",
-                    background: "#0f172a",
-                    color: "#fff",
-                    fontWeight: 700,
-                    marginTop: 10,
-                    marginBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
-                  }}
-                  onClick={() => setIsAccountSheetOpen(true)}
-                >
-                  Редактировать счет
-                </button>
-              ) : null}
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {categoryTx.map((tx) => {
@@ -1149,6 +1154,51 @@ function OverviewScreen() {
                 {categoryTx.length === 0 ? <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div> : null}
               </div>
             )}
+
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {categoryTx.map((tx) => {
+                  const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
+                  return (
+                    <div
+                      key={tx.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "8px 10px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(226,232,240,0.7)",
+                        background: "#f8fafc",
+                      }}
+                    >
+                      <div style={{ display: "grid", gap: 2 }}>
+                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
+                          {accountNameById.get(tx.accountId) ?? "Счёт"}
+                        </div>
+                        <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 13.5 }}>{amountText}</div>
+                        <button
+                          type="button"
+                          onClick={() => openTxActions(tx.id)}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          ⋯
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {categoryTx.length === 0 ? <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div> : null}
+              </div>
           </div>
         </div>
       )}
