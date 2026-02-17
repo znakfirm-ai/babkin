@@ -851,17 +851,7 @@ function App() {
                 uiOnlyCatAbort.current?.abort();
                 uiOnlyIncAbort.current?.abort();
                 uiOnlyTxAbort.current?.abort();
-                setAccounts([]);
-                setCategories([]);
-                setIncomeSources([]);
-                setTransactions([]);
-                setUiOnlyDiag({
-                  workspaces: { status: "idle", count: null, activeId: null, error: null },
-                  accounts: { status: "idle", count: null, error: null },
-                  categories: { status: "idle", count: null, error: null },
-                  income: { status: "idle", count: null, error: null },
-                  transactions: { status: "idle", count: null, sample: null, error: null },
-                });
+                enterUiOnly();
               }}
               style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #ef4444", background: "#fff5f5", color: "#b91c1c", cursor: "pointer" }}
             >
@@ -931,11 +921,7 @@ function App() {
         </button>
         <button
           type="button"
-          onClick={() => {
-            setSafeMode(false);
-            setUiOnlyMode(true);
-            setNormalLiteMode(false);
-          }}
+          onClick={enterUiOnly}
           style={{
             marginTop: 12,
             padding: "12px 16px",
@@ -1087,10 +1073,7 @@ function App() {
         </button>
         <button
           type="button"
-          onClick={() => {
-            setNormalLiteMode(false);
-            setUiOnlyMode(true);
-          }}
+          onClick={enterUiOnly}
           style={{
             marginTop: 12,
             padding: "12px 16px",
@@ -1109,21 +1092,22 @@ function App() {
     </div>
   );
 
-  useEffect(() => {
-    if (uiOnlyMode) {
-      setAccounts([]);
-      setCategories([]);
-      setIncomeSources([]);
-      setTransactions([]);
-      setUiOnlyDiag({
-        workspaces: { status: "idle", count: null, activeId: null, error: null },
-        accounts: { status: "idle", count: null, error: null },
-        categories: { status: "idle", count: null, error: null },
-        income: { status: "idle", count: null, error: null },
-        transactions: { status: "idle", count: null, sample: null, error: null },
-      });
-    }
-  }, [uiOnlyMode, setAccounts, setCategories, setIncomeSources, setTransactions]);
+  const enterUiOnly = useCallback(() => {
+    setSafeMode(false);
+    setNormalLiteMode(false);
+    setUiOnlyMode(true);
+    setAccounts([]);
+    setCategories([]);
+    setIncomeSources([]);
+    setTransactions([]);
+    setUiOnlyDiag({
+      workspaces: { status: "idle", count: null, activeId: null, error: null },
+      accounts: { status: "idle", count: null, error: null },
+      categories: { status: "idle", count: null, error: null },
+      income: { status: "idle", count: null, error: null },
+      transactions: { status: "idle", count: null, sample: null, error: null },
+    });
+  }, [setAccounts, setCategories, setIncomeSources, setTransactions]);
 
   const appShell = safeMode
     ? renderSafe()
