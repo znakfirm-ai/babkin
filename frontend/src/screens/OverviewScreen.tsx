@@ -8,6 +8,8 @@ import { createCategory, deleteCategory, getCategories, renameCategory } from ".
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
+import { useAppStore } from "../store/useAppStore"
+import type { Transaction } from "../types/finance"
 
 type TileType = "account" | "category"
 type TileSize = "sm" | "md" | "lg"
@@ -43,6 +45,7 @@ const Section: React.FC<{
   onAddCategory?: () => void
   onAddIncomeSource?: () => void
   onCategoryClick?: (id: string, title: string) => void
+  onAccountClick?: (id: string, title: string) => void
   baseCurrency: string
 }> = ({
   title,
@@ -53,6 +56,7 @@ const Section: React.FC<{
   onAddCategory,
   onAddIncomeSource,
   onCategoryClick,
+  onAccountClick,
   baseCurrency,
 }) => {
   const listClass = rowScroll
@@ -75,6 +79,7 @@ const Section: React.FC<{
               if (item.isAdd && item.id === "add-category") onAddCategory?.()
               if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
               if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
+              if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
             }}
             onKeyDown={(e) => {
               if (e.key !== "Enter" && e.key !== " ") return
@@ -82,6 +87,7 @@ const Section: React.FC<{
               if (item.isAdd && item.id === "add-category") onAddCategory?.()
               if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
               if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
+              if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
             }}
           >
             <div
@@ -129,6 +135,9 @@ function OverviewScreen() {
   const [incomeSourceName, setIncomeSourceName] = useState("")
   const [isSavingIncomeSource, setIsSavingIncomeSource] = useState(false)
   const [deletingIncomeSourceId, setDeletingIncomeSourceId] = useState<string | null>(null)
+  const [detailAccountId, setDetailAccountId] = useState<string | null>(null)
+  const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null)
+  const [detailTitle, setDetailTitle] = useState<string>("")
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
@@ -233,9 +242,8 @@ function OverviewScreen() {
   }, [])
 
   const openEditCategory = useCallback((id: string, title: string) => {
-    setCategorySheetMode("edit")
-    setEditingCategoryId(id)
-    setCategoryName(title)
+    setDetailCategoryId(id)
+    setDetailTitle(title)
   }, [])
 
   const openCreateIncomeSource = useCallback(() => {
@@ -292,6 +300,12 @@ function OverviewScreen() {
     setTxActionId(null)
     setTxError(null)
     setTxLoading(false)
+  }, [])
+
+  const closeDetails = useCallback(() => {
+    setDetailAccountId(null)
+    setDetailCategoryId(null)
+    setDetailTitle("")
   }, [])
 
   const handleDeleteTx = useCallback(async () => {
@@ -693,7 +707,32 @@ function OverviewScreen() {
   })
 
   const summaryBalance = accounts.reduce((sum, acc) => sum + acc.balance.amount, 0)
-  const recentTransactions = useMemo(() => transactions.slice(0, 5), [transactions])
+  const formatDate = (iso: string) =>
+    new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(new Date(iso))
+  const accountNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    accounts.forEach((a) => map.set(a.id, a.name))
+    return map
+  }, [accounts])
+
+  const accountTx = useMemo(() => {
+    if (!detailAccountId) return []
+    return transactions
+      .filter(
+        (t) =>
+          t.accountId === detailAccountId ||
+          t.toAccountId === detailAccountId ||
+          (t.type === "transfer" && t.accountId === detailAccountId)
+      )
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+  }, [detailAccountId, transactions])
+
+  const categoryTx = useMemo(() => {
+    if (!detailCategoryId) return []
+    return transactions
+      .filter((t) => t.type === "expense" && t.categoryId === detailCategoryId)
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+  }, [detailCategoryId, transactions])
 
   return (
     <div className="overview">
@@ -729,6 +768,10 @@ function OverviewScreen() {
         rowScroll
         rowClass="overview-accounts-row"
         onAddAccounts={() => setIsAccountSheetOpen(true)}
+        onAccountClick={(id, title) => {
+          setDetailAccountId(id)
+          setDetailTitle(title || "Счёт")
+        }}
         baseCurrency={baseCurrency}
       />
 
@@ -747,68 +790,132 @@ function OverviewScreen() {
         rowScroll
         rowClass="overview-expenses-row"
         onAddCategory={openCreateCategory}
-        onCategoryClick={openEditCategory}
+        onCategoryClick={(id, title) => openEditCategory(id, title)}
         baseCurrency={baseCurrency}
       />
 
-      <section className="overview-section">
-        <div className="overview-section__title overview-section__title--muted">Операции</div>
-        {recentTransactions.length === 0 ? (
-          <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", color: "#6b7280" }}>
-            Пока нет операций
-          </div>
-        ) : (
-          <div className="overview-section__list" style={{ display: "grid", gap: 8 }}>
-            {recentTransactions.map((tx) => (
-              <div
-                key={tx.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                }}
-              >
-                <div style={{ display: "grid", gap: 4 }}>
-                  <div style={{ fontWeight: 600, color: "#0f172a" }}>
-                    {tx.type === "income" ? "Доход" : tx.type === "expense" ? "Расход" : "Перевод"}
-                  </div>
-                  <div style={{ color: "#6b7280", fontSize: 13 }}>{tx.date}</div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: tx.type === "income" ? "#16a34a" : tx.type === "expense" ? "#b91c1c" : "#0f172a",
-                    }}
-                  >
-                    {formatMoney(tx.amount.amount, baseCurrency)}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => openTxActions(tx.id)}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 10,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      cursor: "pointer",
-                    }}
-                  >
-                    ⋯
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
       <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll baseCurrency={baseCurrency} />
       <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} rowScroll baseCurrency={baseCurrency} />
+
+      {(detailAccountId || detailCategoryId) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={closeDetails}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 58,
+            padding: "12px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 620,
+              background: "#fff",
+              borderRadius: 18,
+              padding: 16,
+              maxHeight:
+                "min(78vh, calc(100vh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px))",
+              overflowY: "auto",
+              boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{detailTitle || "Детали"}</div>
+              <button
+                type="button"
+                onClick={closeDetails}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              {(detailAccountId ? accountTx : categoryTx).map((tx) => {
+                const isIncome = tx.type === "income"
+                const isExpense = tx.type === "expense"
+                const sign = isIncome ? "+" : isExpense ? "-" : ""
+                const color = isIncome ? "#16a34a" : isExpense ? "#b91c1c" : "#0f172a"
+                const transferLabel =
+                  tx.type === "transfer"
+                    ? detailAccountId
+                      ? tx.accountId === detailAccountId
+                        ? `→ ${accountNameById.get(tx.toAccountId ?? "") ?? "счёт"}`
+                        : `← ${accountNameById.get(tx.accountId) ?? "счёт"}`
+                      : `${accountNameById.get(tx.accountId) ?? ""} → ${accountNameById.get(tx.toAccountId ?? "") ?? ""}`
+                    : ""
+                const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
+                const secondary =
+                  detailCategoryId && tx.accountId
+                    ? accountNameById.get(tx.accountId) ?? ""
+                    : tx.type === "expense" && tx.categoryId
+                    ? ""
+                    : transferLabel
+                return (
+                  <div
+                    key={tx.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: 4 }}>
+                      <div style={{ fontWeight: 600, color: "#0f172a" }}>
+                        {tx.type === "transfer"
+                          ? transferLabel || "Перевод"
+                          : tx.type === "income"
+                          ? "Доход"
+                          : "Расход"}
+                      </div>
+                      <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
+                      {secondary ? <div style={{ color: "#475569", fontSize: 13 }}>{secondary}</div> : null}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontWeight: 700, color }}>{amountText}</div>
+                      <button
+                        type="button"
+                        onClick={() => openTxActions(tx.id)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 10,
+                          border: "1px solid #e5e7eb",
+                          background: "#fff",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ⋯
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+              {(detailAccountId ? accountTx : categoryTx).length === 0 ? (
+                <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {txMode !== "none" ? (
         <div
@@ -820,26 +927,26 @@ function OverviewScreen() {
             inset: 0,
             background: "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "flex-end",
+            alignItems: "center",
+            justifyContent: "center",
             zIndex: 60,
+            padding: "12px",
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "100%",
+              maxWidth: 560,
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
+              borderRadius: 18,
               padding: 16,
-              maxHeight: "75vh",
+              maxHeight:
+                "min(70vh, calc(100vh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px))",
               overflowY: "auto",
-              boxShadow: "0 -8px 24px rgba(0,0,0,0.08)",
+              boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
             {txMode === "actions" ? (
               <div style={{ display: "grid", gap: 10 }}>
                 <button

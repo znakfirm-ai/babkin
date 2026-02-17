@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { fetchExpensesByCategory } from "../api/analytics"
 import { format } from "../utils/date"
+import { useAppStore } from "../store/useAppStore"
+import { formatMoney } from "../utils/formatMoney"
 
 type Props = {
   onBack: () => void
@@ -23,6 +25,8 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
     | null
   >(null)
   const abortRef = useRef<AbortController | null>(null)
+  const { transactions, currency } = useAppStore()
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
 
   const today = useMemo(() => format(new Date()), [])
 
@@ -90,6 +94,25 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to])
+
+  const formatDateShort = (iso: string) =>
+    new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(new Date(iso))
+
+  const filteredTx = useMemo(() => {
+    if (!from || !to) return []
+    const fromDate = new Date(`${from}T00:00:00.000Z`)
+    const toExclusive = new Date(new Date(`${to}T00:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000)
+    const byCat = selectedCategoryId
+      ? transactions.filter((t) => t.type === "expense" && t.categoryId === selectedCategoryId)
+      : transactions.filter((t) => t.type === "expense")
+    return byCat
+      .filter((t) => {
+        const d = new Date(t.date)
+        return d >= fromDate && d < toExclusive
+      })
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .slice(0, 30)
+  }, [from, to, selectedCategoryId, transactions])
 
   return (
     <div style={{ padding: 16, display: "grid", gap: 12 }}>
@@ -219,10 +242,24 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
           ) : (
             <>
               {data.top.map((item) => (
-                <div key={item.categoryId} style={{ display: "flex", justifyContent: "space-between" }}>
+                <button
+                  key={item.categoryId}
+                  type="button"
+                  onClick={() => setSelectedCategoryId(item.categoryId)}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: selectedCategoryId === item.categoryId ? "#f1f5f9" : "#fff",
+                    cursor: "pointer",
+                  }}
+                >
                   <span>{item.name}</span>
                   <span style={{ fontWeight: 600 }}>{item.total}</span>
-                </div>
+                </button>
               ))}
               {data.otherTotal !== "0.00" ? (
                 <div style={{ display: "flex", justifyContent: "space-between", color: "#6b7280" }}>
@@ -247,6 +284,48 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
           )
         ) : null}
       </div>
+
+      {status === "success" && data ? (
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 12,
+            padding: 12,
+            background: "#fff",
+            display: "grid",
+            gap: 10,
+          }}
+        >
+          <div style={{ fontWeight: 600, color: "#0f172a" }}>
+            Операции {selectedCategoryId ? "по категории" : "за период"}
+          </div>
+          {filteredTx.length === 0 ? (
+            <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div>
+          ) : (
+            filteredTx.map((tx) => (
+              <div
+                key={tx.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid #f1f5f9",
+                }}
+              >
+                <div style={{ display: "grid", gap: 2 }}>
+                  <span style={{ fontWeight: 600, color: "#0f172a" }}>{tx.categoryId ? "" : "Расход"}</span>
+                  <span style={{ color: "#6b7280", fontSize: 12 }}>{formatDateShort(tx.date)}</span>
+                </div>
+                <div style={{ fontWeight: 700, color: "#b91c1c" }}>
+                  -{formatMoney(tx.amount.amount, currency)}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }
