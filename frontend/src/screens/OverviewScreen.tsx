@@ -1123,15 +1123,15 @@ function OverviewScreen() {
                         <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
                           {accountNameById.get(tx.accountId) ?? "Счёт"}
                         </div>
-                    <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 13.5 }}>{amountText}</div>
-                    <button
-                      type="button"
-                      onClick={() => openTxActions(tx.id)}
-                      style={{
-                        padding: "6px 10px",
+                        <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 13.5 }}>{amountText}</div>
+                        <button
+                          type="button"
+                          onClick={() => openTxActions(tx.id)}
+                          style={{
+                            padding: "6px 10px",
                             borderRadius: 10,
                             border: "1px solid #e5e7eb",
                             background: "#fff",
