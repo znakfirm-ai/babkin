@@ -645,6 +645,9 @@ function App() {
       <div className="app-shell">
         {!isTelegram ? <div className="dev-banner">Telegram WebApp не найден — браузерный режим</div> : null}
         <div className="app-shell__inner">
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, textAlign: "center", fontSize: 11, color: "#6b7280", padding: "6px 4px", zIndex: 50 }}>
+            UI_ONLY_MODE ACTIVE
+          </div>
           {renderScreen()}
           <BottomNav
             active={activeNav}
