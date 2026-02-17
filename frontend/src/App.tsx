@@ -25,6 +25,7 @@ function App() {
   const normalLiteAccAbort = useRef<AbortController | null>(null);
   const normalLiteCatAbort = useRef<AbortController | null>(null);
   const normalLiteTxAbort = useRef<AbortController | null>(null);
+  const normalLiteAllAbort = useRef<AbortController | null>(null);
   const [workspacesDiag, setWorkspacesDiag] = useState<{
     status: "idle" | "loading" | "success" | "error";
     count: number | null;
@@ -47,6 +48,23 @@ function App() {
     sample: string | null;
     error: string | null;
   }>({ status: "idle", count: null, sample: null, error: null });
+  const [allDiag, setAllDiag] = useState<{
+    status: "idle" | "running" | "success" | "error";
+    step: number;
+    workspaces: number | null;
+    accounts: number | null;
+    categories: number | null;
+    transactions: number | null;
+    error: string | null;
+  }>({
+    status: "idle",
+    step: 0,
+    workspaces: null,
+    accounts: null,
+    categories: null,
+    transactions: null,
+    error: null,
+  });
 
   interface TelegramWebApp {
     ready(): void
@@ -70,6 +88,7 @@ function App() {
         normalLiteAccAbort.current?.abort();
         normalLiteCatAbort.current?.abort();
         normalLiteTxAbort.current?.abort();
+        normalLiteAllAbort.current?.abort();
       };
     }
     if (baseHeightRef.current === null) {
@@ -306,6 +325,84 @@ function App() {
     }
   };
 
+  const fetchAllSequentialDiag = async () => {
+    if (normalLiteMode === false) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+    if (!token) {
+      setAllDiag({
+        status: "error",
+        step: 0,
+        workspaces: null,
+        accounts: null,
+        categories: null,
+        transactions: null,
+        error: "Нет токена",
+      });
+      return;
+    }
+    normalLiteAllAbort.current?.abort();
+    const controller = new AbortController();
+    normalLiteAllAbort.current = controller;
+    setAllDiag({
+      status: "running",
+      step: 0,
+      workspaces: null,
+      accounts: null,
+      categories: null,
+      transactions: null,
+      error: null,
+    });
+    try {
+      const req = async (url: string) => {
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`Ошибка ${res.status} ${text}`);
+        }
+        return res.json();
+      };
+
+      const ws = await req("https://babkin.onrender.com/api/v1/workspaces");
+      setAllDiag((prev) => ({
+        ...prev,
+        step: 1,
+        workspaces: Array.isArray(ws.workspaces) ? ws.workspaces.length : 0,
+      }));
+
+      const acc = await req("https://babkin.onrender.com/api/v1/accounts");
+      setAllDiag((prev) => ({
+        ...prev,
+        step: 2,
+        accounts: Array.isArray(acc.accounts) ? acc.accounts.length : 0,
+      }));
+
+      const cats = await req("https://babkin.onrender.com/api/v1/categories");
+      setAllDiag((prev) => ({
+        ...prev,
+        step: 3,
+        categories: Array.isArray(cats.categories) ? cats.categories.length : 0,
+      }));
+
+      const txs = await req("https://babkin.onrender.com/api/v1/transactions");
+      setAllDiag({
+        status: "success",
+        step: 4,
+        workspaces: Array.isArray(ws.workspaces) ? ws.workspaces.length : 0,
+        accounts: Array.isArray(acc.accounts) ? acc.accounts.length : 0,
+        categories: Array.isArray(cats.categories) ? cats.categories.length : 0,
+        transactions: Array.isArray(txs.transactions) ? txs.transactions.length : 0,
+        error: null,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setAllDiag((prev) => ({
+        ...prev,
+        status: "error",
+        error: err instanceof Error ? err.message : "Не удалось загрузить",
+      }));
+    }
+  };
+
   if (safeMode) {
     return (
       <div className="app-shell">
@@ -427,6 +524,23 @@ function App() {
           >
             Fetch transactions
           </button>
+          <button
+            type="button"
+            onClick={fetchAllSequentialDiag}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid #2563eb",
+              background: "#fff",
+              color: "#2563eb",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              marginBottom: 12,
+            }}
+          >
+            Fetch ALL (sequential)
+          </button>
           <div style={{ fontSize: 13, color: "#0f172a", marginBottom: 16, lineHeight: 1.5 }}>
             <div>Статус: {workspacesDiag.status}</div>
             {workspacesDiag.count !== null ? <div>Workspaces: {workspacesDiag.count}</div> : null}
@@ -442,6 +556,12 @@ function App() {
             {transactionsDiag.count !== null ? <div>Transactions count: {transactionsDiag.count}</div> : null}
             {transactionsDiag.sample ? <div>Sample: {transactionsDiag.sample}</div> : null}
             {transactionsDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {transactionsDiag.error}</div> : null}
+            <div style={{ marginTop: 10 }}>All (seq): {allDiag.status} (step {allDiag.step}/4)</div>
+            {allDiag.workspaces !== null ? <div>WS: {allDiag.workspaces}</div> : null}
+            {allDiag.accounts !== null ? <div>ACC: {allDiag.accounts}</div> : null}
+            {allDiag.categories !== null ? <div>CATS: {allDiag.categories}</div> : null}
+            {allDiag.transactions !== null ? <div>TXS: {allDiag.transactions}</div> : null}
+            {allDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {allDiag.error}</div> : null}
           </div>
           <button
             type="button"
