@@ -137,6 +137,7 @@ function OverviewScreen() {
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null)
   const [detailTitle, setDetailTitle] = useState<string>("")
   const [accountSearch, setAccountSearch] = useState("")
+  const [accountPeriodType, setAccountPeriodType] = useState<"day" | "week" | "month" | "year" | "custom">("month")
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
@@ -744,21 +745,39 @@ function OverviewScreen() {
   }, [detailCategoryId, transactions])
 
   const accountPeriod = useMemo(() => {
-    if (!detailAccountId || accountTx.length === 0) return null
-    const dates = accountTx.map((t) => new Date(t.date))
-    const min = new Date(Math.min(...dates.map((d) => d.getTime())))
-    const max = new Date(Math.max(...dates.map((d) => d.getTime())))
-    return {
-      from: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(min),
-      to: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(max),
+    const now = new Date()
+    const start = new Date(now)
+    start.setHours(0, 0, 0, 0)
+    if (accountPeriodType === "week") {
+      const day = start.getDay()
+      const diff = day === 0 ? 6 : day - 1
+      start.setDate(start.getDate() - diff)
+    } else if (accountPeriodType === "month") {
+      start.setDate(1)
+    } else if (accountPeriodType === "year") {
+      start.setMonth(0, 1)
     }
-  }, [accountTx, detailAccountId])
+    const end = new Date(start)
+    if (accountPeriodType === "day") end.setDate(end.getDate() + 1)
+    else if (accountPeriodType === "week") end.setDate(end.getDate() + 7)
+    else if (accountPeriodType === "month") end.setMonth(end.getMonth() + 1)
+    else if (accountPeriodType === "year") end.setFullYear(end.getFullYear() + 1)
+    else end.setDate(end.getDate() + 1)
+    const fmt = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+    const endPrev = new Date(end.getTime() - 1)
+    return { start, end, label: `${fmt.format(start)} - ${fmt.format(endPrev)}` }
+  }, [accountPeriodType])
 
   const filteredAccountTx = useMemo(() => {
     if (!detailAccountId) return []
+    const { start, end } = accountPeriod
+    const periodFiltered = accountTx.filter((tx) => {
+      const d = new Date(tx.date)
+      return d >= start && d < end
+    })
     const query = accountSearch.trim().toLowerCase()
-    if (!query) return accountTx
-    return accountTx.filter((tx) => {
+    if (!query) return periodFiltered
+    return periodFiltered.filter((tx) => {
       const absAmount = Math.abs(tx.amount.amount)
       const amountText = String(absAmount)
       const title =
@@ -769,7 +788,7 @@ function OverviewScreen() {
           : "Перевод"
       return title.toLowerCase().includes(query) || amountText.includes(query)
     })
-  }, [accountSearch, accountTx, categoryNameById, detailAccountId, incomeSourceNameById])
+  }, [accountPeriod, accountSearch, accountTx, categoryNameById, detailAccountId, incomeSourceNameById])
 
   const groupedAccountTx = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
@@ -899,22 +918,6 @@ function OverviewScreen() {
             </div>
             {detailAccountId ? (
               <div style={{ display: "grid", gap: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: 14, color: "#0f172a", fontWeight: 700 }}>{detailTitle || "Счёт"}</div>
-                  <button
-                    type="button"
-                    onClick={closeDetails}
-                    style={{
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      borderRadius: 10,
-                      padding: "6px 10px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Закрыть
-                  </button>
-                </div>
                 <label style={{ display: "grid", gap: 6 }}>
                   <span style={{ fontSize: 13, color: "#6b7280" }}>Поиск по названию или сумме</span>
                   <input
@@ -924,29 +927,55 @@ function OverviewScreen() {
                     style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 15 }}
                   />
                 </label>
-                {accountPeriod ? (
-                  <div style={{ display: "grid", gap: 4 }}>
-                    <div style={{ fontSize: 13, color: "#6b7280" }}>Период</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>
-                      {accountPeriod.from} - {accountPeriod.to}
-                    </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ fontSize: 13, color: "#6b7280" }}>Период</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {(["day", "week", "month", "year", "custom"] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setAccountPeriodType(p)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 10,
+                          border: accountPeriodType === p ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                          background: accountPeriodType === p ? "#0f172a" : "#fff",
+                          color: accountPeriodType === p ? "#fff" : "#0f172a",
+                          cursor: "pointer",
+                          fontSize: 13,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {p === "day"
+                          ? "День"
+                          : p === "week"
+                          ? "Неделя"
+                          : p === "month"
+                          ? "Месяц"
+                          : p === "year"
+                          ? "Год"
+                          : "Свой"}
+                      </button>
+                    ))}
                   </div>
-                ) : null}
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>{accountPeriod.label}</div>
+                </div>
                 <div
                   style={{
                     border: "1px solid #e5e7eb",
-                    borderRadius: 14,
+                    borderRadius: 18,
                     background: "#fff",
                     padding: 12,
                     display: "grid",
-                    gap: 12,
+                    gap: 10,
+                    boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
                   }}
                 >
                   {groupedAccountTx.length === 0 ? (
                     <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div>
                   ) : (
                     groupedAccountTx.map((group) => (
-                      <div key={group.dateLabel} style={{ display: "grid", gap: 8 }}>
+                      <div key={group.dateLabel} style={{ display: "grid", gap: 6 }}>
                         <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
                         {group.items.map((tx, idx) => {
                           const isIncome = tx.type === "income"
@@ -954,14 +983,6 @@ function OverviewScreen() {
                           const sign = isIncome ? "+" : isExpense ? "-" : ""
                           const color = isIncome ? "#16a34a" : isExpense ? "#b91c1c" : "#0f172a"
                           const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
-                          const relation =
-                            tx.type === "income"
-                              ? `${incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Источник"} → ${accountNameById.get(
-                                  tx.accountId
-                                ) ?? ""}`
-                              : tx.type === "expense"
-                              ? `${accountNameById.get(tx.accountId) ?? ""} → ${categoryNameById.get(tx.categoryId ?? "") ?? "Категория"}`
-                              : `${accountNameById.get(tx.accountId) ?? ""} → ${accountNameById.get(tx.toAccountId ?? "") ?? ""}`
                           return (
                             <div
                               key={tx.id}
@@ -969,21 +990,20 @@ function OverviewScreen() {
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "space-between",
-                                padding: "8px 0",
-                                borderTop: idx === 0 ? "none" : "1px solid #f1f5f9",
+                                padding: "6px 0",
+                                borderTop: idx === 0 ? "none" : "1px solid #e5e7eb",
                               }}
                             >
-                              <div style={{ display: "grid", gap: 4 }}>
-                                <div style={{ fontWeight: 700, color: "#0f172a" }}>
+                              <div style={{ display: "grid", gap: 2 }}>
+                                <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
                                   {tx.type === "income"
                                     ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
                                     : tx.type === "expense"
                                     ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
                                     : "Перевод"}
                                 </div>
-                                <div style={{ color: "#6b7280", fontSize: 12 }}>{relation}</div>
                               </div>
-                              <div style={{ fontWeight: 700, color, textAlign: "right" }}>{amountText}</div>
+                              <div style={{ fontWeight: 700, color, textAlign: "right", fontSize: 15 }}>{amountText}</div>
                             </div>
                           )
                         })}
