@@ -1914,8 +1914,3 @@ function OverviewScreen() {
 }
 
 export default OverviewScreen
-
-// Custom period sheet
-;(() => {
-  /* placeholder to avoid eslint empty file footer */
-})()
