@@ -8,8 +8,6 @@ import { createCategory, deleteCategory, getCategories, renameCategory } from ".
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
-import { useAppStore } from "../store/useAppStore"
-import type { Transaction } from "../types/finance"
 
 type TileType = "account" | "category"
 type TileSize = "sm" | "md" | "lg"
