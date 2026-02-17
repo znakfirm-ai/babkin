@@ -1085,7 +1085,7 @@ function OverviewScreen() {
                 </div>
                 {/* список */}
               </div>
-              {!searchFocused && !accountSearch ? (
+              {!searchFocused && !accountSearch && (
                 <button
                   type="button"
                   style={{
@@ -1103,7 +1103,7 @@ function OverviewScreen() {
                 >
                   Редактировать счет
                 </button>
-              ) : null}
+              )}
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {categoryTx.map((tx) => {
