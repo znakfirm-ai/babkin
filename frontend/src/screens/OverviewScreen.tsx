@@ -931,7 +931,7 @@ function OverviewScreen() {
                 Закрыть
               </button>
             </div>
-                        {detailAccountId ? (
+            {detailAccountId ? (
               <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
                 <label style={{ display: "grid", gap: 6 }}>
                   <input
@@ -1153,6 +1153,7 @@ function OverviewScreen() {
                 })}
                 {categoryTx.length === 0 ? <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div> : null}
               </div>
+            )}
           </div>
         </div>
       )}
