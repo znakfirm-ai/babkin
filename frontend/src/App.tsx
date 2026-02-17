@@ -196,7 +196,8 @@ function App() {
     transactions: null,
     error: null,
   });
-  const { setAccounts, setCategories, setIncomeSources, setTransactions } = useAppStore();
+  const { setAccounts, setCategories, setIncomeSources, setTransactions, accounts, categories, incomeSources, transactions } =
+    useAppStore();
 
   interface TelegramWebApp {
     ready(): void
@@ -869,10 +870,10 @@ function App() {
           </div>
           <div style={{ display: "grid", gap: 4, fontSize: 11, color: "#0f172a" }}>
             <div>WS: {uiOnlyDiag.workspaces.status} ({uiOnlyDiag.workspaces.count ?? 0}) active={uiOnlyDiag.workspaces.activeId ?? "—"} {uiOnlyDiag.workspaces.error ? `err: ${uiOnlyDiag.workspaces.error}` : ""}</div>
-            <div>ACC: {uiOnlyDiag.accounts.status} ({uiOnlyDiag.accounts.count ?? 0}) {uiOnlyDiag.accounts.error ? `err: ${uiOnlyDiag.accounts.error}` : ""}</div>
-            <div>CATS: {uiOnlyDiag.categories.status} ({uiOnlyDiag.categories.count ?? 0}) {uiOnlyDiag.categories.error ? `err: ${uiOnlyDiag.categories.error}` : ""}</div>
-            <div>INC: {uiOnlyDiag.income.status} ({uiOnlyDiag.income.count ?? 0}) {uiOnlyDiag.income.error ? `err: ${uiOnlyDiag.income.error}` : ""}</div>
-            <div>TXS: {uiOnlyDiag.transactions.status} ({uiOnlyDiag.transactions.count ?? 0}) {uiOnlyDiag.transactions.sample ? `sample: ${uiOnlyDiag.transactions.sample}` : ""} {uiOnlyDiag.transactions.error ? `err: ${uiOnlyDiag.transactions.error}` : ""}</div>
+            <div>ACC: {uiOnlyDiag.accounts.status} ({accounts.length}) {uiOnlyDiag.accounts.error ? `err: ${uiOnlyDiag.accounts.error}` : ""}</div>
+            <div>CATS: {uiOnlyDiag.categories.status} ({categories.length}) {uiOnlyDiag.categories.error ? `err: ${uiOnlyDiag.categories.error}` : ""}</div>
+            <div>INC: {uiOnlyDiag.income.status} ({incomeSources.length}) {uiOnlyDiag.income.error ? `err: ${uiOnlyDiag.income.error}` : ""}</div>
+            <div>TXS: {uiOnlyDiag.transactions.status} ({transactions.length}) {uiOnlyDiag.transactions.sample ? `sample: ${uiOnlyDiag.transactions.sample}` : ""} {uiOnlyDiag.transactions.error ? `err: ${uiOnlyDiag.transactions.error}` : ""}</div>
           </div>
         </div>
         {renderScreen()}
