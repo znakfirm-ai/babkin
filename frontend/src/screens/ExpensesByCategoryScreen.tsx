@@ -12,7 +12,7 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
   const [period, setPeriod] = useState<Period>("today")
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [errorText, setErrorText] = useState<string | null>(null)
   const [data, setData] = useState<
     | {
@@ -54,25 +54,30 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
     const t = customTo ?? to
     if (!f || !t) {
       setErrorText("Не выбран период")
+      setStatus("error")
       return
     }
     if (!token) {
       setErrorText("Нет токена")
+      setStatus("error")
       return
     }
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
-    setIsLoading(true)
+    setStatus("loading")
     setErrorText(null)
     try {
       const res = await fetchExpensesByCategory(token, { from: f, to: t, top: 50 }, controller.signal)
       setData(res)
+      setStatus("success")
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setStatus((prev) => (prev === "loading" ? "idle" : prev))
+        return
+      }
       setErrorText(err instanceof Error ? err.message : "Ошибка загрузки отчёта")
-    } finally {
-      setIsLoading(false)
+      setStatus("error")
     }
   }
 
@@ -188,9 +193,9 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
           gap: 10,
         }}
       >
-        {isLoading ? (
+        {status === "loading" || status === "idle" ? (
           <div style={{ color: "#6b7280", fontSize: 14 }}>Загрузка...</div>
-        ) : errorText ? (
+        ) : status === "error" ? (
           <div style={{ color: "#b91c1c", fontSize: 13 }}>
             {errorText}
             <button
@@ -208,8 +213,8 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
               Повторить
             </button>
           </div>
-        ) : data ? (
-          data.totalExpense === "0.00" ? (
+        ) : status === "success" && data ? (
+          Number(data.totalExpense) === 0 ? (
             <div style={{ color: "#6b7280", fontSize: 14 }}>Нет данных за период</div>
           ) : (
             <>
@@ -240,9 +245,7 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
               </div>
             </>
           )
-        ) : (
-          <div style={{ color: "#6b7280", fontSize: 14 }}>Нет данных</div>
-        )}
+        ) : null}
       </div>
     </div>
   )
