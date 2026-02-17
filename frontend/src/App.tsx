@@ -9,6 +9,9 @@ import HomeScreen from "./screens/HomeScreen";
 import OverviewScreen from "./screens/OverviewScreen";
 import AddScreen from "./screens/AddScreen";
 import SettingsScreen from "./screens/SettingsScreen";
+import ReportsScreen from "./screens/ReportsScreen";
+import SummaryReportScreen from "./screens/SummaryReportScreen";
+import ExpensesByCategoryScreen from "./screens/ExpensesByCategoryScreen";
 import BottomNav from "./BottomNav";
 import type { NavItem } from "./BottomNav";
 import "./BottomNav.css";
@@ -120,7 +123,7 @@ class AppErrorBoundary extends Component<
   }
 }
 
-type ScreenKey = NavItem;
+type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category";
 
 function App() {
   const telegramAvailable =
@@ -406,8 +409,19 @@ function App() {
         return <OverviewScreen />;
       case "add":
         return <AddScreen />;
+      case "reports":
+        return (
+          <ReportsScreen
+            onOpenSummary={() => setActiveScreen("report-summary")}
+            onOpenExpensesByCategory={() => setActiveScreen("report-expenses-by-category")}
+          />
+        );
       case "settings":
         return <SettingsScreen />;
+      case "report-summary":
+        return <SummaryReportScreen onBack={() => setActiveScreen("reports")} />;
+      case "report-expenses-by-category":
+        return <ExpensesByCategoryScreen onBack={() => setActiveScreen("reports")} />;
       default:
         return <HomeScreen />;
     }
