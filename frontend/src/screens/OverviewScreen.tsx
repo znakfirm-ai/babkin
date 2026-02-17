@@ -142,7 +142,6 @@ function OverviewScreen() {
   const [customTo, setCustomTo] = useState("")
   const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
-  const [txActionCenterId, setTxActionCenterId] = useState<string | null>(null)
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
@@ -1023,7 +1022,7 @@ function OverviewScreen() {
                                     gap: 10,
                                   }}
                                   onClick={() => {
-                                    setTxActionCenterId(tx.id)
+                                    setTxActionId(tx.id)
                                     setTxMode("actions")
                                   }}
                                 >
@@ -1044,7 +1043,7 @@ function OverviewScreen() {
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        setTxActionCenterId(tx.id)
+                                        setTxActionId(tx.id)
                                         setTxMode("actions")
                                       }}
                                       style={{
@@ -1519,6 +1518,95 @@ function OverviewScreen() {
                 Применить
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isPeriodMenuOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsPeriodMenuOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 63,
+            padding: "12px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "70%",
+              maxWidth: 420,
+              background: "#fff",
+              borderRadius: 16,
+              padding: 12,
+              boxShadow: "0 10px 24px rgba(0,0,0,0.14)",
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            {(["day", "week", "month", "year"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => {
+                  setAccountPeriodType(p)
+                  setIsPeriodMenuOpen(false)
+                }}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid " + (accountPeriodType === p ? "#0f172a" : "#e5e7eb"),
+                  background: accountPeriodType === p ? "#0f172a" : "#fff",
+                  color: accountPeriodType === p ? "#fff" : "#0f172a",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+              >
+                {p === "day" ? "День" : p === "week" ? "Неделя" : p === "month" ? "Месяц" : "Год"}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setAccountPeriodType("custom")
+                setIsPeriodMenuOpen(false)
+                setIsCustomSheetOpen(true)
+              }}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid " + (accountPeriodType === "custom" ? "#0f172a" : "#e5e7eb"),
+                background: accountPeriodType === "custom" ? "#0f172a" : "#fff",
+                color: accountPeriodType === "custom" ? "#fff" : "#0f172a",
+                fontWeight: 600,
+                fontSize: 14,
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
+              Свой
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPeriodMenuOpen(false)}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+              }}
+            >
+              Закрыть
+            </button>
           </div>
         </div>
       ) : null}
