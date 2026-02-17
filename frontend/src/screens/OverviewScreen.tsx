@@ -1153,52 +1153,6 @@ function OverviewScreen() {
                 })}
                 {categoryTx.length === 0 ? <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div> : null}
               </div>
-            )}
-
-            ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {categoryTx.map((tx) => {
-                  const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
-                  return (
-                    <div
-                      key={tx.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 10px",
-                        borderRadius: 12,
-                        border: "1px solid rgba(226,232,240,0.7)",
-                        background: "#f8fafc",
-                      }}
-                    >
-                      <div style={{ display: "grid", gap: 2 }}>
-                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
-                          {accountNameById.get(tx.accountId) ?? "Счёт"}
-                        </div>
-                        <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 13.5 }}>{amountText}</div>
-                        <button
-                          type="button"
-                          onClick={() => openTxActions(tx.id)}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 10,
-                            border: "1px solid #e5e7eb",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          ⋯
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-                {categoryTx.length === 0 ? <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div> : null}
-              </div>
           </div>
         </div>
       )}
