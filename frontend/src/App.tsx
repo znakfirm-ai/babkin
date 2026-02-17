@@ -1,5 +1,6 @@
 import React, { Component, useEffect, useRef, useState, useCallback } from "react";
 import { useAppStore } from "./store/useAppStore";
+type Workspace = { id: string; type: "personal" | "family"; name: string | null };
 import { getAccounts } from "./api/accounts";
 import { getCategories } from "./api/categories";
 import { getIncomeSources } from "./api/incomeSources";
@@ -142,8 +143,13 @@ function App() {
   const uiOnlyCatAbort = useRef<AbortController | null>(null);
   const uiOnlyIncAbort = useRef<AbortController | null>(null);
   const uiOnlyTxAbort = useRef<AbortController | null>(null);
+  const initDone = useRef<boolean>(false);
   const [uiOnlyMode, setUiOnlyMode] = useState<boolean>(false);
+  const [appLoading, setAppLoading] = useState<boolean>(false);
   const [globalError, setGlobalError] = useState<Error | null>(null);
+  const [appInitError, setAppInitError] = useState<string | null>(null);
+  const [appWorkspaces, setAppWorkspaces] = useState<Workspace[]>([]);
+  const [appActiveWorkspace, setAppActiveWorkspace] = useState<Workspace | null>(null);
   const [workspacesDiag, setWorkspacesDiag] = useState<{
     status: "idle" | "loading" | "success" | "error";
     count: number | null;
@@ -309,10 +315,93 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (safeMode || normalLiteMode || uiOnlyMode) return;
+    if (initDone.current) return;
+    if (typeof window === "undefined") return;
+    const runInit = async () => {
+      setAppLoading(true);
+      setAppInitError(null);
+      try {
+        let token = localStorage.getItem("auth_access_token");
+        if (!token) {
+          const initData = window.Telegram?.WebApp?.initData ?? "";
+          if (!initData) throw new Error("Нет Telegram initData");
+          const res = await fetch("https://babkin.onrender.com/api/v1/auth/telegram", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Telegram-InitData": initData,
+            },
+            body: "{}",
+          });
+          if (!res.ok) throw new Error(`Auth error: ${res.status}`);
+          const data: { accessToken?: string } = await res.json();
+          if (!data.accessToken) throw new Error("Auth error");
+          token = data.accessToken;
+          localStorage.setItem("auth_access_token", token);
+        }
+
+        const wsRes = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!wsRes.ok) throw new Error(`Workspaces error: ${wsRes.status}`);
+        const wsData: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await wsRes.json();
+        setAppWorkspaces(wsData.workspaces ?? []);
+        setAppActiveWorkspace(wsData.activeWorkspace ?? null);
+
+        const accData = await getAccounts(token);
+        setAccounts(
+          accData.accounts.map((a) => ({
+            id: a.id,
+            name: a.name,
+            balance: { amount: a.balance, currency: a.currency },
+          }))
+        );
+
+        const catData = await getCategories(token);
+        setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon })));
+
+        const incData = await getIncomeSources(token);
+        setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name })));
+
+        const txData = await getTransactions(token);
+        setTransactions(
+          txData.transactions.map((t) => ({
+            id: t.id,
+            type: t.kind,
+            amount: {
+              amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+              currency: "RUB",
+            },
+            date: t.happenedAt,
+            accountId: t.accountId ?? t.fromAccountId ?? "",
+            categoryId: t.categoryId ?? undefined,
+            incomeSourceId: t.incomeSourceId ?? undefined,
+            toAccountId: t.toAccountId ?? undefined,
+          }))
+        );
+
+        initDone.current = true;
+        setAppLoading(false);
+      } catch (err) {
+        setAppInitError(err instanceof Error ? err.message : "Init error");
+        setAppLoading(false);
+      }
+    };
+    void runInit();
+  }, [safeMode, normalLiteMode, uiOnlyMode, setAccounts, setCategories, setIncomeSources, setTransactions]);
+
   const renderScreen = () => {
     switch (activeScreen) {
       case "home":
-        return <HomeScreen disableDataFetch={uiOnlyMode} />;
+        return (
+          <HomeScreen
+            disableDataFetch={uiOnlyMode}
+            initialWorkspaces={appWorkspaces}
+            initialActiveWorkspace={appActiveWorkspace}
+          />
+        );
       case "overview":
         return <OverviewScreen />;
       case "add":
@@ -1109,6 +1198,94 @@ function App() {
     });
   }, [setAccounts, setCategories, setIncomeSources, setTransactions]);
 
+  const initApp = useCallback(async () => {
+    if (safeMode || normalLiteMode || uiOnlyMode) return;
+    if (appLoading) return;
+    setAppLoading(true);
+    setAppInitError(null);
+    try {
+      let token = localStorage.getItem("auth_access_token");
+      if (!token) {
+        const initData = window.Telegram?.WebApp?.initData ?? "";
+        if (!initData) throw new Error("Нет Telegram initData");
+        const res = await fetch("https://babkin.onrender.com/api/v1/auth/telegram", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Telegram-InitData": initData,
+          },
+          body: "{}",
+        });
+        if (!res.ok) throw new Error(`Auth error: ${res.status}`);
+        const data: { accessToken?: string } = await res.json();
+        if (!data.accessToken) throw new Error("Auth error");
+        token = data.accessToken;
+        localStorage.setItem("auth_access_token", token);
+      }
+
+      const wsRes = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!wsRes.ok) throw new Error(`Workspaces error: ${wsRes.status}`);
+      const wsData: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await wsRes.json();
+      setAppWorkspaces(wsData.workspaces ?? []);
+      setAppActiveWorkspace(wsData.activeWorkspace ?? null);
+
+      const accData = await getAccounts(token);
+      setAccounts(
+        accData.accounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: { amount: a.balance, currency: a.currency },
+        }))
+      );
+
+      const catData = await getCategories(token);
+      setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon })));
+
+      const incData = await getIncomeSources(token);
+      setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name })));
+
+      const txData = await getTransactions(token);
+      setTransactions(
+        txData.transactions.map((t) => ({
+          id: t.id,
+          type: t.kind,
+          amount: {
+            amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+            currency: "RUB",
+          },
+          date: t.happenedAt,
+          accountId: t.accountId ?? t.fromAccountId ?? "",
+          categoryId: t.categoryId ?? undefined,
+          incomeSourceId: t.incomeSourceId ?? undefined,
+          toAccountId: t.toAccountId ?? undefined,
+        }))
+      );
+
+      initDone.current = true;
+      setAppLoading(false);
+    } catch (err) {
+      setAppInitError(err instanceof Error ? err.message : "Init error");
+      setAppLoading(false);
+    }
+  }, [
+    appLoading,
+    safeMode,
+    normalLiteMode,
+    uiOnlyMode,
+    setAccounts,
+    setCategories,
+    setIncomeSources,
+    setTransactions,
+  ]);
+
+  useEffect(() => {
+    if (!safeMode && !normalLiteMode && !uiOnlyMode && !initDone.current) {
+      void initApp();
+    }
+  }, [initApp, safeMode, normalLiteMode, uiOnlyMode]);
+
   const appShell = safeMode
     ? renderSafe()
     : normalLiteMode
@@ -1116,19 +1293,48 @@ function App() {
     : uiOnlyMode
     ? renderUiOnlyShell()
     : (
+        appLoading ? (
+          <div className="app-shell" style={{ padding: 24 }}>
+            <h1 style={{ fontSize: 18 }}>Загрузка...</h1>
+            {appInitError ? <div style={{ color: "#b91c1c", marginTop: 8 }}>{appInitError}</div> : null}
+          </div>
+        ) : appInitError ? (
+          <div className="app-shell" style={{ padding: 24 }}>
+            <h1 style={{ fontSize: 18, marginBottom: 8 }}>Init error</h1>
+            <div style={{ color: "#b91c1c", marginBottom: 12 }}>{appInitError}</div>
+            <button
+              type="button"
+              onClick={() => {
+                initDone.current = false;
+                setAppInitError(null);
+                setAppLoading(false);
+              }}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              Повторить
+            </button>
+          </div>
+        ) : (
         <div className="app-shell">
           {!isTelegram ? <div className="dev-banner">Telegram WebApp не найден — браузерный режим</div> : null}
           <div className="app-shell__inner">
-            {renderScreen()}
-            <BottomNav
-              active={activeNav}
-              onSelect={(key) => {
-                setActiveNav(key);
-                setActiveScreen(key);
-              }}
-            />
+          {renderScreen()}
+          <BottomNav
+            active={activeNav}
+            onSelect={(key) => {
+              setActiveNav(key);
+              setActiveScreen(key);
+            }}
+          />
           </div>
         </div>
+        )
       );
 
   return (

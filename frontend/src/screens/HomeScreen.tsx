@@ -9,17 +9,21 @@ import { useAppStore } from "../store/useAppStore"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
 type Story = { id: string; title: string; image: string }
-type HomeScreenProps = { disableDataFetch?: boolean }
+type HomeScreenProps = {
+  disableDataFetch?: boolean
+  initialWorkspaces?: Workspace[]
+  initialActiveWorkspace?: Workspace | null
+}
 const VIEWED_KEY = "home_stories_viewed"
 
 type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 
-function HomeScreen({ disableDataFetch = false }: HomeScreenProps) {
+function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace }: HomeScreenProps) {
   const { setAccounts, setCategories, setIncomeSources, setTransactions, currency } = useAppStore()
   const [authStatus, setAuthStatus] = useState<string>("")
-  const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(initialActiveWorkspace ?? null)
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(initialWorkspaces ?? [])
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
   const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false)
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false)
@@ -270,54 +274,9 @@ function HomeScreen({ disableDataFetch = false }: HomeScreenProps) {
   )
 
   useEffect(() => {
-    if (disableDataFetch) return
-    if (typeof window === "undefined") return
-    const existing = localStorage.getItem("auth_access_token")
-    if (existing) {
-      setAuthStatus("Авторизовано")
-      void fetchWorkspaces(existing)
-      void fetchAccounts(existing)
-      void fetchCategories(existing)
-      void fetchIncomeSources(existing)
-      void fetchTransactions(existing)
-      return
-    }
-    const initData = window.Telegram?.WebApp?.initData ?? ""
-    if (!initData) {
-      setAuthStatus("Нет Telegram initData")
-      return
-    }
-    ;(async () => {
-      try {
-        const res = await fetch("https://babkin.onrender.com/api/v1/auth/telegram", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Telegram-InitData": initData,
-          },
-          body: "{}",
-        })
-        if (!res.ok) {
-          setAuthStatus(`Auth error: ${res.status}`)
-          return
-        }
-        const data: { accessToken?: string } = await res.json()
-        if (!data.accessToken) {
-          setAuthStatus("Auth error")
-          return
-        }
-        localStorage.setItem("auth_access_token", data.accessToken)
-        setAuthStatus("Авторизовано")
-        void fetchWorkspaces(data.accessToken)
-        void fetchAccounts(data.accessToken)
-        void fetchCategories(data.accessToken)
-        void fetchIncomeSources(data.accessToken)
-        void fetchTransactions(data.accessToken)
-      } catch {
-        setAuthStatus("Auth error")
-      }
-    })()
-  }, [disableDataFetch, fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, fetchWorkspaces])
+    if (initialWorkspaces) setWorkspaces(initialWorkspaces)
+    if (initialActiveWorkspace) setActiveWorkspace(initialActiveWorkspace)
+  }, [initialActiveWorkspace, initialWorkspaces])
 
   const quickActions = useMemo(
     () => [
