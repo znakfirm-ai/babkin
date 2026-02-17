@@ -142,6 +142,7 @@ function OverviewScreen() {
   const [customTo, setCustomTo] = useState("")
   const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
+  const [txActionCenterId, setTxActionCenterId] = useState<string | null>(null)
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
@@ -943,160 +944,126 @@ function OverviewScreen() {
                 <div style={{ display: "grid", gap: 6, position: "relative" }}>
                   <button
                     type="button"
-                    onClick={() => setIsPeriodMenuOpen((v) => !v)}
+                    onClick={() => setIsPeriodMenuOpen(true)}
                     style={{
-                      padding: "10px 12px",
-                      borderRadius: 12,
+                      padding: "8px 12px",
+                      borderRadius: 9999,
                       border: "1px solid #e5e7eb",
-                      background: "#fff",
+                      background: "#f8fafc",
                       fontWeight: 600,
                       color: "#0f172a",
                       textAlign: "left",
-                      }}
-                    >
-                      Период
-                    </button>
-                  {isPeriodMenuOpen ? (
-                    <div
-                      style={{
-                        marginTop: 6,
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 12,
-                        background: "#fff",
-                        boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-                        padding: 8,
-                        display: "grid",
-                        gap: 6,
-                        position: "absolute",
-                        width: "calc(100% - 32px)",
-                      }}
-                    >
-                      {(["day", "week", "month", "year"] as const).map((p) => (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => {
-                            setAccountPeriodType(p)
-                            setIsPeriodMenuOpen(false)
-                          }}
-                          style={{
-                            padding: "8px 10px",
-                            borderRadius: 10,
-                            border: "1px solid " + (accountPeriodType === p ? "#0f172a" : "#e5e7eb"),
-                            background: accountPeriodType === p ? "#0f172a" : "#fff",
-                            color: accountPeriodType === p ? "#fff" : "#0f172a",
-                            fontWeight: 600,
-                            fontSize: 13,
-                            textAlign: "left",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {p === "day" ? "День" : p === "week" ? "Неделя" : p === "month" ? "Месяц" : "Год"}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAccountPeriodType("custom")
-                          setIsPeriodMenuOpen(false)
-                          setIsCustomSheetOpen(true)
-                        }}
-                        style={{
-                          padding: "8px 10px",
-                          borderRadius: 10,
-                          border: "1px solid " + (accountPeriodType === "custom" ? "#0f172a" : "#e5e7eb"),
-                          background: accountPeriodType === "custom" ? "#0f172a" : "#fff",
-                          color: accountPeriodType === "custom" ? "#fff" : "#0f172a",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          textAlign: "left",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Свой
-                      </button>
-                    </div>
-                  ) : null}
+                      width: "fit-content",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    Период
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
+                  </button>
                   <div
                     style={{
-                      fontSize: 13,
+                      fontSize: 12.5,
                       color: "#6b7280",
-                      maxWidth: "50%",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      maxWidth: "100%",
                     }}
                   >
                     {accountPeriod.label}
                   </div>
                 </div>
-                <div style={{ maxHeight: "48vh", overflowY: "auto", paddingRight: 2 }}>
-                  <div
-                    style={{
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 18,
-                      background: "#fff",
-                      padding: 12,
-                      display: "grid",
-                      gap: 10,
-                      boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
-                      overflow: "hidden",
-                    }}
-                  >
+                <div
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 18,
+                    background: "#fff",
+                    padding: 12,
+                    boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+                    display: "grid",
+                    gap: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div style={{ maxHeight: "48vh", overflowY: "auto", paddingRight: 2 }}>
                     {groupedAccountTx.length === 0 ? (
                       <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div>
                     ) : (
-                      groupedAccountTx.map((group) => (
-                        <div key={group.dateLabel} style={{ display: "grid", gap: 6 }}>
-                          <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
-                          {group.items.map((tx, idx) => {
-                            const isIncome = tx.type === "income"
-                            const isExpense = tx.type === "expense"
-                            const sign = isIncome ? "+" : isExpense ? "-" : ""
-                            const color = isIncome ? "#16a34a" : isExpense ? "#b91c1c" : "#0f172a"
-                            const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
-                            return (
-                              <div
-                                key={tx.id}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  padding: "8px 10px",
-                                  borderRadius: 12,
-                                  background: "#f8fafc",
-                                  border: "1px solid rgba(226,232,240,0.7)",
-                                  marginTop: idx === 0 ? 0 : 6,
-                                }}
-                              >
-                                <div style={{ display: "grid", gap: 2 }}>
-                                  <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
-                                    {tx.type === "income"
-                                      ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
-                                      : tx.type === "expense"
-                                      ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
-                                      : "Перевод"}
+                      groupedAccountTx.map((group) => {
+                        const dayExpense = group.items
+                          .filter((tx) => tx.type === "expense")
+                          .reduce((sum, tx) => sum + tx.amount.amount, 0)
+                        return (
+                          <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                              <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
+                              {dayExpense > 0 ? (
+                                <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                                  Расходы: {formatMoney(dayExpense, baseCurrency)}
+                                </div>
+                              ) : null}
+                            </div>
+                            {group.items.map((tx, idx) => {
+                              const isIncome = tx.type === "income"
+                              const isExpense = tx.type === "expense"
+                              const sign = isIncome ? "+" : isExpense ? "-" : ""
+                              const color = isIncome ? "#16a34a" : "#0f172a"
+                              const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
+                              return (
+                                <div
+                                  key={tx.id}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    padding: "8px 10px",
+                                    borderRadius: 12,
+                                    background: "#f8fafc",
+                                    border: "1px solid rgba(226,232,240,0.7)",
+                                    marginTop: idx === 0 ? 0 : 6,
+                                    gap: 10,
+                                  }}
+                                  onClick={() => {
+                                    setTxActionCenterId(tx.id)
+                                    setTxMode("actions")
+                                  }}
+                                >
+                                  <div style={{ display: "grid", gap: 2 }}>
+                                    <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>
+                                      {tx.type === "income"
+                                        ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
+                                        : tx.type === "expense"
+                                        ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
+                                        : "Перевод"}
+                                    </div>
                                   </div>
-                                  <div style={{ color: "#6b7280", fontSize: 12 }}>
-                                    {tx.type === "income"
-                                      ? `${incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Источник"} → ${
-                                          accountNameById.get(tx.accountId) ?? ""
-                                        }`
-                                      : tx.type === "expense"
-                                      ? `${accountNameById.get(tx.accountId) ?? ""} → ${
-                                          categoryNameById.get(tx.categoryId ?? "") ?? "Категория"
-                                        }`
-                                      : `${accountNameById.get(tx.accountId) ?? ""} → ${
-                                          accountNameById.get(tx.toAccountId ?? "") ?? ""
-                                        }`}
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div style={{ fontWeight: 600, color, textAlign: "right", fontSize: 14 }}>
+                                      {amountText}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setTxActionCenterId(tx.id)
+                                        setTxMode("actions")
+                                      }}
+                                      style={{
+                                        padding: "4px 8px",
+                                        borderRadius: 8,
+                                        border: "1px solid #e5e7eb",
+                                        background: "#fff",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      ✎
+                                    </button>
                                   </div>
                                 </div>
-                                <div style={{ fontWeight: 700, color, textAlign: "right", fontSize: 15 }}>{amountText}</div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ))
+                              )
+                            })}
+                          </div>
+                        )
+                      })
                     )}
                   </div>
                 </div>
