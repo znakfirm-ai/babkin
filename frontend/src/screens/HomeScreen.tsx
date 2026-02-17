@@ -21,7 +21,6 @@ type Workspace = { id: string; type: "personal" | "family"; name: string | null 
 
 function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace }: HomeScreenProps) {
   const { setAccounts, setCategories, setIncomeSources, setTransactions, currency } = useAppStore()
-  const [authStatus, setAuthStatus] = useState<string>("")
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(initialActiveWorkspace ?? null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>(initialWorkspaces ?? [])
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
@@ -350,10 +349,6 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
           </button>
         ) : null}
       </div>
-      {authStatus ? (
-        <div style={{ margin: "0 16px 12px", fontSize: 12, color: "#6b7280" }}>{authStatus}</div>
-      ) : null}
-
       <section className="home-section">
         <div className="home-stories" style={{ marginTop: 0 }}>
           {stories.map((story, idx) => (
