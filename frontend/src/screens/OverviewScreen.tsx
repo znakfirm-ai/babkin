@@ -1006,22 +1006,23 @@ function OverviewScreen() {
                         const dayExpense = group.items
                           .filter((tx) => tx.type === "expense")
                           .reduce((sum, tx) => sum + tx.amount.amount, 0)
+
                         return (
                           <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
                             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
                               <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
                               {dayExpense > 0 ? (
                                 <div style={{ fontSize: 12, color: "#94a3b8" }}>{formatMoney(dayExpense, baseCurrency)}</div>
-                              ) : (
-                                <span />
-                              )}
+                              ) : null}
                             </div>
+
                             {group.items.map((tx, idx) => {
                               const isIncome = tx.type === "income"
                               const isExpense = tx.type === "expense"
                               const sign = isIncome ? "+" : isExpense ? "-" : ""
                               const color = isIncome ? "#16a34a" : "#0f172a"
                               const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
+
                               return (
                                 <div
                                   key={tx.id}
@@ -1050,13 +1051,14 @@ function OverviewScreen() {
                                         : "Перевод"}
                                     </div>
                                   </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <div style={{ fontWeight: 600, color, textAlign: "right", fontSize: 13.5 }}>
-                                    {amountText}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
+
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div style={{ fontWeight: 600, color, textAlign: "right", fontSize: 13.5 }}>
+                                      {amountText}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
                                         e.stopPropagation()
                                         setTxActionId(tx.id)
                                         setTxMode("actions")
