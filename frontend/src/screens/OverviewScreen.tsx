@@ -138,6 +138,10 @@ function OverviewScreen() {
   const [detailTitle, setDetailTitle] = useState<string>("")
   const [accountSearch, setAccountSearch] = useState("")
   const [accountPeriodType, setAccountPeriodType] = useState<"day" | "week" | "month" | "year" | "custom">("month")
+  const [customFrom, setCustomFrom] = useState("")
+  const [customTo, setCustomTo] = useState("")
+  const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
+  const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
@@ -756,6 +760,16 @@ function OverviewScreen() {
       start.setDate(1)
     } else if (accountPeriodType === "year") {
       start.setMonth(0, 1)
+    } else if (accountPeriodType === "custom") {
+      const from = customFrom ? new Date(`${customFrom}T00:00:00.000Z`) : start
+      const to = customTo ? new Date(`${customTo}T00:00:00.000Z`) : start
+      return {
+        start: from,
+        end: new Date(to.getTime() + 24 * 60 * 60 * 1000),
+        label: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(from) +
+          " - " +
+          new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(to),
+      }
     }
     const end = new Date(start)
     if (accountPeriodType === "day") end.setDate(end.getDate() + 1)
@@ -766,7 +780,7 @@ function OverviewScreen() {
     const fmt = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" })
     const endPrev = new Date(end.getTime() - 1)
     return { start, end, label: `${fmt.format(start)} - ${fmt.format(endPrev)}` }
-  }, [accountPeriodType])
+  }, [accountPeriodType, customFrom, customTo])
 
   const filteredAccountTx = useMemo(() => {
     if (!detailAccountId) return []
@@ -893,10 +907,10 @@ function OverviewScreen() {
               borderRadius: 18,
               padding: 16,
               maxHeight:
-                "min(78vh, calc(100vh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px))",
-              overflowY: "auto",
+                "min(82vh, calc(100vh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px))",
               boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
               display: "grid",
+              gridTemplateRows: "auto auto 1fr auto",
               gap: 12,
             }}
           >
@@ -917,9 +931,8 @@ function OverviewScreen() {
               </button>
             </div>
             {detailAccountId ? (
-              <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
                 <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, color: "#6b7280" }}>Поиск по названию или сумме</span>
                   <input
                     value={accountSearch}
                     onChange={(e) => setAccountSearch(e.target.value)}
@@ -927,89 +940,165 @@ function OverviewScreen() {
                     style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 15 }}
                   />
                 </label>
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div style={{ fontSize: 13, color: "#6b7280" }}>Период</div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {(["day", "week", "month", "year", "custom"] as const).map((p) => (
+                <div style={{ display: "grid", gap: 6, position: "relative" }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsPeriodMenuOpen((v) => !v)}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      fontWeight: 600,
+                      color: "#0f172a",
+                      textAlign: "left",
+                      }}
+                    >
+                      Период
+                    </button>
+                  {isPeriodMenuOpen ? (
+                    <div
+                      style={{
+                        marginTop: 6,
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 12,
+                        background: "#fff",
+                        boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+                        padding: 8,
+                        display: "grid",
+                        gap: 6,
+                        position: "absolute",
+                        width: "calc(100% - 32px)",
+                      }}
+                    >
+                      {(["day", "week", "month", "year"] as const).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => {
+                            setAccountPeriodType(p)
+                            setIsPeriodMenuOpen(false)
+                          }}
+                          style={{
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid " + (accountPeriodType === p ? "#0f172a" : "#e5e7eb"),
+                            background: accountPeriodType === p ? "#0f172a" : "#fff",
+                            color: accountPeriodType === p ? "#fff" : "#0f172a",
+                            fontWeight: 600,
+                            fontSize: 13,
+                            textAlign: "left",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {p === "day" ? "День" : p === "week" ? "Неделя" : p === "month" ? "Месяц" : "Год"}
+                        </button>
+                      ))}
                       <button
-                        key={p}
                         type="button"
-                        onClick={() => setAccountPeriodType(p)}
+                        onClick={() => {
+                          setAccountPeriodType("custom")
+                          setIsPeriodMenuOpen(false)
+                          setIsCustomSheetOpen(true)
+                        }}
                         style={{
-                          padding: "6px 10px",
+                          padding: "8px 10px",
                           borderRadius: 10,
-                          border: accountPeriodType === p ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                          background: accountPeriodType === p ? "#0f172a" : "#fff",
-                          color: accountPeriodType === p ? "#fff" : "#0f172a",
-                          cursor: "pointer",
-                          fontSize: 13,
+                          border: "1px solid " + (accountPeriodType === "custom" ? "#0f172a" : "#e5e7eb"),
+                          background: accountPeriodType === "custom" ? "#0f172a" : "#fff",
+                          color: accountPeriodType === "custom" ? "#fff" : "#0f172a",
                           fontWeight: 600,
+                          fontSize: 13,
+                          textAlign: "left",
+                          cursor: "pointer",
                         }}
                       >
-                        {p === "day"
-                          ? "День"
-                          : p === "week"
-                          ? "Неделя"
-                          : p === "month"
-                          ? "Месяц"
-                          : p === "year"
-                          ? "Год"
-                          : "Свой"}
+                        Свой
                       </button>
-                    ))}
+                    </div>
+                  ) : null}
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "#6b7280",
+                      maxWidth: "50%",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {accountPeriod.label}
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>{accountPeriod.label}</div>
                 </div>
-                <div
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 18,
-                    background: "#fff",
-                    padding: 12,
-                    display: "grid",
-                    gap: 10,
-                    boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
-                  }}
-                >
-                  {groupedAccountTx.length === 0 ? (
-                    <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div>
-                  ) : (
-                    groupedAccountTx.map((group) => (
-                      <div key={group.dateLabel} style={{ display: "grid", gap: 6 }}>
-                        <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
-                        {group.items.map((tx, idx) => {
-                          const isIncome = tx.type === "income"
-                          const isExpense = tx.type === "expense"
-                          const sign = isIncome ? "+" : isExpense ? "-" : ""
-                          const color = isIncome ? "#16a34a" : isExpense ? "#b91c1c" : "#0f172a"
-                          const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
-                          return (
-                            <div
-                              key={tx.id}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "6px 0",
-                                borderTop: idx === 0 ? "none" : "1px solid #e5e7eb",
-                              }}
-                            >
-                              <div style={{ display: "grid", gap: 2 }}>
-                                <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
-                                  {tx.type === "income"
-                                    ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
-                                    : tx.type === "expense"
-                                    ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
-                                    : "Перевод"}
+                <div style={{ maxHeight: "48vh", overflowY: "auto", paddingRight: 2 }}>
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 18,
+                      background: "#fff",
+                      padding: 12,
+                      display: "grid",
+                      gap: 10,
+                      boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {groupedAccountTx.length === 0 ? (
+                      <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div>
+                    ) : (
+                      groupedAccountTx.map((group) => (
+                        <div key={group.dateLabel} style={{ display: "grid", gap: 6 }}>
+                          <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
+                          {group.items.map((tx, idx) => {
+                            const isIncome = tx.type === "income"
+                            const isExpense = tx.type === "expense"
+                            const sign = isIncome ? "+" : isExpense ? "-" : ""
+                            const color = isIncome ? "#16a34a" : isExpense ? "#b91c1c" : "#0f172a"
+                            const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
+                            return (
+                              <div
+                                key={tx.id}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  padding: "8px 10px",
+                                  borderRadius: 12,
+                                  background: "#f8fafc",
+                                  border: "1px solid rgba(226,232,240,0.7)",
+                                  marginTop: idx === 0 ? 0 : 6,
+                                }}
+                              >
+                                <div style={{ display: "grid", gap: 2 }}>
+                                  <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
+                                    {tx.type === "income"
+                                      ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
+                                      : tx.type === "expense"
+                                      ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
+                                      : "Перевод"}
+                                  </div>
+                                  <div style={{ color: "#6b7280", fontSize: 12 }}>
+                                    {tx.type === "income"
+                                      ? `${incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Источник"} → ${
+                                          accountNameById.get(tx.accountId) ?? ""
+                                        }`
+                                      : tx.type === "expense"
+                                      ? `${accountNameById.get(tx.accountId) ?? ""} → ${
+                                          categoryNameById.get(tx.categoryId ?? "") ?? "Категория"
+                                        }`
+                                      : `${accountNameById.get(tx.accountId) ?? ""} → ${
+                                          accountNameById.get(tx.toAccountId ?? "") ?? ""
+                                        }`}
+                                  </div>
                                 </div>
+                                <div style={{ fontWeight: 700, color, textAlign: "right", fontSize: 15 }}>{amountText}</div>
                               </div>
-                              <div style={{ fontWeight: 700, color, textAlign: "right", fontSize: 15 }}>{amountText}</div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ))
-                  )}
+                            )
+                          })}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -1021,7 +1110,7 @@ function OverviewScreen() {
                     background: "#0f172a",
                     color: "#fff",
                     fontWeight: 700,
-                    marginTop: 4,
+                    marginTop: 6,
                     marginBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
                   }}
                 >
@@ -1039,20 +1128,23 @@ function OverviewScreen() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        padding: "10px 12px",
+                        padding: "8px 10px",
                         borderRadius: 12,
-                        border: "1px solid #e5e7eb",
-                        background: "#fff",
+                        border: "1px solid rgba(226,232,240,0.7)",
+                        background: "#f8fafc",
                       }}
                     >
-                      <div style={{ display: "grid", gap: 4 }}>
-                        <div style={{ fontWeight: 600, color: "#0f172a" }}>
+                      <div style={{ display: "grid", gap: 2 }}>
+                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
                           {accountNameById.get(tx.accountId) ?? "Счёт"}
                         </div>
                         <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
+                        <div style={{ color: "#6b7280", fontSize: 12 }}>
+                          {accountNameById.get(tx.accountId) ?? ""} → {categoryNameById.get(tx.categoryId ?? "") ?? "Категория"}
+                        </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontWeight: 700, color: "#b91c1c" }}>{amountText}</div>
+                        <div style={{ fontWeight: 700, color: "#b91c1c", fontSize: 15 }}>{amountText}</div>
                         <button
                           type="button"
                           onClick={() => openTxActions(tx.id)}
@@ -1369,6 +1461,101 @@ function OverviewScreen() {
         </div>
       ) : null}
 
+      {isCustomSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsCustomSheetOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 62,
+            padding: "12px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 560,
+              background: "#fff",
+              borderRadius: 18,
+              padding: 16,
+              boxShadow: "0 10px 24px rgba(0,0,0,0.14)",
+              display: "grid",
+              gap: 12,
+              maxHeight: "60vh",
+              overflowY: "auto",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>Свой период</div>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 13, color: "#4b5563" }}>С</span>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb" }}
+              />
+            </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 13, color: "#4b5563" }}>По</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb" }}
+              />
+            </label>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setIsCustomSheetOpen(false)}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (customFrom && customTo) {
+                    setAccountPeriodType("custom")
+                    setIsCustomSheetOpen(false)
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: customFrom && customTo ? "pointer" : "not-allowed",
+                  opacity: customFrom && customTo ? 1 : 0.6,
+                }}
+                disabled={!customFrom || !customTo}
+              >
+                Применить
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {isAccountSheetOpen ? (
         <div
           role="dialog"
@@ -1654,3 +1841,8 @@ function OverviewScreen() {
 }
 
 export default OverviewScreen
+
+// Custom period sheet
+;(() => {
+  /* placeholder to avoid eslint empty file footer */
+})()
