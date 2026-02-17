@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useAppStore } from "./store/useAppStore";
+import { useAppStore } from "./store/useAppStore";
 import HomeScreen from "./screens/HomeScreen";
 import OverviewScreen from "./screens/OverviewScreen";
 import AddScreen from "./screens/AddScreen";
@@ -26,6 +28,7 @@ function App() {
   const normalLiteCatAbort = useRef<AbortController | null>(null);
   const normalLiteTxAbort = useRef<AbortController | null>(null);
   const normalLiteAllAbort = useRef<AbortController | null>(null);
+  const [uiOnlyMode, setUiOnlyMode] = useState<boolean>(false);
   const [workspacesDiag, setWorkspacesDiag] = useState<{
     status: "idle" | "loading" | "success" | "error";
     count: number | null;
@@ -65,6 +68,7 @@ function App() {
     transactions: null,
     error: null,
   });
+  const { setAccounts, setCategories, setIncomeSources, setTransactions } = useAppStore();
 
   interface TelegramWebApp {
     ready(): void
@@ -80,7 +84,7 @@ function App() {
       return;
     }
     if (typeof window === "undefined") return;
-    if (normalLiteMode) {
+    if (normalLiteMode || uiOnlyMode) {
       const tg = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
       setIsTelegram(Boolean(tg));
       return () => {
@@ -152,7 +156,7 @@ function App() {
       vv?.removeEventListener("scroll", handleViewportChange);
       gestureBlockers.current?.();
     };
-  }, [safeMode, normalLiteMode]);
+  }, [safeMode, normalLiteMode, uiOnlyMode]);
 
   const renderScreen = () => {
     switch (activeScreen) {
@@ -445,6 +449,27 @@ function App() {
           >
             Перейти в normal lite
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSafeMode(false);
+              setUiOnlyMode(true);
+              setNormalLiteMode(false);
+            }}
+            style={{
+              marginTop: 12,
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid #111827",
+              background: "#fff",
+              color: "#111827",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Перейти в UI only
+          </button>
         </div>
       </div>
     );
@@ -582,6 +607,52 @@ function App() {
           >
             Вернуться в safe mode
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setNormalLiteMode(false);
+              setUiOnlyMode(true);
+            }}
+            style={{
+              marginTop: 12,
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid #111827",
+              background: "#fff",
+              color: "#111827",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Перейти в UI only
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  useEffect(() => {
+    if (uiOnlyMode) {
+      setAccounts([]);
+      setCategories([]);
+      setIncomeSources([]);
+      setTransactions([]);
+    }
+  }, [uiOnlyMode, setAccounts, setCategories, setIncomeSources, setTransactions]);
+
+  if (uiOnlyMode) {
+    return (
+      <div className="app-shell">
+        <div className="app-shell__inner">
+          {renderScreen()}
+          <BottomNav
+            active={activeNav}
+            onSelect={(key) => {
+              setActiveNav(key);
+              setActiveScreen(key);
+            }}
+          />
         </div>
       </div>
     );
