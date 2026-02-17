@@ -103,20 +103,6 @@ class AppErrorBoundary extends Component<
           >
             Dismiss
           </button>
-          <button
-            type="button"
-            onClick={this.props.onSafeMode}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "none",
-              background: "#2563eb",
-              color: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            Go to SAFE_MODE
-          </button>
         </div>
       </div>
     );
@@ -129,7 +115,7 @@ function App() {
   const telegramAvailable =
     typeof window !== "undefined" &&
     Boolean((window as typeof window & { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp);
-  const [safeMode, setSafeMode] = useState<boolean>(telegramAvailable);
+  const [safeMode, setSafeMode] = useState<boolean>(false);
   const [normalLiteMode, setNormalLiteMode] = useState<boolean>(false);
   const [activeNav, setActiveNav] = useState<NavItem>("home");
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("home");
