@@ -1,5 +1,9 @@
 import React, { Component, useEffect, useRef, useState } from "react";
 import { useAppStore } from "./store/useAppStore";
+import { getAccounts } from "./api/accounts";
+import { getCategories } from "./api/categories";
+import { getIncomeSources } from "./api/incomeSources";
+import { getTransactions } from "./api/transactions";
 import HomeScreen from "./screens/HomeScreen";
 import OverviewScreen from "./screens/OverviewScreen";
 import AddScreen from "./screens/AddScreen";
@@ -133,6 +137,11 @@ function App() {
   const normalLiteCatAbort = useRef<AbortController | null>(null);
   const normalLiteTxAbort = useRef<AbortController | null>(null);
   const normalLiteAllAbort = useRef<AbortController | null>(null);
+  const uiOnlyWsAbort = useRef<AbortController | null>(null);
+  const uiOnlyAccAbort = useRef<AbortController | null>(null);
+  const uiOnlyCatAbort = useRef<AbortController | null>(null);
+  const uiOnlyIncAbort = useRef<AbortController | null>(null);
+  const uiOnlyTxAbort = useRef<AbortController | null>(null);
   const [uiOnlyMode, setUiOnlyMode] = useState<boolean>(false);
   const [globalError, setGlobalError] = useState<Error | null>(null);
   const [workspacesDiag, setWorkspacesDiag] = useState<{
@@ -157,6 +166,19 @@ function App() {
     sample: string | null;
     error: string | null;
   }>({ status: "idle", count: null, sample: null, error: null });
+  const [uiOnlyDiag, setUiOnlyDiag] = useState<{
+    workspaces: { status: "idle" | "loading" | "success" | "error"; count: number | null; activeId: string | null; error: string | null };
+    accounts: { status: "idle" | "loading" | "success" | "error"; count: number | null; error: string | null };
+    categories: { status: "idle" | "loading" | "success" | "error"; count: number | null; error: string | null };
+    income: { status: "idle" | "loading" | "success" | "error"; count: number | null; error: string | null };
+    transactions: { status: "idle" | "loading" | "success" | "error"; count: number | null; sample: string | null; error: string | null };
+  }>({
+    workspaces: { status: "idle", count: null, activeId: null, error: null },
+    accounts: { status: "idle", count: null, error: null },
+    categories: { status: "idle", count: null, error: null },
+    income: { status: "idle", count: null, error: null },
+    transactions: { status: "idle", count: null, sample: null, error: null },
+  });
   const [allDiag, setAllDiag] = useState<{
     status: "idle" | "running" | "success" | "error";
     step: number;
@@ -199,6 +221,11 @@ function App() {
         normalLiteCatAbort.current?.abort();
         normalLiteTxAbort.current?.abort();
         normalLiteAllAbort.current?.abort();
+        uiOnlyWsAbort.current?.abort();
+        uiOnlyAccAbort.current?.abort();
+        uiOnlyCatAbort.current?.abort();
+        uiOnlyIncAbort.current?.abort();
+        uiOnlyTxAbort.current?.abort();
       };
     }
     if (baseHeightRef.current === null) {
@@ -551,6 +578,303 @@ function App() {
         >
           UI_ONLY_MODE ACTIVE
         </div>
+        <div
+          style={{
+            position: "fixed",
+            top: 24,
+            left: 8,
+            right: 8,
+            zIndex: 49,
+            background: "rgba(255,255,255,0.9)",
+            border: "1px solid #e5e7eb",
+            borderRadius: 12,
+            padding: 10,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+            fontSize: 12,
+            color: "#0f172a",
+            display: "grid",
+            gap: 6,
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: 12 }}>DATA STEPPER (UI only)</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <button
+              type="button"
+              onClick={async () => {
+                const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+                if (!token) {
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    workspaces: { status: "error", count: null, activeId: null, error: "Нет токена" },
+                  }));
+                  return;
+                }
+                uiOnlyWsAbort.current?.abort();
+                const controller = new AbortController();
+                uiOnlyWsAbort.current = controller;
+                setUiOnlyDiag((prev) => ({
+                  ...prev,
+                  workspaces: { status: "loading", count: prev.workspaces.count, activeId: prev.workspaces.activeId, error: null },
+                }));
+                try {
+                  const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal,
+                  });
+                  if (!res.ok) {
+                    const text = await res.text().catch(() => "");
+                    throw new Error(`Ошибка ${res.status} ${text}`);
+                  }
+                  const data: { activeWorkspace: { id: string } | null; workspaces: { id: string }[] } = await res.json();
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    workspaces: {
+                      status: "success",
+                      count: Array.isArray(data.workspaces) ? data.workspaces.length : 0,
+                      activeId: data.activeWorkspace?.id ?? null,
+                      error: null,
+                    },
+                  }));
+                } catch (err) {
+                  if (err instanceof DOMException && err.name === "AbortError") return;
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    workspaces: {
+                      status: "error",
+                      count: null,
+                      activeId: null,
+                      error: err instanceof Error ? err.message : "Не удалось загрузить workspaces",
+                    },
+                  }));
+                }
+              }}
+              style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}
+            >
+              Load workspaces
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+                if (!token) {
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    accounts: { status: "error", count: null, error: "Нет токена" },
+                  }));
+                  return;
+                }
+                uiOnlyAccAbort.current?.abort();
+                const controller = new AbortController();
+                uiOnlyAccAbort.current = controller;
+                setUiOnlyDiag((prev) => ({
+                  ...prev,
+                  accounts: { status: "loading", count: prev.accounts.count, error: null },
+                }));
+                try {
+                  const data = await getAccounts(token);
+                  setAccounts(
+                    data.accounts.map((a) => ({
+                      id: a.id,
+                      name: a.name,
+                      balance: { amount: a.balance, currency: a.currency },
+                    }))
+                  );
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    accounts: { status: "success", count: Array.isArray(data.accounts) ? data.accounts.length : 0, error: null },
+                  }));
+                } catch (err) {
+                  if (err instanceof DOMException && err.name === "AbortError") return;
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    accounts: { status: "error", count: null, error: err instanceof Error ? err.message : "Не удалось загрузить accounts" },
+                  }));
+                }
+              }}
+              style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}
+            >
+              Load accounts
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+                if (!token) {
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    categories: { status: "error", count: null, error: "Нет токена" },
+                  }));
+                  return;
+                }
+                uiOnlyCatAbort.current?.abort();
+                const controller = new AbortController();
+                uiOnlyCatAbort.current = controller;
+                setUiOnlyDiag((prev) => ({
+                  ...prev,
+                  categories: { status: "loading", count: prev.categories.count, error: null },
+                }));
+                try {
+                  const data = await getCategories(token);
+                  setCategories(data.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon })));
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    categories: { status: "success", count: Array.isArray(data.categories) ? data.categories.length : 0, error: null },
+                  }));
+                } catch (err) {
+                  if (err instanceof DOMException && err.name === "AbortError") return;
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    categories: {
+                      status: "error",
+                      count: null,
+                      error: err instanceof Error ? err.message : "Не удалось загрузить categories",
+                    },
+                  }));
+                }
+              }}
+              style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}
+            >
+              Load categories
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+                if (!token) {
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    income: { status: "error", count: null, error: "Нет токена" },
+                  }));
+                  return;
+                }
+                uiOnlyIncAbort.current?.abort();
+                const controller = new AbortController();
+                uiOnlyIncAbort.current = controller;
+                setUiOnlyDiag((prev) => ({
+                  ...prev,
+                  income: { status: "loading", count: prev.income.count, error: null },
+                }));
+                try {
+                  const data = await getIncomeSources(token);
+                  setIncomeSources(data.incomeSources.map((s) => ({ id: s.id, name: s.name })));
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    income: { status: "success", count: Array.isArray(data.incomeSources) ? data.incomeSources.length : 0, error: null },
+                  }));
+                } catch (err) {
+                  if (err instanceof DOMException && err.name === "AbortError") return;
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    income: { status: "error", count: null, error: err instanceof Error ? err.message : "Не удалось загрузить income sources" },
+                  }));
+                }
+              }}
+              style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}
+            >
+              Load income sources
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null;
+                if (!token) {
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    transactions: { status: "error", count: null, sample: null, error: "Нет токена" },
+                  }));
+                  return;
+                }
+                uiOnlyTxAbort.current?.abort();
+                const controller = new AbortController();
+                uiOnlyTxAbort.current = controller;
+                setUiOnlyDiag((prev) => ({
+                  ...prev,
+                  transactions: { status: "loading", count: prev.transactions.count, sample: prev.transactions.sample, error: null },
+                }));
+                try {
+                  const data = await getTransactions(token);
+                  setTransactions(
+                    data.transactions.map((t) => ({
+                      id: t.id,
+                      type: t.kind,
+                      amount: {
+                        amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+                        currency: "RUB",
+                      },
+                      date: t.happenedAt,
+                      accountId: t.accountId ?? t.fromAccountId ?? "",
+                      categoryId: t.categoryId ?? undefined,
+                      incomeSourceId: t.incomeSourceId ?? undefined,
+                      toAccountId: t.toAccountId ?? undefined,
+                    }))
+                  );
+                  const list = data.transactions;
+                  const first = list[0];
+                  const sample =
+                    first && typeof first === "object"
+                      ? `${first.id ?? "?"} / ${first.kind ?? "?"} / ${
+                          typeof first.amount === "string" || typeof first.amount === "number" ? first.amount : "?"
+                        }`
+                      : null;
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    transactions: {
+                      status: "success",
+                      count: Array.isArray(list) ? list.length : 0,
+                      sample,
+                      error: null,
+                    },
+                  }));
+                } catch (err) {
+                  if (err instanceof DOMException && err.name === "AbortError") return;
+                  setUiOnlyDiag((prev) => ({
+                    ...prev,
+                    transactions: {
+                      status: "error",
+                      count: null,
+                      sample: null,
+                      error: err instanceof Error ? err.message : "Не удалось загрузить transactions",
+                    },
+                  }));
+                }
+              }}
+              style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}
+            >
+              Load transactions
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                uiOnlyWsAbort.current?.abort();
+                uiOnlyAccAbort.current?.abort();
+                uiOnlyCatAbort.current?.abort();
+                uiOnlyIncAbort.current?.abort();
+                uiOnlyTxAbort.current?.abort();
+                setAccounts([]);
+                setCategories([]);
+                setIncomeSources([]);
+                setTransactions([]);
+                setUiOnlyDiag({
+                  workspaces: { status: "idle", count: null, activeId: null, error: null },
+                  accounts: { status: "idle", count: null, error: null },
+                  categories: { status: "idle", count: null, error: null },
+                  income: { status: "idle", count: null, error: null },
+                  transactions: { status: "idle", count: null, sample: null, error: null },
+                });
+              }}
+              style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #ef4444", background: "#fff5f5", color: "#b91c1c", cursor: "pointer" }}
+            >
+              Reset data
+            </button>
+          </div>
+          <div style={{ display: "grid", gap: 4, fontSize: 11, color: "#0f172a" }}>
+            <div>WS: {uiOnlyDiag.workspaces.status} ({uiOnlyDiag.workspaces.count ?? 0}) active={uiOnlyDiag.workspaces.activeId ?? "—"} {uiOnlyDiag.workspaces.error ? `err: ${uiOnlyDiag.workspaces.error}` : ""}</div>
+            <div>ACC: {uiOnlyDiag.accounts.status} ({uiOnlyDiag.accounts.count ?? 0}) {uiOnlyDiag.accounts.error ? `err: ${uiOnlyDiag.accounts.error}` : ""}</div>
+            <div>CATS: {uiOnlyDiag.categories.status} ({uiOnlyDiag.categories.count ?? 0}) {uiOnlyDiag.categories.error ? `err: ${uiOnlyDiag.categories.error}` : ""}</div>
+            <div>INC: {uiOnlyDiag.income.status} ({uiOnlyDiag.income.count ?? 0}) {uiOnlyDiag.income.error ? `err: ${uiOnlyDiag.income.error}` : ""}</div>
+            <div>TXS: {uiOnlyDiag.transactions.status} ({uiOnlyDiag.transactions.count ?? 0}) {uiOnlyDiag.transactions.sample ? `sample: ${uiOnlyDiag.transactions.sample}` : ""} {uiOnlyDiag.transactions.error ? `err: ${uiOnlyDiag.transactions.error}` : ""}</div>
+          </div>
+        </div>
         {renderScreen()}
         <BottomNav
           active={activeNav}
@@ -790,6 +1114,13 @@ function App() {
       setCategories([]);
       setIncomeSources([]);
       setTransactions([]);
+      setUiOnlyDiag({
+        workspaces: { status: "idle", count: null, activeId: null, error: null },
+        accounts: { status: "idle", count: null, error: null },
+        categories: { status: "idle", count: null, error: null },
+        income: { status: "idle", count: null, error: null },
+        transactions: { status: "idle", count: null, sample: null, error: null },
+      });
     }
   }, [uiOnlyMode, setAccounts, setCategories, setIncomeSources, setTransactions]);
 
