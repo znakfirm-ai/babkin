@@ -143,6 +143,7 @@ function OverviewScreen() {
   const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [txActionId, setTxActionId] = useState<string | null>(null)
+  const [searchFocused, setSearchFocused] = useState(false)
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
   const [txLoading, setTxLoading] = useState(false)
@@ -331,7 +332,7 @@ function OverviewScreen() {
         setTxLoading(false)
         return
       }
-      setTxError(err instanceof Error ? err.message : "Не удалось удалить операцию")
+      setTxError("Не удалось удалить операцию")
     } finally {
       setTxLoading(false)
     }
@@ -936,26 +937,29 @@ function OverviewScreen() {
                   <input
                     value={accountSearch}
                     onChange={(e) => setAccountSearch(e.target.value)}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => {
+                      if (!accountSearch) setSearchFocused(false)
+                    }}
                     placeholder="Поиск по названию или сумме"
                     style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 15 }}
                   />
                 </label>
-                <div style={{ display: "grid", gap: 6, position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
                   <button
                     type="button"
                     onClick={() => setIsPeriodMenuOpen(true)}
                     style={{
-                      padding: "8px 12px",
-                      borderRadius: 9999,
+                      padding: "8px 10px",
+                      borderRadius: 10,
                       border: "1px solid #e5e7eb",
                       background: "#f8fafc",
                       fontWeight: 600,
                       color: "#0f172a",
-                      textAlign: "left",
-                      width: "fit-content",
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
+                      width: "fit-content",
                     }}
                   >
                     Период
@@ -966,6 +970,11 @@ function OverviewScreen() {
                       fontSize: 12.5,
                       color: "#6b7280",
                       maxWidth: "100%",
+                      flex: 1,
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "clip",
                     }}
                   >
                     {accountPeriod.label}
@@ -983,7 +992,13 @@ function OverviewScreen() {
                     overflow: "hidden",
                   }}
                 >
-                  <div style={{ maxHeight: "48vh", overflowY: "auto", paddingRight: 2 }}>
+                  <div
+                    style={{
+                      maxHeight: searchFocused || accountSearch ? "58vh" : "48vh",
+                      overflowY: "auto",
+                      paddingRight: 2,
+                    }}
+                  >
                     {groupedAccountTx.length === 0 ? (
                       <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div>
                     ) : (
@@ -993,13 +1008,13 @@ function OverviewScreen() {
                           .reduce((sum, tx) => sum + tx.amount.amount, 0)
                         return (
                           <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
-                            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
                               <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
                               {dayExpense > 0 ? (
-                                <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                                  Расходы: {formatMoney(dayExpense, baseCurrency)}
-                                </div>
-                              ) : null}
+                                <div style={{ fontSize: 12, color: "#94a3b8" }}>{formatMoney(dayExpense, baseCurrency)}</div>
+                              ) : (
+                                <span />
+                              )}
                             </div>
                             {group.items.map((tx, idx) => {
                               const isIncome = tx.type === "income"
@@ -1035,13 +1050,13 @@ function OverviewScreen() {
                                         : "Перевод"}
                                     </div>
                                   </div>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <div style={{ fontWeight: 600, color, textAlign: "right", fontSize: 14 }}>
-                                      {amountText}
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <div style={{ fontWeight: 600, color, textAlign: "right", fontSize: 13.5 }}>
+                                    {amountText}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
                                         e.stopPropagation()
                                         setTxActionId(tx.id)
                                         setTxMode("actions")
@@ -1066,6 +1081,9 @@ function OverviewScreen() {
                     )}
                   </div>
                 </div>
+                {/* список */}
+              </div>
+              {!searchFocused && !accountSearch ? (
                 <button
                   type="button"
                   style={{
@@ -1076,13 +1094,14 @@ function OverviewScreen() {
                     background: "#0f172a",
                     color: "#fff",
                     fontWeight: 700,
-                    marginTop: 6,
+                    marginTop: 10,
                     marginBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
                   }}
+                  onClick={() => setIsAccountSheetOpen(true)}
                 >
                   Редактировать счет
                 </button>
-              </div>
+              ) : null}
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {categoryTx.map((tx) => {
@@ -1104,18 +1123,15 @@ function OverviewScreen() {
                         <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
                           {accountNameById.get(tx.accountId) ?? "Счёт"}
                         </div>
-                        <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
-                        <div style={{ color: "#6b7280", fontSize: 12 }}>
-                          {accountNameById.get(tx.accountId) ?? ""} → {categoryNameById.get(tx.categoryId ?? "") ?? "Категория"}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontWeight: 700, color: "#b91c1c", fontSize: 15 }}>{amountText}</div>
-                        <button
-                          type="button"
-                          onClick={() => openTxActions(tx.id)}
-                          style={{
-                            padding: "6px 10px",
+                    <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 13.5 }}>{amountText}</div>
+                    <button
+                      type="button"
+                      onClick={() => openTxActions(tx.id)}
+                      style={{
+                        padding: "6px 10px",
                             borderRadius: 10,
                             border: "1px solid #e5e7eb",
                             background: "#fff",
@@ -1437,7 +1453,7 @@ function OverviewScreen() {
             inset: 0,
             background: "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "flex-end",
+            alignItems: "center",
             justifyContent: "center",
             zIndex: 62,
             padding: "12px",
