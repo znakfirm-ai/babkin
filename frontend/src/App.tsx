@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { Component, useEffect, useRef, useState } from "react";
 import { useAppStore } from "./store/useAppStore";
 import HomeScreen from "./screens/HomeScreen";
 import OverviewScreen from "./screens/OverviewScreen";
@@ -8,6 +8,112 @@ import BottomNav from "./BottomNav";
 import type { NavItem } from "./BottomNav";
 import "./BottomNav.css";
 import "./App.css";
+
+class AppErrorBoundary extends Component<
+  {
+    onSafeMode: () => void;
+    children: React.ReactNode;
+    currentMode: string;
+    externalError: Error | null;
+    onClearExternalError: () => void;
+  },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(
+    props: {
+      onSafeMode: () => void;
+      children: React.ReactNode;
+      currentMode: string;
+      externalError: Error | null;
+      onClearExternalError: () => void;
+    }
+  ) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // eslint-disable-next-line no-console
+    console.error("App crashed", error, info);
+  }
+
+  render() {
+    const effectiveError = this.props.externalError ?? this.state.error;
+    const hasError = this.props.externalError !== null || this.state.hasError;
+    if (!hasError) return this.props.children;
+    return (
+      <div className="app-shell" style={{ padding: 16 }}>
+        <h1 style={{ fontSize: 18, marginBottom: 8 }}>App error</h1>
+        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Mode: {this.props.currentMode}</div>
+        <div style={{ fontSize: 13, color: "#b91c1c", marginBottom: 8 }}>
+          {effectiveError?.message ?? "Unknown error"}
+        </div>
+        <pre
+          style={{
+            background: "#f3f4f6",
+            padding: 8,
+            borderRadius: 8,
+            maxHeight: 180,
+            overflow: "auto",
+            fontSize: 11,
+            lineHeight: 1.3,
+          }}
+        >
+          {effectiveError?.stack}
+        </pre>
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              cursor: "pointer",
+            }}
+          >
+            Reload
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              this.props.onClearExternalError();
+              this.setState({ hasError: false, error: null });
+            }}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              cursor: "pointer",
+            }}
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={this.props.onSafeMode}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "none",
+              background: "#2563eb",
+              color: "#fff",
+              cursor: "pointer",
+            }}
+          >
+            Go to SAFE_MODE
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
 
 type ScreenKey = NavItem;
 
@@ -28,6 +134,7 @@ function App() {
   const normalLiteTxAbort = useRef<AbortController | null>(null);
   const normalLiteAllAbort = useRef<AbortController | null>(null);
   const [uiOnlyMode, setUiOnlyMode] = useState<boolean>(false);
+  const [globalError, setGlobalError] = useState<Error | null>(null);
   const [workspacesDiag, setWorkspacesDiag] = useState<{
     status: "idle" | "loading" | "success" | "error";
     count: number | null;
@@ -156,6 +263,23 @@ function App() {
       gestureBlockers.current?.();
     };
   }, [safeMode, normalLiteMode, uiOnlyMode]);
+
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      if (event.error instanceof Error) setGlobalError(event.error);
+    };
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      if (reason instanceof Error) setGlobalError(reason);
+      else setGlobalError(new Error(typeof reason === "string" ? reason : "Unhandled rejection"));
+    };
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleRejection);
+    return () => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleRejection);
+    };
+  }, []);
 
   const renderScreen = () => {
     switch (activeScreen) {
@@ -406,265 +530,27 @@ function App() {
     }
   };
 
-  if (safeMode) {
-    return (
-      <div className="app-shell">
-        <div className="app-shell__inner" style={{ padding: 24 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Safe mode</h1>
-          <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 16 }}>Диагностика iOS Telegram WebView</p>
-          <button
-            type="button"
-            onClick={() => setSafeMode(false)}
-            style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "none",
-              background: "#2563eb",
-              color: "#fff",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Выключить safe mode
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSafeMode(false);
-              setNormalLiteMode(true);
-            }}
-            style={{
-              marginTop: 12,
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "1px solid #2563eb",
-              background: "#fff",
-              color: "#2563eb",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Перейти в normal lite
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSafeMode(false);
-              setUiOnlyMode(true);
-              setNormalLiteMode(false);
-            }}
-            style={{
-              marginTop: 12,
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "1px solid #111827",
-              background: "#fff",
-              color: "#111827",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Перейти в UI only
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const currentMode = safeMode ? "SAFE_MODE" : normalLiteMode ? "NORMAL_LITE" : uiOnlyMode ? "UI_ONLY_MODE" : "NORMAL";
 
-  if (normalLiteMode) {
-    return (
-      <div className="app-shell">
-        <div className="app-shell__inner" style={{ padding: 24 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Normal lite</h1>
-          <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 12 }}>init ok, data fetch disabled</p>
-          <button
-            type="button"
-            onClick={fetchWorkspacesDiag}
-            style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "1px solid #2563eb",
-              background: "#fff",
-              color: "#2563eb",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-              marginBottom: 12,
-            }}
-          >
-            Fetch workspaces
-          </button>
-          <button
-            type="button"
-            onClick={fetchAccountsDiag}
-            style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "1px solid #2563eb",
-              background: "#fff",
-              color: "#2563eb",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-              marginBottom: 12,
-            }}
-          >
-            Fetch accounts
-          </button>
-          <button
-            type="button"
-            onClick={fetchCategoriesDiag}
-            style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "1px solid #2563eb",
-              background: "#fff",
-              color: "#2563eb",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-              marginBottom: 12,
-            }}
-          >
-            Fetch categories
-          </button>
-          <button
-            type="button"
-            onClick={fetchTransactionsDiag}
-            style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "1px solid #2563eb",
-              background: "#fff",
-              color: "#2563eb",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-              marginBottom: 12,
-            }}
-          >
-            Fetch transactions
-          </button>
-          <button
-            type="button"
-            onClick={fetchAllSequentialDiag}
-            style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "1px solid #2563eb",
-              background: "#fff",
-              color: "#2563eb",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-              marginBottom: 12,
-            }}
-          >
-            Fetch ALL (sequential)
-          </button>
-          <div style={{ fontSize: 13, color: "#0f172a", marginBottom: 16, lineHeight: 1.5 }}>
-            <div>Статус: {workspacesDiag.status}</div>
-            {workspacesDiag.count !== null ? <div>Workspaces: {workspacesDiag.count}</div> : null}
-            {workspacesDiag.activeId ? <div>Active workspace: {workspacesDiag.activeId}</div> : null}
-            {workspacesDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {workspacesDiag.error}</div> : null}
-            <div style={{ marginTop: 10 }}>Accounts: {accountsDiag.status}</div>
-            {accountsDiag.count !== null ? <div>Accounts count: {accountsDiag.count}</div> : null}
-            {accountsDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {accountsDiag.error}</div> : null}
-            <div style={{ marginTop: 10 }}>Categories: {categoriesDiag.status}</div>
-            {categoriesDiag.count !== null ? <div>Categories count: {categoriesDiag.count}</div> : null}
-            {categoriesDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {categoriesDiag.error}</div> : null}
-            <div style={{ marginTop: 10 }}>Transactions: {transactionsDiag.status}</div>
-            {transactionsDiag.count !== null ? <div>Transactions count: {transactionsDiag.count}</div> : null}
-            {transactionsDiag.sample ? <div>Sample: {transactionsDiag.sample}</div> : null}
-            {transactionsDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {transactionsDiag.error}</div> : null}
-            <div style={{ marginTop: 10 }}>All (seq): {allDiag.status} (step {allDiag.step}/4)</div>
-            {allDiag.workspaces !== null ? <div>WS: {allDiag.workspaces}</div> : null}
-            {allDiag.accounts !== null ? <div>ACC: {allDiag.accounts}</div> : null}
-            {allDiag.categories !== null ? <div>CATS: {allDiag.categories}</div> : null}
-            {allDiag.transactions !== null ? <div>TXS: {allDiag.transactions}</div> : null}
-            {allDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {allDiag.error}</div> : null}
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setNormalLiteMode(false);
-              setSafeMode(true);
-            }}
-            style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "none",
-              background: "#2563eb",
-              color: "#fff",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Вернуться в safe mode
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setNormalLiteMode(false);
-              setUiOnlyMode(true);
-            }}
-            style={{
-              marginTop: 12,
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "1px solid #111827",
-              background: "#fff",
-              color: "#111827",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Перейти в UI only
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  useEffect(() => {
-    if (uiOnlyMode) {
-      setAccounts([]);
-      setCategories([]);
-      setIncomeSources([]);
-      setTransactions([]);
-    }
-  }, [uiOnlyMode, setAccounts, setCategories, setIncomeSources, setTransactions]);
-
-  if (uiOnlyMode) {
-    return (
-      <div className="app-shell">
-        {!isTelegram ? <div className="dev-banner">Telegram WebApp не найден — браузерный режим</div> : null}
-        <div className="app-shell__inner">
-          <div style={{ position: "fixed", top: 0, left: 0, right: 0, textAlign: "center", fontSize: 11, color: "#6b7280", padding: "6px 4px", zIndex: 50 }}>
-            UI_ONLY_MODE ACTIVE
-          </div>
-          {renderScreen()}
-          <BottomNav
-            active={activeNav}
-            onSelect={(key) => {
-              setActiveNav(key);
-              setActiveScreen(key);
-            }}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  return (
+  const renderUiOnlyShell = () => (
     <div className="app-shell">
       {!isTelegram ? <div className="dev-banner">Telegram WebApp не найден — браузерный режим</div> : null}
       <div className="app-shell__inner">
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            fontSize: 11,
+            color: "#6b7280",
+            padding: "6px 4px",
+            zIndex: 50,
+          }}
+        >
+          UI_ONLY_MODE ACTIVE
+        </div>
         {renderScreen()}
         <BottomNav
           active={activeNav}
@@ -675,6 +561,274 @@ function App() {
         />
       </div>
     </div>
+  );
+
+  const renderSafe = () => (
+    <div className="app-shell">
+      <div className="app-shell__inner" style={{ padding: 24 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Safe mode</h1>
+        <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 16 }}>Диагностика iOS Telegram WebView</p>
+        <button
+          type="button"
+          onClick={() => setSafeMode(false)}
+          style={{
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "none",
+            background: "#2563eb",
+            color: "#fff",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Выключить safe mode
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSafeMode(false);
+            setNormalLiteMode(true);
+          }}
+          style={{
+            marginTop: 12,
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #2563eb",
+            background: "#fff",
+            color: "#2563eb",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Перейти в normal lite
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSafeMode(false);
+            setUiOnlyMode(true);
+            setNormalLiteMode(false);
+          }}
+          style={{
+            marginTop: 12,
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #111827",
+            background: "#fff",
+            color: "#111827",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Перейти в UI only
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderNormalLite = () => (
+    <div className="app-shell">
+      <div className="app-shell__inner" style={{ padding: 24 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Normal lite</h1>
+        <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 12 }}>init ok, data fetch disabled</p>
+        <button
+          type="button"
+          onClick={fetchWorkspacesDiag}
+          style={{
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #2563eb",
+            background: "#fff",
+            color: "#2563eb",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+            marginBottom: 12,
+          }}
+        >
+          Fetch workspaces
+        </button>
+        <button
+          type="button"
+          onClick={fetchAccountsDiag}
+          style={{
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #2563eb",
+            background: "#fff",
+            color: "#2563eb",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+            marginBottom: 12,
+          }}
+        >
+          Fetch accounts
+        </button>
+        <button
+          type="button"
+          onClick={fetchCategoriesDiag}
+          style={{
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #2563eb",
+            background: "#fff",
+            color: "#2563eb",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+            marginBottom: 12,
+          }}
+        >
+          Fetch categories
+        </button>
+        <button
+          type="button"
+          onClick={fetchTransactionsDiag}
+          style={{
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #2563eb",
+            background: "#fff",
+            color: "#2563eb",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+            marginBottom: 12,
+          }}
+        >
+          Fetch transactions
+        </button>
+        <button
+          type="button"
+          onClick={fetchAllSequentialDiag}
+          style={{
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #2563eb",
+            background: "#fff",
+            color: "#2563eb",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+            marginBottom: 12,
+          }}
+        >
+          Fetch ALL (sequential)
+        </button>
+        <div style={{ fontSize: 13, color: "#0f172a", marginBottom: 16, lineHeight: 1.5 }}>
+          <div>Статус: {workspacesDiag.status}</div>
+          {workspacesDiag.count !== null ? <div>Workspaces: {workspacesDiag.count}</div> : null}
+          {workspacesDiag.activeId ? <div>Active workspace: {workspacesDiag.activeId}</div> : null}
+          {workspacesDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {workspacesDiag.error}</div> : null}
+          <div style={{ marginTop: 10 }}>Accounts: {accountsDiag.status}</div>
+          {accountsDiag.count !== null ? <div>Accounts count: {accountsDiag.count}</div> : null}
+          {accountsDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {accountsDiag.error}</div> : null}
+          <div style={{ marginTop: 10 }}>Categories: {categoriesDiag.status}</div>
+          {categoriesDiag.count !== null ? <div>Categories count: {categoriesDiag.count}</div> : null}
+          {categoriesDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {categoriesDiag.error}</div> : null}
+          <div style={{ marginTop: 10 }}>Transactions: {transactionsDiag.status}</div>
+          {transactionsDiag.count !== null ? <div>Transactions count: {transactionsDiag.count}</div> : null}
+          {transactionsDiag.sample ? <div>Sample: {transactionsDiag.sample}</div> : null}
+          {transactionsDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {transactionsDiag.error}</div> : null}
+          <div style={{ marginTop: 10 }}>All (seq): {allDiag.status} (step {allDiag.step}/4)</div>
+          {allDiag.workspaces !== null ? <div>WS: {allDiag.workspaces}</div> : null}
+          {allDiag.accounts !== null ? <div>ACC: {allDiag.accounts}</div> : null}
+          {allDiag.categories !== null ? <div>CATS: {allDiag.categories}</div> : null}
+          {allDiag.transactions !== null ? <div>TXS: {allDiag.transactions}</div> : null}
+          {allDiag.error ? <div style={{ color: "#b91c1c" }}>Ошибка: {allDiag.error}</div> : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setNormalLiteMode(false);
+            setSafeMode(true);
+          }}
+          style={{
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "none",
+            background: "#2563eb",
+            color: "#fff",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Вернуться в safe mode
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setNormalLiteMode(false);
+            setUiOnlyMode(true);
+          }}
+          style={{
+            marginTop: 12,
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #111827",
+            background: "#fff",
+            color: "#111827",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Перейти в UI only
+        </button>
+      </div>
+    </div>
+  );
+
+  useEffect(() => {
+    if (uiOnlyMode) {
+      setAccounts([]);
+      setCategories([]);
+      setIncomeSources([]);
+      setTransactions([]);
+    }
+  }, [uiOnlyMode, setAccounts, setCategories, setIncomeSources, setTransactions]);
+
+  const appShell = safeMode
+    ? renderSafe()
+    : normalLiteMode
+    ? renderNormalLite()
+    : uiOnlyMode
+    ? renderUiOnlyShell()
+    : (
+        <div className="app-shell">
+          {!isTelegram ? <div className="dev-banner">Telegram WebApp не найден — браузерный режим</div> : null}
+          <div className="app-shell__inner">
+            {renderScreen()}
+            <BottomNav
+              active={activeNav}
+              onSelect={(key) => {
+                setActiveNav(key);
+                setActiveScreen(key);
+              }}
+            />
+          </div>
+        </div>
+      );
+
+  return (
+    <AppErrorBoundary
+      currentMode={currentMode}
+      externalError={globalError}
+      onClearExternalError={() => setGlobalError(null)}
+      onSafeMode={() => {
+        setSafeMode(true);
+        setNormalLiteMode(false);
+        setUiOnlyMode(false);
+        setGlobalError(null);
+      }}
+    >
+      {appShell}
+    </AppErrorBoundary>
   );
 }
 
