@@ -1010,7 +1010,7 @@ function OverviewScreen() {
                     }}
                   >
                     {groupedAccountTx.length === 0 ? (
-                      <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div>
+                      <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций за период</div>
                     ) : (
                       groupedAccountTx.map((group) => {
                         const dayExpense = group.items
