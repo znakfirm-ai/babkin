@@ -902,7 +902,6 @@ function OverviewScreen() {
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "100%",
               maxWidth: 620,
               background: "#fff",
               borderRadius: 18,
