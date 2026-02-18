@@ -908,8 +908,9 @@ function OverviewScreen() {
               borderRadius: 18,
               padding: 16,
               position: "absolute",
-              left: "50%",
-              transform: "translateX(-50%)",
+              left: 12,
+              right: 12,
+              top: 12,
               bottom:
                 "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 50px)",
               maxHeight:
