@@ -908,11 +908,12 @@ function OverviewScreen() {
               borderRadius: 18,
               padding: 16,
               maxHeight:
-                "min(82vh, calc(100vh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px))",
+                "calc((100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 12px))",
               boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
               display: "grid",
               gridTemplateRows: "auto auto 1fr auto",
               gap: 12,
+              overflow: "hidden",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -931,7 +932,8 @@ function OverviewScreen() {
                 Закрыть
               </button>
             </div>
-            {detailAccountId ? (
+            <div style={{ overflowY: "auto", minHeight: 0 }}>
+              {detailAccountId ? (
               <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
                 <label style={{ display: "grid", gap: 6 }}>
                   <input
@@ -1154,6 +1156,7 @@ function OverviewScreen() {
                 {categoryTx.length === 0 ? <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций</div> : null}
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
