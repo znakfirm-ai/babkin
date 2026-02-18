@@ -908,10 +908,10 @@ function OverviewScreen() {
               borderRadius: 18,
               padding: 16,
               maxHeight:
-                "calc((100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 12px))",
+                "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 50px)",
               boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
-              display: "grid",
-              gridTemplateRows: "auto auto 1fr auto",
+              display: "flex",
+              flexDirection: "column",
               gap: 12,
               overflow: "hidden",
             }}
@@ -932,9 +932,9 @@ function OverviewScreen() {
                 Закрыть
               </button>
             </div>
-            <div style={{ overflowY: "auto", minHeight: 0 }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "grid", gap: 12 }}>
               {detailAccountId ? (
-              <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
+                <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
                 <label style={{ display: "grid", gap: 6 }}>
                   <input
                     value={accountSearch}
@@ -1091,25 +1091,6 @@ function OverviewScreen() {
                   </div>
                 </div>
 
-                {(!searchFocused && !accountSearch) && (
-                  <button
-                    type="button"
-                    style={{
-                      width: "100%",
-                      padding: "14px 16px",
-                      borderRadius: 12,
-                      border: "1px solid #0f172a",
-                      background: "#0f172a",
-                      color: "#fff",
-                      fontWeight: 700,
-                      marginTop: 10,
-                      marginBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
-                    }}
-                    onClick={() => setIsAccountSheetOpen(true)}
-                  >
-                    Редактировать счет
-                  </button>
-                )}
               </div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
@@ -1157,6 +1138,25 @@ function OverviewScreen() {
               </div>
             )}
             </div>
+            {detailAccountId && (!searchFocused && !accountSearch) && (
+              <button
+                type="button"
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 700,
+                  marginTop: 10,
+                  marginBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
+                }}
+                onClick={() => setIsAccountSheetOpen(true)}
+              >
+                Редактировать счет
+              </button>
+            )}
           </div>
         </div>
       )}
