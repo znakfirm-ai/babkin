@@ -905,7 +905,7 @@ function OverviewScreen() {
               maxWidth: 620,
               background: "#fff",
               borderRadius: 18,
-              padding: 16,
+              padding: 12,
               position: "absolute",
               left: 16,
               right: 16,
@@ -937,7 +937,7 @@ function OverviewScreen() {
                 Закрыть
               </button>
             </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "grid", gap: 12 }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "grid", gap: 10 }}>
               {detailAccountId ? (
                 <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
                 <label style={{ display: "grid", gap: 6 }}>
@@ -1154,8 +1154,8 @@ function OverviewScreen() {
                   background: "#0f172a",
                   color: "#fff",
                   fontWeight: 700,
-                  marginTop: 10,
-                  marginBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
+                  marginTop: 12,
+                  marginBottom: 12,
                 }}
                 onClick={() => setIsAccountSheetOpen(true)}
               >
