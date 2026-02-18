@@ -907,6 +907,11 @@ function OverviewScreen() {
               background: "#fff",
               borderRadius: 18,
               padding: 16,
+              position: "absolute",
+              left: "50%",
+              transform: "translateX(-50%)",
+              bottom:
+                "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 50px)",
               maxHeight:
                 "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 50px)",
               boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
