@@ -909,11 +909,11 @@ function OverviewScreen() {
               position: "absolute",
               left: 16,
               right: 16,
-              top: 50,
+              top: 24,
               bottom:
-                "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 50px)",
+                "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 24px)",
               maxHeight:
-                "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 50px)",
+                "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
               boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
               display: "flex",
               flexDirection: "column",
