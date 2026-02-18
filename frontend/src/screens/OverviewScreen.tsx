@@ -1002,17 +1002,20 @@ function OverviewScreen() {
                     overflow: "hidden",
                   }}
                 >
-                  <div
-                    style={{
-                      maxHeight: searchFocused || accountSearch ? "58vh" : "48vh",
-                      overflowY: "auto",
-                      paddingRight: 2,
-                    }}
-                  >
-                    {groupedAccountTx.length === 0 ? (
-                      <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций за период</div>
-                    ) : (
-                      groupedAccountTx.map((group) => {
+                  {(() => {
+                    const hasAccountTx = groupedAccountTx.length > 0
+                    return (
+                      <div
+                        style={{
+                          maxHeight: hasAccountTx ? (searchFocused || accountSearch ? "58vh" : "48vh") : undefined,
+                          overflowY: hasAccountTx ? "auto" : "visible",
+                          paddingRight: hasAccountTx ? 2 : 0,
+                        }}
+                      >
+                        {!hasAccountTx ? (
+                          <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций за период</div>
+                        ) : (
+                          groupedAccountTx.map((group) => {
                         const dayExpense = group.items
                           .filter((tx) => tx.type === "expense" /* expense (расход) */)
                           .reduce((sum, tx) => sum + tx.amount.amount, 0)
@@ -1087,13 +1090,15 @@ function OverviewScreen() {
                                     </button>
                                   </div>
                                 </div>
-                              )
-                            })}
+                          )
+                        })}
                           </div>
                         )
                       })
                     )}
-                  </div>
+                      </div>
+                    )
+                  })()}
                 </div>
 
               </div>
