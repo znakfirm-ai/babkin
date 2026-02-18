@@ -107,7 +107,12 @@ const Section: React.FC<{
   )
 }
 
-function OverviewScreen() {
+type OverviewScreenProps = {
+  overviewError?: string | null
+  onRetryOverview?: () => Promise<void> | void
+}
+
+function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScreenProps) {
   const {
     accounts,
     categories,
@@ -194,6 +199,32 @@ function OverviewScreen() {
   }, [])
 
   const baseCurrency = normalizeCurrency(currency || "RUB")
+
+  if (overviewError) {
+    return (
+      <div className="app-shell" style={{ padding: 24, display: "grid", gap: 12 }}>
+        <h1 style={{ fontSize: 18, margin: 0 }}>Ошибка загрузки данных</h1>
+        <div style={{ color: "#b91c1c", fontSize: 14 }}>{overviewError}</div>
+        {onRetryOverview ? (
+          <button
+            type="button"
+            onClick={() => void onRetryOverview()}
+            style={{
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid #0f172a",
+              background: "#0f172a",
+              color: "#fff",
+              fontWeight: 700,
+              width: "fit-content",
+            }}
+          >
+            Повторить
+          </button>
+        ) : null}
+      </div>
+    )
+  }
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
 
   const refetchCategories = useCallback(async () => {

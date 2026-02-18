@@ -107,6 +107,8 @@ function App() {
   const [appLoading, setAppLoading] = useState<boolean>(false)
   const [globalError, setGlobalError] = useState<Error | null>(null)
   const [appInitError, setAppInitError] = useState<string | null>(null)
+  const [overviewError, setOverviewError] = useState<string | null>(null)
+  const [appToken, setAppToken] = useState<string | null>(null)
   const [appWorkspaces, setAppWorkspaces] = useState<Workspace[]>([])
   const [appActiveWorkspace, setAppActiveWorkspace] = useState<Workspace | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions } = useAppStore()
@@ -221,6 +223,7 @@ function App() {
         token = data.accessToken
         localStorage.setItem("auth_access_token", token)
       }
+      setAppToken(token)
 
       const wsRes = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
         headers: { Authorization: `Bearer ${token}` },
@@ -230,37 +233,46 @@ function App() {
       setAppWorkspaces(wsData.workspaces ?? [])
       setAppActiveWorkspace(wsData.activeWorkspace ?? null)
 
-      const accData = await getAccounts(token)
-      setAccounts(
-        accData.accounts.map((a) => ({
-          id: a.id,
-          name: a.name,
-          balance: { amount: a.balance, currency: a.currency },
-        }))
-      )
+      try {
+        const accData = await getAccounts(token)
+        setAccounts(
+          accData.accounts.map((a) => ({
+            id: a.id,
+            name: a.name,
+            balance: { amount: a.balance, currency: a.currency },
+          }))
+        )
 
-      const catData = await getCategories(token)
-      setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon })))
+        const catData = await getCategories(token)
+        setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon })))
 
-      const incData = await getIncomeSources(token)
-      setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name })))
+        const incData = await getIncomeSources(token)
+        setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name })))
 
-      const txData = await getTransactions(token)
-      setTransactions(
-        txData.transactions.map((t) => ({
-          id: t.id,
-          type: t.kind,
-          amount: {
-            amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
-            currency: "RUB",
-          },
-          date: t.happenedAt,
-          accountId: t.accountId ?? t.fromAccountId ?? "",
-          categoryId: t.categoryId ?? undefined,
-          incomeSourceId: t.incomeSourceId ?? undefined,
-          toAccountId: t.toAccountId ?? undefined,
-        }))
-      )
+        const txData = await getTransactions(token)
+        setTransactions(
+          txData.transactions.map((t) => ({
+            id: t.id,
+            type: t.kind,
+            amount: {
+              amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+              currency: "RUB",
+            },
+            date: t.happenedAt,
+            accountId: t.accountId ?? t.fromAccountId ?? "",
+            categoryId: t.categoryId ?? undefined,
+            incomeSourceId: t.incomeSourceId ?? undefined,
+            toAccountId: t.toAccountId ?? undefined,
+          }))
+        )
+        setOverviewError(null)
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          setAppLoading(false)
+          return
+        }
+        setOverviewError("Ошибка загрузки данных")
+      }
 
       initDone.current = true
       setAppLoading(false)
@@ -276,6 +288,50 @@ function App() {
     }
   }, [initApp])
 
+  const retryOverviewData = useCallback(async () => {
+    if (!appToken) {
+      setOverviewError("Нет токена")
+      return
+    }
+    try {
+      const accData = await getAccounts(appToken)
+      setAccounts(
+        accData.accounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: { amount: a.balance, currency: a.currency },
+        }))
+      )
+
+      const catData = await getCategories(appToken)
+      setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon })))
+
+      const incData = await getIncomeSources(appToken)
+      setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name })))
+
+      const txData = await getTransactions(appToken)
+      setTransactions(
+        txData.transactions.map((t) => ({
+          id: t.id,
+          type: t.kind,
+          amount: {
+            amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+            currency: "RUB",
+          },
+          date: t.happenedAt,
+          accountId: t.accountId ?? t.fromAccountId ?? "",
+          categoryId: t.categoryId ?? undefined,
+          incomeSourceId: t.incomeSourceId ?? undefined,
+          toAccountId: t.toAccountId ?? undefined,
+        }))
+      )
+      setOverviewError(null)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return
+      setOverviewError("Ошибка загрузки данных")
+    }
+  }, [appToken, setAccounts, setCategories, setIncomeSources, setTransactions])
+
   const renderScreen = () => {
     switch (activeScreen) {
       case "home":
@@ -283,7 +339,7 @@ function App() {
           <HomeScreen initialWorkspaces={appWorkspaces} initialActiveWorkspace={appActiveWorkspace} />
         )
       case "overview":
-        return <OverviewScreen />
+        return <OverviewScreen overviewError={overviewError} onRetryOverview={retryOverviewData} />
       case "add":
         return <AddScreen />
       case "reports":
