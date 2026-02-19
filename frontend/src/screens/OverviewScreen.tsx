@@ -427,9 +427,13 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       },
       date: t.happenedAt,
       accountId: t.accountId ?? t.fromAccountId ?? "",
+      accountName: t.accountName ?? null,
+      fromAccountId: t.fromAccountId ?? undefined,
+      fromAccountName: t.fromAccountName ?? null,
       categoryId: t.categoryId ?? undefined,
       incomeSourceId: t.incomeSourceId ?? undefined,
       toAccountId: t.toAccountId ?? undefined,
+      toAccountName: t.toAccountName ?? null,
     }))
     setTransactions(mapped)
   }, [setTransactions, token])
@@ -924,6 +928,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     })
     return map
   }, [accounts, transactions])
+  const getTxAccountName = useCallback(
+    (tx: Transaction) => tx.accountName ?? (tx.accountId ? accountNameById.get(tx.accountId) ?? "Счёт" : "Счёт"),
+    [accountNameById],
+  )
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>()
     categories.forEach((c) => map.set(c.id, c.name))
@@ -1326,7 +1334,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
                   {categoryTx.map((tx) => {
-                    const displayAccountName = tx.accountName ?? accountNameById.get(tx.accountId) ?? "Счёт"
+                    const displayAccountName = getTxAccountName(tx)
                     const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
                     return (
                       <div

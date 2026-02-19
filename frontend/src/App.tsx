@@ -260,9 +260,13 @@ function App() {
             },
             date: t.happenedAt,
             accountId: t.accountId ?? t.fromAccountId ?? "",
+            accountName: t.accountName ?? null,
+            fromAccountId: t.fromAccountId ?? undefined,
+            fromAccountName: t.fromAccountName ?? null,
             categoryId: t.categoryId ?? undefined,
             incomeSourceId: t.incomeSourceId ?? undefined,
             toAccountId: t.toAccountId ?? undefined,
+            toAccountName: t.toAccountName ?? null,
           }))
         )
         setOverviewError(null)
@@ -320,9 +324,13 @@ function App() {
           },
           date: t.happenedAt,
           accountId: t.accountId ?? t.fromAccountId ?? "",
+          accountName: t.accountName ?? null,
+          fromAccountId: t.fromAccountId ?? undefined,
+          fromAccountName: t.fromAccountName ?? null,
           categoryId: t.categoryId ?? undefined,
           incomeSourceId: t.incomeSourceId ?? undefined,
           toAccountId: t.toAccountId ?? undefined,
+          toAccountName: t.toAccountName ?? null,
         }))
       )
       setOverviewError(null)
