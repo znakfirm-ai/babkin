@@ -2043,242 +2043,359 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               padding: editingAccountId ? "18px 18px 20px" : "16px 16px 20px",
               boxShadow: "none",
               maxHeight: editingAccountId ? "calc(100vh - 120px)" : "70vh",
-              overflowY: "auto",
+              overflowX: "hidden",
+              overflowY: editingAccountId ? undefined : "auto",
               paddingBottom: editingAccountId
                 ? "calc(env(safe-area-inset-bottom, 0px) + 12px)"
                 : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-              {editingAccountId ? "Редактировать счёт" : "Создание счёта"}
-            </div>
-            <div style={{ display: "grid", gap: 16 }}>
-              <div
-                style={{
-                  background: editingAccountId ? "#f8fafc" : accountColor,
-                  borderRadius: 18,
-                  padding: 16,
-                  display: "grid",
-                  gap: 12,
-                  border: editingAccountId ? "1px solid #e5e7eb" : "none",
-                  boxShadow: "none",
-                }}
-              >
-                <label
-                  style={{
-                    display: "grid",
-                    gap: 6,
-                    fontSize: 13,
-                    color: editingAccountId ? "#4b5563" : "rgba(255,255,255,0.92)",
-                  }}
-                >
-                  Название
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Введите название"
+            {editingAccountId ? (
+              <div style={{ maxHeight: "calc(100vh - 120px)", overflowY: "auto", paddingBottom: "4px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                  <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+                  Редактировать счёт
+                </div>
+                <div style={{ display: "grid", gap: 16 }}>
+                  <div
                     style={{
-                      padding: 12,
-                      borderRadius: 10,
-                      border: editingAccountId ? "1px solid #e5e7eb" : "1px solid rgba(255,255,255,0.35)",
-                      fontSize: 16,
-                      outline: "none",
+                      background: "#f8fafc",
+                      borderRadius: 18,
+                      padding: 16,
+                      display: "grid",
+                      gap: 12,
+                      border: "1px solid #e5e7eb",
                       boxShadow: "none",
-                      background: editingAccountId ? "#fff" : "rgba(255,255,255,0.97)",
-                      color: "#0f172a",
                     }}
-                  />
-                </label>
-                {editingAccountId ? (
-                  <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                    Тип
-                    <select
-                      value={type}
-                      onChange={(e) => setType(e.target.value)}
-                      style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
-                    >
-                      <option value="cash">Наличные</option>
-                      <option value="card">Карта</option>
-                      <option value="bank">Банк</option>
-                    </select>
-                  </label>
-                ) : null}
-                <label
-                  style={{
-                    display: "grid",
-                    gap: 6,
-                    fontSize: 13,
-                    color: editingAccountId ? "#4b5563" : "rgba(255,255,255,0.92)",
-                  }}
-                >
-                  Стартовый баланс
-                  <input
-                    value={balance}
-                    onChange={(e) => setBalance(e.target.value)}
-                    inputMode="decimal"
-                    style={{
-                      padding: 12,
-                      borderRadius: 10,
-                      border: editingAccountId ? "1px solid #e5e7eb" : "1px solid rgba(255,255,255,0.35)",
-                      fontSize: 16,
-                      background: editingAccountId ? "#f1f5f9" : "rgba(255,255,255,0.97)",
-                      outline: "none",
-                      boxShadow: "none",
-                      color: "#0f172a",
-                    }}
-                    disabled={!!editingAccountId}
-                  />
-                </label>
-              </div>
-              <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    overflowX: "auto",
-                    paddingBottom: 4,
-                    WebkitOverflowScrolling: "touch",
-                  }}
-                >
-                  {accountColorOptions.map((clr) => (
-                    <button
-                      key={clr}
-                      type="button"
-                      onClick={() => setAccountColor(clr)}
+                  >
+                    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                      Название
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Введите название"
+                        style={{
+                          padding: 12,
+                          borderRadius: 10,
+                          border: "1px solid #e5e7eb",
+                          fontSize: 16,
+                          outline: "none",
+                          boxShadow: "none",
+                          background: "#fff",
+                          color: "#0f172a",
+                        }}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                      Тип
+                      <select
+                        value={type}
+                        onChange={(e) => setType(e.target.value)}
+                        style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                      >
+                        <option value="cash">Наличные</option>
+                        <option value="card">Карта</option>
+                        <option value="bank">Банк</option>
+                      </select>
+                    </label>
+                    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                      Стартовый баланс
+                      <input
+                        value={balance}
+                        onChange={(e) => setBalance(e.target.value)}
+                        inputMode="decimal"
+                        style={{
+                          padding: 12,
+                          borderRadius: 10,
+                          border: "1px solid #e5e7eb",
+                          fontSize: 16,
+                          background: "#f1f5f9",
+                          outline: "none",
+                          boxShadow: "none",
+                          color: "#0f172a",
+                        }}
+                        disabled
+                      />
+                    </label>
+                  </div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>
+                    <div
                       style={{
-                        width: 34,
-                        height: 34,
-                        minWidth: 34,
-                        borderRadius: "50%",
-                        border: clr === accountColor ? "2px solid #0f172a" : "1px solid #e5e7eb",
-                        background: clr,
-                        cursor: "pointer",
                         display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#fff",
-                        boxShadow: "none",
-                        flexShrink: 0,
+                        gap: 10,
+                        overflowX: "auto",
+                        paddingBottom: 4,
+                        WebkitOverflowScrolling: "touch",
                       }}
                     >
-                      {clr === accountColor ? "✓" : ""}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleSaveAccount}
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: "#2563eb",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {editingAccountId ? "Сохранить" : "Создать"}
-              </button>
-              {editingAccountId && canDeleteAccount ? (
-                showDeleteConfirm ? (
-                  <div style={{ display: "grid", gap: 8 }}>
-                    <div style={{ fontSize: 14, color: "#b91c1c", textAlign: "center", fontWeight: 600 }}>
-                      Подтвердите удаление
+                      {accountColorOptions.map((clr) => (
+                        <button
+                          key={clr}
+                          type="button"
+                          onClick={() => setAccountColor(clr)}
+                          style={{
+                            width: 34,
+                            height: 34,
+                            minWidth: 34,
+                            borderRadius: "50%",
+                            border: clr === accountColor ? "2px solid #0f172a" : "1px solid #e5e7eb",
+                            background: clr,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#fff",
+                            boxShadow: "none",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {clr === accountColor ? "✓" : ""}
+                        </button>
+                      ))}
                     </div>
-                    <div style={{ display: "flex", gap: 10 }}>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveAccount}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "none",
+                      background: "#2563eb",
+                      color: "#fff",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Сохранить
+                  </button>
+                  {editingAccountId && canDeleteAccount ? (
+                    showDeleteConfirm ? (
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <div style={{ fontSize: 14, color: "#b91c1c", textAlign: "center", fontWeight: 600 }}>
+                          Подтвердите удаление
+                        </div>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowDeleteConfirm(false)
+                              setAccountActionError(null)
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "12px 14px",
+                              borderRadius: 12,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 14,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Отмена
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                              if (!tokenLocal || !editingAccountId) return
+                              try {
+                                setAccountActionError(null)
+                                await deleteAccount(tokenLocal, editingAccountId)
+                                await refetchAccountsSeq()
+                                await refetchTransactions()
+                                closeAccountSheet()
+                              } catch (err) {
+                                if (err instanceof DOMException && err.name === "AbortError") return
+                                setAccountActionError(err instanceof Error ? err.message : "Не удалось удалить счёт")
+                              } finally {
+                                setShowDeleteConfirm(false)
+                              }
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "12px 14px",
+                              borderRadius: 12,
+                              border: "1px solid #fee2e2",
+                              background: "#fff",
+                              color: "#b91c1c",
+                              fontSize: 14,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Удалить
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => {
-                          setShowDeleteConfirm(false)
                           setAccountActionError(null)
+                          setShowDeleteConfirm(true)
                         }}
                         style={{
-                          flex: 1,
-                          padding: "12px 14px",
-                          borderRadius: 12,
-                          border: "1px solid #e5e7eb",
-                          background: "#fff",
-                          color: "#0f172a",
-                          fontSize: 14,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Отмена
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-                          if (!tokenLocal || !editingAccountId) return
-                          try {
-                            setAccountActionError(null)
-                            await deleteAccount(tokenLocal, editingAccountId)
-                            await refetchAccountsSeq()
-                            await refetchTransactions()
-                            closeAccountSheet()
-                          } catch (err) {
-                            if (err instanceof DOMException && err.name === "AbortError") return
-                            setAccountActionError(err instanceof Error ? err.message : "Не удалось удалить счёт")
-                          } finally {
-                            setShowDeleteConfirm(false)
-                          }
-                        }}
-                        style={{
-                          flex: 1,
+                          width: "100%",
                           padding: "12px 14px",
                           borderRadius: 12,
                           border: "1px solid #fee2e2",
                           background: "#fff",
                           color: "#b91c1c",
                           fontSize: 14,
-                          fontWeight: 700,
+                          fontWeight: 600,
                           cursor: "pointer",
                         }}
                       >
-                        Удалить
+                        Удалить счёт
                       </button>
+                    )
+                  ) : null}
+                  {editingAccountId && !canDeleteAccount ? (
+                    <div style={{ color: "#6b7280", fontSize: 13, textAlign: "center" }}>Удаление пока недоступно</div>
+                  ) : null}
+                  {accountActionError ? (
+                    <div style={{ color: "#b91c1c", fontSize: 13, textAlign: "center" }}>{accountActionError}</div>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                  <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+                  Создание счёта
+                </div>
+                <div style={{ display: "grid", gap: 16 }}>
+                  <div
+                    style={{
+                      background: accountColor,
+                      borderRadius: 18,
+                      padding: 16,
+                      display: "grid",
+                      gap: 12,
+                      border: "none",
+                      boxShadow: "none",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "grid",
+                        gap: 6,
+                        fontSize: 13,
+                        color: "rgba(255,255,255,0.92)",
+                      }}
+                    >
+                      Название
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Введите название"
+                        style={{
+                          padding: 12,
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,255,255,0.35)",
+                          fontSize: 16,
+                          outline: "none",
+                          boxShadow: "none",
+                          background: "rgba(255,255,255,0.97)",
+                          color: "#0f172a",
+                        }}
+                      />
+                    </label>
+                    <label
+                      style={{
+                        display: "grid",
+                        gap: 6,
+                        fontSize: 13,
+                        color: "rgba(255,255,255,0.92)",
+                      }}
+                    >
+                      Стартовый баланс
+                      <input
+                        value={balance}
+                        onChange={(e) => setBalance(e.target.value)}
+                        inputMode="decimal"
+                        style={{
+                          padding: 12,
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,255,255,0.35)",
+                          fontSize: 16,
+                          background: "rgba(255,255,255,0.97)",
+                          outline: "none",
+                          boxShadow: "none",
+                          color: "#0f172a",
+                        }}
+                        disabled={!!editingAccountId}
+                      />
+                    </label>
+                  </div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        overflowX: "auto",
+                        paddingBottom: 4,
+                        WebkitOverflowScrolling: "touch",
+                      }}
+                    >
+                      {accountColorOptions.map((clr) => (
+                        <button
+                          key={clr}
+                          type="button"
+                          onClick={() => setAccountColor(clr)}
+                          style={{
+                            width: 34,
+                            height: 34,
+                            minWidth: 34,
+                            borderRadius: "50%",
+                            border: clr === accountColor ? "2px solid #0f172a" : "1px solid #e5e7eb",
+                            background: clr,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#fff",
+                            boxShadow: "none",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {clr === accountColor ? "✓" : ""}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                ) : (
                   <button
                     type="button"
-                    onClick={() => {
-                      setAccountActionError(null)
-                      setShowDeleteConfirm(true)
-                    }}
+                    onClick={handleSaveAccount}
                     style={{
                       width: "100%",
                       padding: "12px 14px",
                       borderRadius: 12,
-                      border: "1px solid #fee2e2",
-                      background: "#fff",
-                      color: "#b91c1c",
+                      border: "none",
+                      background: "#2563eb",
+                      color: "#fff",
                       fontSize: 14,
                       fontWeight: 600,
                       cursor: "pointer",
                     }}
                   >
-                    Удалить счёт
+                    Создать
                   </button>
-                )
-              ) : null}
-              {editingAccountId && !canDeleteAccount ? (
-                <div style={{ color: "#6b7280", fontSize: 13, textAlign: "center" }}>Удаление пока недоступно</div>
-              ) : null}
-              {accountActionError ? (
-                <div style={{ color: "#b91c1c", fontSize: 13, textAlign: "center" }}>{accountActionError}</div>
-              ) : null}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}
