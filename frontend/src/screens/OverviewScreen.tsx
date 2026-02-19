@@ -311,6 +311,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     [accounts],
   )
 
+
   const closeAccountSheet = useCallback(() => {
     setIsAccountSheetOpen(false)
     setEditingAccountId(null)
@@ -505,6 +506,14 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       setSearchFocused(false)
       closeTxSheet()
   }, [closeTxSheet])
+
+  const openEditAccountFromDetails = useCallback(
+    (accountId: string) => {
+      closeDetails()
+      queueMicrotask(() => openEditAccountSheet(accountId))
+    },
+    [closeDetails, openEditAccountSheet],
+  )
 
   const handleDeleteTx = useCallback(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
@@ -1368,7 +1377,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 }}
                 onClick={() => {
                   if (detailAccountId) {
-                    openEditAccountSheet(detailAccountId)
+                    openEditAccountFromDetails(detailAccountId)
                   }
                 }}
               >
