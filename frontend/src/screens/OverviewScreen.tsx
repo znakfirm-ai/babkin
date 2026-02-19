@@ -25,6 +25,22 @@ type CardItem = {
 }
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"]
+const accountColorOptions = [
+  "#2563eb", // blue
+  "#38bdf8", // sky
+  "#22c55e", // green
+  "#14b8a6", // teal
+  "#facc15", // yellow
+  "#f97316", // orange
+  "#ef4444", // red
+  "#ec4899", // pink
+  "#8b5cf6", // violet
+  "#4338ca", // indigo
+  "#0f172a", // graphite
+  "#94a3b8", // gray
+  "#0ea5e9", // light blue
+  "#9ca3af", // muted gray
+]
 
 const getCurrentMonthTag = () => {
   const now = new Date()
@@ -227,7 +243,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [name, setName] = useState("")
   const [type, setType] = useState("cash")
   const [balance, setBalance] = useState("0")
-  const [accountColor, setAccountColor] = useState(cardColors[0])
+  const [accountColor, setAccountColor] = useState(accountColorOptions[0])
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryName, setCategoryName] = useState("")
@@ -1006,6 +1022,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           setName("")
           setBalance("0")
           setType("cash")
+          setAccountColor(accountColorOptions[0])
           setIsAccountSheetOpen(true)
         }}
         onAccountClick={(id, title) => {
@@ -1991,34 +2008,96 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               {editingAccountId ? "Редактировать счёт" : "Создание счёта"}
             </div>
             <div style={{ display: "grid", gap: 16 }}>
-              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                Название
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Введите название"
-                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16, outline: "none", boxShadow: "none" }}
-                />
-              </label>
-              {editingAccountId ? (
-                <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                  Тип
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value)}
-                    style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
-                  >
-                    <option value="cash">Наличные</option>
-                    <option value="card">Карта</option>
-                    <option value="bank">Банк</option>
-                  </select>
+              <div
+                style={{
+                  background: editingAccountId ? "#f8fafc" : accountColor,
+                  borderRadius: 18,
+                  padding: 16,
+                  display: "grid",
+                  gap: 12,
+                  border: editingAccountId ? "1px solid #e5e7eb" : "none",
+                  boxShadow: "none",
+                }}
+              >
+                <label
+                  style={{
+                    display: "grid",
+                    gap: 6,
+                    fontSize: 13,
+                    color: editingAccountId ? "#4b5563" : "rgba(255,255,255,0.92)",
+                  }}
+                >
+                  Название
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Введите название"
+                    style={{
+                      padding: 12,
+                      borderRadius: 10,
+                      border: editingAccountId ? "1px solid #e5e7eb" : "1px solid rgba(255,255,255,0.35)",
+                      fontSize: 16,
+                      outline: "none",
+                      boxShadow: "none",
+                      background: editingAccountId ? "#fff" : "rgba(255,255,255,0.97)",
+                      color: "#0f172a",
+                    }}
+                  />
                 </label>
-              ) : null}
+                {editingAccountId ? (
+                  <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                    Тип
+                    <select
+                      value={type}
+                      onChange={(e) => setType(e.target.value)}
+                      style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                    >
+                      <option value="cash">Наличные</option>
+                      <option value="card">Карта</option>
+                      <option value="bank">Банк</option>
+                    </select>
+                  </label>
+                ) : null}
+                <label
+                  style={{
+                    display: "grid",
+                    gap: 6,
+                    fontSize: 13,
+                    color: editingAccountId ? "#4b5563" : "rgba(255,255,255,0.92)",
+                  }}
+                >
+                  Стартовый баланс
+                  <input
+                    value={balance}
+                    onChange={(e) => setBalance(e.target.value)}
+                    inputMode="decimal"
+                    style={{
+                      padding: 12,
+                      borderRadius: 10,
+                      border: editingAccountId ? "1px solid #e5e7eb" : "1px solid rgba(255,255,255,0.35)",
+                      fontSize: 16,
+                      background: editingAccountId ? "#f1f5f9" : "rgba(255,255,255,0.97)",
+                      outline: "none",
+                      boxShadow: "none",
+                      color: "#0f172a",
+                    }}
+                    disabled={!!editingAccountId}
+                  />
+                </label>
+              </div>
               {!editingAccountId ? (
                 <div style={{ display: "grid", gap: 10 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    {cardColors.map((clr) => (
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      overflowX: "auto",
+                      paddingBottom: 4,
+                      WebkitOverflowScrolling: "touch",
+                    }}
+                  >
+                    {accountColorOptions.map((clr) => (
                       <button
                         key={clr}
                         type="button"
@@ -2026,6 +2105,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                         style={{
                           width: 34,
                           height: 34,
+                          minWidth: 34,
                           borderRadius: "50%",
                           border: clr === accountColor ? "2px solid #0f172a" : "1px solid #e5e7eb",
                           background: clr,
@@ -2035,6 +2115,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                           justifyContent: "center",
                           color: "#fff",
                           boxShadow: "none",
+                          flexShrink: 0,
                         }}
                       >
                         {clr === accountColor ? "✓" : ""}
@@ -2043,24 +2124,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                   </div>
                 </div>
               ) : null}
-              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                Стартовый баланс
-                <input
-                  value={balance}
-                  onChange={(e) => setBalance(e.target.value)}
-                  inputMode="decimal"
-                  style={{
-                    padding: 12,
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    background: editingAccountId ? "#f1f5f9" : "#fff",
-                    outline: "none",
-                    boxShadow: "none",
-                  }}
-                  disabled={!!editingAccountId}
-                />
-              </label>
               <button
                 type="button"
                 onClick={handleSaveAccount}
