@@ -227,6 +227,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [name, setName] = useState("")
   const [type, setType] = useState("cash")
   const [balance, setBalance] = useState("0")
+  const [accountColor, setAccountColor] = useState(cardColors[0])
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryName, setCategoryName] = useState("")
@@ -1989,7 +1990,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
               {editingAccountId ? "Редактировать счёт" : "Создание счёта"}
             </div>
-            <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "grid", gap: 16 }}>
               <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
                 Название
                 <input
@@ -2012,6 +2013,35 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     <option value="bank">Банк</option>
                   </select>
                 </label>
+              ) : null}
+              {!editingAccountId ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {cardColors.map((clr) => (
+                      <button
+                        key={clr}
+                        type="button"
+                        onClick={() => setAccountColor(clr)}
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: "50%",
+                          border: clr === accountColor ? "2px solid #0f172a" : "1px solid #e5e7eb",
+                          background: clr,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#fff",
+                          boxShadow: "none",
+                        }}
+                      >
+                        {clr === accountColor ? "✓" : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ) : null}
               <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
                 Стартовый баланс
