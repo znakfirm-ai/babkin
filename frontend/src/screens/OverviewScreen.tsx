@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
 import type { Transaction } from "../types/finance"
 import "./OverviewScreen.css"
@@ -145,8 +145,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [accountPeriodType, setAccountPeriodType] = useState<"day" | "week" | "month" | "year" | "custom">("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
-  const fromDateInputRef = useRef<HTMLInputElement | null>(null)
-  const toDateInputRef = useRef<HTMLInputElement | null>(null)
+  const [customFromDraft, setCustomFromDraft] = useState("")
+  const [customToDraft, setCustomToDraft] = useState("")
+  const customFromInputRef = useRef<HTMLInputElement | null>(null)
+  const customToInputRef = useRef<HTMLInputElement | null>(null)
+  const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
@@ -163,45 +166,24 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [editNote, setEditNote] = useState("")
   const currentMonthTag = getCurrentMonthTag()
 
-  const openDatePicker = useCallback((ref: { current: HTMLInputElement | null }) => {
-    const el = ref.current
-    if (!el) return
-    const show = (el as HTMLInputElement & { showPicker?: () => void }).showPicker
-    if (typeof show === "function") {
-      show.call(el)
-    } else {
-      el.click()
+  useEffect(() => {
+    if (isCustomSheetOpen && customFromInputRef.current) {
+      customFromInputRef.current.focus()
     }
-  }, [])
+  }, [isCustomSheetOpen])
 
-  const startCustomRangeSelection = useCallback(() => {
-    setCustomFrom("")
-    setCustomTo("")
-    requestAnimationFrame(() => openDatePicker(fromDateInputRef))
-  }, [openDatePicker])
-
-  const handleCustomFromChange = useCallback(
-    (value: string) => {
-      setCustomFrom(value)
-      requestAnimationFrame(() => openDatePicker(toDateInputRef))
-    },
-    [openDatePicker]
-  )
-
-  const handleCustomToChange = useCallback(
-    (value: string) => {
-      if (!value) return
-      let newFrom = customFrom || value
-      let newTo = value
-      if (newFrom && newTo && new Date(newFrom) > new Date(newTo)) {
-        ;[newFrom, newTo] = [newTo, newFrom]
-      }
-      setCustomFrom(newFrom)
-      setCustomTo(newTo)
-      setAccountPeriodType("custom")
-    },
-    [customFrom]
-  )
+  const applyCustomRange = useCallback(() => {
+    if (!customFromDraft || !customToDraft) return
+    let from = customFromDraft
+    let to = customToDraft
+    if (new Date(from) > new Date(to)) {
+      ;[from, to] = [to, from]
+    }
+    setCustomFrom(from)
+    setCustomTo(to)
+    setAccountPeriodType("custom")
+    setIsCustomSheetOpen(false)
+  }, [customFromDraft, customToDraft])
 
   const { incomeSum, expenseSum, incomeBySource, expenseByCategory } = useMemo(() => {
     let income = 0
@@ -1535,10 +1517,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
         </div>
       ) : null}
 
-      {isPeriodMenuOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
+{isPeriodMenuOpen ? (
+  <div
+    role="dialog"
+    aria-modal="true"
           onClick={() => setIsPeriodMenuOpen(false)}
           style={{
             position: "fixed",
@@ -1590,9 +1572,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             <button
               type="button"
               onClick={() => {
-                setAccountPeriodType("custom")
                 setIsPeriodMenuOpen(false)
-                startCustomRangeSelection()
+                setCustomFromDraft(customFrom || new Date().toISOString().slice(0, 10))
+                setCustomToDraft(customTo || new Date().toISOString().slice(0, 10))
+                setIsCustomSheetOpen(true)
               }}
               style={{
                 padding: "10px 12px",
@@ -1622,22 +1605,105 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             </button>
           </div>
         </div>
-      ) : null}
+  ) : null}
 
-      <input
-        type="date"
-        ref={fromDateInputRef}
-        value={customFrom}
-        onChange={(e) => handleCustomFromChange(e.target.value)}
-        style={{ position: "fixed", opacity: 0, width: 0, height: 0, pointerEvents: "none" }}
-      />
-      <input
-        type="date"
-        ref={toDateInputRef}
-        value={customTo}
-        onChange={(e) => handleCustomToChange(e.target.value)}
-        style={{ position: "fixed", opacity: 0, width: 0, height: 0, pointerEvents: "none" }}
-      />
+      {isCustomSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsCustomSheetOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 62,
+            padding: "12px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              background: "#fff",
+              borderRadius: 18,
+              padding: 16,
+              boxShadow: "0 10px 24px rgba(0,0,0,0.14)",
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", textAlign: "center" }}>Свой период</div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
+              <label style={{ display: "grid", gap: 6, width: 180 }}>
+                <span style={{ fontSize: 13, color: "#4b5563", textAlign: "center" }}>С</span>
+                <input
+                  ref={customFromInputRef}
+                  type="date"
+                  value={customFromDraft}
+                  onChange={(e) => setCustomFromDraft(e.target.value)}
+                  style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", textAlign: "center" }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6, width: 180 }}>
+                <span style={{ fontSize: 13, color: "#4b5563", textAlign: "center" }}>По</span>
+                <input
+                  ref={customToInputRef}
+                  type="date"
+                  value={customToDraft}
+                  onChange={(e) => setCustomToDraft(e.target.value)}
+                  style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", textAlign: "center" }}
+                />
+              </label>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomFromDraft(customFrom)
+                  setCustomToDraft(customTo)
+                  setIsCustomSheetOpen(false)
+                }}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  fontWeight: 600,
+                  color: "#0f172a",
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={applyCustomRange}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: customFromDraft && customToDraft ? "pointer" : "not-allowed",
+                  opacity: customFromDraft && customToDraft ? 1 : 0.6,
+                }}
+                disabled={!customFromDraft || !customToDraft}
+              >
+                Готово
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isAccountSheetOpen ? (
         <div
