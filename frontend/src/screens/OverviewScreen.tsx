@@ -244,7 +244,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [type, setType] = useState("cash")
   const [balance, setBalance] = useState("0")
   const [accountColor, setAccountColor] = useState(accountColorOptions[0])
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [accountActionError, setAccountActionError] = useState<string | null>(null)
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
@@ -306,7 +306,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       setType(accType)
       const accClr = (acc as { color?: string } | undefined)?.color ?? accountColorOptions[0]
       setAccountColor(accClr)
-      setShowDeleteConfirm(false)
+      setIsConfirmingDelete(false)
       setAccountActionError(null)
       setIsAccountSheetOpen(true)
     },
@@ -317,7 +317,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const closeAccountSheet = useCallback(() => {
     setIsAccountSheetOpen(false)
     setEditingAccountId(null)
-    setShowDeleteConfirm(false)
+    setIsConfirmingDelete(false)
     setAccountActionError(null)
     setName("")
     setBalance("0")
@@ -1059,7 +1059,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           setBalance("0")
           setType("cash")
           setAccountColor(accountColorOptions[0])
-          setShowDeleteConfirm(false)
+          setIsConfirmingDelete(false)
           setIsAccountSheetOpen(true)
         }}
         onAccountClick={(id, title) => {
@@ -2176,31 +2176,29 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     Сохранить
                   </button>
                   {editingAccountId ? (
-                    showDeleteConfirm ? (
-                      <div style={{ display: "grid", gap: 8 }}>
-                        <div style={{ fontSize: 14, color: "#b91c1c", textAlign: "center", fontWeight: 600 }}>
-                          Подтвердите удаление
-                        </div>
-                        <div style={{ display: "flex", gap: 10 }}>
+                    isConfirmingDelete ? (
+                      <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
+                        <div style={{ fontSize: 14, color: "#0f172a", opacity: 0.7 }}>Удалить счёт?</div>
+                        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
                           <button
                             type="button"
                             onClick={() => {
-                              setShowDeleteConfirm(false)
+                              setIsConfirmingDelete(false)
                               setAccountActionError(null)
                             }}
                             style={{
-                              flex: 1,
-                              padding: "12px 14px",
-                              borderRadius: 12,
+                              padding: "10px 14px",
+                              borderRadius: 10,
                               border: "1px solid #e5e7eb",
                               background: "#fff",
                               color: "#0f172a",
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: 600,
                               cursor: "pointer",
+                              whiteSpace: "nowrap",
                             }}
                           >
-                            Отмена
+                            Отменить
                           </button>
                           <button
                             type="button"
@@ -2217,46 +2215,48 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                                 if (err instanceof DOMException && err.name === "AbortError") return
                                 setAccountActionError(err instanceof Error ? err.message : "Не удалось удалить счёт")
                               } finally {
-                                setShowDeleteConfirm(false)
+                                setIsConfirmingDelete(false)
                               }
                             }}
                             style={{
-                              flex: 1,
-                              padding: "12px 14px",
-                              borderRadius: 12,
+                              padding: "10px 14px",
+                              borderRadius: 10,
                               border: "1px solid #fee2e2",
                               background: "#fff",
                               color: "#b91c1c",
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: 700,
                               cursor: "pointer",
+                              whiteSpace: "nowrap",
                             }}
                           >
-                            Удалить
+                            Подтвердить
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAccountActionError(null)
-                          setShowDeleteConfirm(true)
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "12px 14px",
-                          borderRadius: 12,
-                          border: "1px solid #fee2e2",
-                          background: "#fff",
-                          color: "#b91c1c",
-                          fontSize: 14,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Удалить счёт
-                      </button>
+                      <div style={{ display: "flex", justifyContent: "center" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAccountActionError(null)
+                            setIsConfirmingDelete(true)
+                          }}
+                          style={{
+                            padding: "10px 14px",
+                            borderRadius: 10,
+                            border: "1px solid #fee2e2",
+                            background: "#fff",
+                            color: "#b91c1c",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Удалить
+                        </button>
+                      </div>
                     )
                   ) : null}
                   {accountActionError ? (
