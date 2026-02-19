@@ -62,6 +62,36 @@ export type CreateAccountBody = {
   balance?: number
 }
 
+export type UpdateAccountBody = Partial<CreateAccountBody>
+
+export async function updateAccount(token: string, id: string, body: UpdateAccountBody): Promise<ApiAccount> {
+  const res = await fetch(`https://babkin.onrender.com/api/v1/accounts/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to update account: ${res.status}`)
+  }
+  const data = (await res.json()) as { account: ApiAccount }
+  return data.account
+}
+
+export async function deleteAccount(token: string, id: string): Promise<void> {
+  const res = await fetch(`https://babkin.onrender.com/api/v1/accounts/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to delete account: ${res.status}`)
+  }
+}
+
 export async function createAccount(token: string, body: CreateAccountBody): Promise<ApiAccount> {
   const res = await fetch("https://babkin.onrender.com/api/v1/accounts", {
     method: "POST",

@@ -3,7 +3,7 @@ import { useAppStore } from "../store/useAppStore"
 import type { Transaction } from "../types/finance"
 import "./OverviewScreen.css"
 import { AppIcon, type IconName } from "../components/AppIcon"
-import { createAccount, getAccounts } from "../api/accounts"
+import { createAccount, getAccounts, updateAccount, deleteAccount } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
@@ -223,6 +223,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     currency,
   } = useAppStore()
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null)
   const [name, setName] = useState("")
   const [type, setType] = useState("cash")
   const [balance, setBalance] = useState("0")
@@ -453,12 +454,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   }, [])
 
   const closeDetails = useCallback(() => {
-    setDetailAccountId(null)
-    setDetailCategoryId(null)
-    setDetailTitle("")
-    setAccountSearch("")
-    setSearchFocused(false)
-    closeTxSheet()
+      setDetailAccountId(null)
+      setDetailCategoryId(null)
+      setDetailTitle("")
+      setAccountSearch("")
+      setSearchFocused(false)
+      closeTxSheet()
   }, [closeTxSheet])
 
   const handleDeleteTx = useCallback(async () => {
@@ -790,41 +791,39 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     return "sm" as const
   }
 
-  const handleCreateAccount = async () => {
+  const handleSaveAccount = async () => {
     const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-    if (!tokenLocal) {
-      alert("Нет токена")
-      return
-    }
-    if (!name.trim()) {
-      alert("Введите название")
-      return
-    }
+    if (!tokenLocal) return
+    if (!name.trim()) return
     const parsed = Number(balance.trim().replace(",", "."))
-    if (!Number.isFinite(parsed)) {
-      alert("Некорректная сумма")
-      return
-    }
+    if (!Number.isFinite(parsed)) return
     const balanceNumber = Math.round(parsed * 100) / 100
     try {
-      await createAccount(tokenLocal, {
-        name: name.trim(),
-        type: type || "cash",
-        currency: baseCurrency,
-        balance: balanceNumber,
-      })
-      const res = await getAccounts(tokenLocal)
-      const mapped = res.accounts.map((a) => ({
-        id: a.id,
-        name: a.name,
-        balance: { amount: a.balance, currency: a.currency },
-      }))
-      setAccounts(mapped)
+      if (editingAccountId) {
+        await updateAccount(tokenLocal, editingAccountId, {
+          name: name.trim(),
+          type: type || "cash",
+          currency: baseCurrency,
+          balance: balanceNumber,
+        })
+      } else {
+        await createAccount(tokenLocal, {
+          name: name.trim(),
+          type: type || "cash",
+          currency: baseCurrency,
+          balance: balanceNumber,
+        })
+      }
+      await refetchAccountsSeq()
+      await refetchTransactions()
       setIsAccountSheetOpen(false)
+      setEditingAccountId(null)
       setName("")
       setBalance("0")
+      setType("cash")
     } catch {
-      alert("Не удалось создать счёт")
+      setIsAccountSheetOpen(false)
+      setEditingAccountId(null)
     }
   }
 
@@ -1982,7 +1981,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
             </div>
             <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-              Новый счёт
+              {editingAccountId ? "Редактировать счёт" : "Новый счёт"}
             </div>
             <div style={{ display: "grid", gap: 12 }}>
               <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
@@ -2012,12 +2011,19 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                   value={balance}
                   onChange={(e) => setBalance(e.target.value)}
                   inputMode="decimal"
-                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                  style={{
+                    padding: 12,
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 14,
+                    background: editingAccountId ? "#f1f5f9" : "#fff",
+                  }}
+                  disabled={!!editingAccountId}
                 />
               </label>
               <button
                 type="button"
-                onClick={handleCreateAccount}
+                onClick={handleSaveAccount}
                 style={{
                   width: "100%",
                   padding: "12px 14px",
@@ -2030,8 +2036,41 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                   cursor: "pointer",
                 }}
               >
-                Создать
+                {editingAccountId ? "Сохранить" : "Создать"}
               </button>
+              {editingAccountId ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                    if (!tokenLocal || !editingAccountId) return
+                    try {
+                      await deleteAccount(tokenLocal, editingAccountId)
+                      await refetchAccountsSeq()
+                      await refetchTransactions()
+                    } finally {
+                      setIsAccountSheetOpen(false)
+                      setEditingAccountId(null)
+                      setName("")
+                      setBalance("0")
+                      setType("cash")
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #fee2e2",
+                    background: "#fff",
+                    color: "#b91c1c",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Удалить счёт
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
