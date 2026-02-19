@@ -1326,6 +1326,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
                   {categoryTx.map((tx) => {
+                    const displayAccountName = tx.accountName ?? accountNameById.get(tx.accountId) ?? "Счёт"
                     const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
                     return (
                       <div
@@ -1342,7 +1343,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                       >
                         <div style={{ display: "grid", gap: 2 }}>
                           <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
-                            {accountNameById.get(tx.accountId) ?? "Счёт"}
+                            {displayAccountName}
                           </div>
                           <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
                         </div>
