@@ -22,7 +22,7 @@ export type IncomeSource = {
   icon?: string
 }
 
-export type TransactionType = "income" | "expense" | "transfer" | "debt"
+export type TransactionType = "income" | "expense" | "transfer" | "debt" | "adjustment"
 
 export type Transaction = {
   id: string

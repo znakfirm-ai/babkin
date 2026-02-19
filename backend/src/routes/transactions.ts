@@ -7,7 +7,7 @@ import { env } from "../env"
 
 type TransactionResponse = {
   id: string
-  kind: "income" | "expense" | "transfer"
+  kind: "income" | "expense" | "transfer" | "adjustment"
   amount: number
   happenedAt: string
   note: string | null

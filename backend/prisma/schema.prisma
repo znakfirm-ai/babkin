@@ -23,6 +23,7 @@ enum TransactionKind {
   income
   expense
   transfer
+  adjustment
 }
 
 model income_sources {

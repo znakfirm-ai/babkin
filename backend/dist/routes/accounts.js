@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.accountsRoutes = accountsRoutes;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const client_1 = require("@prisma/client");
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
@@ -131,5 +132,61 @@ async function accountsRoutes(fastify, _opts) {
             return reply.status(404).send({ error: "Not Found" });
         }
         return reply.status(204).send();
+    });
+    fastify.post("/accounts/:id/adjust-balance", async (request, reply) => {
+        const userId = await resolveUserId(request, reply);
+        if (!userId)
+            return;
+        const user = await prisma_1.prisma.users.findUnique({
+            where: { id: userId },
+            select: { active_workspace_id: true },
+        });
+        if (!user?.active_workspace_id) {
+            return reply.status(400).send({ error: "No active workspace" });
+        }
+        const accountId = request.params?.id;
+        if (!accountId) {
+            return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" });
+        }
+        const body = request.body;
+        if (typeof body?.targetBalance !== "number" || Number.isNaN(body.targetBalance)) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_target_balance" });
+        }
+        const workspaceId = user.active_workspace_id;
+        const account = await prisma_1.prisma.accounts.findFirst({
+            where: { id: accountId, workspace_id: user.active_workspace_id, archived_at: null },
+            select: { balance: true },
+        });
+        if (!account) {
+            return reply.status(404).send({ error: "Not Found" });
+        }
+        const target = new client_1.Prisma.Decimal(body.targetBalance);
+        const current = new client_1.Prisma.Decimal(account.balance);
+        const diff = target.minus(current);
+        if (diff.equals(0)) {
+            return reply.send({ ok: true });
+        }
+        const absDiff = diff.abs();
+        const happenedAt = body.date ? new Date(body.date) : new Date();
+        if (Number.isNaN(happenedAt.getTime())) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_date" });
+        }
+        await prisma_1.prisma.$transaction(async (trx) => {
+            await trx.accounts.update({
+                where: { id: accountId },
+                data: { balance: { increment: diff } },
+            });
+            await trx.transactions.create({
+                data: {
+                    workspace_id: workspaceId,
+                    kind: "adjustment",
+                    amount: absDiff,
+                    happened_at: happenedAt,
+                    account_id: accountId,
+                    note: body.note ?? null,
+                },
+            });
+        });
+        return reply.send({ ok: true });
     });
 }
