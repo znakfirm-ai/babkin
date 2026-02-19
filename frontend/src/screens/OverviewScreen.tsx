@@ -278,6 +278,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [categoryIcon, setCategoryIcon] = useState<string | null>(null)
   const [isSavingCategory, setIsSavingCategory] = useState(false)
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
+  const [pendingCategoryEdit, setPendingCategoryEdit] = useState<{ id: string; title: string } | null>(null)
   const [incomeSourceSheetMode, setIncomeSourceSheetMode] = useState<"create" | "edit" | null>(null)
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState<string | null>(null)
   const [incomeSourceName, setIncomeSourceName] = useState("")
@@ -519,6 +520,13 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     },
     [categories],
   )
+
+  useEffect(() => {
+    if (!detailCategoryId && pendingCategoryEdit) {
+      openEditCategorySheet(pendingCategoryEdit.id, pendingCategoryEdit.title)
+      setPendingCategoryEdit(null)
+    }
+  }, [detailCategoryId, openEditCategorySheet, pendingCategoryEdit])
 
   const openTxActions = useCallback(
     (id: string) => {
@@ -1527,7 +1535,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     <button
                       type="button"
                       onClick={() => {
-                        if (detailCategoryId) openEditCategorySheet(detailCategoryId, detailTitle || "Категория")
+                        if (detailCategoryId) {
+                        setPendingCategoryEdit({ id: detailCategoryId, title: detailTitle || "Категория" })
+                        closeDetails()
+                      }
                       }}
                       style={{
                         padding: "12px 14px",
