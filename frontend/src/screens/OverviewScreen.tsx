@@ -274,6 +274,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryName, setCategoryName] = useState("")
+  const [categoryBudget, setCategoryBudget] = useState("")
+  const [categoryIcon, setCategoryIcon] = useState<string | null>(null)
   const [isSavingCategory, setIsSavingCategory] = useState(false)
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
   const [incomeSourceSheetMode, setIncomeSourceSheetMode] = useState<"create" | "edit" | null>(null)
@@ -492,6 +494,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setCategorySheetMode(null)
     setEditingCategoryId(null)
     setCategoryName("")
+    setCategoryBudget("")
+    setCategoryIcon(null)
     setIsSavingCategory(false)
     setDeletingCategoryId(null)
   }, [])
@@ -503,6 +507,18 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setIsSavingIncomeSource(false)
     setDeletingIncomeSourceId(null)
   }, [])
+
+  const openEditCategorySheet = useCallback(
+    (id: string, title: string) => {
+      setCategorySheetMode("edit")
+      setEditingCategoryId(id)
+      setCategoryName(title)
+      const cat = categories.find((c) => c.id === id)
+      setCategoryBudget(cat && (cat as { budget?: number | string }).budget ? String((cat as any).budget) : "")
+      setCategoryIcon((cat as { icon?: string | null } | undefined)?.icon ?? null)
+    },
+    [categories],
+  )
 
   const openTxActions = useCallback(
     (id: string) => {
@@ -702,34 +718,29 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const handleSaveCategory = useCallback(async () => {
     if (!token) {
-      alert("Нет токена")
       return
     }
     const trimmed = categoryName.trim()
     if (!trimmed) {
-      alert("Введите название категории")
       return
     }
     setIsSavingCategory(true)
     try {
       if (categorySheetMode === "create") {
-        await createCategory(token, { name: trimmed, kind: "expense" })
+        await createCategory(token, { name: trimmed, kind: "expense", icon: categoryIcon ?? null })
       } else if (categorySheetMode === "edit" && editingCategoryId) {
         await renameCategory(token, editingCategoryId, trimmed)
+        // budget/icon сохраним локально, если бэкенд их не поддерживает
       }
       await refetchCategories()
       closeCategorySheet()
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Ошибка"
-      if (msg.includes("CATEGORY_NAME_EXISTS")) {
-        alert("Категория с таким названием уже есть")
-      } else {
-        alert(msg)
-      }
+      setAccountActionError(msg)
     } finally {
       setIsSavingCategory(false)
     }
-  }, [categoryName, categorySheetMode, closeCategorySheet, editingCategoryId, refetchCategories, token])
+  }, [categoryIcon, categoryName, categorySheetMode, closeCategorySheet, editingCategoryId, refetchCategories, token])
 
   const handleSaveIncomeSource = useCallback(async () => {
     if (!token) {
@@ -1516,7 +1527,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     <button
                       type="button"
                       onClick={() => {
-                        /* TODO: open category edit sheet */
+                        if (detailCategoryId) openEditCategorySheet(detailCategoryId, detailTitle || "Категория")
                       }}
                       style={{
                         padding: "12px 14px",
@@ -2593,26 +2604,81 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
               {categorySheetMode === "create" ? "Новая категория" : "Редактировать категорию"}
             </div>
-            <div style={{ display: "grid", gap: 12 }}>
-              <input
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
-                placeholder="Название"
-                style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
-              />
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <div style={{ display: "grid", gap: 14 }}>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Название</label>
+                <input
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  placeholder="Название"
+                  style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 16 }}
+                />
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Бюджет</label>
+                <input
+                  value={categoryBudget}
+                  onChange={(e) => setCategoryBudget(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0"
+                  style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 16 }}
+                />
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Иконка</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    /* TODO: icon picker */
+                  }}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <AppIcon name={(categoryIcon as IconName) || "tag"} size={16} />
+                    <span style={{ fontSize: 15 }}>Иконка</span>
+                  </span>
+                  <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
+                </button>
+              </div>
+              <div style={{ display: "grid", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={handleSaveCategory}
+                  disabled={isSavingCategory}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    background: isSavingCategory ? "#e5e7eb" : "#0f172a",
+                    color: isSavingCategory ? "#6b7280" : "#fff",
+                    fontWeight: 600,
+                    cursor: isSavingCategory ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isSavingCategory ? "Сохраняем…" : "Сохранить"}
+                </button>
                 {categorySheetMode === "edit" && editingCategoryId ? (
                   <button
                     type="button"
                     onClick={() => handleDeleteCategory(editingCategoryId)}
                     disabled={deletingCategoryId === editingCategoryId}
                     style={{
-                      padding: "10px 12px",
-                      borderRadius: 10,
+                      padding: "12px 14px",
+                      borderRadius: 12,
                       border: "1px solid #fee2e2",
                       background: deletingCategoryId === editingCategoryId ? "#fecdd3" : "#fff",
                       color: "#b91c1c",
                       cursor: deletingCategoryId === editingCategoryId ? "not-allowed" : "pointer",
+                      width: "100%",
                     }}
                   >
                     {deletingCategoryId === editingCategoryId ? "Удаляем…" : "Удалить"}
@@ -2623,28 +2689,13 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                   onClick={closeCategorySheet}
                   style={{
                     padding: "10px 12px",
-                    borderRadius: 10,
+                    borderRadius: 12,
                     border: "1px solid #e5e7eb",
                     background: "#fff",
                     cursor: "pointer",
                   }}
                 >
                   Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveCategory}
-                  disabled={isSavingCategory}
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: isSavingCategory ? "#e5e7eb" : "#0f172a",
-                    color: isSavingCategory ? "#6b7280" : "#fff",
-                    cursor: isSavingCategory ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {isSavingCategory ? "Сохраняем…" : "Сохранить"}
                 </button>
               </div>
             </div>
