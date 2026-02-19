@@ -109,6 +109,7 @@ model accounts {
   type         String
   currency     String
   balance      Decimal  @default(0)
+  is_archived  Boolean  @default(false)
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 

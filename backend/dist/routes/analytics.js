@@ -1,0 +1,167 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.analyticsRoutes = analyticsRoutes;
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const client_1 = require("@prisma/client");
+const prisma_1 = require("../db/prisma");
+const telegramAuth_1 = require("../middleware/telegramAuth");
+const env_1 = require("../env");
+const unauthorized = async (reply, reason) => {
+    await reply.status(401).send({ error: "Unauthorized", reason });
+    return null;
+};
+async function resolveUserId(request, reply) {
+    const authHeader = request.headers.authorization;
+    let userId = null;
+    let reason = null;
+    if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.slice("Bearer ".length);
+        try {
+            const payload = jsonwebtoken_1.default.verify(token, env_1.env.JWT_SECRET);
+            userId = payload.sub;
+        }
+        catch {
+            reason = "invalid_jwt";
+            return unauthorized(reply, reason);
+        }
+    }
+    if (!userId) {
+        const initDataRaw = request.headers[telegramAuth_1.TELEGRAM_INITDATA_HEADER];
+        const hasInitData = Boolean(initDataRaw && initDataRaw.length > 0);
+        const authDate = (() => {
+            const params = initDataRaw ? new URLSearchParams(initDataRaw) : null;
+            const ad = params?.get("auth_date");
+            return ad ? Number(ad) : undefined;
+        })();
+        if (!env_1.env.BOT_TOKEN) {
+            reason = "missing_bot_token";
+            request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason });
+            return unauthorized(reply, reason);
+        }
+        const auth = await (0, telegramAuth_1.validateInitData)(initDataRaw);
+        if (!auth) {
+            reason = hasInitData ? "invalid_initdata" : "missing_initdata";
+            request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason });
+            return unauthorized(reply, reason);
+        }
+        userId = auth.userId;
+    }
+    return userId;
+}
+async function analyticsRoutes(fastify, _opts) {
+    fastify.get("/analytics/summary", async (request, reply) => {
+        const userId = await resolveUserId(request, reply);
+        if (!userId)
+            return;
+        const user = await prisma_1.prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } });
+        if (!user?.active_workspace_id) {
+            return reply.status(400).send({ error: "No active workspace" });
+        }
+        const { from, to } = request.query;
+        if (!from || !to) {
+            return reply.status(400).send({ error: "Bad Request", reason: "missing_dates" });
+        }
+        const fromDate = new Date(`${from}T00:00:00.000Z`);
+        const toDateStart = new Date(`${to}T00:00:00.000Z`);
+        const toExclusive = new Date(toDateStart.getTime() + 24 * 60 * 60 * 1000);
+        if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDateStart.getTime())) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_dates" });
+        }
+        if (fromDate > toDateStart) {
+            return reply.status(400).send({ error: "Bad Request", reason: "from_after_to" });
+        }
+        const activeAccounts = await prisma_1.prisma.accounts.findMany({
+            where: { workspace_id: user.active_workspace_id, is_archived: false },
+            select: { id: true },
+        });
+        const activeAccountIds = activeAccounts.map((a) => a.id);
+        const [incomeAgg, expenseAgg] = await Promise.all([
+            prisma_1.prisma.transactions.aggregate({
+                _sum: { amount: true },
+                where: {
+                    workspace_id: user.active_workspace_id,
+                    kind: "income",
+                    happened_at: { gte: fromDate, lt: toExclusive },
+                    account_id: { in: activeAccountIds },
+                },
+            }),
+            prisma_1.prisma.transactions.aggregate({
+                _sum: { amount: true },
+                where: {
+                    workspace_id: user.active_workspace_id,
+                    kind: "expense",
+                    happened_at: { gte: fromDate, lt: toExclusive },
+                    account_id: { in: activeAccountIds },
+                },
+            }),
+        ]);
+        const incomeSum = incomeAgg._sum.amount ?? new client_1.Prisma.Decimal(0);
+        const expenseSum = expenseAgg._sum.amount ?? new client_1.Prisma.Decimal(0);
+        const net = incomeSum.minus(expenseSum);
+        return reply.send({
+            totalIncome: incomeSum.toFixed(2),
+            totalExpense: expenseSum.toFixed(2),
+            net: net.toFixed(2),
+        });
+    });
+    fastify.get("/analytics/expenses-by-category", async (request, reply) => {
+        const userId = await resolveUserId(request, reply);
+        if (!userId)
+            return;
+        const user = await prisma_1.prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } });
+        if (!user?.active_workspace_id) {
+            return reply.status(400).send({ error: "No active workspace" });
+        }
+        const { from, to, top } = request.query;
+        if (!from || !to) {
+            return reply.status(400).send({ error: "Bad Request", reason: "missing_dates" });
+        }
+        const fromDate = new Date(`${from}T00:00:00.000Z`);
+        const toDateStart = new Date(`${to}T00:00:00.000Z`);
+        const toExclusive = new Date(toDateStart.getTime() + 24 * 60 * 60 * 1000);
+        if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDateStart.getTime())) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_dates" });
+        }
+        if (fromDate > toDateStart) {
+            return reply.status(400).send({ error: "Bad Request", reason: "from_after_to" });
+        }
+        const topN = Math.min(Math.max(Number(top) || 4, 1), 10);
+        const grouped = await prisma_1.prisma.transactions.groupBy({
+            by: ["category_id"],
+            where: {
+                workspace_id: user.active_workspace_id,
+                kind: "expense",
+                happened_at: { gte: fromDate, lt: toExclusive },
+            },
+            _sum: { amount: true },
+            orderBy: { _sum: { amount: "desc" } },
+        });
+        const totalExpenseDec = grouped.reduce((acc, g) => acc.plus(g._sum.amount ?? new client_1.Prisma.Decimal(0)), new client_1.Prisma.Decimal(0));
+        const topGroups = grouped.slice(0, topN);
+        const otherGroups = grouped.slice(topN);
+        const categoryIds = topGroups
+            .map((g) => g.category_id)
+            .filter((id) => Boolean(id));
+        const names = await prisma_1.prisma.categories.findMany({
+            where: { id: { in: categoryIds } },
+            select: { id: true, name: true },
+        });
+        const nameMap = new Map(names.map((c) => [c.id, c.name]));
+        const topPayload = topGroups
+            .filter((g) => g.category_id)
+            .map((g) => ({
+            categoryId: g.category_id,
+            name: nameMap.get(g.category_id) ?? "Без категории",
+            total: (g._sum.amount ?? new client_1.Prisma.Decimal(0)).toFixed(2),
+        }));
+        const otherTotalDec = otherGroups.reduce((acc, g) => acc.plus(g._sum.amount ?? new client_1.Prisma.Decimal(0)), new client_1.Prisma.Decimal(0));
+        return reply.send({
+            top: topPayload,
+            otherTotal: otherTotalDec.toFixed(2),
+            totalExpense: totalExpenseDec.toFixed(2),
+        });
+    });
+}

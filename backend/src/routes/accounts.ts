@@ -73,7 +73,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
     }
 
     const accounts = await prisma.accounts.findMany({
-      where: { workspace_id: user.active_workspace_id },
+      where: { workspace_id: user.active_workspace_id, is_archived: false },
     })
 
     const payload: { accounts: AccountResponse[] } = {
@@ -132,5 +132,35 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
     }
 
     return reply.send({ account })
+  })
+
+  fastify.delete("/accounts/:id", async (request, reply) => {
+    const userId = await resolveUserId(request, reply)
+    if (!userId) return
+
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { active_workspace_id: true },
+    })
+
+    if (!user?.active_workspace_id) {
+      return reply.status(400).send({ error: "No active workspace" })
+    }
+
+    const accountId = (request.params as { id?: string })?.id
+    if (!accountId) {
+      return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" })
+    }
+
+    const updated = await prisma.accounts.updateMany({
+      where: { id: accountId, workspace_id: user.active_workspace_id },
+      data: { is_archived: true },
+    })
+
+    if (updated.count === 0) {
+      return reply.status(404).send({ error: "Not Found" })
+    }
+
+    return reply.status(204).send()
   })
 }
