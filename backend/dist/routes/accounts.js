@@ -62,7 +62,7 @@ async function accountsRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "No active workspace" });
         }
         const accounts = await prisma_1.prisma.accounts.findMany({
-            where: { workspace_id: user.active_workspace_id, is_archived: false },
+            where: { workspace_id: user.active_workspace_id, archived_at: null },
         });
         const payload = {
             accounts: accounts.map((a) => ({
@@ -125,7 +125,7 @@ async function accountsRoutes(fastify, _opts) {
         }
         const updated = await prisma_1.prisma.accounts.updateMany({
             where: { id: accountId, workspace_id: user.active_workspace_id },
-            data: { is_archived: true },
+            data: { is_archived: true, archived_at: new Date() },
         });
         if (updated.count === 0) {
             return reply.status(404).send({ error: "Not Found" });

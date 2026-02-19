@@ -73,7 +73,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
     }
 
     const accounts = await prisma.accounts.findMany({
-      where: { workspace_id: user.active_workspace_id, is_archived: false },
+      where: { workspace_id: user.active_workspace_id, archived_at: null },
     })
 
     const payload: { accounts: AccountResponse[] } = {
@@ -154,7 +154,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
 
     const updated = await prisma.accounts.updateMany({
       where: { id: accountId, workspace_id: user.active_workspace_id },
-      data: { is_archived: true },
+      data: { is_archived: true, archived_at: new Date() },
     })
 
     if (updated.count === 0) {

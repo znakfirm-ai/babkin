@@ -5,9 +5,12 @@ export type TransactionDto = {
   happenedAt: string
   note?: string | null
   accountId?: string | null
+  accountName?: string | null
   categoryId?: string | null
   fromAccountId?: string | null
+  fromAccountName?: string | null
   toAccountId?: string | null
+  toAccountName?: string | null
   incomeSourceId?: string | null
 }
 

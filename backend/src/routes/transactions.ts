@@ -12,9 +12,12 @@ type TransactionResponse = {
   happenedAt: string
   note: string | null
   accountId: string | null
+  accountName?: string | null
   categoryId: string | null
   fromAccountId: string | null
+  fromAccountName?: string | null
   toAccountId: string | null
+  toAccountName?: string | null
   incomeSourceId: string | null
 }
 
@@ -72,9 +75,12 @@ function mapTx(tx: any): TransactionResponse {
     happenedAt: tx.happened_at.toISOString(),
     note: tx.note ?? null,
     accountId: tx.account_id ?? null,
+    accountName: tx.account?.name ?? null,
     categoryId: tx.category_id ?? null,
     fromAccountId: tx.from_account_id ?? null,
+    fromAccountName: tx.from_account?.name ?? null,
     toAccountId: tx.to_account_id ?? null,
+    toAccountName: tx.to_account?.name ?? null,
     incomeSourceId: tx.income_source_id ?? null,
   }
 }
@@ -92,6 +98,11 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
     const txs = await prisma.transactions.findMany({
       where: { workspace_id: user.active_workspace_id },
       orderBy: { happened_at: "desc" },
+      include: {
+        account: { select: { id: true, name: true } },
+        from_account: { select: { id: true, name: true } },
+        to_account: { select: { id: true, name: true } },
+      },
     })
 
     const payload = { transactions: txs.map(mapTx) }

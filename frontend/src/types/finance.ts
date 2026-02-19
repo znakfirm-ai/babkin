@@ -29,9 +29,13 @@ export type Transaction = {
   type: TransactionType
   date: string // ISO (YYYY-MM-DD)
   amount: Money
+  accountName?: string | null
+  fromAccountName?: string | null
+  toAccountName?: string | null
 
   // для income/expense/debt:
   accountId: string
+  fromAccountId?: string
   categoryId?: string
   incomeSourceId?: string
 

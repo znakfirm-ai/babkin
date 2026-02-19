@@ -79,12 +79,6 @@ export async function analyticsRoutes(fastify: FastifyInstance, _opts: FastifyPl
       return reply.status(400).send({ error: "Bad Request", reason: "from_after_to" })
     }
 
-    const activeAccounts = await prisma.accounts.findMany({
-      where: { workspace_id: user.active_workspace_id, is_archived: false },
-      select: { id: true },
-    })
-    const activeAccountIds = activeAccounts.map((a) => a.id)
-
     const [incomeAgg, expenseAgg] = await Promise.all([
       prisma.transactions.aggregate({
         _sum: { amount: true },
@@ -92,7 +86,6 @@ export async function analyticsRoutes(fastify: FastifyInstance, _opts: FastifyPl
           workspace_id: user.active_workspace_id,
           kind: "income",
           happened_at: { gte: fromDate, lt: toExclusive },
-          account_id: { in: activeAccountIds },
         },
       }),
       prisma.transactions.aggregate({
@@ -101,7 +94,6 @@ export async function analyticsRoutes(fastify: FastifyInstance, _opts: FastifyPl
           workspace_id: user.active_workspace_id,
           kind: "expense",
           happened_at: { gte: fromDate, lt: toExclusive },
-          account_id: { in: activeAccountIds },
         },
       }),
     ])

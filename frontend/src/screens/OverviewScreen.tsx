@@ -917,8 +917,13 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const accountNameById = useMemo(() => {
     const map = new Map<string, string>()
     accounts.forEach((a) => map.set(a.id, a.name))
+    transactions.forEach((t) => {
+      if (t.accountId && t.accountName && !map.has(t.accountId)) map.set(t.accountId, t.accountName)
+      if (t.fromAccountId && t.fromAccountName && !map.has(t.fromAccountId)) map.set(t.fromAccountId, t.fromAccountName)
+      if (t.toAccountId && t.toAccountName && !map.has(t.toAccountId)) map.set(t.toAccountId, t.toAccountName)
+    })
     return map
-  }, [accounts])
+  }, [accounts, transactions])
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>()
     categories.forEach((c) => map.set(c.id, c.name))
