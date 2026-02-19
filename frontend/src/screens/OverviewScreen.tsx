@@ -1000,7 +1000,13 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
         items={[...accountsToRender, addCard("accounts")]}
         rowScroll
         rowClass="overview-accounts-row"
-        onAddAccounts={() => setIsAccountSheetOpen(true)}
+        onAddAccounts={() => {
+          setEditingAccountId(null)
+          setName("")
+          setBalance("0")
+          setType("cash")
+          setIsAccountSheetOpen(true)
+        }}
         onAccountClick={(id, title) => {
           setDetailAccountId(id)
           setDetailTitle(title || "Счёт")
@@ -1981,7 +1987,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
             </div>
             <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-              {editingAccountId ? "Редактировать счёт" : "Новый счёт"}
+              {editingAccountId ? "Редактировать счёт" : "Создание счёта"}
             </div>
             <div style={{ display: "grid", gap: 12 }}>
               <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
@@ -1989,24 +1995,26 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Например, Кошелёк"
-                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                  placeholder="Введите название"
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16, outline: "none", boxShadow: "none" }}
                 />
               </label>
+              {editingAccountId ? (
+                <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                  Тип
+                  <select
+                    value={type}
+                    onChange={(e) => setType(e.target.value)}
+                    style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+                  >
+                    <option value="cash">Наличные</option>
+                    <option value="card">Карта</option>
+                    <option value="bank">Банк</option>
+                  </select>
+                </label>
+              ) : null}
               <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                Тип
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
-                >
-                  <option value="cash">Наличные</option>
-                  <option value="card">Карта</option>
-                  <option value="bank">Банк</option>
-                </select>
-              </label>
-              <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                Баланс
+                Стартовый баланс
                 <input
                   value={balance}
                   onChange={(e) => setBalance(e.target.value)}
@@ -2015,8 +2023,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     padding: 12,
                     borderRadius: 10,
                     border: "1px solid #e5e7eb",
-                    fontSize: 14,
+                    fontSize: 16,
                     background: editingAccountId ? "#f1f5f9" : "#fff",
+                    outline: "none",
+                    boxShadow: "none",
                   }}
                   disabled={!!editingAccountId}
                 />
