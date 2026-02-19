@@ -240,6 +240,7 @@ function App() {
             id: a.id,
             name: a.name,
             balance: { amount: a.balance, currency: a.currency },
+            color: a.color ?? undefined,
           }))
         )
 
@@ -304,6 +305,7 @@ function App() {
           id: a.id,
           name: a.name,
           balance: { amount: a.balance, currency: a.currency },
+          color: a.color ?? undefined,
         }))
       )
 

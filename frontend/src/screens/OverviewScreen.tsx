@@ -202,7 +202,7 @@ const Section: React.FC<{
                 ? {
                     background: item.color,
                     color: item.textColor ?? "#0f172a",
-                    border: "1px solid rgba(0,0,0,0.05)",
+                    border: "1px solid rgba(0,0,0,0.08)",
                   }
                 : undefined
             }
@@ -227,13 +227,17 @@ const Section: React.FC<{
               style={
                 item.isAdd
                   ? undefined
-                  : { background: "rgba(15, 23, 42, 0.05)", color: "rgba(15, 23, 42, 0.85)" }
+                  : { background: item.type === "account" && !item.isAdd ? "rgba(255,255,255,0.2)" : "rgba(15, 23, 42, 0.05)", color: item.textColor ?? "rgba(15, 23, 42, 0.85)", opacity: item.type === "account" && !item.isAdd ? 1 : 0.75 }
               }
             >
               <AppIcon name={item.icon as IconName} size={16} />
             </div>
             <div className="tile-card__title">{item.title}</div>
-            {!item.isAdd && <div className="tile-card__amount">{formatMoney(item.amount, baseCurrency)}</div>}
+            {!item.isAdd && (
+              <div className="tile-card__amount" style={item.type === "account" ? { color: item.textColor ?? "#0f172a" } : undefined}>
+                {formatMoney(item.amount, baseCurrency)}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -431,6 +435,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       id: a.id,
       name: a.name,
       balance: { amount: a.balance, currency: a.currency },
+      color: a.color ?? undefined,
     }))
     setAccounts(mapped)
   }, [setAccounts, token])

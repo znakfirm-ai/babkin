@@ -4,6 +4,7 @@ export type ApiAccount = {
   type: string
   currency: string
   balance: number
+  color?: string | null
 }
 
 export type GetAccountsResponse = {
