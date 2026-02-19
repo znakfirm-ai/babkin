@@ -2114,22 +2114,21 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                  {editingAccountId ? "Баланс" : "Стартовый баланс"}
-                  <input
-                    value={balance}
-                    onChange={(e) => setBalance(e.target.value)}
-                    inputMode="decimal"
-                    style={{
+                      {editingAccountId ? "Баланс" : "Стартовый баланс"}
+                      <input
+                        value={balance}
+                        onChange={(e) => setBalance(e.target.value)}
+                        inputMode="decimal"
+                        style={{
                           padding: 12,
                           borderRadius: 10,
                           border: "1px solid #e5e7eb",
                           fontSize: 16,
-                          background: "#f1f5f9",
+                          background: editingAccountId ? "#fff" : "#f1f5f9",
                           outline: "none",
                           boxShadow: "none",
                           color: "#0f172a",
                         }}
-                        disabled
                       />
                     </label>
                   </div>
