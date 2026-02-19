@@ -1380,7 +1380,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             ) : null}
 
             {txMode === "delete" ? (
-              <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gap: 12 }}>
                 <div style={{ fontSize: 16, fontWeight: 600 }}>Удалить операцию?</div>
                 {txError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{txError}</div> : null}
                 <div style={{ display: "flex", gap: 10 }}>
@@ -1716,10 +1716,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           >
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-                justifyItems: "center",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 14,
                 position: "relative",
               }}
               onClick={() => setOpenPicker(null)}
@@ -1808,10 +1808,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     key={side}
                     style={{
                       display: "grid",
-                      gap: 6,
+                      gap: 8,
                       justifyItems: "center",
                       position: "relative",
                       width: "48%",
+                      alignItems: "center",
                     }}
                   >
                     <div
@@ -1826,11 +1827,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     >
                       {side === "from" ? "Начало периода" : "Конец периода"}
                     </div>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                       <div style={{ position: "relative" }}>
                         <button
                           type="button"
-                          style={pillStyle}
+                          style={{ ...pillStyle, padding: "10px 10px" }}
                           onClick={(e) => {
                             e.stopPropagation()
                             setOpenPicker({ side, part: "day" })
@@ -1843,20 +1844,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                       <div style={{ position: "relative" }}>
                         <button
                           type="button"
-                          style={pillStyle}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setOpenPicker({ side, part: "month" })
-                          }}
-                        >
-                          {MONTH_NAMES[m - 1]}
-                        </button>
-                        {popoverFor("month")}
-                      </div>
-                      <div style={{ position: "relative" }}>
-                        <button
-                          type="button"
-                          style={pillStyle}
+                          style={{ ...pillStyle, padding: "10px 10px" }}
                           onClick={(e) => {
                             e.stopPropagation()
                             setOpenPicker({ side, part: "year" })
@@ -1865,6 +1853,21 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                           {y}
                         </button>
                         {popoverFor("year")}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          style={{ ...pillStyle, padding: "10px 12px", minWidth: 96 }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOpenPicker({ side, part: "month" })
+                          }}
+                        >
+                          {MONTH_NAMES[m - 1]}
+                        </button>
+                        {popoverFor("month")}
                       </div>
                     </div>
                   </div>
