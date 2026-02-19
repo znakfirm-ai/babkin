@@ -968,9 +968,9 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 Закрыть
               </button>
             </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "grid", gap: 10 }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
               {detailAccountId ? (
-                <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
                 <label style={{ display: "grid", gap: 6 }}>
                   <input
                     value={accountSearch}
@@ -1028,25 +1028,26 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     background: "#fff",
                     padding: 12,
                     boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
-                    display: "grid",
+                    display: "flex",
+                    flexDirection: "column",
                     gap: 10,
                     overflow: "hidden",
+                    flex: 1,
+                    minHeight: 0,
                   }}
                 >
-                  {(() => {
-                    const hasAccountTx = groupedAccountTx.length > 0
-                    return (
-                      <div
-                        style={{
-                          maxHeight: hasAccountTx ? (searchFocused || accountSearch ? "58vh" : "48vh") : undefined,
-                          overflowY: hasAccountTx ? "auto" : "visible",
-                          paddingRight: hasAccountTx ? 2 : 0,
-                        }}
-                      >
-                        {!hasAccountTx ? (
-                          <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций за период</div>
-                        ) : (
-                          groupedAccountTx.map((group) => {
+                  <div
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflowY: "auto",
+                      paddingRight: 2,
+                    }}
+                  >
+                    {groupedAccountTx.length === 0 ? (
+                      <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций за период</div>
+                    ) : (
+                      groupedAccountTx.map((group) => {
                         const dayExpense = group.items
                           .filter((tx) => tx.type === "expense" /* expense (расход) */)
                           .reduce((sum, tx) => sum + tx.amount.amount, 0)
@@ -1121,17 +1122,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                                     </button>
                                   </div>
                                 </div>
-                          )
-                        })}
+                              )
+                            })}
                           </div>
-                        )
-                      })
                     )}
-                      </div>
-                    )
-                  })()}
+                  </div>
                 </div>
-
               </div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
