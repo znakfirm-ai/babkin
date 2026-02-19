@@ -245,7 +245,7 @@ function App() {
         )
 
         const catData = await getCategories(token)
-        setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon })))
+        setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null })))
 
         const incData = await getIncomeSources(token)
         setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name })))
@@ -310,7 +310,7 @@ function App() {
       )
 
       const catData = await getCategories(appToken)
-      setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon })))
+      setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null })))
 
       const incData = await getIncomeSources(appToken)
       setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name })))

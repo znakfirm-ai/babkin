@@ -3,6 +3,7 @@ export type CategoryDto = {
   name: string
   kind: "income" | "expense"
   icon: string | null
+  budget?: number | null
 }
 
 export type GetCategoriesResponse = {
@@ -26,6 +27,7 @@ export type CreateCategoryBody = {
   name: string
   kind: "income" | "expense"
   icon?: string | null
+  budget?: number | null
 }
 
 export async function createCategory(token: string, body: CreateCategoryBody): Promise<CategoryDto> {
@@ -44,14 +46,14 @@ export async function createCategory(token: string, body: CreateCategoryBody): P
   return data.category
 }
 
-export async function renameCategory(token: string, id: string, name: string): Promise<CategoryDto> {
+export async function renameCategory(token: string, id: string, name: string, payload?: { icon?: string | null; budget?: number | null }): Promise<CategoryDto> {
   const res = await fetch(`https://babkin.onrender.com/api/v1/categories/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, icon: payload?.icon, budget: payload?.budget }),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => "")

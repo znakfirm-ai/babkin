@@ -21,6 +21,7 @@ type CategoryResponse = {
   name: string
   kind: "income" | "expense"
   icon: string | null
+  budget?: number | null
   is_archived?: boolean | null
 }
 
@@ -86,6 +87,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
 
     const existing = await prisma.categories.findMany({
       where: { workspace_id: workspaceId },
+      select: { id: true, name: true, kind: true, icon: true, budget: true },
     })
 
     if (existing.length === 0) {
@@ -102,7 +104,10 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
 
     const categories = existing.length
       ? existing
-      : await prisma.categories.findMany({ where: { workspace_id: workspaceId } })
+      : await prisma.categories.findMany({
+          where: { workspace_id: workspaceId },
+          select: { id: true, name: true, kind: true, icon: true, budget: true },
+        })
 
     const payload: { categories: CategoryResponse[] } = {
       categories: categories.map((c) => ({
@@ -110,7 +115,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
         name: c.name,
         kind: c.kind,
         icon: c.icon,
-        is_archived: (c as { is_archived?: boolean })?.is_archived ?? null,
+        budget: c.budget ? Number(c.budget) : null,
       })),
     }
 
@@ -126,7 +131,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       return reply.status(400).send({ error: "No active workspace" })
     }
 
-    const body = request.body as { name?: string; kind?: "income" | "expense"; icon?: string | null }
+    const body = request.body as { name?: string; kind?: "income" | "expense"; icon?: string | null; budget?: number | null }
 
     const name = body?.name?.trim()
     const kind = body?.kind
@@ -141,6 +146,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
         name,
         kind,
         icon: body?.icon ?? null,
+        budget: body?.budget ?? null,
       },
     })
 
@@ -149,6 +155,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       name: created.name,
       kind: created.kind,
       icon: created.icon,
+      budget: created.budget ? Number(created.budget) : null,
     }
 
     return reply.send({ category })
@@ -168,7 +175,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       return reply.status(400).send({ error: "Bad Request", reason: "missing_id" })
     }
 
-    const body = request.body as { name?: string }
+    const body = request.body as { name?: string; icon?: string | null; budget?: number | null }
     const name = body?.name?.trim()
     if (!name) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
@@ -194,7 +201,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
 
     const updated = await prisma.categories.update({
       where: { id: categoryId },
-      data: { name },
+      data: { name, icon: body.icon ?? undefined, budget: body.budget ?? undefined },
     })
 
     const category: CategoryResponse = {
@@ -202,6 +209,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       name: updated.name,
       kind: updated.kind,
       icon: updated.icon,
+      budget: updated.budget ? Number(updated.budget) : null,
     }
 
     return reply.send({ category })

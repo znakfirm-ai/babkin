@@ -23,6 +23,8 @@ type CardItem = {
   isAdd?: boolean
   type?: TileType
   size?: TileSize
+  budget?: number | null
+  budgetTone?: "normal" | "warn" | "alert"
 }
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"]
@@ -235,8 +237,35 @@ const Section: React.FC<{
             </div>
             <div className="tile-card__title">{item.title}</div>
             {!item.isAdd && (
-              <div className="tile-card__amount" style={item.type === "account" ? { color: item.textColor ?? "#0f172a" } : undefined}>
+              <div
+                className="tile-card__amount"
+                style={
+                  item.type === "account"
+                    ? { color: item.textColor ?? "#0f172a" }
+                    : item.type === "category" && item.budgetTone === "alert"
+                    ? { color: "#b91c1c" }
+                    : item.type === "category" && item.budgetTone === "warn"
+                    ? { color: "#d97706" }
+                    : undefined
+                }
+              >
                 {formatMoney(item.amount, baseCurrency)}
+                {item.type === "category" && item.budget != null ? (
+                  <div
+                    style={{
+                      marginTop: 2,
+                      fontSize: 11,
+                      color:
+                        item.budgetTone === "alert"
+                          ? "#b91c1c"
+                          : item.budgetTone === "warn"
+                          ? "#d97706"
+                          : "#6b7280",
+                    }}
+                  >
+                    Бюджет: {formatMoney(item.budget, baseCurrency)}
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
@@ -422,7 +451,13 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const refetchCategories = useCallback(async () => {
     if (!token) return
     const data = await getCategories(token)
-    const mapped = data.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon }))
+    const mapped = data.categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.kind,
+      icon: c.icon,
+      budget: c.budget ?? null,
+    }))
     setCategories(mapped)
   }, [setCategories, token])
 
@@ -732,13 +767,20 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     if (!trimmed) {
       return
     }
+    const budgetNumber = (() => {
+      const raw = categoryBudget.trim()
+      if (!raw) return null
+      const normalized = raw.replace(",", ".")
+      const num = Number(normalized)
+      if (!Number.isFinite(num) || num < 0) return null
+      return Math.round(num * 100) / 100
+    })()
     setIsSavingCategory(true)
     try {
       if (categorySheetMode === "create") {
-        await createCategory(token, { name: trimmed, kind: "expense", icon: categoryIcon ?? null })
+        await createCategory(token, { name: trimmed, kind: "expense", icon: categoryIcon ?? null, budget: budgetNumber })
       } else if (categorySheetMode === "edit" && editingCategoryId) {
-        await renameCategory(token, editingCategoryId, trimmed)
-        // budget/icon сохраним локально, если бэкенд их не поддерживает
+        await renameCategory(token, editingCategoryId, trimmed, { icon: categoryIcon ?? null, budget: budgetNumber })
       }
       await refetchCategories()
       closeCategorySheet()
@@ -748,7 +790,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     } finally {
       setIsSavingCategory(false)
     }
-  }, [categoryIcon, categoryName, categorySheetMode, closeCategorySheet, editingCategoryId, refetchCategories, token])
+  }, [categoryBudget, categoryIcon, categoryName, categorySheetMode, closeCategorySheet, editingCategoryId, refetchCategories, token])
 
   const handleSaveIncomeSource = useCallback(async () => {
     if (!token) {
@@ -872,15 +914,27 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const incomeToRender = [...incomeItems]
 
   const expenseItems: CardItem[] = expenseCategories
-    .map((cat, idx) => ({
-      id: cat.id,
-      title: cat.name,
-      amount: expenseByCategory.get(cat.id) ?? 0,
-      icon: "tag",
-      color: cardColors[(idx + 2) % cardColors.length],
-      type: "category" as const,
-      size: "md" as const,
-    }))
+    .map((cat, idx) => {
+      const spent = expenseByCategory.get(cat.id) ?? 0
+      const budget = (cat as { budget?: number | null }).budget ?? null
+      let tone: CardItem["budgetTone"] = "normal"
+      if (budget && budget > 0) {
+        const ratio = spent / budget
+        if (ratio > 1) tone = "alert"
+        else if (ratio > 0.7) tone = "warn"
+      }
+      return {
+        id: cat.id,
+        title: cat.name,
+        amount: spent,
+        icon: "tag",
+        color: cardColors[(idx + 2) % cardColors.length],
+        type: "category" as const,
+        size: "md" as const,
+        budget,
+        budgetTone: tone,
+      }
+    })
     .sort((a, b) => b.amount - a.amount)
 
   const uncategorizedExpense = expenseByCategory.get("uncategorized")
@@ -1207,10 +1261,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: 620,
+              maxWidth: 520,
+              margin: "0 auto",
               background: "#fff",
               borderRadius: 18,
-              padding: 12,
+              padding: 16,
               position: "absolute",
               left: 16,
               right: 16,
@@ -2597,7 +2652,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           <div
             style={{
               width: "100%",
-              maxWidth: 540,
+              maxWidth: 520,
+              margin: "0 auto",
               background: "#fff",
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,

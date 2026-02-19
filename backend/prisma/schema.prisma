@@ -130,6 +130,7 @@ model categories {
   name         String
   kind         CategoryKind
   icon         String?
+  budget       Decimal? @db.Decimal(18, 2)
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 

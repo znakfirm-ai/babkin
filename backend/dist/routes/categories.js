@@ -73,6 +73,7 @@ async function categoriesRoutes(fastify, _opts) {
         const workspaceId = user.active_workspace_id;
         const existing = await prisma_1.prisma.categories.findMany({
             where: { workspace_id: workspaceId },
+            select: { id: true, name: true, kind: true, icon: true, budget: true },
         });
         if (existing.length === 0) {
             await prisma_1.prisma.categories.createMany({
@@ -87,14 +88,17 @@ async function categoriesRoutes(fastify, _opts) {
         }
         const categories = existing.length
             ? existing
-            : await prisma_1.prisma.categories.findMany({ where: { workspace_id: workspaceId } });
+            : await prisma_1.prisma.categories.findMany({
+                where: { workspace_id: workspaceId },
+                select: { id: true, name: true, kind: true, icon: true, budget: true },
+            });
         const payload = {
             categories: categories.map((c) => ({
                 id: c.id,
                 name: c.name,
                 kind: c.kind,
                 icon: c.icon,
-                is_archived: c?.is_archived ?? null,
+                budget: c.budget ? Number(c.budget) : null,
             })),
         };
         return reply.send(payload);
@@ -119,6 +123,7 @@ async function categoriesRoutes(fastify, _opts) {
                 name,
                 kind,
                 icon: body?.icon ?? null,
+                budget: body?.budget ?? null,
             },
         });
         const category = {
@@ -126,6 +131,7 @@ async function categoriesRoutes(fastify, _opts) {
             name: created.name,
             kind: created.kind,
             icon: created.icon,
+            budget: created.budget ? Number(created.budget) : null,
         };
         return reply.send({ category });
     });
@@ -164,13 +170,14 @@ async function categoriesRoutes(fastify, _opts) {
         }
         const updated = await prisma_1.prisma.categories.update({
             where: { id: categoryId },
-            data: { name },
+            data: { name, icon: body.icon ?? undefined, budget: body.budget ?? undefined },
         });
         const category = {
             id: updated.id,
             name: updated.name,
             kind: updated.kind,
             icon: updated.icon,
+            budget: updated.budget ? Number(updated.budget) : null,
         };
         return reply.send({ category });
     });

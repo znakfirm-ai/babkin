@@ -15,6 +15,7 @@ export type Category = {
   name: string
   type: "income" | "expense"
   icon?: string | null
+  budget?: number | null
 }
 
 export type IncomeSource = {
