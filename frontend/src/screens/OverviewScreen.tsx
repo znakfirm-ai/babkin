@@ -1348,20 +1348,19 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "100%",
-              maxWidth: 560,
+              width: "auto",
               background: "#fff",
               borderRadius: 18,
-              padding: 16,
-              maxHeight:
-                "min(70vh, calc(100vh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px))",
-              overflowY: "auto",
+              padding: "16px 20px",
               boxShadow: "none",
+              display: "inline-flex",
+              flexDirection: "column",
+              alignItems: "center",
             }}
           >
             {txMode === "actions" ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center", width: "100%" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
                   <button
                     type="button"
                     onClick={() => setTxMode("edit")}
