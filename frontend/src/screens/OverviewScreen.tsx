@@ -244,6 +244,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [type, setType] = useState("cash")
   const [balance, setBalance] = useState("0")
   const [accountColor, setAccountColor] = useState(accountColorOptions[0])
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryName, setCategoryName] = useState("")
@@ -293,6 +294,32 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setAccountPeriodType("custom")
     setIsCustomSheetOpen(false)
   }, [customFromDraft, customToDraft])
+
+  const openEditAccountSheet = useCallback(
+    (accountId: string) => {
+      const acc = accounts.find((a) => a.id === accountId)
+      setEditingAccountId(accountId)
+      setName(acc?.name ?? "")
+      setBalance(acc ? String(acc.balance.amount) : "0")
+      const accType = (acc as { type?: string } | undefined)?.type ?? "cash"
+      setType(accType)
+      const accClr = (acc as { color?: string } | undefined)?.color ?? accountColorOptions[0]
+      setAccountColor(accClr)
+      setShowDeleteConfirm(false)
+      setIsAccountSheetOpen(true)
+    },
+    [accounts],
+  )
+
+  const closeAccountSheet = useCallback(() => {
+    setIsAccountSheetOpen(false)
+    setEditingAccountId(null)
+    setShowDeleteConfirm(false)
+    setName("")
+    setBalance("0")
+    setType("cash")
+    setAccountColor(accountColorOptions[0])
+  }, [])
 
   const { incomeSum, expenseSum, incomeBySource, expenseByCategory } = useMemo(() => {
     let income = 0
@@ -833,14 +860,9 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       }
       await refetchAccountsSeq()
       await refetchTransactions()
-      setIsAccountSheetOpen(false)
-      setEditingAccountId(null)
-      setName("")
-      setBalance("0")
-      setType("cash")
+      closeAccountSheet()
     } catch {
-      setIsAccountSheetOpen(false)
-      setEditingAccountId(null)
+      closeAccountSheet()
     }
   }
 
@@ -1023,6 +1045,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           setBalance("0")
           setType("cash")
           setAccountColor(accountColorOptions[0])
+          setShowDeleteConfirm(false)
           setIsAccountSheetOpen(true)
         }}
         onAccountClick={(id, title) => {
@@ -1343,7 +1366,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                   marginTop: 12,
                   marginBottom: 12,
                 }}
-                onClick={() => setIsAccountSheetOpen(true)}
+                onClick={() => {
+                  if (detailAccountId) {
+                    openEditAccountSheet(detailAccountId)
+                  }
+                }}
               >
                 Редактировать счет
               </button>
@@ -1984,7 +2011,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             justifyContent: "center",
             zIndex: 40,
           }}
-          onClick={() => setIsAccountSheetOpen(false)}
+          onClick={closeAccountSheet}
         >
           <div
             style={{
@@ -2085,45 +2112,43 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                   />
                 </label>
               </div>
-              {!editingAccountId ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      overflowX: "auto",
-                      paddingBottom: 4,
-                      WebkitOverflowScrolling: "touch",
-                    }}
-                  >
-                    {accountColorOptions.map((clr) => (
-                      <button
-                        key={clr}
-                        type="button"
-                        onClick={() => setAccountColor(clr)}
-                        style={{
-                          width: 34,
-                          height: 34,
-                          minWidth: 34,
-                          borderRadius: "50%",
-                          border: clr === accountColor ? "2px solid #0f172a" : "1px solid #e5e7eb",
-                          background: clr,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#fff",
-                          boxShadow: "none",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {clr === accountColor ? "✓" : ""}
-                      </button>
-                    ))}
-                  </div>
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    overflowX: "auto",
+                    paddingBottom: 4,
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  {accountColorOptions.map((clr) => (
+                    <button
+                      key={clr}
+                      type="button"
+                      onClick={() => setAccountColor(clr)}
+                      style={{
+                        width: 34,
+                        height: 34,
+                        minWidth: 34,
+                        borderRadius: "50%",
+                        border: clr === accountColor ? "2px solid #0f172a" : "1px solid #e5e7eb",
+                        background: clr,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        boxShadow: "none",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {clr === accountColor ? "✓" : ""}
+                    </button>
+                  ))}
                 </div>
-              ) : null}
+              </div>
               <button
                 type="button"
                 onClick={handleSaveAccount}
@@ -2142,37 +2167,78 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 {editingAccountId ? "Сохранить" : "Создать"}
               </button>
               {editingAccountId ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-                    if (!tokenLocal || !editingAccountId) return
-                    try {
-                      await deleteAccount(tokenLocal, editingAccountId)
-                      await refetchAccountsSeq()
-                      await refetchTransactions()
-                    } finally {
-                      setIsAccountSheetOpen(false)
-                      setEditingAccountId(null)
-                      setName("")
-                      setBalance("0")
-                      setType("cash")
-                    }
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "12px 14px",
-                    borderRadius: 12,
-                    border: "1px solid #fee2e2",
-                    background: "#fff",
-                    color: "#b91c1c",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Удалить счёт
-                </button>
+                showDeleteConfirm ? (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <div style={{ fontSize: 14, color: "#b91c1c", textAlign: "center", fontWeight: 600 }}>
+                      Подтвердите удаление
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        style={{
+                          flex: 1,
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          border: "1px solid #e5e7eb",
+                          background: "#fff",
+                          color: "#0f172a",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                          if (!tokenLocal || !editingAccountId) return
+                          try {
+                            await deleteAccount(tokenLocal, editingAccountId)
+                            await refetchAccountsSeq()
+                            await refetchTransactions()
+                            closeAccountSheet()
+                          } finally {
+                            setShowDeleteConfirm(false)
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          border: "1px solid #fee2e2",
+                          background: "#fff",
+                          color: "#b91c1c",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Удалить
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #fee2e2",
+                      background: "#fff",
+                      color: "#b91c1c",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Удалить счёт
+                  </button>
+                )
               ) : null}
             </div>
           </div>
