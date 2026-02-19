@@ -1804,11 +1804,29 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 }
 
                 return (
-                  <div key={side} style={{ display: "grid", gap: 6, justifyItems: "center", position: "relative" }}>
-                    <div style={{ fontSize: 12.5, color: "#4b5563" }}>
+                  <div
+                    key={side}
+                    style={{
+                      display: "grid",
+                      gap: 6,
+                      justifyItems: "center",
+                      position: "relative",
+                      width: "48%",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: "#4b5563",
+                        textAlign: "center",
+                        whiteSpace: "nowrap",
+                        opacity: 0.7,
+                      }}
+                    >
                       {side === "from" ? "Начало периода" : "Конец периода"}
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                       <div style={{ position: "relative" }}>
                         <button
                           type="button"
