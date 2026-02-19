@@ -953,9 +953,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     return map
   }, [incomeSources])
 
+  const displayTransactions = useMemo(() => transactions.filter((t) => t.type !== "adjustment"), [transactions])
+
   const accountTx = useMemo(() => {
     if (!detailAccountId) return []
-    return transactions
+    return displayTransactions
       .filter(
         (t) =>
           t.accountId === detailAccountId ||
@@ -963,14 +965,14 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           (t.type === "transfer" && t.accountId === detailAccountId)
       )
       .sort((a, b) => (a.date < b.date ? 1 : -1))
-  }, [detailAccountId, transactions])
+  }, [detailAccountId, displayTransactions])
 
   const categoryTx = useMemo(() => {
     if (!detailCategoryId) return []
-    return transactions
+    return displayTransactions
       .filter((t) => t.type === "expense" && t.categoryId === detailCategoryId)
       .sort((a, b) => (a.date < b.date ? 1 : -1))
-  }, [detailCategoryId, transactions])
+  }, [detailCategoryId, displayTransactions])
 
   const accountPeriod = useMemo(() => {
     const now = new Date()
