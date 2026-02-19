@@ -95,7 +95,7 @@ const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRi
           overflowY: "auto",
           background: "#fff",
           borderRadius: 12,
-          boxShadow: "0 10px 24px rgba(0,0,0,0.14)",
+          boxShadow: "none",
           border: "1px solid #e5e7eb",
         }}
       >
@@ -1059,7 +1059,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 24px)",
               maxHeight:
                 "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-              boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+              boxShadow: "none",
               display: "flex",
               flexDirection: "column",
               gap: 12,
@@ -1094,7 +1094,16 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                       if (!accountSearch) setSearchFocused(false)
                     }}
                     placeholder="Поиск по названию или сумме"
-                    style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 15 }}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 15,
+                      outline: "none",
+                      boxShadow: "none",
+                      WebkitAppearance: "none",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
                   />
                 </label>
 
@@ -1141,7 +1150,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     borderRadius: 18,
                     background: "#fff",
                     padding: 12,
-                    boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+                    boxShadow: "none",
                     display: "flex",
                     flexDirection: "column",
                     gap: 10,
@@ -1225,11 +1234,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                                         setTxMode("actions")
                                       }}
                                       style={{
-                                        padding: "4px 8px",
-                                        borderRadius: 8,
-                                        border: "1px solid #e5e7eb",
-                                        background: "#fff",
+                                        padding: "4px 6px",
+                                        border: "none",
+                                        background: "transparent",
                                         cursor: "pointer",
+                                        fontSize: 16,
+                                        lineHeight: 1,
                                       }}
                                     >
                                       ✎
@@ -1343,7 +1353,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               maxHeight:
                 "min(70vh, calc(100vh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px))",
               overflowY: "auto",
-              boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+              boxShadow: "none",
             }}
           >
             {txMode === "actions" ? (
@@ -1632,7 +1642,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               background: "#fff",
               borderRadius: 16,
               padding: 12,
-              boxShadow: "0 10px 24px rgba(0,0,0,0.14)",
+              boxShadow: "none",
               display: "grid",
               gap: 8,
             }}
@@ -1722,7 +1732,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               background: "#fff",
               borderRadius: 18,
               padding: 16,
-              boxShadow: "0 10px 24px rgba(0,0,0,0.14)",
+              boxShadow: "none",
               display: "grid",
               gap: 12,
             }}
@@ -1942,7 +1952,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               padding: "16px 16px 20px",
-              boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+              boxShadow: "none",
               maxHeight: "70vh",
               overflowY: "auto",
               paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
@@ -2032,7 +2042,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               padding: 16,
-              boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+              boxShadow: "none",
               maxHeight: "70vh",
               overflowY: "auto",
               paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
@@ -2128,7 +2138,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               padding: 16,
-              boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+              boxShadow: "none",
               maxHeight: "70vh",
               overflowY: "auto",
               paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
