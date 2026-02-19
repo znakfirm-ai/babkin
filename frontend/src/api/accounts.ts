@@ -81,6 +81,22 @@ export async function updateAccount(token: string, id: string, body: UpdateAccou
   return data.account
 }
 
+export async function adjustAccountBalance(token: string, id: string, targetBalance: number, note?: string, date?: string) {
+  const res = await fetch(`https://babkin.onrender.com/api/v1/accounts/${id}/adjust-balance`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ targetBalance, note, date }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`Failed to adjust balance: ${res.status} ${res.statusText} ${text}`)
+  }
+  return res.json().catch(() => ({}))
+}
+
 export async function deleteAccount(token: string, id: string): Promise<void> {
   const res = await fetch(`https://babkin.onrender.com/api/v1/accounts/${id}`, {
     method: "DELETE",

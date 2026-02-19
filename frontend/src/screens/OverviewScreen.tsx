@@ -3,7 +3,7 @@ import { useAppStore } from "../store/useAppStore"
 import type { Transaction } from "../types/finance"
 import "./OverviewScreen.css"
 import { AppIcon, type IconName } from "../components/AppIcon"
-import { createAccount, getAccounts, updateAccount, deleteAccount } from "../api/accounts"
+import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccountBalance } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
@@ -322,7 +322,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setName("")
     setBalance("0")
     setType("cash")
-    setAccountColor(accountColorOptions[0])
+      setAccountColor(accountColorOptions[0])
   }, [])
 
   const { incomeSum, expenseSum, incomeBySource, expenseByCategory } = useMemo(() => {
@@ -860,13 +860,23 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     const balanceNumber = Math.round(parsed * 100) / 100
     try {
       setAccountActionError(null)
+      const currentAccount = accounts.find((a) => a.id === editingAccountId)
+      const currentBalance = currentAccount?.balance.amount
+      const balanceChanged =
+        typeof currentBalance === "number" ? Math.round(currentBalance * 100) / 100 !== balanceNumber : false
+      const needUpdateAccount = editingAccountId ? name.trim() !== currentAccount?.name : false
+
       if (editingAccountId) {
-        await updateAccount(tokenLocal, editingAccountId, {
-          name: name.trim(),
-          type: type || "cash",
-          currency: baseCurrency,
-          balance: balanceNumber,
-        })
+        if (needUpdateAccount) {
+          await updateAccount(tokenLocal, editingAccountId, {
+            name: name.trim(),
+            type: type || "cash",
+            currency: baseCurrency,
+          })
+        }
+        if (balanceChanged) {
+          await adjustAccountBalance(tokenLocal, editingAccountId, balanceNumber)
+        }
       } else {
         await createAccount(tokenLocal, {
           name: name.trim(),
@@ -2104,12 +2114,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                      Стартовый баланс
-                      <input
-                        value={balance}
-                        onChange={(e) => setBalance(e.target.value)}
-                        inputMode="decimal"
-                        style={{
+                  {editingAccountId ? "Баланс" : "Стартовый баланс"}
+                  <input
+                    value={balance}
+                    onChange={(e) => setBalance(e.target.value)}
+                    inputMode="decimal"
+                    style={{
                           padding: 12,
                           borderRadius: 10,
                           border: "1px solid #e5e7eb",
@@ -2334,9 +2344,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                           boxShadow: "none",
                           color: "#0f172a",
                         }}
-                        disabled={!!editingAccountId}
-                      />
-                    </label>
+                  />
+                </label>
                   </div>
                   <div style={{ display: "grid", gap: 10 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>
