@@ -25,7 +25,6 @@ type CardItem = {
 }
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"]
-const canDeleteAccount = false
 const accountColorOptions = [
   "#2563eb", // blue
   "#38bdf8", // sky
@@ -2176,7 +2175,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                   >
                     Сохранить
                   </button>
-                  {editingAccountId && canDeleteAccount ? (
+                  {editingAccountId ? (
                     showDeleteConfirm ? (
                       <div style={{ display: "grid", gap: 8 }}>
                         <div style={{ fontSize: 14, color: "#b91c1c", textAlign: "center", fontWeight: 600 }}>
@@ -2259,9 +2258,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                         Удалить счёт
                       </button>
                     )
-                  ) : null}
-                  {editingAccountId && !canDeleteAccount ? (
-                    <div style={{ color: "#6b7280", fontSize: 13, textAlign: "center" }}>Удаление пока недоступно</div>
                   ) : null}
                   {accountActionError ? (
                     <div style={{ color: "#b91c1c", fontSize: 13, textAlign: "center" }}>{accountActionError}</div>
