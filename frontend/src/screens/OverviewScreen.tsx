@@ -1360,48 +1360,65 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             }}
           >
             {txMode === "actions" ? (
-              <div style={{ display: "grid", gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => setTxMode("edit")}
-                  disabled={txLoading}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    cursor: txLoading ? "not-allowed" : "pointer",
-                  }}
-                >
-                  Редактировать
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTxMode("delete")}
-                  disabled={txLoading}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #fee2e2",
-                    background: "#fff",
-                    color: "#b91c1c",
-                    cursor: txLoading ? "not-allowed" : "pointer",
-                  }}
-                >
-                  Удалить
-                </button>
-                <button
-                  type="button"
-                  onClick={closeTxSheet}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                  }}
-                >
-                  Отмена
-                </button>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center", width: "100%" }}>
+                  <button
+                    type="button"
+                    onClick={() => setTxMode("edit")}
+                    disabled={txLoading}
+                    style={{
+                      display: "inline-flex",
+                      justifyContent: "center",
+                      padding: "12px 18px",
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      cursor: txLoading ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap",
+                      width: "auto",
+                      minWidth: "140px",
+                    }}
+                  >
+                    Редактировать
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTxMode("delete")}
+                    disabled={txLoading}
+                    style={{
+                      display: "inline-flex",
+                      justifyContent: "center",
+                      padding: "12px 18px",
+                      borderRadius: 12,
+                      border: "1px solid #fee2e2",
+                      background: "#fff",
+                      color: "#b91c1c",
+                      cursor: txLoading ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap",
+                      minWidth: "140px",
+                      width: "auto",
+                    }}
+                  >
+                    Удалить
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeTxSheet}
+                    style={{
+                      display: "inline-flex",
+                      justifyContent: "center",
+                      padding: "12px 18px",
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      whiteSpace: "nowrap",
+                      minWidth: "140px",
+                      width: "auto",
+                    }}
+                  >
+                    Отмена
+                  </button>
+                </div>
               </div>
             ) : null}
 
