@@ -7,6 +7,7 @@ export type Account = {
   id: string
   name: string
   balance: Money
+  color?: string
 }
 
 export type Category = {

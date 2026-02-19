@@ -19,6 +19,7 @@ type CardItem = {
   amount: number
   icon: string
   color: string
+  textColor?: string
   isAdd?: boolean
   type?: TileType
   size?: TileSize
@@ -148,6 +149,16 @@ const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRi
 
 const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag
 
+const pickTextColor = (hex: string) => {
+  const raw = hex.replace("#", "")
+  if (raw.length !== 6) return "#0f172a"
+  const r = parseInt(raw.slice(0, 2), 16)
+  const g = parseInt(raw.slice(2, 4), 16)
+  const b = parseInt(raw.slice(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.55 ? "#0f172a" : "#fff"
+}
+
 const Section: React.FC<{
   title: string
   items: CardItem[]
@@ -186,6 +197,15 @@ const Section: React.FC<{
             } tile--${item.size ?? "md"}`}
             role={item.isAdd ? "button" : "button"}
             tabIndex={0}
+            style={
+              item.type === "account" && !item.isAdd
+                ? {
+                    background: item.color,
+                    color: item.textColor ?? "#0f172a",
+                    border: "1px solid rgba(0,0,0,0.05)",
+                  }
+                : undefined
+            }
             onClick={() => {
               if (item.isAdd && item.id === "add-accounts") onAddAccounts?.()
               if (item.isAdd && item.id === "add-category") onAddCategory?.()
@@ -795,15 +815,20 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     [closeIncomeSourceSheet, refetchIncomeSources, token]
   )
 
-  const accountItems: CardItem[] = accounts.map((account, idx) => ({
-    id: account.id,
-    title: account.name,
-    amount: account.balance.amount,
-    icon: idx % 2 === 0 ? "wallet" : "card",
-    color: cardColors[idx % cardColors.length],
-    type: "account" as const,
-    size: "lg",
-  }))
+  const accountItems: CardItem[] = accounts.map((account, idx) => {
+    const bg = account.color ?? cardColors[idx % cardColors.length]
+    const txt = pickTextColor(bg)
+    return {
+      id: account.id,
+      title: account.name,
+      amount: account.balance.amount,
+      icon: idx % 2 === 0 ? "wallet" : "card",
+      color: bg,
+      textColor: txt,
+      type: "account" as const,
+      size: "lg",
+    }
+  })
 
   const accountsToRender = accountItems
 
