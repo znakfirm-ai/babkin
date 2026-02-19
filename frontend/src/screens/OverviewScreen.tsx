@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
 import type { Transaction } from "../types/finance"
 import "./OverviewScreen.css"
@@ -145,7 +145,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [accountPeriodType, setAccountPeriodType] = useState<"day" | "week" | "month" | "year" | "custom">("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
-  const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
+  const fromDateInputRef = useRef<HTMLInputElement | null>(null)
+  const toDateInputRef = useRef<HTMLInputElement | null>(null)
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
@@ -161,6 +162,46 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
   const currentMonthTag = getCurrentMonthTag()
+
+  const openDatePicker = useCallback((ref: { current: HTMLInputElement | null }) => {
+    const el = ref.current
+    if (!el) return
+    const show = (el as HTMLInputElement & { showPicker?: () => void }).showPicker
+    if (typeof show === "function") {
+      show.call(el)
+    } else {
+      el.click()
+    }
+  }, [])
+
+  const startCustomRangeSelection = useCallback(() => {
+    setCustomFrom("")
+    setCustomTo("")
+    requestAnimationFrame(() => openDatePicker(fromDateInputRef))
+  }, [openDatePicker])
+
+  const handleCustomFromChange = useCallback(
+    (value: string) => {
+      setCustomFrom(value)
+      requestAnimationFrame(() => openDatePicker(toDateInputRef))
+    },
+    [openDatePicker]
+  )
+
+  const handleCustomToChange = useCallback(
+    (value: string) => {
+      if (!value) return
+      let newFrom = customFrom || value
+      let newTo = value
+      if (newFrom && newTo && new Date(newFrom) > new Date(newTo)) {
+        ;[newFrom, newTo] = [newTo, newFrom]
+      }
+      setCustomFrom(newFrom)
+      setCustomTo(newTo)
+      setAccountPeriodType("custom")
+    },
+    [customFrom]
+  )
 
   const { incomeSum, expenseSum, incomeBySource, expenseByCategory } = useMemo(() => {
     let income = 0
@@ -1494,101 +1535,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
         </div>
       ) : null}
 
-      {isCustomSheetOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setIsCustomSheetOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 62,
-            padding: "12px",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 560,
-              background: "#fff",
-              borderRadius: 18,
-              padding: 16,
-              boxShadow: "0 10px 24px rgba(0,0,0,0.14)",
-              display: "grid",
-              gap: 12,
-              maxHeight: "60vh",
-              overflowY: "auto",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>Свой период</div>
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 13, color: "#4b5563" }}>С</span>
-              <input
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb" }}
-              />
-            </label>
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 13, color: "#4b5563" }}>По</span>
-              <input
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb" }}
-              />
-            </label>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setIsCustomSheetOpen(false)}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                }}
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (customFrom && customTo) {
-                    setAccountPeriodType("custom")
-                    setIsCustomSheetOpen(false)
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #0f172a",
-                  background: "#0f172a",
-                  color: "#fff",
-                  fontWeight: 700,
-                  cursor: customFrom && customTo ? "pointer" : "not-allowed",
-                  opacity: customFrom && customTo ? 1 : 0.6,
-                }}
-                disabled={!customFrom || !customTo}
-              >
-                Применить
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {isPeriodMenuOpen ? (
         <div
           role="dialog"
@@ -1646,7 +1592,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               onClick={() => {
                 setAccountPeriodType("custom")
                 setIsPeriodMenuOpen(false)
-                setIsCustomSheetOpen(true)
+                startCustomRangeSelection()
               }}
               style={{
                 padding: "10px 12px",
@@ -1677,6 +1623,21 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           </div>
         </div>
       ) : null}
+
+      <input
+        type="date"
+        ref={fromDateInputRef}
+        value={customFrom}
+        onChange={(e) => handleCustomFromChange(e.target.value)}
+        style={{ position: "fixed", opacity: 0, width: 0, height: 0, pointerEvents: "none" }}
+      />
+      <input
+        type="date"
+        ref={toDateInputRef}
+        value={customTo}
+        onChange={(e) => handleCustomToChange(e.target.value)}
+        style={{ position: "fixed", opacity: 0, width: 0, height: 0, pointerEvents: "none" }}
+      />
 
       {isAccountSheetOpen ? (
         <div
