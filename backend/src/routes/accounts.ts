@@ -73,7 +73,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
     }
 
     const accounts = await prisma.accounts.findMany({
-      where: { workspace_id: user.active_workspace_id, archived_at: null },
+      where: { workspace_id: user.active_workspace_id, archived_at: null, is_archived: false },
     })
 
     const payload: { accounts: AccountResponse[] } = {

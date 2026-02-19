@@ -62,7 +62,7 @@ async function accountsRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "No active workspace" });
         }
         const accounts = await prisma_1.prisma.accounts.findMany({
-            where: { workspace_id: user.active_workspace_id, archived_at: null },
+            where: { workspace_id: user.active_workspace_id, archived_at: null, is_archived: false },
         });
         const payload = {
             accounts: accounts.map((a) => ({
