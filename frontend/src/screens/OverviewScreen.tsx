@@ -2016,24 +2016,28 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             inset: 0,
             background: "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "flex-end",
+            alignItems: editingAccountId ? "center" : "flex-end",
             justifyContent: "center",
             zIndex: 40,
+            padding: editingAccountId ? 24 : 0,
           }}
           onClick={closeAccountSheet}
         >
           <div
             style={{
               width: "100%",
-              maxWidth: 540,
+              maxWidth: editingAccountId ? 420 : 540,
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              padding: "16px 16px 20px",
+              borderRadius: editingAccountId ? 20 : undefined,
+              borderTopLeftRadius: editingAccountId ? undefined : 16,
+              borderTopRightRadius: editingAccountId ? undefined : 16,
+              padding: editingAccountId ? "18px 18px 20px" : "16px 16px 20px",
               boxShadow: "none",
-              maxHeight: "70vh",
+              maxHeight: editingAccountId ? "85vh" : "70vh",
               overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              paddingBottom: editingAccountId
+                ? "calc(env(safe-area-inset-bottom, 0px) + 12px)"
+                : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
