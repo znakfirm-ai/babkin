@@ -2025,7 +2025,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             alignItems: editingAccountId ? "center" : "flex-end",
             justifyContent: "center",
             zIndex: 40,
-            padding: editingAccountId ? 24 : 0,
+            paddingTop: editingAccountId ? 40 : 0,
+            paddingLeft: editingAccountId ? 24 : 0,
+            paddingRight: editingAccountId ? 24 : 0,
+            paddingBottom: editingAccountId ? "calc(40px + env(safe-area-inset-bottom, 0px))" : 0,
           }}
           onClick={closeAccountSheet}
         >
@@ -2039,7 +2042,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               borderTopRightRadius: editingAccountId ? undefined : 16,
               padding: editingAccountId ? "18px 18px 20px" : "16px 16px 20px",
               boxShadow: "none",
-              maxHeight: editingAccountId ? "85vh" : "70vh",
+              maxHeight: editingAccountId ? "calc(100vh - 80px)" : "70vh",
               overflowY: "auto",
               paddingBottom: editingAccountId
                 ? "calc(env(safe-area-inset-bottom, 0px) + 12px)"
