@@ -504,6 +504,27 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setDeletingIncomeSourceId(null)
   }, [])
 
+  const openTxActions = useCallback(
+    (id: string) => {
+      setTxError(null)
+      setTxLoading(false)
+      setTxActionId(id)
+      setTxMode("actions")
+      const tx = transactions.find((t) => t.id === id)
+      if (tx) {
+        setEditKind((tx.type as TxKind) ?? "expense")
+        setEditAmount(String(tx.amount.amount))
+        setEditAccountId(tx.accountId)
+        setEditToAccountId(tx.toAccountId ?? "")
+        setEditCategoryId(tx.categoryId ?? "")
+        setEditIncomeSourceId(tx.incomeSourceId ?? "")
+        setEditDate(tx.date.slice(0, 10))
+        setEditNote(tx.comment ?? "")
+      }
+    },
+    [transactions]
+  )
+
   const closeTxSheet = useCallback(() => {
     setTxMode("none")
     setTxActionId(null)
@@ -1325,14 +1346,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                                     background: "#f8fafc",
                                     border: "1px solid rgba(226,232,240,0.7)",
                                     marginTop: idx === 0 ? 0 : 6,
-                                    gap: 10,
-                                  }}
-                                  onClick={() => {
-                                    setTxActionId(tx.id)
-                                    setTxMode("actions")
-                                  }}
-                                >
-                                  <div style={{ display: "grid", gap: 2 }}>
+                              gap: 10,
+                            }}
+                            onClick={() => openTxActions(tx.id)}
+                          >
+                            <div style={{ display: "grid", gap: 2 }}>
                                     <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>
                                       {tx.type === "income"
                                         ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
@@ -1350,8 +1368,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        setTxActionId(tx.id)
-                                        setTxMode("actions")
+                                        openTxActions(tx.id)
                                       }}
                                       style={{
                                         padding: "4px 6px",
@@ -1470,7 +1487,9 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                                 border: "1px solid rgba(226,232,240,0.7)",
                                 background: "#f8fafc",
                                 marginBottom: 6,
+                                cursor: "pointer",
                               }}
+                              onClick={() => openTxActions(tx.id)}
                             >
                               <div style={{ display: "grid", gap: 2 }}>
                                 <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
@@ -1480,6 +1499,23 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                               </div>
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <div style={{ fontWeight: 600, color: "#b91c1c", fontSize: 14 }}>{amountText}</div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    openTxActions(tx.id)
+                                  }}
+                                  style={{
+                                    padding: "4px 6px",
+                                    border: "none",
+                                    background: "transparent",
+                                    cursor: "pointer",
+                                    fontSize: 16,
+                                    lineHeight: 1,
+                                  }}
+                                >
+                                  ✎
+                                </button>
                               </div>
                             </div>
                           )
