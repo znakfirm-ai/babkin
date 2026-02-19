@@ -456,7 +456,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setDetailAccountId(null)
     setDetailCategoryId(null)
     setDetailTitle("")
-  }, [])
+    setAccountSearch("")
+    setSearchFocused(false)
+    closeTxSheet()
+  }, [closeTxSheet])
 
   const handleDeleteTx = useCallback(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
