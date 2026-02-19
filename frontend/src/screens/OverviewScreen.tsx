@@ -26,6 +26,7 @@ type CardItem = {
 }
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"]
+const DEFAULT_ACCOUNT_COLOR = "#EEF2F7"
 const accountColorOptions = [
   "#2563eb", // blue
   "#38bdf8", // sky
@@ -821,7 +822,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   )
 
   const accountItems: CardItem[] = accounts.map((account, idx) => {
-    const bg = account.color ?? cardColors[idx % cardColors.length]
+    const bg = account.color ?? DEFAULT_ACCOUNT_COLOR
     const txt = pickTextColor(bg)
     return {
       id: account.id,
@@ -894,7 +895,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       const currentBalance = currentAccount?.balance.amount
       const balanceChanged =
         typeof currentBalance === "number" ? Math.round(currentBalance * 100) / 100 !== balanceNumber : false
-      const needUpdateAccount = editingAccountId ? name.trim() !== currentAccount?.name : false
+      const needUpdateAccount =
+        editingAccountId && (name.trim() !== currentAccount?.name || accountColor !== (currentAccount as { color?: string })?.color)
 
       if (editingAccountId) {
         if (needUpdateAccount) {
@@ -902,6 +904,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
             name: name.trim(),
             type: type || "cash",
             currency: baseCurrency,
+            color: accountColor,
           })
         }
         if (balanceChanged) {
@@ -913,6 +916,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
           type: type || "cash",
           currency: baseCurrency,
           balance: balanceNumber,
+          color: accountColor,
         })
       }
       await refetchAccountsSeq()

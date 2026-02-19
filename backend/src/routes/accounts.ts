@@ -11,6 +11,7 @@ type AccountResponse = {
   type: string
   currency: string
   balance: number
+  color: string | null
 }
 
 export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -75,6 +76,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
 
     const accounts = await prisma.accounts.findMany({
       where: { workspace_id: user.active_workspace_id, archived_at: null, is_archived: false },
+      select: { id: true, name: true, type: true, currency: true, balance: true, color: true },
     })
 
     const payload: { accounts: AccountResponse[] } = {
@@ -84,6 +86,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
         type: a.type,
         currency: a.currency,
         balance: Number(a.balance),
+        color: a.color,
       })),
     }
 
@@ -108,6 +111,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       type?: string
       currency?: string
       balance?: number
+      color?: string | null
     }
 
     if (!body?.name || !body.type || !body.currency) {
@@ -121,6 +125,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
         type: body.type,
         currency: body.currency,
         balance: body.balance ?? 0,
+        color: body.color ?? null,
       },
     })
 
@@ -130,9 +135,65 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       type: created.type,
       currency: created.currency,
       balance: Number(created.balance),
+      color: created.color,
     }
 
     return reply.send({ account })
+  })
+
+  fastify.patch("/accounts/:id", async (request, reply) => {
+    const userId = await resolveUserId(request, reply)
+    if (!userId) return
+
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { active_workspace_id: true },
+    })
+
+    if (!user?.active_workspace_id) {
+      return reply.status(400).send({ error: "No active workspace" })
+    }
+
+    const accountId = (request.params as { id?: string })?.id
+    if (!accountId) {
+      return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" })
+    }
+
+    const body = request.body as { name?: string; type?: string; currency?: string; color?: string | null }
+
+    const updated = await prisma.accounts.updateMany({
+      where: { id: accountId, workspace_id: user.active_workspace_id },
+      data: {
+        name: body?.name ?? undefined,
+        type: body?.type ?? undefined,
+        currency: body?.currency ?? undefined,
+        color: body?.color !== undefined ? body.color : undefined,
+      },
+    })
+
+    if (updated.count === 0) {
+      return reply.status(404).send({ error: "Not Found" })
+    }
+
+    const account = await prisma.accounts.findUnique({
+      where: { id: accountId },
+      select: { id: true, name: true, type: true, currency: true, balance: true, color: true },
+    })
+
+    if (!account) return reply.status(404).send({ error: "Not Found" })
+
+    const payload: { account: AccountResponse } = {
+      account: {
+        id: account.id,
+        name: account.name,
+        type: account.type,
+        currency: account.currency,
+        balance: Number(account.balance),
+        color: account.color,
+      },
+    }
+
+    return reply.send(payload)
   })
 
   fastify.delete("/accounts/:id", async (request, reply) => {
