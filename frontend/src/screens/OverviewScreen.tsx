@@ -1895,31 +1895,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 )
               })}
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomFromDraft(customFrom)
-                  setCustomToDraft(customTo)
-                  setIsCustomSheetOpen(false)
-                }}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  fontWeight: 600,
-                  color: "#0f172a",
-                }}
-              >
-                Отмена
-              </button>
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
               <button
                 type="button"
                 onClick={applyCustomRange}
                 style={{
-                  flex: 1,
+                  width: "68%",
                   padding: 12,
                   borderRadius: 12,
                   border: "1px solid #0f172a",
