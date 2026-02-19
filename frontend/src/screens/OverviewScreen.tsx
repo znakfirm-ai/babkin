@@ -32,7 +32,20 @@ const getCurrentMonthTag = () => {
   return `${now.getFullYear()}-${month}`
 }
 
-const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
+const MONTH_NAMES = [
+  "январь",
+  "февраль",
+  "март",
+  "апрель",
+  "май",
+  "июнь",
+  "июль",
+  "август",
+  "сентябрь",
+  "октябрь",
+  "ноябрь",
+  "декабрь",
+]
 const daysInMonth = (year: number, monthIndex: number) => new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
 const pad2 = (n: number) => String(n).padStart(2, "0")
 
@@ -1827,11 +1840,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     >
                       {side === "from" ? "Начало периода" : "Конец периода"}
                     </div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                      <div style={{ position: "relative" }}>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "center", width: "100%" }}>
+                      <div style={{ position: "relative", flex: 1 }}>
                         <button
                           type="button"
-                          style={{ ...pillStyle, padding: "10px 10px" }}
+                          style={{ ...pillStyle, padding: "10px 10px", width: "100%" }}
                           onClick={(e) => {
                             e.stopPropagation()
                             setOpenPicker({ side, part: "day" })
@@ -1841,10 +1854,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                         </button>
                         {popoverFor("day")}
                       </div>
-                      <div style={{ position: "relative" }}>
+                      <div style={{ position: "relative", flex: 1 }}>
                         <button
                           type="button"
-                          style={{ ...pillStyle, padding: "10px 10px" }}
+                          style={{ ...pillStyle, padding: "10px 10px", width: "100%" }}
                           onClick={(e) => {
                             e.stopPropagation()
                             setOpenPicker({ side, part: "year" })
@@ -1855,11 +1868,19 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                         {popoverFor("year")}
                       </div>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "center" }}>
-                      <div style={{ position: "relative" }}>
+                    <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+                      <div style={{ position: "relative", width: "100%" }}>
                         <button
                           type="button"
-                          style={{ ...pillStyle, padding: "10px 12px", minWidth: 96 }}
+                          style={{
+                            ...pillStyle,
+                            padding: "10px 12px",
+                            width: "100%",
+                            whiteSpace: "nowrap",
+                            fontSize: 14,
+                            textAlign: "center",
+                            minWidth: 96,
+                          }}
                           onClick={(e) => {
                             e.stopPropagation()
                             setOpenPicker({ side, part: "month" })
