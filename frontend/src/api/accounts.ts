@@ -74,7 +74,8 @@ export async function updateAccount(token: string, id: string, body: UpdateAccou
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    throw new Error(`Failed to update account: ${res.status}`)
+    const text = await res.text().catch(() => "")
+    throw new Error(`Failed to update account: ${res.status} ${res.statusText} ${text}`)
   }
   const data = (await res.json()) as { account: ApiAccount }
   return data.account
@@ -88,7 +89,8 @@ export async function deleteAccount(token: string, id: string): Promise<void> {
     },
   })
   if (!res.ok) {
-    throw new Error(`Failed to delete account: ${res.status}`)
+    const text = await res.text().catch(() => "")
+    throw new Error(`Failed to delete account: ${res.status} ${res.statusText} ${text}`)
   }
 }
 

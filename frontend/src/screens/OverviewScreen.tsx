@@ -25,6 +25,7 @@ type CardItem = {
 }
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"]
+const canDeleteAccount = false
 const accountColorOptions = [
   "#2563eb", // blue
   "#38bdf8", // sky
@@ -245,6 +246,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [balance, setBalance] = useState("0")
   const [accountColor, setAccountColor] = useState(accountColorOptions[0])
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [accountActionError, setAccountActionError] = useState<string | null>(null)
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryName, setCategoryName] = useState("")
@@ -306,6 +308,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       const accClr = (acc as { color?: string } | undefined)?.color ?? accountColorOptions[0]
       setAccountColor(accClr)
       setShowDeleteConfirm(false)
+      setAccountActionError(null)
       setIsAccountSheetOpen(true)
     },
     [accounts],
@@ -316,6 +319,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setIsAccountSheetOpen(false)
     setEditingAccountId(null)
     setShowDeleteConfirm(false)
+    setAccountActionError(null)
     setName("")
     setBalance("0")
     setType("cash")
@@ -852,6 +856,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     if (!Number.isFinite(parsed)) return
     const balanceNumber = Math.round(parsed * 100) / 100
     try {
+      setAccountActionError(null)
       if (editingAccountId) {
         await updateAccount(tokenLocal, editingAccountId, {
           name: name.trim(),
@@ -870,8 +875,9 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       await refetchAccountsSeq()
       await refetchTransactions()
       closeAccountSheet()
-    } catch {
-      closeAccountSheet()
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return
+      setAccountActionError(err instanceof Error ? err.message : "Не удалось сохранить счёт")
     }
   }
 
@@ -2179,7 +2185,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               >
                 {editingAccountId ? "Сохранить" : "Создать"}
               </button>
-              {editingAccountId ? (
+              {editingAccountId && canDeleteAccount ? (
                 showDeleteConfirm ? (
                   <div style={{ display: "grid", gap: 8 }}>
                     <div style={{ fontSize: 14, color: "#b91c1c", textAlign: "center", fontWeight: 600 }}>
@@ -2188,7 +2194,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     <div style={{ display: "flex", gap: 10 }}>
                       <button
                         type="button"
-                        onClick={() => setShowDeleteConfirm(false)}
+                        onClick={() => {
+                          setShowDeleteConfirm(false)
+                          setAccountActionError(null)
+                        }}
                         style={{
                           flex: 1,
                           padding: "12px 14px",
@@ -2209,10 +2218,14 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                           const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
                           if (!tokenLocal || !editingAccountId) return
                           try {
+                            setAccountActionError(null)
                             await deleteAccount(tokenLocal, editingAccountId)
                             await refetchAccountsSeq()
                             await refetchTransactions()
                             closeAccountSheet()
+                          } catch (err) {
+                            if (err instanceof DOMException && err.name === "AbortError") return
+                            setAccountActionError(err instanceof Error ? err.message : "Не удалось удалить счёт")
                           } finally {
                             setShowDeleteConfirm(false)
                           }
@@ -2236,7 +2249,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setShowDeleteConfirm(true)}
+                    onClick={() => {
+                      setAccountActionError(null)
+                      setShowDeleteConfirm(true)
+                    }}
                     style={{
                       width: "100%",
                       padding: "12px 14px",
@@ -2252,6 +2268,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                     Удалить счёт
                   </button>
                 )
+              ) : null}
+              {editingAccountId && !canDeleteAccount ? (
+                <div style={{ color: "#6b7280", fontSize: 13, textAlign: "center" }}>Удаление пока недоступно</div>
+              ) : null}
+              {accountActionError ? (
+                <div style={{ color: "#b91c1c", fontSize: 13, textAlign: "center" }}>{accountActionError}</div>
               ) : null}
             </div>
           </div>
