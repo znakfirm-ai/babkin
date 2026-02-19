@@ -36,149 +36,83 @@ const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн",
 const daysInMonth = (year: number, monthIndex: number) => new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
 const pad2 = (n: number) => String(n).padStart(2, "0")
 
-type WheelColumnProps = {
+type OpenPicker =
+  | {
+      side: "from" | "to"
+      part: "day" | "month" | "year"
+    }
+  | null
+
+type PopoverListProps = {
   items: string[]
-  value: string
-  onChange: (val: string) => void
-  width?: number
+  selectedIndex: number
+  alignRight?: boolean
+  onSelect: (val: string) => void
+  onClose: () => void
 }
 
-const ITEM_HEIGHT = 34
-
-const WheelColumn: React.FC<WheelColumnProps> = ({ items, value, onChange, width = 78 }) => {
-  const ref = useRef<HTMLDivElement | null>(null)
-  const ticking = useRef(false)
-
+const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRight, onSelect, onClose }) => {
+  const listRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    const el = ref.current
+    const el = listRef.current
     if (!el) return
-    const idx = Math.max(0, items.indexOf(value))
-    const target = idx * ITEM_HEIGHT
-    if (Math.abs(el.scrollTop - target) > 1) {
-      el.scrollTop = target
-    }
-  }, [items, value])
-
-  const handleScroll = useCallback(() => {
-    const el = ref.current
-    if (!el || ticking.current) return
-    ticking.current = true
-    requestAnimationFrame(() => {
-      const idx = Math.round(el.scrollTop / ITEM_HEIGHT)
-      const clamped = Math.max(0, Math.min(items.length - 1, idx))
-      const next = items[clamped]
-      if (next && next !== value) {
-        onChange(next)
-      }
-      ticking.current = false
-    })
-  }, [items, onChange, value])
+    const itemH = 32
+    const target = Math.max(0, selectedIndex * itemH - 2 * itemH)
+    el.scrollTop = target
+  }, [selectedIndex])
 
   return (
     <div
-      ref={ref}
-      onScroll={handleScroll}
+      onClick={(e) => {
+        e.stopPropagation()
+      }}
       style={{
-        width,
-        height: ITEM_HEIGHT * 5,
-        overflowY: "auto",
-        scrollSnapType: "y mandatory",
-        border: "1px solid #e5e7eb",
-        borderRadius: 12,
-        background: "#f8fafc",
-        padding: "12px 0",
+        position: "absolute",
+        top: "calc(100% + 8px)",
+        left: alignRight ? undefined : 0,
+        right: alignRight ? 0 : undefined,
+        zIndex: 90,
       }}
     >
-      {items.map((item) => (
-        <div
-          key={item}
-          style={{
-            height: ITEM_HEIGHT,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            scrollSnapAlign: "center",
-            fontSize: 14,
-            fontWeight: item === value ? 700 : 500,
-            color: item === value ? "#0f172a" : "#6b7280",
-          }}
-        >
-          {item}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-type DateWheelProps = {
-  value: string
-  onChange: (val: string) => void
-  years: number[]
-}
-
-const DateWheel: React.FC<DateWheelProps> = ({ value, onChange, years }) => {
-  const date = value ? new Date(`${value}T00:00:00Z`) : new Date()
-  const yearVal = date.getUTCFullYear()
-  const monthVal = date.getUTCMonth()
-  const dayVal = date.getUTCDate()
-
-  const yearStr = String(yearVal)
-  const monthStr = MONTH_NAMES[monthVal]
-  const days = daysInMonth(yearVal, monthVal)
-  const dayItems = Array.from({ length: days }, (_, i) => String(i + 1))
-
-  const handleDay = (d: string) => {
-    const dayNum = Math.min(Number(d), daysInMonth(yearVal, monthVal))
-    const next = `${yearVal}-${pad2(monthVal + 1)}-${pad2(dayNum)}`
-    onChange(next)
-  }
-
-  const handleMonth = (m: string) => {
-    const idx = MONTH_NAMES.indexOf(m)
-    const clampedDay = Math.min(dayVal, daysInMonth(yearVal, idx))
-    const next = `${yearVal}-${pad2(idx + 1)}-${pad2(clampedDay)}`
-    onChange(next)
-  }
-
-  const handleYear = (y: string) => {
-    const yNum = Number(y)
-    const clampedDay = Math.min(dayVal, daysInMonth(yNum, monthVal))
-    const next = `${yNum}-${pad2(monthVal + 1)}-${pad2(clampedDay)}`
-    onChange(next)
-  }
-
-  return (
-    <div style={{ display: "grid", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, justifyItems: "center" }}>
-        <WheelColumn items={dayItems} value={String(dayVal)} onChange={handleDay} width={80} />
-        <WheelColumn items={MONTH_NAMES} value={monthStr} onChange={handleMonth} width={90} />
+      <div
+        ref={listRef}
+        style={{
+          maxHeight: 220,
+          minWidth: 110,
+          overflowY: "auto",
+          background: "#fff",
+          borderRadius: 12,
+          boxShadow: "0 10px 24px rgba(0,0,0,0.14)",
+          border: "1px solid #e5e7eb",
+        }}
+      >
+        {items.map((item, idx) => {
+          const active = idx === selectedIndex
+          return (
+            <button
+              key={item + idx}
+              type="button"
+              onClick={() => {
+                onSelect(item)
+                onClose()
+              }}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                background: active ? "#0f172a" : "#fff",
+                color: active ? "#fff" : "#0f172a",
+                border: "none",
+                textAlign: "left",
+                fontWeight: active ? 700 : 500,
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              {item}
+            </button>
+          )
+        })}
       </div>
-      <div style={{ display: "grid", justifyItems: "center" }}>
-        <WheelColumn items={years.map(String)} value={yearStr} onChange={handleYear} width={120} />
-      </div>
-    </div>
-  )
-}
-
-type DateWheelRowProps = {
-  fromValue: string
-  toValue: string
-  onChangeFrom: (val: string) => void
-  onChangeTo: (val: string) => void
-}
-
-const DateWheelRow: React.FC<DateWheelRowProps> = ({ fromValue, toValue, onChangeFrom, onChangeTo }) => {
-  const currentYear = new Date().getUTCFullYear()
-  const years = useMemo(() => {
-    const arr: number[] = []
-    for (let y = currentYear - 10; y <= currentYear + 10; y += 1) arr.push(y)
-    return arr
-  }, [currentYear])
-
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, justifyItems: "center" }}>
-      <DateWheel value={fromValue} onChange={onChangeFrom} years={years} />
-      <DateWheel value={toValue} onChange={onChangeTo} years={years} />
     </div>
   )
 }
@@ -299,6 +233,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [customFromDraft, setCustomFromDraft] = useState("")
   const [customToDraft, setCustomToDraft] = useState("")
   const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
+  const [openPicker, setOpenPicker] = useState<OpenPicker>(null)
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
@@ -1783,12 +1718,143 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#e5e7eb" }} />
             </div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", textAlign: "center" }}>Свой период</div>
-            <DateWheelRow
-              fromValue={customFromDraft || customFrom || new Date().toISOString().slice(0, 10)}
-              toValue={customToDraft || customTo || new Date().toISOString().slice(0, 10)}
-              onChangeFrom={setCustomFromDraft}
-              onChangeTo={setCustomToDraft}
-            />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+                justifyItems: "center",
+                position: "relative",
+              }}
+              onClick={() => setOpenPicker(null)}
+            >
+              {(["from", "to"] as const).map((side) => {
+                const current = side === "from" ? customFromDraft || customFrom || new Date().toISOString().slice(0, 10) : customToDraft || customTo || new Date().toISOString().slice(0, 10)
+                const dateObj = new Date(`${current}T00:00:00Z`)
+                const y = dateObj.getUTCFullYear()
+                const m = dateObj.getUTCMonth() + 1
+                const d = dateObj.getUTCDate()
+                const dayMax = daysInMonth(y, m - 1)
+                const yearRange = (() => {
+                  const base = y
+                  const arr: number[] = []
+                  for (let yy = base - 10; yy <= base + 10; yy += 1) arr.push(yy)
+                  return arr
+                })()
+
+                const updateDraft = (nextY: number, nextM: number, nextD: number) => {
+                  const clampedDay = Math.min(nextD, daysInMonth(nextY, nextM - 1))
+                  const iso = `${nextY}-${pad2(nextM)}-${pad2(clampedDay)}`
+                  if (side === "from") {
+                    setCustomFromDraft(iso)
+                  } else {
+                    setCustomToDraft(iso)
+                  }
+                }
+
+                const popoverFor = (part: "day" | "month" | "year") => {
+                  if (!openPicker || openPicker.side !== side || openPicker.part !== part) return null
+                  const alignRight = side === "to"
+                  if (part === "day") {
+                    const items = Array.from({ length: dayMax }, (_, i) => String(i + 1))
+                    const selectedIndex = Math.max(0, Math.min(items.length - 1, d - 1))
+                    return (
+                      <PopoverList
+                        items={items}
+                        selectedIndex={selectedIndex}
+                        alignRight={alignRight}
+                        onSelect={(val) => updateDraft(y, m, Number(val))}
+                        onClose={() => setOpenPicker(null)}
+                      />
+                    )
+                  }
+                  if (part === "month") {
+                    const items = MONTH_NAMES
+                    const selectedIndex = m - 1
+                    return (
+                      <PopoverList
+                        items={items}
+                        selectedIndex={selectedIndex}
+                        alignRight={alignRight}
+                        onSelect={(val) => updateDraft(y, MONTH_NAMES.indexOf(val) + 1, d)}
+                        onClose={() => setOpenPicker(null)}
+                      />
+                    )
+                  }
+                  const yearItems = yearRange.map(String)
+                  const selectedIndex = yearRange.indexOf(y)
+                  return (
+                    <PopoverList
+                      items={yearItems}
+                      selectedIndex={selectedIndex}
+                      alignRight={alignRight}
+                      onSelect={(val) => updateDraft(Number(val), m, d)}
+                      onClose={() => setOpenPicker(null)}
+                    />
+                  )
+                }
+
+                const pillStyle = {
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  background: "#f8fafc",
+                  minWidth: 72,
+                  textAlign: "center" as const,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  position: "relative" as const,
+                }
+
+                return (
+                  <div key={side} style={{ display: "grid", gap: 8, justifyItems: "center", position: "relative" }}>
+                    <div style={{ fontSize: 13, color: "#4b5563" }}>{side === "from" ? "С" : "По"}</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          style={pillStyle}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOpenPicker({ side, part: "day" })
+                          }}
+                        >
+                          {d}
+                        </button>
+                        {popoverFor("day")}
+                      </div>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          style={pillStyle}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOpenPicker({ side, part: "month" })
+                          }}
+                        >
+                          {MONTH_NAMES[m - 1]}
+                        </button>
+                        {popoverFor("month")}
+                      </div>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          style={pillStyle}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOpenPicker({ side, part: "year" })
+                          }}
+                        >
+                          {y}
+                        </button>
+                        {popoverFor("year")}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
               <button
                 type="button"
@@ -1865,12 +1931,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#e5e7eb" }} />
             </div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", textAlign: "center" }}>Свой период</div>
-            <DateWheelRow
-              fromValue={customFromDraft || customFrom || new Date().toISOString().slice(0, 10)}
-              toValue={customToDraft || customTo || new Date().toISOString().slice(0, 10)}
-              onChangeFrom={setCustomFromDraft}
-              onChangeTo={setCustomToDraft}
-            />
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 type="button"
