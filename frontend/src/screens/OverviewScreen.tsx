@@ -285,6 +285,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null)
   const [detailTitle, setDetailTitle] = useState<string>("")
   const [accountSearch, setAccountSearch] = useState("")
+  const [categorySearch, setCategorySearch] = useState("")
   const [accountPeriodType, setAccountPeriodType] = useState<"day" | "week" | "month" | "year" | "custom">("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
@@ -503,27 +504,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setDeletingIncomeSourceId(null)
   }, [])
 
-  const openTxActions = useCallback(
-    (id: string) => {
-      setTxError(null)
-      setTxLoading(false)
-      setTxActionId(id)
-      setTxMode("actions")
-      const tx = transactions.find((t) => t.id === id)
-      if (tx) {
-        setEditKind((tx.type as TxKind) ?? "expense")
-        setEditAmount(String(tx.amount.amount))
-        setEditAccountId(tx.accountId)
-        setEditToAccountId(tx.toAccountId ?? "")
-        setEditCategoryId(tx.categoryId ?? "")
-        setEditIncomeSourceId(tx.incomeSourceId ?? "")
-        setEditDate(tx.date.slice(0, 10))
-        setEditNote(tx.comment ?? "")
-      }
-    },
-    [transactions]
-  )
-
   const closeTxSheet = useCallback(() => {
     setTxMode("none")
     setTxActionId(null)
@@ -536,6 +516,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       setDetailCategoryId(null)
       setDetailTitle("")
       setAccountSearch("")
+      setCategorySearch("")
       setSearchFocused(false)
       closeTxSheet()
   }, [closeTxSheet])
@@ -1064,6 +1045,23 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     })
   }, [accountPeriod, accountSearch, accountTx, categoryNameById, detailAccountId, incomeSourceNameById])
 
+  const filteredCategoryTx = useMemo(() => {
+    if (!detailCategoryId) return []
+    const { start, end } = accountPeriod
+    const periodFiltered = categoryTx.filter((tx) => {
+      const d = new Date(tx.date)
+      return d >= start && d < end
+    })
+    const query = categorySearch.trim().toLowerCase()
+    if (!query) return periodFiltered
+    return periodFiltered.filter((tx) => {
+      const absAmount = Math.abs(tx.amount.amount)
+      const amountText = String(absAmount)
+      const name = getTxAccountName(tx).toLowerCase()
+      return name.includes(query) || amountText.includes(query)
+    })
+  }, [accountPeriod, categorySearch, categoryTx, detailCategoryId, getTxAccountName])
+
   const groupedAccountTx = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
     filteredAccountTx.forEach((tx) => {
@@ -1378,51 +1376,138 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 </div>
               </div>
               ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {categoryTx.map((tx) => {
-                    const displayAccountName = getTxAccountName(tx)
-                    const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
-                    return (
-                      <div
-                        key={tx.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "8px 10px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(226,232,240,0.7)",
-                          background: "#f8fafc",
-                        }}
-                      >
-                        <div style={{ display: "grid", gap: 2 }}>
-                          <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
-                            {displayAccountName}
-                          </div>
-                          <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 13.5 }}>{amountText}</div>
-                          <button
-                            type="button"
-                            onClick={() => openTxActions(tx.id)}
-                            style={{
-                              padding: "6px 10px",
-                              borderRadius: 10,
-                              border: "1px solid #e5e7eb",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            ⋯
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {categoryTx.length === 0 ? (
-                    <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций за период</div>
-                  ) : null}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
+                  <input
+                    value={categorySearch}
+                    onChange={(e) => setCategorySearch(e.target.value)}
+                    placeholder="Поиск по операциям"
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 15,
+                      outline: "none",
+                      boxShadow: "none",
+                      WebkitAppearance: "none",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPeriodMenuOpen(true)}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#f8fafc",
+                        fontWeight: 600,
+                        color: "#0f172a",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        width: "fit-content",
+                      }}
+                    >
+                      Период
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
+                    </button>
+
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: "#6b7280",
+                        maxWidth: "100%",
+                        flex: 1,
+                        textAlign: "right",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "clip",
+                      }}
+                    >
+                      {accountPeriod.label}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 18,
+                      background: "#fff",
+                      padding: 12,
+                      boxShadow: "none",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      overflow: "hidden",
+                      flex: 1,
+                      minHeight: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflowY: "auto",
+                        paddingRight: 2,
+                      }}
+                    >
+                      {filteredCategoryTx.length === 0 ? (
+                        <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций</div>
+                      ) : (
+                        filteredCategoryTx.map((tx) => {
+                          const displayAccountName = getTxAccountName(tx)
+                          const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
+                          return (
+                            <div
+                              key={tx.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "8px 10px",
+                                borderRadius: 12,
+                                border: "1px solid rgba(226,232,240,0.7)",
+                                background: "#f8fafc",
+                                marginBottom: 6,
+                              }}
+                            >
+                              <div style={{ display: "grid", gap: 2 }}>
+                                <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
+                                  {displayAccountName}
+                                </div>
+                                <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ fontWeight: 600, color: "#b91c1c", fontSize: 14 }}>{amountText}</div>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        /* TODO: open category edit sheet */
+                      }}
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        background: "#0f172a",
+                        color: "#fff",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        alignSelf: "center",
+                        width: "100%",
+                        maxWidth: 260,
+                      }}
+                    >
+                      Редактировать категорию
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -21,6 +21,7 @@ type CategoryResponse = {
   name: string
   kind: "income" | "expense"
   icon: string | null
+  is_archived?: boolean | null
 }
 
 const unauthorized = async (reply: FastifyReply, reason: string) => {
@@ -109,6 +110,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
         name: c.name,
         kind: c.kind,
         icon: c.icon,
+        is_archived: (c as { is_archived?: boolean })?.is_archived ?? null,
       })),
     }
 

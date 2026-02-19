@@ -94,6 +94,7 @@ async function categoriesRoutes(fastify, _opts) {
                 name: c.name,
                 kind: c.kind,
                 icon: c.icon,
+                is_archived: c?.is_archived ?? null,
             })),
         };
         return reply.send(payload);
