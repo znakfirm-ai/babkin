@@ -32,6 +32,157 @@ const getCurrentMonthTag = () => {
   return `${now.getFullYear()}-${month}`
 }
 
+const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
+const daysInMonth = (year: number, monthIndex: number) => new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
+const pad2 = (n: number) => String(n).padStart(2, "0")
+
+type WheelColumnProps = {
+  items: string[]
+  value: string
+  onChange: (val: string) => void
+  width?: number
+}
+
+const ITEM_HEIGHT = 34
+
+const WheelColumn: React.FC<WheelColumnProps> = ({ items, value, onChange, width = 78 }) => {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const ticking = useRef(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const idx = Math.max(0, items.indexOf(value))
+    const target = idx * ITEM_HEIGHT
+    if (Math.abs(el.scrollTop - target) > 1) {
+      el.scrollTop = target
+    }
+  }, [items, value])
+
+  const handleScroll = useCallback(() => {
+    const el = ref.current
+    if (!el || ticking.current) return
+    ticking.current = true
+    requestAnimationFrame(() => {
+      const idx = Math.round(el.scrollTop / ITEM_HEIGHT)
+      const clamped = Math.max(0, Math.min(items.length - 1, idx))
+      const next = items[clamped]
+      if (next && next !== value) {
+        onChange(next)
+      }
+      ticking.current = false
+    })
+  }, [items, onChange, value])
+
+  return (
+    <div
+      ref={ref}
+      onScroll={handleScroll}
+      style={{
+        width,
+        height: ITEM_HEIGHT * 5,
+        overflowY: "auto",
+        scrollSnapType: "y mandatory",
+        border: "1px solid #e5e7eb",
+        borderRadius: 12,
+        background: "#f8fafc",
+        padding: "12px 0",
+      }}
+    >
+      {items.map((item) => (
+        <div
+          key={item}
+          style={{
+            height: ITEM_HEIGHT,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            scrollSnapAlign: "center",
+            fontSize: 14,
+            fontWeight: item === value ? 700 : 500,
+            color: item === value ? "#0f172a" : "#6b7280",
+          }}
+        >
+          {item}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+type DateWheelProps = {
+  value: string
+  onChange: (val: string) => void
+  years: number[]
+}
+
+const DateWheel: React.FC<DateWheelProps> = ({ value, onChange, years }) => {
+  const date = value ? new Date(`${value}T00:00:00Z`) : new Date()
+  const yearVal = date.getUTCFullYear()
+  const monthVal = date.getUTCMonth()
+  const dayVal = date.getUTCDate()
+
+  const yearStr = String(yearVal)
+  const monthStr = MONTH_NAMES[monthVal]
+  const days = daysInMonth(yearVal, monthVal)
+  const dayItems = Array.from({ length: days }, (_, i) => String(i + 1))
+
+  const handleDay = (d: string) => {
+    const dayNum = Math.min(Number(d), daysInMonth(yearVal, monthVal))
+    const next = `${yearVal}-${pad2(monthVal + 1)}-${pad2(dayNum)}`
+    onChange(next)
+  }
+
+  const handleMonth = (m: string) => {
+    const idx = MONTH_NAMES.indexOf(m)
+    const clampedDay = Math.min(dayVal, daysInMonth(yearVal, idx))
+    const next = `${yearVal}-${pad2(idx + 1)}-${pad2(clampedDay)}`
+    onChange(next)
+  }
+
+  const handleYear = (y: string) => {
+    const yNum = Number(y)
+    const clampedDay = Math.min(dayVal, daysInMonth(yNum, monthVal))
+    const next = `${yNum}-${pad2(monthVal + 1)}-${pad2(clampedDay)}`
+    onChange(next)
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, justifyItems: "center" }}>
+        <WheelColumn items={dayItems} value={String(dayVal)} onChange={handleDay} width={80} />
+        <WheelColumn items={MONTH_NAMES} value={monthStr} onChange={handleMonth} width={90} />
+      </div>
+      <div style={{ display: "grid", justifyItems: "center" }}>
+        <WheelColumn items={years.map(String)} value={yearStr} onChange={handleYear} width={120} />
+      </div>
+    </div>
+  )
+}
+
+type DateWheelRowProps = {
+  fromValue: string
+  toValue: string
+  onChangeFrom: (val: string) => void
+  onChangeTo: (val: string) => void
+}
+
+const DateWheelRow: React.FC<DateWheelRowProps> = ({ fromValue, toValue, onChangeFrom, onChangeTo }) => {
+  const currentYear = new Date().getUTCFullYear()
+  const years = useMemo(() => {
+    const arr: number[] = []
+    for (let y = currentYear - 10; y <= currentYear + 10; y += 1) arr.push(y)
+    return arr
+  }, [currentYear])
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, justifyItems: "center" }}>
+      <DateWheel value={fromValue} onChange={onChangeFrom} years={years} />
+      <DateWheel value={toValue} onChange={onChangeTo} years={years} />
+    </div>
+  )
+}
+
 const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag
 
 const Section: React.FC<{
@@ -147,8 +298,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [customTo, setCustomTo] = useState("")
   const [customFromDraft, setCustomFromDraft] = useState("")
   const [customToDraft, setCustomToDraft] = useState("")
-  const customFromInputRef = useRef<HTMLInputElement | null>(null)
-  const customToInputRef = useRef<HTMLInputElement | null>(null)
   const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [txActionId, setTxActionId] = useState<string | null>(null)
@@ -165,12 +314,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
   const currentMonthTag = getCurrentMonthTag()
-
-  useEffect(() => {
-    if (isCustomSheetOpen && customFromInputRef.current) {
-      customFromInputRef.current.focus()
-    }
-  }, [isCustomSheetOpen])
 
   const applyCustomRange = useCallback(() => {
     if (!customFromDraft || !customToDraft) return
@@ -1517,9 +1660,9 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
         </div>
       ) : null}
 
-{isPeriodMenuOpen ? (
-  <div
-    role="dialog"
+      {isPeriodMenuOpen ? (
+        <div
+          role="dialog"
     aria-modal="true"
           onClick={() => setIsPeriodMenuOpen(false)}
           style={{
@@ -1640,29 +1783,95 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#e5e7eb" }} />
             </div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", textAlign: "center" }}>Свой период</div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
-              <label style={{ display: "grid", gap: 6, width: 180 }}>
-                <span style={{ fontSize: 13, color: "#4b5563", textAlign: "center" }}>С</span>
-                <input
-                  ref={customFromInputRef}
-                  type="date"
-                  value={customFromDraft}
-                  onChange={(e) => setCustomFromDraft(e.target.value)}
-                  style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", textAlign: "center" }}
-                />
-              </label>
-              <label style={{ display: "grid", gap: 6, width: 180 }}>
-                <span style={{ fontSize: 13, color: "#4b5563", textAlign: "center" }}>По</span>
-                <input
-                  ref={customToInputRef}
-                  type="date"
-                  value={customToDraft}
-                  onChange={(e) => setCustomToDraft(e.target.value)}
-                  style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", textAlign: "center" }}
-                />
-              </label>
-            </div>
+            <DateWheelRow
+              fromValue={customFromDraft || customFrom || new Date().toISOString().slice(0, 10)}
+              toValue={customToDraft || customTo || new Date().toISOString().slice(0, 10)}
+              onChangeFrom={setCustomFromDraft}
+              onChangeTo={setCustomToDraft}
+            />
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomFromDraft(customFrom)
+                  setCustomToDraft(customTo)
+                  setIsCustomSheetOpen(false)
+                }}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  fontWeight: 600,
+                  color: "#0f172a",
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={applyCustomRange}
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: customFromDraft && customToDraft ? "pointer" : "not-allowed",
+                  opacity: customFromDraft && customToDraft ? 1 : 0.6,
+                }}
+                disabled={!customFromDraft || !customToDraft}
+              >
+                Готово
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isCustomSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsCustomSheetOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 62,
+            padding: "12px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 620,
+              background: "#fff",
+              borderRadius: 18,
+              padding: 16,
+              boxShadow: "0 10px 24px rgba(0,0,0,0.14)",
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", textAlign: "center" }}>Свой период</div>
+            <DateWheelRow
+              fromValue={customFromDraft || customFrom || new Date().toISOString().slice(0, 10)}
+              toValue={customToDraft || customTo || new Date().toISOString().slice(0, 10)}
+              onChangeFrom={setCustomFromDraft}
+              onChangeTo={setCustomToDraft}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
               <button
                 type="button"
                 onClick={() => {
