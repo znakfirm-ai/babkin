@@ -2090,18 +2090,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                       />
                     </label>
                     <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
-                      Тип
-                      <select
-                        value={type}
-                        onChange={(e) => setType(e.target.value)}
-                        style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
-                      >
-                        <option value="cash">Наличные</option>
-                        <option value="card">Карта</option>
-                        <option value="bank">Банк</option>
-                      </select>
-                    </label>
-                    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
                       Стартовый баланс
                       <input
                         value={balance}
