@@ -1714,10 +1714,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               gap: 12,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", textAlign: "center" }}>Свой период</div>
             <div
               style={{
                 display: "grid",
@@ -1808,8 +1804,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                 }
 
                 return (
-                  <div key={side} style={{ display: "grid", gap: 8, justifyItems: "center", position: "relative" }}>
-                    <div style={{ fontSize: 13, color: "#4b5563" }}>{side === "from" ? "С" : "По"}</div>
+                  <div key={side} style={{ display: "grid", gap: 6, justifyItems: "center", position: "relative" }}>
+                    <div style={{ fontSize: 12.5, color: "#4b5563" }}>
+                      {side === "from" ? "Начало периода" : "Конец периода"}
+                    </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <div style={{ position: "relative" }}>
                         <button
