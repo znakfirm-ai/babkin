@@ -2043,7 +2043,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
               padding: editingAccountId ? "18px 18px 20px" : "16px 16px 20px",
               boxShadow: "none",
               maxHeight: editingAccountId ? "calc(100vh - 120px)" : "70vh",
-              overflowX: "hidden",
+              overflow: editingAccountId ? "hidden" : undefined,
+              overflowX: editingAccountId ? "hidden" : "hidden",
               overflowY: editingAccountId ? undefined : "auto",
               paddingBottom: editingAccountId
                 ? "calc(env(safe-area-inset-bottom, 0px) + 12px)"
