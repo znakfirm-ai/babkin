@@ -94,7 +94,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   }, [amount, onClose, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
 
   const renderTile = (
-    item: { id: string; title: string; icon?: string; color?: string; text?: string; amount?: number; budget?: number | null },
+    item: { id: string; title: string; icon?: string; color?: string; text?: string; amount?: number; budget?: number | null; budgetTone?: "normal" | "warn" | "alert" },
     active: boolean,
     isAccount: boolean,
   ) => (
@@ -111,7 +111,19 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
       }}
       style={{
         background: item.color || undefined,
-        border: undefined,
+        border: item.budgetTone
+          ? item.budgetTone === "alert"
+            ? "1px solid #ef4444"
+            : item.budgetTone === "warn"
+            ? "1px solid #f59e0b"
+            : undefined
+          : undefined,
+        backgroundColor:
+          item.budgetTone === "alert"
+            ? "rgba(248,113,113,0.12)"
+            : item.budgetTone === "warn"
+            ? "rgba(251,191,36,0.12)"
+            : item.color || undefined,
         boxShadow: active ? "0 0 0 2px #0f172a inset" : undefined,
         color: "#0f172a",
       }}
@@ -234,6 +246,14 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                       icon: (cat.icon as string) ?? "category",
                       amount: spendByCategory.get(cat.id) ?? 0,
                       budget: (cat as { budget?: number | null }).budget ?? null,
+                      budgetTone: (() => {
+                        const budget = (cat as { budget?: number | null }).budget ?? null
+                        if (!budget || budget <= 0) return "normal"
+                        const ratio = (spendByCategory.get(cat.id) ?? 0) / budget
+                        if (ratio > 1) return "alert"
+                        if (ratio > 0.7) return "warn"
+                        return "normal"
+                      })(),
                     },
                     selectedCategoryId === cat.id,
                     false,
