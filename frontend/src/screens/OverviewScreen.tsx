@@ -3033,35 +3033,49 @@ function TransactionsPanel({
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Иконка</div>
                 <div
                   style={{
-                    display: "flex",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(52px,1fr))",
                     gap: 10,
-                    overflowX: "auto",
-                    paddingBottom: 4,
-                    WebkitOverflowScrolling: "touch",
                   }}
                 >
-                  {accountColorOptions.map((icon) => (
+                  {[
+                    "💼",
+                    "💳",
+                    "🏦",
+                    "🧾",
+                    "💰",
+                    "📈",
+                    "🪙",
+                    "🎁",
+                    "🛠️",
+                    "🧳",
+                    "🚀",
+                    "🏠",
+                    "🍀",
+                    "⭐",
+                    "📦",
+                    "⚙️",
+                    "🎯",
+                    "🧠",
+                  ].map((icon) => (
                     <button
                       key={icon}
                       type="button"
                       onClick={() => setIncomeSourceIcon(icon)}
                       style={{
-                        width: 34,
-                        height: 34,
-                        minWidth: 34,
-                        borderRadius: "50%",
+                        height: 52,
+                        borderRadius: 12,
                         border: incomeSourceIcon === icon ? "2px solid #0f172a" : "1px solid #e5e7eb",
-                        background: icon,
+                        background: "#fff",
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "#fff",
+                        fontSize: 20,
                         boxShadow: "none",
-                        flexShrink: 0,
                       }}
                     >
-                      {incomeSourceIcon === icon ? "✓" : ""}
+                      {icon}
                     </button>
                   ))}
                 </div>
