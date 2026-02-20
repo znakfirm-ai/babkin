@@ -196,9 +196,9 @@ const Section: React.FC<{
           const categoryHighlight =
             item.type === "category" && item.budgetTone
               ? item.budgetTone === "alert"
-                ? { background: "#fef2f2", border: "1.5px dashed #ef4444" }
+                ? { background: "#fef2f2", border: "1px solid #ef4444" }
                 : item.budgetTone === "warn"
-                ? { background: "#fffbeb", border: "1.5px dashed #f59e0b" }
+                ? { background: "#fffbeb", border: "1px solid #f59e0b" }
                 : null
               : null
           const tileStyle =
