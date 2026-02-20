@@ -12,18 +12,20 @@ type Props = {
 }
 
 export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
-  const { accounts, categories, transactions, setAccounts, setTransactions, currency } = useAppStore()
+  const { accounts, categories, incomeSources, transactions, setAccounts, setTransactions, currency } = useAppStore()
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
   const [activeTab, setActiveTab] = useState<QuickAddTab>("expense")
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState<string | null>(null)
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
+  const incomeSourcesList = useMemo(() => incomeSources, [incomeSources])
   const spendByCategory = useMemo(() => {
     const map = new Map<string, number>()
     transactions.forEach((t) => {
@@ -93,6 +95,68 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
     }
   }, [amount, onClose, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
 
+  const submitIncome = useCallback(async () => {
+    if (!token) {
+      setError("Нет токена")
+      return
+    }
+    if (!selectedIncomeSourceId || !selectedAccountId) {
+      setError("Выберите источник и счёт")
+      return
+    }
+    const amt = Number(amount.replace(",", "."))
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setError("Введите сумму")
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      await createTransaction(token, {
+        kind: "income",
+        amount: Math.round(amt * 100) / 100,
+        accountId: selectedAccountId,
+        incomeSourceId: selectedIncomeSourceId,
+      })
+      const accountsData = await getAccounts(token)
+      setAccounts(
+        accountsData.accounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: { amount: a.balance, currency: a.currency },
+          color: a.color ?? undefined,
+        })),
+      )
+      const txData = await getTransactions(token)
+      setTransactions(
+        txData.transactions.map((t) => ({
+          id: t.id,
+          type: t.kind,
+          amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
+          date: t.happenedAt,
+          accountId: t.accountId ?? t.fromAccountId ?? "",
+          accountName: t.accountName ?? null,
+          fromAccountId: t.fromAccountId ?? undefined,
+          fromAccountName: t.fromAccountName ?? null,
+          categoryId: t.categoryId ?? undefined,
+          incomeSourceId: t.incomeSourceId ?? undefined,
+          toAccountId: t.toAccountId ?? undefined,
+          toAccountName: t.toAccountName ?? null,
+          goalId: (t as { goalId?: string | null }).goalId ?? undefined,
+        })),
+      )
+      setSelectedIncomeSourceId(null)
+      setSelectedAccountId(null)
+      setAmount("")
+      onClose()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Не удалось сохранить"
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [amount, onClose, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
+
   const renderTile = (
     item: { id: string; title: string; icon?: string; color?: string; text?: string; amount?: number; budget?: number | null; budgetTone?: "normal" | "warn" | "alert" },
     active: boolean,
@@ -143,6 +207,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   )
 
   const expenseReady = selectedAccountId && selectedCategoryId && Number(amount.replace(",", ".")) > 0
+  const incomeReady = selectedAccountId && selectedIncomeSourceId && Number(amount.replace(",", ".")) > 0
 
   const labelMap: Record<QuickAddTab, string> = {
     expense: "Расход",
@@ -204,7 +269,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                   <button
                     key={tab}
                     type="button"
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => {
+                      setActiveTab(tab)
+                      setError(null)
+                    }}
                     style={{
                       padding: "8px 12px",
                       borderRadius: 10,
@@ -228,24 +296,22 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
           <div style={{ borderBottom: "1px solid #e5e7eb" }} />
         </div>
 
-        {activeTab !== "expense" ? (
-          <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
-        ) : (
+        {activeTab === "expense" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
             <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для списания</div>
             <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
               {accounts.map((acc) =>
                 renderTile(
-                  {
-                    id: acc.id,
-                    title: acc.name,
-                    icon: "wallet",
-                    color: acc.color,
-                    text: formatMoney(acc.balance.amount, baseCurrency),
-                  },
-                  selectedAccountId === acc.id,
-                  true,
-                ),
+                    {
+                      id: acc.id,
+                      title: acc.name,
+                      icon: "wallet",
+                      color: acc.color ?? "#EEF2F7",
+                      text: formatMoney(acc.balance.amount, baseCurrency),
+                    },
+                    selectedAccountId === acc.id,
+                    true,
+                  ),
               )}
             </div>
 
@@ -313,6 +379,81 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
               </div>
             </div>
           </div>
+        ) : activeTab === "income" ? (
+          <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
+            <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Источник дохода</div>
+            <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+              {incomeSourcesList.map((src) =>
+                renderTile(
+                  {
+                    id: src.id,
+                    title: src.name,
+                    icon: (src.icon as IconName) ?? "wallet",
+                  },
+                  selectedIncomeSourceId === src.id,
+                  true,
+                ),
+              )}
+            </div>
+
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
+              <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для зачисления</div>
+              <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+                {accounts.map((acc) =>
+                  renderTile(
+                    {
+                      id: acc.id,
+                      title: acc.name,
+                      icon: "wallet",
+                      color: acc.color ?? "#EEF2F7",
+                      text: formatMoney(acc.balance.amount, baseCurrency),
+                    },
+                    selectedAccountId === acc.id,
+                    true,
+                  ),
+                )}
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 8 }}>
+              <input
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Сумма"
+                inputMode="decimal"
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 16,
+                  outline: "none",
+                  boxShadow: "none",
+                }}
+              />
+              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
+              <div style={{ paddingTop: 8 }}>
+                <button
+                  type="button"
+                  disabled={!incomeReady || loading}
+                  onClick={() => void submitIncome()}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: incomeReady && !loading ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                    color: incomeReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
+                    fontWeight: 700,
+                    cursor: incomeReady && !loading ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {loading ? "Сохранение..." : "Готово"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
         )}
       </div>
     </div>
