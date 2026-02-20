@@ -98,7 +98,8 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
       }}
       style={{
         background: item.color || undefined,
-        border: active ? "2px solid #0f172a" : undefined,
+        border: undefined,
+        boxShadow: active ? "0 0 0 2px #0f172a inset" : undefined,
         color: "#0f172a",
       }}
     >
@@ -122,7 +123,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
 
   return (
     <div className="app-shell" style={{ background: "#f5f6f8" }}>
-      <div className="app-shell__inner" style={{ paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))" }}>
+      <div
+        className="app-shell__inner overview"
+        style={{ paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))", overflowY: "auto" }}
+      >
         <div style={{ display: "grid", gap: 10, padding: "12px 16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 15, color: "#0f172a" }}>Выберите операцию</div>
@@ -184,48 +188,36 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
         ) : (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
             <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для списания</div>
-            <div style={{ overflowX: "auto", paddingBottom: 6 }}>
-              <div style={{ display: "flex", gap: 10 }}>
-                {accounts.map((acc) =>
-                  renderTile(
-                    {
-                      id: acc.id,
-                      title: acc.name,
-                      icon: "wallet",
-                      color: acc.color,
-                      text: formatMoney(acc.balance.amount, baseCurrency),
-                    },
-                    selectedAccountId === acc.id,
-                    true,
-                  ),
-                )}
-              </div>
+            <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+              {accounts.map((acc) =>
+                renderTile(
+                  {
+                    id: acc.id,
+                    title: acc.name,
+                    icon: "wallet",
+                    color: acc.color,
+                    text: formatMoney(acc.balance.amount, baseCurrency),
+                  },
+                  selectedAccountId === acc.id,
+                  true,
+                ),
+              )}
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Категория расходов</div>
-              <div style={{ overflowX: "auto", paddingBottom: 6 }}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridAutoFlow: "column",
-                    gridTemplateRows: "repeat(2, auto)",
-                    gridAutoColumns: 124,
-                    gap: 10,
-                  }}
-                >
-                  {expenseCategories.map((cat) =>
-                    renderTile(
-                      {
-                        id: cat.id,
-                        title: cat.name,
-                        icon: (cat.icon as string) ?? "category",
-                      },
-                      selectedCategoryId === cat.id,
-                      false,
-                    ),
-                  )}
-                </div>
+              <div className="overview-expenses-row">
+                {expenseCategories.map((cat) =>
+                  renderTile(
+                    {
+                      id: cat.id,
+                      title: cat.name,
+                      icon: (cat.icon as string) ?? "category",
+                    },
+                    selectedCategoryId === cat.id,
+                    false,
+                  ),
+                )}
               </div>
             </div>
 
