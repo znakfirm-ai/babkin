@@ -1,4 +1,4 @@
-import type { Account, Category, IncomeSource, Transaction } from "../types/finance"
+import type { Account, Category, Goal, IncomeSource, Transaction } from "../types/finance"
 import { normalizeCurrency } from "./formatMoney"
 
 const STORAGE_KEY = "finance_app_v1"
@@ -8,6 +8,7 @@ type AppState = {
   categories: Category[]
   incomeSources: IncomeSource[]
   transactions: Transaction[]
+  goals: Goal[]
   currency: string
 }
 
@@ -32,6 +33,15 @@ const isCategory = (value: unknown): value is Category =>
 
 const isIncomeSource = (value: unknown): value is IncomeSource =>
   isRecord(value) && typeof value.id === "string" && typeof value.name === "string"
+
+const isGoal = (value: unknown): value is Goal =>
+  isRecord(value) &&
+  typeof value.id === "string" &&
+  typeof value.name === "string" &&
+  (value.icon === undefined || value.icon === null || typeof value.icon === "string") &&
+  typeof value.targetAmount === "number" &&
+  typeof value.currentAmount === "number" &&
+  (value.status === "active" || value.status === "completed")
 
 const isTransaction = (value: unknown): value is Transaction => {
   if (!isRecord(value)) return false
@@ -64,6 +74,7 @@ const isAppState = (value: unknown): value is AppState => {
     !Array.isArray(value.categories) ||
     !Array.isArray(value.transactions) ||
     !Array.isArray(value.incomeSources) ||
+    !Array.isArray(value.goals) ||
     typeof value.currency !== "string"
   )
     return false
@@ -72,7 +83,8 @@ const isAppState = (value: unknown): value is AppState => {
     value.accounts.every(isAccount) &&
     value.categories.every(isCategory) &&
     value.incomeSources.every(isIncomeSource) &&
-    value.transactions.every(isTransaction)
+    value.transactions.every(isTransaction) &&
+    value.goals.every(isGoal)
   )
 }
 
@@ -81,6 +93,7 @@ const cloneState = (state: AppState): AppState => ({
   categories: state.categories.map((c) => ({ ...c })),
   incomeSources: state.incomeSources.map((s) => ({ ...s })),
   transactions: state.transactions.map((t) => ({ ...t, amount: { ...t.amount } })),
+  goals: state.goals.map((g) => ({ ...g })),
   currency: state.currency,
 })
 

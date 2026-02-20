@@ -1,0 +1,140 @@
+import { FastifyInstance, FastifyPluginOptions, FastifyReply, FastifyRequest } from "fastify"
+import jwt from "jsonwebtoken"
+import { Prisma } from "@prisma/client"
+import { prisma } from "../db/prisma"
+import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
+import { env } from "../env"
+
+type GoalResponse = {
+  id: string
+  name: string
+  icon: string | null
+  targetAmount: string
+  currentAmount: string
+  status: "active" | "completed"
+  createdAt: string
+  completedAt: string | null
+}
+
+const unauthorized = async (reply: FastifyReply, reason: string) => {
+  await reply.status(401).send({ error: "Unauthorized", reason })
+  return null
+}
+
+async function resolveUserId(request: FastifyRequest, reply: FastifyReply): Promise<string | null> {
+  const authHeader = request.headers.authorization
+  let userId: string | null = null
+  let reason: string | null = null
+
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice("Bearer ".length)
+    try {
+      const payload = jwt.verify(token, env.JWT_SECRET) as { sub: string }
+      userId = payload.sub
+    } catch {
+      reason = "invalid_jwt"
+      return unauthorized(reply, reason)
+    }
+  }
+
+  if (!userId) {
+    const initDataRaw = request.headers[TELEGRAM_INITDATA_HEADER] as string | undefined
+    const hasInitData = Boolean(initDataRaw && initDataRaw.length > 0)
+    const authDate = (() => {
+      const params = initDataRaw ? new URLSearchParams(initDataRaw) : null
+      const ad = params?.get("auth_date")
+      return ad ? Number(ad) : undefined
+    })()
+
+    if (!env.BOT_TOKEN) {
+      reason = "missing_bot_token"
+      request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason })
+      return unauthorized(reply, reason)
+    }
+
+    const auth = await validateInitData(initDataRaw)
+    if (!auth) {
+      reason = hasInitData ? "invalid_initdata" : "missing_initdata"
+      request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason })
+      return unauthorized(reply, reason)
+    }
+    userId = auth.userId
+  }
+
+  return userId
+}
+
+const mapGoal = (g: {
+  id: string
+  name: string
+  icon: string | null
+  target_amount: Prisma.Decimal
+  current_amount: Prisma.Decimal
+  status: "active" | "completed"
+  created_at: Date
+  completed_at: Date | null
+}): GoalResponse => ({
+  id: g.id,
+  name: g.name,
+  icon: g.icon,
+  targetAmount: g.target_amount.toString(),
+  currentAmount: g.current_amount.toString(),
+  status: g.status,
+  createdAt: g.created_at.toISOString(),
+  completedAt: g.completed_at ? g.completed_at.toISOString() : null,
+})
+
+export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
+  fastify.get("/goals", async (request, reply) => {
+    const userId = await resolveUserId(request, reply)
+    if (!userId) return
+
+    const user = await prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } })
+    if (!user?.active_workspace_id) {
+      return reply.status(400).send({ error: "No active workspace" })
+    }
+
+    const status = (request.query as { status?: string }).status
+    const goals = await prisma.goals.findMany({
+      where: {
+        workspace_id: user.active_workspace_id,
+        ...(status === "active" || status === "completed" ? { status } : {}),
+      },
+      orderBy: { created_at: "desc" },
+    })
+
+    return reply.send({ goals: goals.map(mapGoal) })
+  })
+
+  fastify.post("/goals", async (request, reply) => {
+    const userId = await resolveUserId(request, reply)
+    if (!userId) return
+
+    const user = await prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } })
+    if (!user?.active_workspace_id) {
+      return reply.status(400).send({ error: "No active workspace" })
+    }
+
+    const body = request.body as { name?: string; icon?: string | null; targetAmount?: string | number }
+    const name = body?.name?.trim()
+    if (!name) {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
+    }
+
+    const parsedAmount = typeof body.targetAmount === "string" ? Number(body.targetAmount) : body.targetAmount
+    if (parsedAmount === undefined || parsedAmount === null || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_target_amount" })
+    }
+
+    const created = await prisma.goals.create({
+      data: {
+        workspace_id: user.active_workspace_id,
+        name,
+        icon: body.icon?.trim() || null,
+        target_amount: new Prisma.Decimal(parsedAmount),
+      },
+    })
+
+    return reply.send({ goal: mapGoal(created) })
+  })
+}

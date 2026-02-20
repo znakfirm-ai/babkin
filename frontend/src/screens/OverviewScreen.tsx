@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useAppStore } from "../store/useAppStore"
-import type { Transaction } from "../types/finance"
+import type { Goal, Transaction } from "../types/finance"
 import "./OverviewScreen.css"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccountBalance } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
+import { createGoal, getGoals } from "../api/goals"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 
-type TileType = "account" | "category" | "income-source"
+type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
 type TxKind = "income" | "expense" | "transfer"
 
@@ -173,6 +174,7 @@ const Section: React.FC<{
   onCategoryClick?: (id: string, title: string) => void
   onAccountClick?: (id: string, title: string) => void
   onIncomeSourceClick?: (id: string, title: string) => void
+  onGoalClick?: (id: string, title: string) => void
   baseCurrency: string
 }> = ({
   title,
@@ -185,6 +187,7 @@ const Section: React.FC<{
   onCategoryClick,
   onAccountClick,
   onIncomeSourceClick,
+  onGoalClick,
   baseCurrency,
 }) => {
   const listClass = rowScroll
@@ -239,6 +242,7 @@ const Section: React.FC<{
                 if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
+                if (!item.isAdd && item.type === "goal") onGoalClick?.(item.id, item.title)
               }}
             >
               <div
@@ -286,10 +290,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     accounts,
     categories,
     incomeSources,
+    goals,
     transactions,
     setAccounts,
     setCategories,
     setIncomeSources,
+    setGoals,
     setTransactions,
     currency,
   } = useAppStore()
@@ -321,6 +327,14 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [detailAccountId, setDetailAccountId] = useState<string | null>(null)
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null)
   const [detailIncomeSourceId, setDetailIncomeSourceId] = useState<string | null>(null)
+  const [isGoalsListOpen, setIsGoalsListOpen] = useState(false)
+  const [goalTab, setGoalTab] = useState<"active" | "completed">("active")
+  const [isGoalSheetOpen, setIsGoalSheetOpen] = useState(false)
+  const [goalName, setGoalName] = useState("")
+  const [goalTarget, setGoalTarget] = useState("")
+  const [goalIcon, setGoalIcon] = useState("")
+  const [goalError, setGoalError] = useState<string | null>(null)
+  const [isSavingGoal, setIsSavingGoal] = useState(false)
   const [detailTitle, setDetailTitle] = useState<string>("")
   const [accountSearch, setAccountSearch] = useState("")
   const [categorySearch, setCategorySearch] = useState("")
@@ -428,6 +442,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
+  const filteredGoals = useMemo(() => goals.filter((g) => g.status === goalTab), [goalTab, goals])
+
   if (overviewError) {
     return (
       <div className="app-shell" style={{ padding: 24, display: "grid", gap: 12 }}>
@@ -475,6 +491,20 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setIncomeSources(mapped)
   }, [setIncomeSources, token])
 
+  const refetchGoals = useCallback(async () => {
+    if (!token) return
+    const data = await getGoals(token)
+    const mapped: Goal[] = data.goals.map((g) => ({
+      id: g.id,
+      name: g.name,
+      icon: g.icon,
+      targetAmount: Number(g.targetAmount),
+      currentAmount: Number(g.currentAmount),
+      status: g.status,
+    }))
+    setGoals(mapped)
+  }, [setGoals, token])
+
   const refetchAccountsSeq = useCallback(async () => {
     if (!token) return
     const data = await getAccounts(token)
@@ -515,6 +545,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setEditingCategoryId(null)
     setCategoryName("")
   }, [])
+
+  const openGoalsList = useCallback(async () => {
+    await refetchGoals()
+    setIsGoalsListOpen(true)
+  }, [refetchGoals])
 
   const openEditCategory = useCallback((id: string, title: string) => {
     setDetailCategoryId(id)
@@ -862,6 +897,50 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     token,
   ])
 
+  const closeGoalsList = useCallback(() => {
+    setIsGoalsListOpen(false)
+    setIsGoalSheetOpen(false)
+    setGoalName("")
+    setGoalTarget("")
+    setGoalIcon("")
+    setGoalError(null)
+    setGoalTab("active")
+  }, [])
+
+  const openCreateGoal = useCallback(() => {
+    setGoalError(null)
+    setGoalName("")
+    setGoalTarget("")
+    setGoalIcon("")
+    setIsGoalSheetOpen(true)
+  }, [])
+
+  const handleCreateGoal = useCallback(async () => {
+    if (!token) return
+    const trimmed = goalName.trim()
+    if (!trimmed) {
+      setGoalError("Введите название")
+      return
+    }
+    const targetRaw = goalTarget.trim().replace(",", ".")
+    const target = Number(targetRaw)
+    if (!Number.isFinite(target) || target <= 0) {
+      setGoalError("Введите сумму цели")
+      return
+    }
+    setIsSavingGoal(true)
+    try {
+      await createGoal(token, { name: trimmed, icon: goalIcon.trim() || null, targetAmount: Math.round(target * 100) / 100 })
+      await refetchGoals()
+      setIsGoalSheetOpen(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Не удалось создать цель"
+      setGoalError(msg)
+    } finally {
+      setIsSavingGoal(false)
+    }
+  }, [goalIcon, goalName, goalTarget, refetchGoals, token])
+
   const handleDeleteCategory = useCallback(
     async (id: string) => {
       if (!token) {
@@ -1040,17 +1119,7 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
 
   const expenseToRender = [...sizedExpenseItems]
 
-  const goalsItems: CardItem[] = [
-    { id: "goal-trip", title: "Путешествие", amount: 0, icon: "plane", color: "#0ea5e9" },
-    { id: "goal-tech", title: "Гаджеты", amount: 0, icon: "chart", color: "#8b5cf6" },
-  ]
-
-  const placeholderGoals: CardItem[] = [
-    { id: "ph-goal-1", title: "Цель (шаблон)", amount: 0, icon: "goal", color: "#e5e7eb", type: "category", size: "md" },
-    { id: "ph-goal-2", title: "Цель (шаблон)", amount: 0, icon: "goal", color: "#e5e7eb", type: "category", size: "md" },
-  ]
-
-  const goalsToRender = [...goalsItems, ...placeholderGoals]
+  const goalsItems: CardItem[] = [{ id: "goals-entry", title: "Мои цели", amount: 0, icon: "goal", color: "#0f172a", type: "goal" }]
 
   const debtsItems: CardItem[] = [
     { id: "debt-bank", title: "Банк", amount: 0, icon: "bank", color: "#ea580c" },
@@ -1104,6 +1173,12 @@ const txDateHeaderStyle = {
   alignItems: "baseline",
   justifyContent: "space-between",
 } as const
+
+const goalProgressLabel = (current: number, target: number, currency: string) => {
+  const safeTarget = target || 1
+  const percent = Math.min(100, Math.max(0, Math.floor((current / safeTarget) * 100)))
+  return `${formatMoney(current, currency)} / ${formatMoney(target, currency)} (${percent}%)`
+}
 
 const txRowStyle = {
   display: "flex",
@@ -1395,7 +1470,7 @@ function TransactionsPanel({
         baseCurrency={baseCurrency}
       />
 
-      <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll baseCurrency={baseCurrency} />
+      <Section title="Цели" items={goalsItems} rowScroll baseCurrency={baseCurrency} onGoalClick={() => void openGoalsList()} />
       <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} rowScroll baseCurrency={baseCurrency} />
 
       {(detailAccountId || detailCategoryId || detailIncomeSourceId) && (
@@ -1846,6 +1921,237 @@ function TransactionsPanel({
               >
                 Редактировать счет
               </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isGoalsListOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={closeGoalsList}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 58,
+            padding: "12px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 520,
+              margin: "0 auto",
+              background: "#fff",
+              borderRadius: 18,
+              padding: 16,
+              position: "absolute",
+              left: 16,
+              right: 16,
+              top: 24,
+              bottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 24px)",
+              maxHeight:
+                "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
+              boxShadow: "none",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>Мои цели</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={openCreateGoal}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#f8fafc",
+                    fontWeight: 600,
+                    color: "#0f172a",
+                    cursor: "pointer",
+                  }}
+                >
+                  + Создать
+                </button>
+                <button
+                  type="button"
+                  onClick={closeGoalsList}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    color: "#0f172a",
+                    cursor: "pointer",
+                  }}
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setGoalTab("active")}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: goalTab === "active" ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                  background: goalTab === "active" ? "#0f172a" : "#f8fafc",
+                  color: goalTab === "active" ? "#fff" : "#0f172a",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Активные цели
+              </button>
+              <button
+                type="button"
+                onClick={() => setGoalTab("completed")}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: goalTab === "completed" ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                  background: goalTab === "completed" ? "#0f172a" : "#f8fafc",
+                  color: goalTab === "completed" ? "#fff" : "#0f172a",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Завершенные цели
+              </button>
+            </div>
+
+            <div style={txListContainerStyle}>
+              <div style={txScrollableStyle}>
+                {filteredGoals.length === 0 ? (
+                  <div style={{ padding: "12px 4px", fontSize: 14, color: "#6b7280" }}>Пока нет целей</div>
+                ) : (
+                  filteredGoals.map((goal) => {
+                    const percent = goal.targetAmount > 0 ? Math.min(100, Math.max(0, (goal.currentAmount / goal.targetAmount) * 100)) : 0
+                    return (
+                      <div key={goal.id} style={{ display: "grid", gap: 8, padding: 8, borderRadius: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ fontSize: 18 }}>{goal.icon || "🎯"}</div>
+                          <div style={{ fontWeight: 600, color: "#0f172a" }}>{goal.name}</div>
+                        </div>
+                        <div style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${percent}%`,
+                              background: "#0f172a",
+                              transition: "width 0.2s ease",
+                            }}
+                          />
+                        </div>
+                        <div style={{ fontSize: 13, color: "#475569" }}>
+                          {goalProgressLabel(goal.currentAmount, goal.targetAmount, baseCurrency)}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+
+            {isGoalSheetOpen && (
+              <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 10, marginTop: 4, display: "grid", gap: 10 }}>
+                {goalError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{goalError}</div> : null}
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 13, color: "#475569" }}>Название</span>
+                  <input
+                    value={goalName}
+                    onChange={(e) => setGoalName(e.target.value)}
+                    placeholder="Например, Путешествие"
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 15,
+                      outline: "none",
+                      boxShadow: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 13, color: "#475569" }}>Сумма</span>
+                  <input
+                    value={goalTarget}
+                    onChange={(e) => setGoalTarget(e.target.value)}
+                    placeholder="0"
+                    inputMode="decimal"
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 15,
+                      outline: "none",
+                      boxShadow: "none",
+                    }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 13, color: "#475569" }}>Иконка (emoji)</span>
+                  <input
+                    value={goalIcon}
+                    onChange={(e) => setGoalIcon(e.target.value)}
+                    placeholder="🎯"
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 15,
+                      outline: "none",
+                      boxShadow: "none",
+                    }}
+                  />
+                </label>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsGoalSheetOpen(false)}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      color: "#0f172a",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingGoal}
+                    onClick={() => void handleCreateGoal()}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      opacity: isSavingGoal ? 0.7 : 1,
+                    }}
+                  >
+                    Сохранить
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>

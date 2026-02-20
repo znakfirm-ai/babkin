@@ -15,6 +15,7 @@ const categories_1 = require("./routes/categories");
 const transactions_1 = require("./routes/transactions");
 const incomeSources_1 = require("./routes/incomeSources");
 const analytics_1 = require("./routes/analytics");
+const goals_1 = require("./routes/goals");
 const fastify = (0, fastify_1.default)({
     logger: true,
 });
@@ -26,6 +27,7 @@ fastify.register(workspaces_1.workspacesRoutes, { prefix: "/api/v1" });
 fastify.register(accounts_1.accountsRoutes, { prefix: "/api/v1" });
 fastify.register(categories_1.categoriesRoutes, { prefix: "/api/v1" });
 fastify.register(incomeSources_1.incomeSourcesRoutes, { prefix: "/api/v1" });
+fastify.register(goals_1.goalsRoutes, { prefix: "/api/v1" });
 fastify.register(transactions_1.transactionsRoutes, { prefix: "/api/v1" });
 fastify.register(analytics_1.analyticsRoutes, { prefix: "/api/v1" });
 const port = Number(process.env.PORT) || env_1.env.PORT;

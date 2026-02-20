@@ -24,6 +24,15 @@ export type IncomeSource = {
   icon?: string
 }
 
+export type Goal = {
+  id: string
+  name: string
+  icon?: string | null
+  targetAmount: number
+  currentAmount: number
+  status: "active" | "completed"
+}
+
 export type TransactionType = "income" | "expense" | "transfer" | "debt" | "adjustment"
 
 export type Transaction = {
