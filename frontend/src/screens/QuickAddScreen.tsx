@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from "react"
+import { useMemo, useState, useCallback } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -22,7 +22,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [keyboardInsetPx, setKeyboardInsetPx] = useState(0)
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
   const spendByCategory = useMemo(() => {
@@ -152,24 +151,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
     debt: "Долг",
     goal: "Цель",
   }
-
-  useEffect(() => {
-    const viewport = window.visualViewport
-    if (!viewport) return
-
-    const handleViewport = () => {
-      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
-      setKeyboardInsetPx((prev) => (Math.abs(prev - inset) > 1 ? inset : prev))
-    }
-
-    handleViewport()
-    viewport.addEventListener("resize", handleViewport)
-    viewport.addEventListener("scroll", handleViewport)
-    return () => {
-      viewport.removeEventListener("resize", handleViewport)
-      viewport.removeEventListener("scroll", handleViewport)
-    }
-  }, [])
 
   return (
     <div
@@ -311,13 +292,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                 }}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
-              <div
-                style={{
-                  position: "sticky",
-                  bottom: `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + ${keyboardInsetPx}px)`,
-                  paddingTop: 4,
-                }}
-              >
+              <div style={{ paddingTop: 8 }}>
                 <button
                   type="button"
                   disabled={!expenseReady || loading}
