@@ -7,6 +7,7 @@ import { getTransactions } from "./api/transactions"
 import HomeScreen from "./screens/HomeScreen"
 import OverviewScreen from "./screens/OverviewScreen"
 import AddScreen from "./screens/AddScreen"
+import QuickAddScreen from "./screens/QuickAddScreen"
 import SettingsScreen from "./screens/SettingsScreen"
 import ReportsScreen from "./screens/ReportsScreen"
 import SummaryReportScreen from "./screens/SummaryReportScreen"
@@ -17,7 +18,7 @@ import "./BottomNav.css"
 import "./App.css"
 
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
-type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category"
+type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add"
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
 type ErrorBoundaryState = { hasError: boolean; error: Error | null }
@@ -342,6 +343,8 @@ function App() {
     }
   }, [appToken, setAccounts, setCategories, setIncomeSources, setTransactions])
 
+  const prevScreen = useRef<ScreenKey>("overview")
+
   const renderScreen = () => {
     switch (activeScreen) {
       case "home":
@@ -351,7 +354,10 @@ function App() {
       case "overview":
         return <OverviewScreen overviewError={overviewError} onRetryOverview={retryOverviewData} />
       case "add":
+        prevScreen.current = "overview"
         return <AddScreen />
+      case "quick-add":
+        return <QuickAddScreen onClose={() => setActiveScreen(prevScreen.current ?? "overview")} />
       case "reports":
         return (
           <ReportsScreen
@@ -406,7 +412,12 @@ function App() {
           active={activeNav}
           onSelect={(key) => {
             setActiveNav(key)
-            setActiveScreen(key)
+            if (key === "add") {
+              prevScreen.current = activeScreen
+              setActiveScreen("quick-add")
+            } else {
+              setActiveScreen(key)
+            }
           }}
         />
       </div>
