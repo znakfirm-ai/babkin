@@ -12,7 +12,7 @@ type Props = {
 }
 
 export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
-  const { accounts, categories, setAccounts, setTransactions, currency } = useAppStore()
+  const { accounts, categories, transactions, setAccounts, setTransactions, currency } = useAppStore()
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
@@ -24,6 +24,15 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   const [loading, setLoading] = useState(false)
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
+  const spendByCategory = useMemo(() => {
+    const map = new Map<string, number>()
+    transactions.forEach((t) => {
+      if (t.type !== "expense") return
+      if (!t.categoryId) return
+      map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + t.amount.amount)
+    })
+    return map
+  }, [transactions])
 
   const submitExpense = useCallback(async () => {
     if (!token) {
@@ -84,7 +93,11 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
     }
   }, [amount, onClose, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
 
-  const renderTile = (item: { id: string; title: string; icon?: string; color?: string; text?: string }, active: boolean, isAccount: boolean) => (
+  const renderTile = (
+    item: { id: string; title: string; icon?: string; color?: string; text?: string; amount?: number; budget?: number | null },
+    active: boolean,
+    isAccount: boolean,
+  ) => (
     <button
       key={item.id}
       type="button"
@@ -108,6 +121,12 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
       </div>
       <div className="tile-card__title" style={{ fontWeight: 600 }}>{item.title}</div>
       {item.text ? <div style={{ fontSize: 12, color: "#6b7280" }}>{item.text}</div> : null}
+      {item.amount !== undefined ? (
+        <div className="tile-card__amount">{formatMoney(item.amount, baseCurrency)}</div>
+      ) : null}
+      {item.budget != null ? (
+        <div style={{ marginTop: 2, fontSize: 9, color: "#6b7280" }}>{formatMoney(item.budget, baseCurrency)}</div>
+      ) : null}
     </button>
   )
 
@@ -213,6 +232,8 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                       id: cat.id,
                       title: cat.name,
                       icon: (cat.icon as string) ?? "category",
+                      amount: spendByCategory.get(cat.id) ?? 0,
+                      budget: (cat as { budget?: number | null }).budget ?? null,
                     },
                     selectedCategoryId === cat.id,
                     false,
