@@ -260,7 +260,7 @@ const Section: React.FC<{
                 >
                   {formatMoney(item.amount, baseCurrency)}
                   {item.type === "category" && item.budget != null ? (
-                    <div style={{ marginTop: 2, fontSize: 11, color: "#6b7280" }}>({formatMoney(item.budget, baseCurrency)})</div>
+                    <div style={{ marginTop: 2, fontSize: 9, color: "#6b7280" }}>{formatMoney(item.budget, baseCurrency)}</div>
                   ) : null}
                 </div>
               )}
