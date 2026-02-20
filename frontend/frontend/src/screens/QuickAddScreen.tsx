@@ -251,12 +251,16 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                 type="button"
                 disabled={!expenseReady || loading}
                 onClick={() => void submitExpense()}
-                className="tx-modal__button tx-modal__button--primary"
                 style={{
                   marginTop: 4,
-                  opacity: expenseReady && !loading ? 1 : 0.7,
-                  cursor: expenseReady && !loading ? "pointer" : "not-allowed",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "none",
                   width: "100%",
+                  background: expenseReady && !loading ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                  color: expenseReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
+                  fontWeight: 700,
+                  cursor: expenseReady && !loading ? "pointer" : "not-allowed",
                 }}
               >
                 {loading ? "Сохранение..." : "Готово"}
