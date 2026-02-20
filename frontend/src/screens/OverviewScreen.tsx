@@ -312,6 +312,9 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [incomeSourceSheetMode, setIncomeSourceSheetMode] = useState<"create" | "edit" | null>(null)
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState<string | null>(null)
   const [incomeSourceName, setIncomeSourceName] = useState("")
+  const [incomeSourceBudget, setIncomeSourceBudget] = useState("")
+  const [incomeSourceIcon, setIncomeSourceIcon] = useState<string | null>(null)
+  const [incomeSourceError, setIncomeSourceError] = useState<string | null>(null)
   const [isSavingIncomeSource, setIsSavingIncomeSource] = useState(false)
   const [deletingIncomeSourceId, setDeletingIncomeSourceId] = useState<string | null>(null)
   const [pendingIncomeSourceEdit, setPendingIncomeSourceEdit] = useState<{ id: string; title: string } | null>(null)
@@ -524,6 +527,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setIncomeSourceSheetMode("create")
     setEditingIncomeSourceId(null)
     setIncomeSourceName("")
+    setIncomeSourceBudget("")
+    setIncomeSourceIcon(null)
   }, [])
 
   const openIncomeSourceDetails = useCallback((id: string, title: string) => {
@@ -548,6 +553,9 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setIncomeSourceSheetMode(null)
     setEditingIncomeSourceId(null)
     setIncomeSourceName("")
+    setIncomeSourceBudget("")
+    setIncomeSourceIcon(null)
+    setIncomeSourceError(null)
     setIsSavingIncomeSource(false)
     setDeletingIncomeSourceId(null)
     setPendingIncomeSourceEdit(null)
@@ -821,15 +829,16 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const handleSaveIncomeSource = useCallback(async () => {
     if (!token) {
-      alert("Нет токена")
+      setIncomeSourceError("Нет токена")
       return
     }
     const trimmed = incomeSourceName.trim()
     if (!trimmed) {
-      alert("Введите название источника")
+      setIncomeSourceError("Введите название источника")
       return
     }
     setIsSavingIncomeSource(true)
+    setIncomeSourceError(null)
     try {
       if (incomeSourceSheetMode === "create") {
         await createIncomeSource(token, trimmed)
@@ -840,11 +849,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       closeIncomeSourceSheet()
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Ошибка"
-      if (msg.includes("INCOME_SOURCE_NAME_EXISTS")) {
-        alert("Источник с таким названием уже есть")
-      } else {
-        alert(msg)
-      }
+      setIncomeSourceError(msg.includes("INCOME_SOURCE_NAME_EXISTS") ? "Источник с таким названием уже есть" : msg)
     } finally {
       setIsSavingIncomeSource(false)
     }
@@ -1793,7 +1798,12 @@ function TransactionsPanel({
 
                   <button
                     type="button"
-                    onClick={() => closeDetails()}
+                    onClick={() => {
+                      if (detailIncomeSourceId) {
+                        setPendingIncomeSourceEdit({ id: detailIncomeSourceId, title: detailTitle || "Источник" })
+                        closeDetails()
+                      }
+                    }}
                     style={{
                       padding: "12px 14px",
                       borderRadius: 12,
@@ -1809,7 +1819,7 @@ function TransactionsPanel({
                       marginTop: 2,
                     }}
                   >
-                    Закрыть
+                    Редактировать источник
                   </button>
                 </div>
               ) : null}
@@ -3012,6 +3022,53 @@ function TransactionsPanel({
                 placeholder="Название"
                 style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
               />
+              <input
+                value={incomeSourceBudget}
+                onChange={(e) => setIncomeSourceBudget(e.target.value)}
+                placeholder="Бюджет"
+                inputMode="decimal"
+                style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
+              />
+              <div style={{ display: "grid", gap: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Иконка</div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    overflowX: "auto",
+                    paddingBottom: 4,
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  {accountColorOptions.map((icon) => (
+                    <button
+                      key={icon}
+                      type="button"
+                      onClick={() => setIncomeSourceIcon(icon)}
+                      style={{
+                        width: 34,
+                        height: 34,
+                        minWidth: 34,
+                        borderRadius: "50%",
+                        border: incomeSourceIcon === icon ? "2px solid #0f172a" : "1px solid #e5e7eb",
+                        background: icon,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        boxShadow: "none",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {incomeSourceIcon === icon ? "✓" : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {incomeSourceError ? (
+                <div style={{ color: "#b91c1c", fontSize: 13 }}>{incomeSourceError}</div>
+              ) : null}
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
                   <button
