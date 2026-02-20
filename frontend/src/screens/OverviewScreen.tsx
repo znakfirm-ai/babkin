@@ -3031,54 +3031,12 @@ function TransactionsPanel({
               />
               <div style={{ display: "grid", gap: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Иконка</div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(52px,1fr))",
-                    gap: 10,
-                  }}
-                >
-                  {[
-                    "💼",
-                    "💳",
-                    "🏦",
-                    "🧾",
-                    "💰",
-                    "📈",
-                    "🪙",
-                    "🎁",
-                    "🛠️",
-                    "🧳",
-                    "🚀",
-                    "🏠",
-                    "🍀",
-                    "⭐",
-                    "📦",
-                    "⚙️",
-                    "🎯",
-                    "🧠",
-                  ].map((icon) => (
-                    <button
-                      key={icon}
-                      type="button"
-                      onClick={() => setIncomeSourceIcon(icon)}
-                      style={{
-                        height: 52,
-                        borderRadius: 12,
-                        border: incomeSourceIcon === icon ? "2px solid #0f172a" : "1px solid #e5e7eb",
-                        background: "#fff",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 20,
-                        boxShadow: "none",
-                      }}
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
+                <input
+                  value={incomeSourceIcon ?? ""}
+                  onChange={(e) => setIncomeSourceIcon(e.target.value)}
+                  placeholder="Введите emoji"
+                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
+                />
               </div>
               {incomeSourceError ? (
                 <div style={{ color: "#b91c1c", fontSize: 13 }}>{incomeSourceError}</div>
