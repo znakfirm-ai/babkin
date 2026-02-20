@@ -3041,7 +3041,7 @@ function TransactionsPanel({
               {incomeSourceError ? (
                 <div style={{ color: "#b91c1c", fontSize: 13 }}>{incomeSourceError}</div>
               ) : null}
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
                   <button
                     type="button"
@@ -3054,11 +3054,14 @@ function TransactionsPanel({
                       background: deletingIncomeSourceId === editingIncomeSourceId ? "#fecdd3" : "#fff",
                       color: "#b91c1c",
                       cursor: deletingIncomeSourceId === editingIncomeSourceId ? "not-allowed" : "pointer",
+                      width: "100%",
                     }}
                   >
                     {deletingIncomeSourceId === editingIncomeSourceId ? "Удаляем…" : "Удалить"}
                   </button>
-                ) : null}
+                ) : (
+                  <div />
+                )}
                 <button
                   type="button"
                   onClick={closeIncomeSourceSheet}
@@ -3068,6 +3071,7 @@ function TransactionsPanel({
                     border: "1px solid #e5e7eb",
                     background: "#fff",
                     cursor: "pointer",
+                    width: "100%",
                   }}
                 >
                   Отмена
@@ -3083,6 +3087,7 @@ function TransactionsPanel({
                     background: isSavingIncomeSource ? "#e5e7eb" : "#0f172a",
                     color: isSavingIncomeSource ? "#6b7280" : "#fff",
                     cursor: isSavingIncomeSource ? "not-allowed" : "pointer",
+                    width: "100%",
                   }}
                 >
                   {isSavingIncomeSource ? "Сохраняем…" : "Сохранить"}
