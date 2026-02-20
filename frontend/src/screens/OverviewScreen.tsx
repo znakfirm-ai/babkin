@@ -1078,7 +1078,7 @@ const txRowStyle = {
   borderRadius: 12,
   background: "#f8fafc",
   border: "1px solid rgba(226,232,240,0.7)",
-  gap: 10,
+  cursor: "pointer",
 } as const
 
 type TxGroup = { dateLabel: string; items: Transaction[] }
@@ -1095,25 +1095,21 @@ function TransactionsPanel({
   emptyText: string
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 0 }}>
-      <div style={txListContainerStyle}>
-        <div style={txScrollableStyle}>
-          <div style={{ maxWidth: 520, margin: "0 auto", paddingLeft: 16, paddingRight: 16 }}>
-            {groups.length === 0 ? (
-              <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>{emptyText}</div>
-            ) : (
-              groups.map((group) => (
-                <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
-                  <div style={txDateHeaderStyle}>
-                    <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
-                    {renderDayTotal(group.items)}
-                  </div>
-                  {group.items.map((tx, idx) => renderRow(tx, idx))}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+    <div style={txListContainerStyle}>
+      <div style={txScrollableStyle}>
+        {groups.length === 0 ? (
+          <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>{emptyText}</div>
+        ) : (
+          groups.map((group) => (
+            <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
+              <div style={txDateHeaderStyle}>
+                <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
+                {renderDayTotal(group.items)}
+              </div>
+              {group.items.map((tx, idx) => renderRow(tx, idx))}
+            </div>
+          ))
+        )}
       </div>
     </div>
   )
