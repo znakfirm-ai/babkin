@@ -1549,7 +1549,15 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                       ) : (
                         groupedCategoryTx.map((group) => (
                           <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
-                            <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
+                            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                              <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
+                              <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                                {formatMoney(
+                                  group.items.reduce((sum, tx) => sum + Math.abs(tx.amount.amount), 0),
+                                  baseCurrency,
+                                )}
+                              </div>
+                            </div>
                             {group.items.map((tx) => {
                               const displayAccountName = getTxAccountName(tx)
                               const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
@@ -1575,7 +1583,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                                     </div>
                                   </div>
                                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <div style={{ fontWeight: 600, color: "#b91c1c", fontSize: 14 }}>{amountText}</div>
+                                    <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
                                     <button
                                       type="button"
                                       onClick={(e) => {
