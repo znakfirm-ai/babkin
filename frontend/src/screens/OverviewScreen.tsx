@@ -233,6 +233,7 @@ const Section: React.FC<{
                 if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
+                if (!item.isAdd && item.type === "goal") onGoalClick?.(item.id, item.title)
               }}
               onKeyDown={(e) => {
                 if (e.key !== "Enter" && e.key !== " ") return
@@ -547,7 +548,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   }, [])
 
   const openGoalsList = useCallback(async () => {
-    await refetchGoals()
+    try {
+      await refetchGoals()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Не удалось загрузить цели"
+      setGoalError(msg)
+    }
     setIsGoalsListOpen(true)
   }, [refetchGoals])
 
