@@ -3,6 +3,7 @@ import { useAppStore } from "../store/useAppStore"
 import type { Goal, Transaction } from "../types/finance"
 import "./OverviewScreen.css"
 import { AppIcon, type IconName } from "../components/AppIcon"
+import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccountBalance } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
@@ -18,7 +19,8 @@ type CardItem = {
   id: string
   title: string
   amount: number
-  icon: string
+  icon?: string | null
+  financeIconKey?: string | null
   color: string
   textColor?: string
   isAdd?: boolean
@@ -259,7 +261,11 @@ const Section: React.FC<{
                       }
                 }
               >
-                <AppIcon name={item.icon as IconName} size={16} />
+                {item.financeIconKey && isFinanceIconKey(item.financeIconKey) ? (
+                  <FinanceIcon iconKey={item.financeIconKey} size={16} />
+                ) : item.icon ? (
+                  <AppIcon name={item.icon as IconName} size={16} />
+                ) : null}
               </div>
               <div className="tile-card__title">{item.title}</div>
               {!item.isAdd && (
@@ -1067,7 +1073,8 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
   id: src.id,
   title: src.name,
   amount: incomeBySource.get(src.id) ?? 0,
-  icon: "arrowDown",
+  financeIconKey: isFinanceIconKey(src.icon ?? "") ? src.icon : null,
+  icon: isFinanceIconKey(src.icon ?? "") ? undefined : "arrowDown",
   color: cardColors[(idx + 1) % cardColors.length],
   type: "income-source" as const,
 }))

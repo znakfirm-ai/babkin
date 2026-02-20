@@ -4,6 +4,7 @@ import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
 import { getAccounts } from "../api/accounts"
 import { AppIcon, type IconName } from "../components/AppIcon"
+import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 
@@ -172,7 +173,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
       id: string
       title: string
       icon?: string
-      iconEmoji?: string
+      iconKey?: string | null
       color?: string
       text?: string
       amount?: number
@@ -215,11 +216,11 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
       }}
     >
       <div className="tile-card__icon" style={{ background: "rgba(15,23,42,0.06)", opacity: 1 }}>
-        {kind === "income-source"
-          ? item.iconEmoji
-            ? <span style={{ fontSize: 16, lineHeight: 1 }}>{item.iconEmoji}</span>
-            : null
-          : <AppIcon name={(item.icon as IconName) ?? "wallet"} size={16} />}
+        {kind === "income-source" && item.iconKey && isFinanceIconKey(item.iconKey) ? (
+          <FinanceIcon iconKey={item.iconKey} size={16} />
+        ) : item.icon ? (
+          <AppIcon name={(item.icon as IconName) ?? "wallet"} size={16} />
+        ) : null}
       </div>
       <div className="tile-card__title" style={{ fontWeight: 600 }}>{item.title}</div>
       {item.text ? <div style={{ fontSize: 12, color: "#6b7280" }}>{item.text}</div> : null}
@@ -414,7 +415,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                   {
                     id: src.id,
                     title: src.name,
-                    iconEmoji: src.icon && src.icon.trim().length > 0 ? src.icon.trim() : undefined,
+                    iconKey: isFinanceIconKey(src.icon ?? "") ? src.icon : null,
                     amount: incomeBySource.get(src.id) ?? 0,
                     color: "#EEF2F7",
                   },
