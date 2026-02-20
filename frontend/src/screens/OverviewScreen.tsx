@@ -2924,31 +2924,15 @@ function TransactionsPanel({
                   <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
                 </button>
               </div>
-              <div style={{ display: "grid", gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={handleSaveCategory}
-                  disabled={isSavingCategory}
-                  style={{
-                    padding: "12px 14px",
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: isSavingCategory ? "#e5e7eb" : "#0f172a",
-                    color: isSavingCategory ? "#6b7280" : "#fff",
-                    fontWeight: 600,
-                    cursor: isSavingCategory ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {isSavingCategory ? "Сохраняем…" : "Сохранить"}
-                </button>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 {categorySheetMode === "edit" && editingCategoryId ? (
                   <button
                     type="button"
                     onClick={() => handleDeleteCategory(editingCategoryId)}
                     disabled={deletingCategoryId === editingCategoryId}
                     style={{
-                      padding: "12px 14px",
-                      borderRadius: 12,
+                      padding: "10px 12px",
+                      borderRadius: 10,
                       border: "1px solid #fee2e2",
                       background: deletingCategoryId === editingCategoryId ? "#fecdd3" : "#fff",
                       color: "#b91c1c",
@@ -2958,19 +2942,39 @@ function TransactionsPanel({
                   >
                     {deletingCategoryId === editingCategoryId ? "Удаляем…" : "Удалить"}
                   </button>
-                ) : null}
+                ) : (
+                  <div />
+                )}
                 <button
                   type="button"
                   onClick={closeCategorySheet}
                   style={{
                     padding: "10px 12px",
-                    borderRadius: 12,
+                    borderRadius: 10,
                     border: "1px solid #e5e7eb",
                     background: "#fff",
                     cursor: "pointer",
+                    width: "100%",
                   }}
                 >
                   Отмена
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCategory}
+                  disabled={isSavingCategory}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: isSavingCategory ? "#e5e7eb" : "#0f172a",
+                    color: isSavingCategory ? "#6b7280" : "#fff",
+                    fontWeight: 600,
+                    cursor: isSavingCategory ? "not-allowed" : "pointer",
+                    width: "100%",
+                  }}
+                >
+                  {isSavingCategory ? "Сохраняем…" : "Сохранить"}
                 </button>
               </div>
             </div>
