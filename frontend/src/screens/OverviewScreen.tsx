@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useAppStore } from "../store/useAppStore"
 import type { Transaction } from "../types/finance"
 import "./OverviewScreen.css"
@@ -1078,9 +1078,46 @@ const txRowStyle = {
   borderRadius: 12,
   background: "#f8fafc",
   border: "1px solid rgba(226,232,240,0.7)",
-  marginBottom: 6,
-  cursor: "pointer",
+  gap: 10,
 } as const
+
+type TxGroup = { dateLabel: string; items: Transaction[] }
+
+function TransactionsPanel({
+  groups,
+  renderDayTotal,
+  renderRow,
+  emptyText,
+}: {
+  groups: TxGroup[]
+  renderDayTotal: (items: Transaction[]) => ReactNode
+  renderRow: (tx: Transaction, idx: number) => ReactNode
+  emptyText: string
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 0 }}>
+      <div style={txListContainerStyle}>
+        <div style={txScrollableStyle}>
+          <div style={{ maxWidth: 520, margin: "0 auto", paddingLeft: 16, paddingRight: 16 }}>
+            {groups.length === 0 ? (
+              <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>{emptyText}</div>
+            ) : (
+              groups.map((group) => (
+                <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
+                  <div style={txDateHeaderStyle}>
+                    <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
+                    {renderDayTotal(group.items)}
+                  </div>
+                  {group.items.map((tx, idx) => renderRow(tx, idx))}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
   const getTxAccountName = useCallback(
     (tx: Transaction) => tx.accountName ?? (tx.accountId ? accountNameById.get(tx.accountId) ?? "Счёт" : "Счёт"),
     [accountNameById],
@@ -1408,112 +1445,63 @@ const txRowStyle = {
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 18,
-                    background: "#fff",
-                    padding: 12,
-                    boxShadow: "none",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                    overflow: "hidden",
-                    flex: 1,
-                    minHeight: 0,
+                <TransactionsPanel
+                  groups={groupedAccountTx}
+                  emptyText="Нет операций за период"
+                  renderDayTotal={(items) => {
+                    const dayExpense = items
+                      .filter((tx) => tx.type === "expense")
+                      .reduce((sum, tx) => sum + tx.amount.amount, 0)
+                    return dayExpense > 0 ? (
+                      <div style={{ fontSize: 12, color: "#94a3b8" }}>{formatMoney(dayExpense, baseCurrency)}</div>
+                    ) : null
                   }}
-                >
-                  <div
-                    style={{
-                      flex: 1,
-                      minHeight: 0,
-                      overflowY: "auto",
-                      paddingRight: 2,
-                    }}
-                  >
-                    {groupedAccountTx.length === 0 ? (
-                      <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций за период</div>
-                    ) : (
-                      groupedAccountTx.map((group) => {
-                        const dayExpense = group.items
-                          .filter((tx) => tx.type === "expense" /* expense (расход) */)
-                          .reduce((sum, tx) => sum + tx.amount.amount, 0)
-
-                        return (
-                          <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
-                            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                              <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
-                              {dayExpense > 0 ? (
-                                <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                                  {formatMoney(dayExpense, baseCurrency)}
-                                </div>
-                              ) : null}
-                            </div>
-
-                            {group.items.map((tx, idx) => {
-                              const isIncome = tx.type === "income" /* income (доход) */
-                              const isExpense = tx.type === "expense" /* expense (расход) */
-                              const sign = isIncome ? "+" : isExpense ? "-" : "" // transfer (перевод) без знака
-                              const color = isIncome ? "#16a34a" : "#0f172a"
-                              const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
-
-                              return (
-                                <div
-                                  key={tx.id}
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    padding: "8px 10px",
-                                    borderRadius: 12,
-                                    background: "#f8fafc",
-                                    border: "1px solid rgba(226,232,240,0.7)",
-                                    marginTop: idx === 0 ? 0 : 6,
-                              gap: 10,
-                            }}
-                            onClick={() => openTxActions(tx.id)}
-                          >
-                            <div style={{ display: "grid", gap: 2 }}>
-                                    <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>
-                                      {tx.type === "income"
-                                        ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
-                                        : tx.type === "expense"
-                                        ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
-                                        : "Перевод"}
-                                    </div>
-                                  </div>
-
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <div style={{ fontWeight: 600, color, textAlign: "right", fontSize: 13.5 }}>
-                                      {amountText}
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        openTxActions(tx.id)
-                                      }}
-                                      style={{
-                                        padding: "4px 6px",
-                                        border: "none",
-                                        background: "transparent",
-                                        cursor: "pointer",
-                                        fontSize: 16,
-                                        lineHeight: 1,
-                                      }}
-                                    >
-                                      ✎
-                                    </button>
-                                  </div>
-                                </div>
-                              )
-                            })}
+                  renderRow={(tx, idx) => {
+                    const isIncome = tx.type === "income"
+                    const isExpense = tx.type === "expense"
+                    const sign = isIncome ? "+" : isExpense ? "-" : ""
+                    const color = isIncome ? "#16a34a" : "#0f172a"
+                    const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
+                    return (
+                      <div
+                        key={tx.id}
+                        style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
+                        onClick={() => openTxActions(tx.id)}
+                      >
+                        <div style={{ display: "grid", gap: 2 }}>
+                          <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>
+                            {tx.type === "income"
+                              ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
+                              : tx.type === "expense"
+                              ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
+                              : "Перевод"}
                           </div>
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ fontWeight: 600, color, textAlign: "right", fontSize: 13.5 }}>{amountText}</div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openTxActions(tx.id)
+                            }}
+                            style={{
+                              padding: "4px 6px",
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              fontSize: 16,
+                              lineHeight: 1,
+                            }}
+                          >
+                            ✎
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }}
+                />
               </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
@@ -1569,67 +1557,50 @@ const txRowStyle = {
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 0 }}>
-                    <div style={txListContainerStyle}>
-                      <div style={txScrollableStyle}>
-                        <div style={{ maxWidth: 520, margin: "0 auto", paddingLeft: 16, paddingRight: 16 }}>
-                          {groupedCategoryTx.length === 0 ? (
-                            <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций</div>
-                          ) : (
-                            groupedCategoryTx.map((group) => (
-                              <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
-                                <div style={txDateHeaderStyle}>
-                                  <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
-                                  <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                                    {formatMoney(
-                                      group.items.reduce((sum, tx) => sum + Math.abs(tx.amount.amount), 0),
-                                      baseCurrency,
-                                    )}
-                                  </div>
-                                </div>
-                                {group.items.map((tx) => {
-                                  const displayAccountName = getTxAccountName(tx)
-                                  const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
-                                  return (
-                                    <div
-                                      key={tx.id}
-                                      style={txRowStyle}
-                                      onClick={() => openTxActions(tx.id)}
-                                    >
-                                      <div style={{ display: "grid", gap: 2 }}>
-                                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
-                                          {displayAccountName}
-                                        </div>
-                                      </div>
-                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            openTxActions(tx.id)
-                                          }}
-                                          style={{
-                                            padding: "4px 6px",
-                                            border: "none",
-                                            background: "transparent",
-                                            cursor: "pointer",
-                                            fontSize: 16,
-                                            lineHeight: 1,
-                                          }}
-                                        >
-                                          ✎
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            ))
-                          )}
-                        </div>
+                  <TransactionsPanel
+                    groups={groupedCategoryTx}
+                    emptyText="Нет операций"
+                    renderDayTotal={(items) => (
+                      <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                        {formatMoney(items.reduce((sum, tx) => sum + Math.abs(tx.amount.amount), 0), baseCurrency)}
                       </div>
-                    </div>
+                    )}
+                    renderRow={(tx, idx) => {
+                      const displayAccountName = getTxAccountName(tx)
+                      const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
+                      return (
+                        <div
+                          key={tx.id}
+                          style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
+                          onClick={() => openTxActions(tx.id)}
+                        >
+                          <div style={{ display: "grid", gap: 2 }}>
+                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openTxActions(tx.id)
+                              }}
+                              style={{
+                                padding: "4px 6px",
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                lineHeight: 1,
+                              }}
+                            >
+                              ✎
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }}
+                  />
                     <button
                       type="button"
                       onClick={() => {
@@ -1656,9 +1627,8 @@ const txRowStyle = {
                       Редактировать категорию
                     </button>
                   </div>
-                </div>
               )}
-            </div>
+                </div>
             {detailAccountId && (!searchFocused && !accountSearch) && (
               <button
                 type="button"
