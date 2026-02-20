@@ -36,6 +36,16 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
     return map
   }, [transactions])
 
+  const incomeBySource = useMemo(() => {
+    const map = new Map<string, number>()
+    transactions.forEach((t) => {
+      if (t.type !== "income") return
+      if (!t.incomeSourceId) return
+      map.set(t.incomeSourceId, (map.get(t.incomeSourceId) ?? 0) + t.amount.amount)
+    })
+    return map
+  }, [transactions])
+
   const submitExpense = useCallback(async () => {
     if (!token) {
       setError("Нет токена")
@@ -158,19 +168,31 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   }, [amount, onClose, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
 
   const renderTile = (
-    item: { id: string; title: string; icon?: string; color?: string; text?: string; amount?: number; budget?: number | null; budgetTone?: "normal" | "warn" | "alert" },
+    item: {
+      id: string
+      title: string
+      icon?: string
+      iconEmoji?: string
+      color?: string
+      text?: string
+      amount?: number
+      budget?: number | null
+      budgetTone?: "normal" | "warn" | "alert"
+    },
     active: boolean,
-    isAccount: boolean,
+    kind: "account" | "category" | "income-source",
   ) => (
     <button
       key={item.id}
       type="button"
-      className={`tile-card ${isAccount ? "tile-card--account" : "tile-card--category"}`}
+      className={`tile-card ${kind === "category" ? "tile-card--category" : "tile-card--account"}`}
       onClick={() => {
-        if (isAccount) {
+        if (kind === "account") {
           setSelectedAccountId(item.id)
-        } else {
+        } else if (kind === "category") {
           setSelectedCategoryId(item.id)
+        } else {
+          setSelectedIncomeSourceId(item.id)
         }
       }}
       style={{
@@ -193,7 +215,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
       }}
     >
       <div className="tile-card__icon" style={{ background: "rgba(15,23,42,0.06)", opacity: 1 }}>
-        <AppIcon name={(item.icon as IconName) ?? "wallet"} size={16} />
+        {item.iconEmoji ? <span style={{ fontSize: 16, lineHeight: 1 }}>{item.iconEmoji}</span> : <AppIcon name={(item.icon as IconName) ?? "wallet"} size={16} />}
       </div>
       <div className="tile-card__title" style={{ fontWeight: 600 }}>{item.title}</div>
       {item.text ? <div style={{ fontSize: 12, color: "#6b7280" }}>{item.text}</div> : null}
@@ -310,7 +332,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                       text: formatMoney(acc.balance.amount, baseCurrency),
                     },
                     selectedAccountId === acc.id,
-                    true,
+                    "account",
                   ),
               )}
             </div>
@@ -336,7 +358,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                       })(),
                     },
                     selectedCategoryId === cat.id,
-                    false,
+                    "category",
                   ),
                 )}
               </div>
@@ -388,10 +410,12 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                   {
                     id: src.id,
                     title: src.name,
-                    icon: (src.icon as IconName) ?? "wallet",
+                    iconEmoji: src.icon ?? "💰",
+                    amount: incomeBySource.get(src.id) ?? 0,
+                    color: "#EEF2F7",
                   },
                   selectedIncomeSourceId === src.id,
-                  true,
+                  "income-source",
                 ),
               )}
             </div>
@@ -409,10 +433,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                       text: formatMoney(acc.balance.amount, baseCurrency),
                     },
                     selectedAccountId === acc.id,
-                    true,
+                    "account",
                   ),
-                )}
-              </div>
+              )}
+            </div>
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 8 }}>
