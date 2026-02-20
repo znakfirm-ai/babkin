@@ -9,7 +9,7 @@ import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeS
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 
-type TileType = "account" | "category"
+type TileType = "account" | "category" | "income-source"
 type TileSize = "sm" | "md" | "lg"
 type TxKind = "income" | "expense" | "transfer"
 
@@ -172,6 +172,7 @@ const Section: React.FC<{
   onAddIncomeSource?: () => void
   onCategoryClick?: (id: string, title: string) => void
   onAccountClick?: (id: string, title: string) => void
+  onIncomeSourceClick?: (id: string, title: string) => void
   baseCurrency: string
 }> = ({
   title,
@@ -183,6 +184,7 @@ const Section: React.FC<{
   onAddIncomeSource,
   onCategoryClick,
   onAccountClick,
+  onIncomeSourceClick,
   baseCurrency,
 }) => {
   const listClass = rowScroll
@@ -227,6 +229,7 @@ const Section: React.FC<{
                 if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
                 if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
+                if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
               }}
               onKeyDown={(e) => {
                 if (e.key !== "Enter" && e.key !== " ") return
@@ -235,6 +238,7 @@ const Section: React.FC<{
                 if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
                 if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
+                if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
               }}
             >
               <div
@@ -310,11 +314,14 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [incomeSourceName, setIncomeSourceName] = useState("")
   const [isSavingIncomeSource, setIsSavingIncomeSource] = useState(false)
   const [deletingIncomeSourceId, setDeletingIncomeSourceId] = useState<string | null>(null)
+  const [pendingIncomeSourceEdit, setPendingIncomeSourceEdit] = useState<{ id: string; title: string } | null>(null)
   const [detailAccountId, setDetailAccountId] = useState<string | null>(null)
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null)
+  const [detailIncomeSourceId, setDetailIncomeSourceId] = useState<string | null>(null)
   const [detailTitle, setDetailTitle] = useState<string>("")
   const [accountSearch, setAccountSearch] = useState("")
   const [categorySearch, setCategorySearch] = useState("")
+  const [incomeSourceSearch, setIncomeSourceSearch] = useState("")
   const [accountPeriodType, setAccountPeriodType] = useState<"day" | "week" | "month" | "year" | "custom">("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
@@ -508,6 +515,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const openEditCategory = useCallback((id: string, title: string) => {
     setDetailCategoryId(id)
+    setDetailIncomeSourceId(null)
+    setDetailAccountId(null)
     setDetailTitle(title)
   }, [])
 
@@ -517,10 +526,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setIncomeSourceName("")
   }, [])
 
-  const openEditIncomeSource = useCallback((id: string, title: string) => {
-    setIncomeSourceSheetMode("edit")
-    setEditingIncomeSourceId(id)
-    setIncomeSourceName(title)
+  const openIncomeSourceDetails = useCallback((id: string, title: string) => {
+    setDetailIncomeSourceId(id)
+    setDetailTitle(title)
+    setDetailAccountId(null)
+    setDetailCategoryId(null)
   }, [])
 
   const closeCategorySheet = useCallback(() => {
@@ -539,6 +549,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setIncomeSourceName("")
     setIsSavingIncomeSource(false)
     setDeletingIncomeSourceId(null)
+    setPendingIncomeSourceEdit(null)
   }, [])
 
   const openEditCategorySheet = useCallback(
@@ -553,12 +564,28 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     [categories],
   )
 
+  const openEditIncomeSourceSheet = useCallback(
+    (id: string, title: string) => {
+      setIncomeSourceSheetMode("edit")
+      setEditingIncomeSourceId(id)
+      setIncomeSourceName(title)
+    },
+    [],
+  )
+
   useEffect(() => {
     if (!detailCategoryId && pendingCategoryEdit) {
       openEditCategorySheet(pendingCategoryEdit.id, pendingCategoryEdit.title)
       setPendingCategoryEdit(null)
     }
   }, [detailCategoryId, openEditCategorySheet, pendingCategoryEdit])
+
+  useEffect(() => {
+    if (!detailIncomeSourceId && pendingIncomeSourceEdit) {
+      openEditIncomeSourceSheet(pendingIncomeSourceEdit.id, pendingIncomeSourceEdit.title)
+      setPendingIncomeSourceEdit(null)
+    }
+  }, [detailIncomeSourceId, openEditIncomeSourceSheet, pendingIncomeSourceEdit])
 
   const openTxActions = useCallback(
     (id: string) => {
@@ -589,13 +616,15 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   }, [])
 
   const closeDetails = useCallback(() => {
-      setDetailAccountId(null)
-      setDetailCategoryId(null)
-      setDetailTitle("")
-      setAccountSearch("")
-      setCategorySearch("")
-      setSearchFocused(false)
-      closeTxSheet()
+    setDetailAccountId(null)
+    setDetailCategoryId(null)
+    setDetailIncomeSourceId(null)
+    setDetailTitle("")
+    setAccountSearch("")
+    setCategorySearch("")
+    setIncomeSourceSearch("")
+    setSearchFocused(false)
+    closeTxSheet()
   }, [closeTxSheet])
 
   const openEditAccountFromDetails = useCallback(
@@ -1150,6 +1179,13 @@ function TransactionsPanel({
       .sort((a, b) => (a.date < b.date ? 1 : -1))
   }, [detailCategoryId, displayTransactions])
 
+  const incomeSourceTx = useMemo(() => {
+    if (!detailIncomeSourceId) return []
+    return displayTransactions
+      .filter((t) => t.type === "income" && t.incomeSourceId === detailIncomeSourceId)
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+  }, [detailIncomeSourceId, displayTransactions])
+
   const accountPeriod = useMemo(() => {
     const now = new Date()
     const start = new Date(now)
@@ -1253,6 +1289,38 @@ function TransactionsPanel({
       }))
   }, [filteredCategoryTx])
 
+  const filteredIncomeSourceTx = useMemo(() => {
+    if (!detailIncomeSourceId) return []
+    const { start, end } = accountPeriod
+    const periodFiltered = incomeSourceTx.filter((tx) => {
+      const d = new Date(tx.date)
+      return d >= start && d < end
+    })
+    const query = incomeSourceSearch.trim().toLowerCase()
+    if (!query) return periodFiltered
+    return periodFiltered.filter((tx) => {
+      const absAmount = Math.abs(tx.amount.amount)
+      const amountText = String(absAmount)
+      const name = getTxAccountName(tx).toLowerCase()
+      return name.includes(query) || amountText.includes(query)
+    })
+  }, [accountPeriod, getTxAccountName, incomeSourceSearch, incomeSourceTx, detailIncomeSourceId])
+
+  const groupedIncomeSourceTx = useMemo(() => {
+    const groups = new Map<string, Transaction[]>()
+    filteredIncomeSourceTx.forEach((tx) => {
+      const key = tx.date.slice(0, 10)
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(tx)
+    })
+    return Array.from(groups.entries())
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([date, items]) => ({
+        dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
+        items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
+      }))
+  }, [filteredIncomeSourceTx])
+
   return (
     <div className="overview">
       <div className="overview__header">
@@ -1307,7 +1375,7 @@ function TransactionsPanel({
         items={[...incomeToRender, addCard("income-source")]}
         rowScroll
         onAddIncomeSource={openCreateIncomeSource}
-        onCategoryClick={openEditIncomeSource}
+        onIncomeSourceClick={openIncomeSourceDetails}
         baseCurrency={baseCurrency}
       />
 
@@ -1324,7 +1392,7 @@ function TransactionsPanel({
       <Section title="Цели" items={[...goalsToRender, addCard("goals")]} rowScroll baseCurrency={baseCurrency} />
       <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} rowScroll baseCurrency={baseCurrency} />
 
-      {(detailAccountId || detailCategoryId) && (
+      {(detailAccountId || detailCategoryId || detailIncomeSourceId) && (
         <div
           role="dialog"
           aria-modal="true"
@@ -1499,7 +1567,7 @@ function TransactionsPanel({
                   }}
                 />
               </div>
-              ) : (
+              ) : detailCategoryId ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
                   <input
                     value={categorySearch}
@@ -1623,7 +1691,94 @@ function TransactionsPanel({
                       Редактировать категорию
                     </button>
                   </div>
-              )}
+              ) : detailIncomeSourceId ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
+                  <input
+                    value={incomeSourceSearch}
+                    onChange={(e) => setIncomeSourceSearch(e.target.value)}
+                    placeholder="Поиск по операциям"
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 15,
+                      outline: "none",
+                      boxShadow: "none",
+                      WebkitAppearance: "none",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPeriodMenuOpen(true)}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#f8fafc",
+                        fontWeight: 600,
+                        color: "#0f172a",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        width: "fit-content",
+                      }}
+                    >
+                      Период
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
+                    </button>
+
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: "#6b7280",
+                        maxWidth: "100%",
+                        flex: 1,
+                        textAlign: "right",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "clip",
+                      }}
+                    >
+                      {accountPeriod.label}
+                    </div>
+                  </div>
+
+                  <div style={txListContainerStyle}>
+                    <div style={txScrollableStyle}>
+                      {groupedIncomeSourceTx.length === 0 ? (
+                        <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций</div>
+                      ) : (
+                        <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>
+                          Операции источника пока скрыты на этом шаге
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => closeDetails()}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      alignSelf: "center",
+                      width: "100%",
+                      maxWidth: 260,
+                      marginTop: 2,
+                    }}
+                  >
+                    Закрыть
+                  </button>
+                </div>
+              ) : null}
                 </div>
             {detailAccountId && (!searchFocused && !accountSearch) && (
               <button
