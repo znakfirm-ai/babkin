@@ -215,7 +215,11 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
       }}
     >
       <div className="tile-card__icon" style={{ background: "rgba(15,23,42,0.06)", opacity: 1 }}>
-        {item.iconEmoji ? <span style={{ fontSize: 16, lineHeight: 1 }}>{item.iconEmoji}</span> : <AppIcon name={(item.icon as IconName) ?? "wallet"} size={16} />}
+        {kind === "income-source"
+          ? item.iconEmoji
+            ? <span style={{ fontSize: 16, lineHeight: 1 }}>{item.iconEmoji}</span>
+            : null
+          : <AppIcon name={(item.icon as IconName) ?? "wallet"} size={16} />}
       </div>
       <div className="tile-card__title" style={{ fontWeight: 600 }}>{item.title}</div>
       {item.text ? <div style={{ fontSize: 12, color: "#6b7280" }}>{item.text}</div> : null}
@@ -410,7 +414,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                   {
                     id: src.id,
                     title: src.name,
-                    iconEmoji: src.icon ?? "💰",
+                    iconEmoji: src.icon && src.icon.trim().length > 0 ? src.icon.trim() : undefined,
                     amount: incomeBySource.get(src.id) ?? 0,
                     color: "#EEF2F7",
                   },
