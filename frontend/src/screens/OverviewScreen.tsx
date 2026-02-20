@@ -527,6 +527,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   }, [])
 
   const openIncomeSourceDetails = useCallback((id: string, title: string) => {
+    if (!id) return
     setDetailIncomeSourceId(id)
     setDetailTitle(title)
     setDetailAccountId(null)
@@ -929,14 +930,14 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const expenseCategories = categories.filter((c) => c.type === "expense")
 
-  const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
-    id: src.id,
-    title: src.name,
-    amount: incomeBySource.get(src.id) ?? 0,
-    icon: "arrowDown",
-    color: cardColors[(idx + 1) % cardColors.length],
-    type: "category" as const,
-  }))
+const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
+  id: src.id,
+  title: src.name,
+  amount: incomeBySource.get(src.id) ?? 0,
+  icon: "arrowDown",
+  color: cardColors[(idx + 1) % cardColors.length],
+  type: "income-source" as const,
+}))
   const incomeToRender = [...incomeItems]
 
   const expenseItems: CardItem[] = expenseCategories
