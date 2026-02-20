@@ -13,6 +13,27 @@ const SIZE_MAP: Record<FinanceIconSize, number> = {
 
 export type FinanceIconKey =
   | "salary"
+  | "payroll"
+  | "side_hustle"
+  | "consulting"
+  | "agency"
+  | "shop_sales"
+  | "online_sales"
+  | "marketplace"
+  | "tips"
+  | "royalties"
+  | "commission"
+  | "sponsorship"
+  | "grants"
+  | "pension"
+  | "alimony"
+  | "interest_income"
+  | "capital_gains"
+  | "reimbursements"
+  | "insurance_payout"
+  | "prize"
+  | "donations_income"
+  | "invoice_paid"
   | "business"
   | "freelance"
   | "bonus"
@@ -34,6 +55,18 @@ export type FinanceIconKey =
   | "utilities"
   | "internet"
   | "phone"
+  | "insurance"
+  | "charity"
+  | "repairs"
+  | "furniture"
+  | "electronics"
+  | "books"
+  | "music"
+  | "cinema"
+  | "parking"
+  | "delivery"
+  | "dental"
+  | "cosmetics"
   | "health"
   | "pharmacy"
   | "sport"
@@ -62,8 +95,16 @@ export type FinanceIconKey =
   | "mortgage"
   | "installment"
   | "credit_card_debt"
-  | "borrow"
-  | "lend"
+  | "credit_card"
+  | "personal_loan"
+  | "auto_loan"
+  | "student_loan"
+  | "business_loan"
+  | "payday_loan"
+  | "refinance"
+  | "repayment"
+  | "payment_schedule"
+  | "late_fee"
   | "interest"
   | "contract"
   | "target"
@@ -75,6 +116,16 @@ export type FinanceIconKey =
   | "education_goal"
   | "gadget_goal"
   | "wedding_goal"
+  | "new_home"
+  | "renovation"
+  | "retirement"
+  | "emergency"
+  | "travel_goal"
+  | "health_goal"
+  | "baby_goal"
+  | "business_goal"
+  | "investment_goal"
+  | "pet_goal"
 
 type FinanceIconInnerProps = React.SVGProps<SVGSVGElement> & { title?: string }
 
@@ -115,6 +166,164 @@ const FinanceIcons: Record<FinanceIconKey, React.FC<FinanceIconInnerProps>> = {
     <>
       <rect x="7" y="9" width="10" height="10" rx="2" />
       <path d="M9 9V6h6v3M9 13h6" />
+    </>,
+  ),
+  payroll: createIcon(
+    <>
+      <rect x="4" y="7" width="16" height="10" rx="2" />
+      <path d="M6 10h12" />
+      <path d="M9 13h6" />
+      <path d="M10 7V5h4v2" />
+    </>,
+  ),
+  side_hustle: createIcon(
+    <>
+      <rect x="4" y="8" width="10" height="10" rx="2" />
+      <path d="M9 12h4" />
+      <path d="M14 8l3-3" />
+      <path d="M15 6h3v3" />
+    </>,
+  ),
+  consulting: createIcon(
+    <>
+      <rect x="4" y="5" width="10" height="10" rx="2" />
+      <path d="M6.5 8h5M6.5 11h3.5" />
+      <path d="M14 15l3 3v-8l-3-3z" />
+    </>,
+  ),
+  agency: createIcon(
+    <>
+      <path d="M5 19h14" />
+      <path d="M7 19V9h10v10" />
+      <path d="M9 12h2M13 12h2" />
+      <path d="M9 15h2M13 15h2" />
+      <path d="M10 9V6h4v3" />
+    </>,
+  ),
+  shop_sales: createIcon(
+    <>
+      <path d="M5 8h14l-1 11H6z" />
+      <path d="M5 8l2-3h10l2 3" />
+      <path d="M10 13h4" />
+      {circle(10, 19, 1.2)}
+      {circle(14, 19, 1.2)}
+    </>,
+  ),
+  online_sales: createIcon(
+    <>
+      <rect x="4" y="5" width="16" height="10" rx="2" />
+      <path d="M4 9h16" />
+      <path d="M9 15h6" />
+      <path d="M9.5 11.5 12 14l2.5-2.5" />
+    </>,
+  ),
+  marketplace: createIcon(
+    <>
+      <path d="M5 8h14l-2 12H7z" />
+      <path d="M7 8 9 4h6l2 4" />
+      <path d="M10 12h4" />
+    </>,
+  ),
+  tips: createIcon(
+    <>
+      <path d="M8 11h8" />
+      <path d="M12 7v8" />
+      <path d="M7 16v2h10v-2" />
+      <path d="M9 7.5 12 5l3 2.5" />
+    </>,
+  ),
+  royalties: createIcon(
+    <>
+      <path d="M5 9 9 6l3 3 3-3 4 3v8H5z" />
+      <path d="M9 14h6" />
+    </>,
+  ),
+  commission: createIcon(
+    <>
+      <path d="M6 15h12" />
+      <path d="M10 11 6 7" />
+      <path d="M18 7l-4 4" />
+      <path d="M12 17v2" />
+    </>,
+  ),
+  sponsorship: createIcon(
+    <>
+      <path d="M12 6c-2 0-3.5 1.5-3.5 3.5 0 2.9 3.5 5.5 3.5 5.5s3.5-2.6 3.5-5.5C15.5 7.5 14 6 12 6Z" />
+      <path d="M10.5 9.5c0-.8.7-1.5 1.5-1.5s1.5.7 1.5 1.5S12.8 11 12 11s-1.5-.7-1.5-1.5Z" />
+    </>,
+  ),
+  grants: createIcon(
+    <>
+      <path d="M7 5h10v12H7z" />
+      <path d="M9 9h6" />
+      <path d="M12 17v2" />
+      <path d="M10 7h4" />
+    </>,
+  ),
+  pension: createIcon(
+    <>
+      <path d="M5 9h14" />
+      <path d="M9 5h6" />
+      <path d="M7 9v10h10V9" />
+      <path d="M9.5 13h5" />
+    </>,
+  ),
+  alimony: createIcon(
+    <>
+      <path d="M7 8a3 3 0 1 1 6 0v1" />
+      <path d="M5 21v-6a3 3 0 0 1 6 0v6" />
+      <path d="M15 12h3" />
+      <path d="M16.5 10.5v3" />
+    </>,
+  ),
+  interest_income: createIcon(
+    <>
+      <path d="M5 17l4-4 3 3 7-7" />
+      <path d="M5 13V7h6" />
+      <circle cx="17.5" cy="6.5" r="1.5" />
+    </>,
+  ),
+  capital_gains: createIcon(
+    <>
+      <path d="M5 15l4-5 3 3 5-6" />
+      <path d="M15 7h4v4" />
+      <path d="M5 19h14" />
+    </>,
+  ),
+  reimbursements: createIcon(
+    <>
+      <path d="M7 10H4l3-3 3 3H7z" />
+      <path d="M4 10v6a4 4 0 0 0 4 4h6" />
+      <path d="M12 14h6l-2.5-3.5L12 14Z" />
+      <path d="M18 14v-6a4 4 0 0 0-4-4h-4" />
+    </>,
+  ),
+  insurance_payout: createIcon(
+    <>
+      <path d="M6 7 12 4l6 3v4a7 7 0 0 1-6 7 7 7 0 0 1-6-7Z" />
+      <path d="M10 11h4" />
+      <path d="M12 9v6" />
+    </>,
+  ),
+  prize: createIcon(
+    <>
+      <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
+      <path d="M9 14h6" />
+      <path d="M10 14v4l2-1 2 1v-4" />
+    </>,
+  ),
+  donations_income: createIcon(
+    <>
+      <path d="M7 9c0-1.7 1.3-3 3-3 1 0 1.9.6 2 1.5C12 6.6 13 6 14 6c1.7 0 3 1.3 3 3 0 2.4-5 7-5 7s-5-4.6-5-7Z" />
+      <path d="M10 9.5h1" />
+    </>,
+  ),
+  invoice_paid: createIcon(
+    <>
+      <rect x="6" y="4" width="12" height="16" rx="2" />
+      <path d="M9 9h6M9 13h4" />
+      <path d="M9 6h3" />
+      <path d="M10 16l2 2 3-3" />
     </>,
   ),
   freelance: createIcon(
@@ -276,6 +485,88 @@ const FinanceIcons: Record<FinanceIconKey, React.FC<FinanceIconInnerProps>> = {
     <>
       <rect x="5" y="5" width="14" height="14" rx="3" />
       <path d="M12 8v8M8 12h8" />
+    </>,
+  ),
+  insurance: createIcon(
+    <>
+      <path d="M6 8 12 5l6 3v5a6 6 0 0 1-6 6 6 6 0 0 1-6-6Z" />
+      <path d="M10 12h4" />
+      <path d="M12 10v4" />
+    </>,
+  ),
+  charity: createIcon(
+    <>
+      <path d="M7 10c0-1.7 1.3-3 3-3 1.1 0 2 .6 2 1.5C12 7.6 13 7 14 7c1.7 0 3 1.3 3 3 0 2.4-5 7-5 7s-5-4.6-5-7Z" />
+      <path d="M10 10.5h1" />
+    </>,
+  ),
+  repairs: createIcon(
+    <>
+      <path d="M7 5 5 7l4 4-2 2-4-4-2 2 6 6 2-2-2-2 2-2 2 2 2-2-4-4 2-2-2-2z" />
+      <path d="M14 6h5l-2.5 3.5L14 6Z" />
+      <path d="M16 9.5V18" />
+    </>,
+  ),
+  furniture: createIcon(
+    <>
+      <rect x="4" y="11" width="16" height="7" rx="2" />
+      <path d="M6 11V8h12v3" />
+      <path d="M6 18v2M18 18v2" />
+    </>,
+  ),
+  electronics: createIcon(
+    <>
+      <rect x="5" y="6" width="14" height="12" rx="2" />
+      <path d="M9 18v2h6v-2" />
+      <path d="M10 9h4M9 12h6" />
+    </>,
+  ),
+  books: createIcon(
+    <>
+      <path d="M7 5h4a2 2 0 0 1 2 2v12h-6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+      <path d="M11 5h6a2 2 0 0 1 2 2v12h-6a2 2 0 0 1-2-2Z" />
+      <path d="M7 9h4M13 9h4" />
+    </>,
+  ),
+  music: createIcon(
+    <>
+      <path d="M10 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
+      <path d="M18 15a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
+      <path d="M10 15V6l8-2v9" />
+    </>,
+  ),
+  cinema: createIcon(
+    <>
+      <rect x="4" y="7" width="16" height="10" rx="2" />
+      <path d="M7 7v10M17 7v10" />
+      <path d="M4 10h16" />
+    </>,
+  ),
+  parking: createIcon(
+    <>
+      <rect x="5" y="4" width="14" height="16" rx="2" />
+      <path d="M9 16V8h4a2 2 0 1 1 0 4h-4" />
+    </>,
+  ),
+  delivery: createIcon(
+    <>
+      <path d="M3 14h12l2-4h4" />
+      <path d="M3 10h9l2 4" />
+      {circle(7, 17, 1.2)}
+      {circle(17, 17, 1.2)}
+    </>,
+  ),
+  dental: createIcon(
+    <>
+      <path d="M9 4c-2 0-3 1.5-3 3.5 0 3.5 1 7.5 2 9.5.6 1.2 2.4 1.2 3 0l1-2c.6-1.2 2.4-1.2 3 0 .5 1.2 1.5-3.8 1.5-7.5C16.5 5.5 15.5 4 13.5 4 12 4 11 5 12 7 10.5 5 10.5 4 9 4Z" />
+    </>,
+  ),
+  cosmetics: createIcon(
+    <>
+      <path d="M8 4h2v9H8z" />
+      <path d="M7 13h4v7H7z" />
+      <path d="M14 7h3l-1 4h-1z" />
+      <path d="M15 11v9" />
     </>,
   ),
   sport: createIcon(
@@ -470,20 +761,82 @@ const FinanceIcons: Record<FinanceIconKey, React.FC<FinanceIconInnerProps>> = {
       <path d="M8 6V4h3" />
     </>,
   ),
-  borrow: createIcon(
+  credit_card: createIcon(
+    <>
+      <rect x="3.5" y="6" width="17" height="12" rx="2" />
+      <path d="M4 10h16" />
+      <path d="M8 14h5" />
+    </>,
+  ),
+  personal_loan: createIcon(
+    <>
+      <rect x="5" y="7" width="14" height="10" rx="2" />
+      <path d="M9 12h6" />
+      <path d="M7 7V5h4" />
+    </>,
+  ),
+  auto_loan: createIcon(
+    <>
+      <path d="M5 15V12l2-4h10l2 4v3" />
+      <path d="M7 15h10" />
+      {circle(8, 17, 1.2)}
+      {circle(16, 17, 1.2)}
+    </>,
+  ),
+  student_loan: createIcon(
+    <>
+      <path d="M4 9 12 5l8 4-8 4-8-4Z" />
+      <path d="M12 13v6" />
+      <path d="M7 11v2c0 1.2 2.2 2.2 5 2.2s5-1 5-2.2v-2" />
+      <path d="M6 16v3" />
+    </>,
+  ),
+  business_loan: createIcon(
+    <>
+      <path d="M5 19h14" />
+      <path d="M7 19V9h10v10" />
+      <path d="M9 12h2M13 12h2" />
+      <path d="M9 15h2M13 15h2" />
+      <path d="M10 9V6h4v3" />
+    </>,
+  ),
+  payday_loan: createIcon(
+    <>
+      <rect x="5" y="8" width="14" height="10" rx="2" />
+      <path d="M9 12h6" />
+      <path d="M7 8V6h5" />
+      <path d="M10 15h4" />
+    </>,
+  ),
+  refinance: createIcon(
+    <>
+      <path d="M5 12h6l-2-2" />
+      <path d="M19 12h-6l2 2" />
+      <path d="M7 17h10" />
+      <path d="M7 7h10" />
+    </>,
+  ),
+  repayment: createIcon(
     <>
       <path d="M7 12h10" />
       <path d="M12 7v10" />
-      <path d="M9 9l3-3 3 3" />
-      <path d="M9 15l3 3 3-3" />
+      <path d="M9 10h6" />
+      <path d="M9 14h6" />
     </>,
   ),
-  lend: createIcon(
+  payment_schedule: createIcon(
     <>
-      <path d="M17 12H7" />
-      <path d="M12 7v10" />
-      <path d="M15 9 12 6 9 9" />
-      <path d="M15 15 12 18 9 15" />
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+      <path d="M9 5v3M15 5v3" />
+      <path d="M8 13h4v4" />
+      <path d="M8 9h8" />
+    </>,
+  ),
+  late_fee: createIcon(
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <path d="M12 9v4l2.5 1.5" />
+      <path d="M9 7h6" />
     </>,
   ),
   interest: createIcon(
@@ -566,6 +919,80 @@ const FinanceIcons: Record<FinanceIconKey, React.FC<FinanceIconInnerProps>> = {
       <path d="M12 4l1.5 2L12 8l-1.5-2z" />
     </>,
   ),
+  new_home: createIcon(
+    <>
+      <path d="M4 11.5 12 5l8 6.5" />
+      <path d="M6 10v9h12v-9" />
+      <path d="M10 15h4" />
+    </>,
+  ),
+  renovation: createIcon(
+    <>
+      <path d="M5 11.5 12 5l8 6.5" />
+      <path d="M6 10v9h12v-9" />
+      <path d="M9 15 15 9" />
+      <path d="M14 15h-4" />
+    </>,
+  ),
+  retirement: createIcon(
+    <>
+      <path d="M6 8c0-2 2-3 6-3s6 1 6 3v3H6z" />
+      <path d="M6 11v6a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3v-6" />
+      <path d="M9 15h6" />
+    </>,
+  ),
+  emergency: createIcon(
+    <>
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+      <path d="M12 8v8M8 12h8" />
+    </>,
+  ),
+  travel_goal: createIcon(
+    <>
+      <path d="M4 12h16" />
+      <path d="M8 12 5 6h2l4 6" />
+      <path d="M16 12 19 6h-2l-4 6" />
+      <path d="M10 12v6l2-1 2 1v-6" />
+    </>,
+  ),
+  health_goal: createIcon(
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <path d="M12 8v8M8 12h8" />
+    </>,
+  ),
+  baby_goal: createIcon(
+    <>
+      <path d="M12 6a3 3 0 0 1 3 3v1h-6V9a3 3 0 0 1 3-3Z" />
+      <path d="M9 10v2a3 3 0 1 0 6 0v-2" />
+      <path d="M9 13a4 4 0 0 0 6 0" />
+    </>,
+  ),
+  business_goal: createIcon(
+    <>
+      <path d="M5 19h14" />
+      <path d="M7 19V9h10v10" />
+      <path d="M9 12h2M13 12h2" />
+      <path d="M9 15h2M13 15h2" />
+      <path d="M10 9V6h4v3" />
+    </>,
+  ),
+  investment_goal: createIcon(
+    <>
+      <path d="M5 17l3-4 3 3 5-6 3 4" />
+      <path d="M5 7h6" />
+      <path d="M5 20h14" />
+    </>,
+  ),
+  pet_goal: createIcon(
+    <>
+      <circle cx="8" cy="10" r="1.6" />
+      <circle cx="12" cy="8" r="1.6" />
+      <circle cx="16" cy="10" r="1.6" />
+      <path d="M7 14c2 1 8 1 10 0" />
+      <path d="M10.5 12.5h3" />
+    </>,
+  ),
 }
 
 export const FINANCE_ICONS = FinanceIcons
@@ -580,15 +1007,36 @@ export const FINANCE_ICON_SECTIONS: { id: string; title: string; keys: FinanceIc
     title: "Доходы",
     keys: [
       "salary",
+      "payroll",
+      "side_hustle",
+      "consulting",
+      "agency",
       "business",
       "freelance",
       "bonus",
+      "shop_sales",
+      "online_sales",
+      "marketplace",
+      "tips",
+      "royalties",
+      "commission",
+      "sponsorship",
+      "grants",
+      "pension",
+      "alimony",
+      "interest_income",
       "investment_income",
       "dividends",
       "cashback",
       "rent_income",
       "gift_income",
       "refund",
+      "capital_gains",
+      "reimbursements",
+      "insurance_payout",
+      "prize",
+      "donations_income",
+      "invoice_paid",
     ],
   },
   {
@@ -607,6 +1055,18 @@ export const FINANCE_ICON_SECTIONS: { id: string; title: string; keys: FinanceIc
       "utilities",
       "internet",
       "phone",
+      "insurance",
+      "charity",
+      "repairs",
+      "furniture",
+      "electronics",
+      "books",
+      "music",
+      "cinema",
+      "parking",
+      "delivery",
+      "dental",
+      "cosmetics",
       "health",
       "pharmacy",
       "sport",
@@ -630,12 +1090,50 @@ export const FINANCE_ICON_SECTIONS: { id: string; title: string; keys: FinanceIc
   {
     id: "debts",
     title: "Долги / Кредиты",
-    keys: ["debt", "loan", "mortgage", "installment", "credit_card_debt", "borrow", "lend", "interest", "contract"],
+    keys: [
+      "debt",
+      "loan",
+      "mortgage",
+      "installment",
+      "credit_card_debt",
+      "credit_card",
+      "personal_loan",
+      "auto_loan",
+      "student_loan",
+      "business_loan",
+      "payday_loan",
+      "refinance",
+      "repayment",
+      "payment_schedule",
+      "late_fee",
+      "interest",
+      "contract",
+    ],
   },
   {
     id: "goals",
     title: "Цели",
-    keys: ["target", "piggy", "emergency_fund", "vacation", "car_goal", "home_goal", "education_goal", "gadget_goal", "wedding_goal"],
+    keys: [
+      "target",
+      "piggy",
+      "emergency_fund",
+      "vacation",
+      "car_goal",
+      "home_goal",
+      "education_goal",
+      "gadget_goal",
+      "wedding_goal",
+      "new_home",
+      "renovation",
+      "retirement",
+      "emergency",
+      "travel_goal",
+      "health_goal",
+      "baby_goal",
+      "business_goal",
+      "investment_goal",
+      "pet_goal",
+    ],
   },
 ]
 
