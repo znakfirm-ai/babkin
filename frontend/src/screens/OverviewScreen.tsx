@@ -336,6 +336,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [goalIcon, setGoalIcon] = useState("")
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
+  const [pendingGoalCreate, setPendingGoalCreate] = useState(false)
+  const [pendingOpenGoalsList, setPendingOpenGoalsList] = useState(false)
   const [detailTitle, setDetailTitle] = useState<string>("")
   const [accountSearch, setAccountSearch] = useState("")
   const [categorySearch, setCategorySearch] = useState("")
@@ -556,6 +558,20 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     }
     setIsGoalsListOpen(true)
   }, [refetchGoals])
+
+  useEffect(() => {
+    if (!isGoalsListOpen && pendingGoalCreate) {
+      setPendingGoalCreate(false)
+      setIsGoalSheetOpen(true)
+    }
+  }, [isGoalsListOpen, pendingGoalCreate])
+
+  useEffect(() => {
+    if (!isGoalSheetOpen && pendingOpenGoalsList) {
+      setPendingOpenGoalsList(false)
+      void openGoalsList()
+    }
+  }, [isGoalSheetOpen, openGoalsList, pendingOpenGoalsList])
 
   const openEditCategory = useCallback((id: string, title: string) => {
     setDetailCategoryId(id)
@@ -905,12 +921,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const closeGoalsList = useCallback(() => {
     setIsGoalsListOpen(false)
-    setIsGoalSheetOpen(false)
-    setGoalName("")
-    setGoalTarget("")
-    setGoalIcon("")
-    setGoalError(null)
-    setGoalTab("active")
   }, [])
 
   const openCreateGoal = useCallback(() => {
@@ -918,7 +928,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setGoalName("")
     setGoalTarget("")
     setGoalIcon("")
-    setIsGoalSheetOpen(true)
+    setPendingGoalCreate(true)
+    setIsGoalsListOpen(false)
   }, [])
 
   const handleCreateGoal = useCallback(async () => {
@@ -938,6 +949,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     try {
       await createGoal(token, { name: trimmed, icon: goalIcon.trim() || null, targetAmount: Math.round(target * 100) / 100 })
       await refetchGoals()
+      setPendingOpenGoalsList(true)
       setIsGoalSheetOpen(false)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось создать цель"
@@ -1932,6 +1944,155 @@ function TransactionsPanel({
         </div>
       )}
 
+      {isGoalSheetOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => {
+            setIsGoalSheetOpen(false)
+            setGoalError(null)
+            setPendingOpenGoalsList(true)
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 59,
+            padding: "12px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 520,
+              width: "100%",
+              margin: "0 auto",
+              background: "#fff",
+              borderRadius: 18,
+              padding: 16,
+              boxShadow: "none",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>Создать цель</div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingOpenGoalsList(true)
+                  setIsGoalSheetOpen(false)
+                }}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                }}
+              >
+                Отмена
+              </button>
+            </div>
+
+            {goalError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{goalError}</div> : null}
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={{ fontSize: 13, color: "#475569" }}>Название</span>
+              <input
+                value={goalName}
+                onChange={(e) => setGoalName(e.target.value)}
+                placeholder="Например, Путешествие"
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 15,
+                  outline: "none",
+                  boxShadow: "none",
+                }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={{ fontSize: 13, color: "#475569" }}>Сумма</span>
+              <input
+                value={goalTarget}
+                onChange={(e) => setGoalTarget(e.target.value)}
+                placeholder="0"
+                inputMode="decimal"
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 15,
+                  outline: "none",
+                  boxShadow: "none",
+                }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={{ fontSize: 13, color: "#475569" }}>Иконка (emoji)</span>
+              <input
+                value={goalIcon}
+                onChange={(e) => setGoalIcon(e.target.value)}
+                placeholder="🎯"
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 15,
+                  outline: "none",
+                  boxShadow: "none",
+                }}
+              />
+            </label>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingOpenGoalsList(true)
+                  setIsGoalSheetOpen(false)
+                }}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  color: "#0f172a",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                disabled={isSavingGoal}
+                onClick={() => void handleCreateGoal()}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  opacity: isSavingGoal ? 0.7 : 1,
+                }}
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isGoalsListOpen && (
         <div
           role="dialog"
@@ -2043,10 +2204,20 @@ function TransactionsPanel({
                 {filteredGoals.length === 0 ? (
                   <div style={{ padding: "12px 4px", fontSize: 14, color: "#6b7280" }}>Пока нет целей</div>
                 ) : (
-                  filteredGoals.map((goal) => {
+                  filteredGoals.map((goal, idx) => {
                     const percent = goal.targetAmount > 0 ? Math.min(100, Math.max(0, (goal.currentAmount / goal.targetAmount) * 100)) : 0
+                    const isLast = idx === filteredGoals.length - 1
                     return (
-                      <div key={goal.id} style={{ display: "grid", gap: 8, padding: 8, borderRadius: 12 }}>
+                      <div
+                        key={goal.id}
+                        style={{
+                          display: "grid",
+                          gap: 8,
+                          padding: 8,
+                          borderRadius: 12,
+                          borderBottom: isLast ? "none" : "1px solid #e5e7eb",
+                        }}
+                      >
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <div style={{ fontSize: 18 }}>{goal.icon || "🎯"}</div>
                           <div style={{ fontWeight: 600, color: "#0f172a" }}>{goal.name}</div>
@@ -2070,95 +2241,6 @@ function TransactionsPanel({
                 )}
               </div>
             </div>
-
-            {isGoalSheetOpen && (
-              <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 10, marginTop: 4, display: "grid", gap: 10 }}>
-                {goalError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{goalError}</div> : null}
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, color: "#475569" }}>Название</span>
-                  <input
-                    value={goalName}
-                    onChange={(e) => setGoalName(e.target.value)}
-                    placeholder="Например, Путешествие"
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      fontSize: 15,
-                      outline: "none",
-                      boxShadow: "none",
-                    }}
-                  />
-                </label>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, color: "#475569" }}>Сумма</span>
-                  <input
-                    value={goalTarget}
-                    onChange={(e) => setGoalTarget(e.target.value)}
-                    placeholder="0"
-                    inputMode="decimal"
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      fontSize: 15,
-                      outline: "none",
-                      boxShadow: "none",
-                    }}
-                  />
-                </label>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, color: "#475569" }}>Иконка (emoji)</span>
-                  <input
-                    value={goalIcon}
-                    onChange={(e) => setGoalIcon(e.target.value)}
-                    placeholder="🎯"
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      fontSize: 15,
-                      outline: "none",
-                      boxShadow: "none",
-                    }}
-                  />
-                </label>
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsGoalSheetOpen(false)}
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      color: "#0f172a",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSavingGoal}
-                    onClick={() => void handleCreateGoal()}
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      border: "1px solid #0f172a",
-                      background: "#0f172a",
-                      color: "#fff",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      opacity: isSavingGoal ? 0.7 : 1,
-                    }}
-                  >
-                    Сохранить
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
