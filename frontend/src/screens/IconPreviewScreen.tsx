@@ -7,7 +7,14 @@ type Props = {
 
 const IconPreviewScreen: React.FC<Props> = ({ onBack }) => {
   return (
-    <div className="app-shell" style={{ padding: 16 }}>
+    <div
+      className="app-shell"
+      style={{
+        padding: 16,
+        minHeight: "100dvh",
+        boxSizing: "border-box",
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>Иконки (preview)</div>
         <button
@@ -26,7 +33,15 @@ const IconPreviewScreen: React.FC<Props> = ({ onBack }) => {
         </button>
       </div>
 
-      <div style={{ display: "grid", gap: 20 }}>
+      <div
+        style={{
+          display: "grid",
+          gap: 20,
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
+        }}
+      >
         {FINANCE_ICON_SECTIONS.map((section) => (
           <div key={section.id} style={{ display: "grid", gap: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{section.title}</div>
