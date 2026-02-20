@@ -20,14 +20,14 @@ export async function getIncomeSources(token: string): Promise<GetIncomeSourcesR
   return res.json()
 }
 
-export async function createIncomeSource(token: string, name: string): Promise<IncomeSourceDto> {
+export async function createIncomeSource(token: string, name: string, icon?: string | null): Promise<IncomeSourceDto> {
   const res = await fetch("https://babkin.onrender.com/api/v1/income-sources", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, icon: icon ?? undefined }),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => "")
@@ -37,14 +37,14 @@ export async function createIncomeSource(token: string, name: string): Promise<I
   return data.incomeSource
 }
 
-export async function renameIncomeSource(token: string, id: string, name: string): Promise<IncomeSourceDto> {
+export async function renameIncomeSource(token: string, id: string, name: string, icon?: string | null): Promise<IncomeSourceDto> {
   const res = await fetch(`https://babkin.onrender.com/api/v1/income-sources/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, icon: icon ?? undefined }),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => "")

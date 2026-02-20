@@ -3,7 +3,7 @@ import { useAppStore } from "../store/useAppStore"
 import type { Goal, Transaction } from "../types/finance"
 import "./OverviewScreen.css"
 import { AppIcon, type IconName } from "../components/AppIcon"
-import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
+import { FinanceIcon, FINANCE_ICON_SECTIONS, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccountBalance } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
@@ -331,6 +331,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [isSavingIncomeSource, setIsSavingIncomeSource] = useState(false)
   const [deletingIncomeSourceId, setDeletingIncomeSourceId] = useState<string | null>(null)
   const [pendingIncomeSourceEdit, setPendingIncomeSourceEdit] = useState<{ id: string; title: string } | null>(null)
+  const [isIncomeIconPickerOpen, setIsIncomeIconPickerOpen] = useState(false)
+  const lastIncomeSourceModeRef = useRef<"create" | "edit" | null>(null)
   const [detailAccountId, setDetailAccountId] = useState<string | null>(null)
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null)
   const [detailIncomeSourceId, setDetailIncomeSourceId] = useState<string | null>(null)
@@ -457,6 +459,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const filteredGoals = useMemo(() => goals.filter((g) => g.status === goalTab), [goalTab, goals])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
+  const incomeIconKeys = useMemo(() => {
+    const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "income")
+    return section ? section.keys : []
+  }, [])
 
   if (overviewError) {
     return (
@@ -608,6 +614,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const openCreateIncomeSource = useCallback(() => {
     setIncomeSourceSheetMode("create")
+    lastIncomeSourceModeRef.current = "create"
     setEditingIncomeSourceId(null)
     setIncomeSourceName("")
     setIncomeSourceBudget("")
@@ -632,8 +639,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setDeletingCategoryId(null)
   }, [])
 
-  const closeIncomeSourceSheet = useCallback(() => {
-    setIncomeSourceSheetMode(null)
+  const resetIncomeSourceForm = useCallback(() => {
     setEditingIncomeSourceId(null)
     setIncomeSourceName("")
     setIncomeSourceBudget("")
@@ -643,6 +649,16 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setDeletingIncomeSourceId(null)
     setPendingIncomeSourceEdit(null)
   }, [])
+
+  const closeIncomeSourceSheet = useCallback(
+    (opts?: { preserveForm?: boolean }) => {
+      setIncomeSourceSheetMode(null)
+      if (!opts?.preserveForm) {
+        resetIncomeSourceForm()
+      }
+    },
+    [resetIncomeSourceForm],
+  )
 
   const openEditCategorySheet = useCallback(
     (id: string, title: string) => {
@@ -659,10 +675,13 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const openEditIncomeSourceSheet = useCallback(
     (id: string, title: string) => {
       setIncomeSourceSheetMode("edit")
+      lastIncomeSourceModeRef.current = "edit"
       setEditingIncomeSourceId(id)
       setIncomeSourceName(title)
+      const src = incomeSources.find((s) => s.id === id)
+      setIncomeSourceIcon(src?.icon ?? null)
     },
-    [],
+    [incomeSources],
   )
 
   useEffect(() => {
@@ -671,6 +690,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       setPendingCategoryEdit(null)
     }
   }, [detailCategoryId, openEditCategorySheet, pendingCategoryEdit])
+
+  useEffect(() => {
+    // no-op
+  }, [])
 
   useEffect(() => {
     if (!detailIncomeSourceId && pendingIncomeSourceEdit) {
@@ -926,9 +949,9 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setIncomeSourceError(null)
     try {
       if (incomeSourceSheetMode === "create") {
-        await createIncomeSource(token, trimmed)
+        await createIncomeSource(token, trimmed, incomeSourceIcon ?? undefined)
       } else if (incomeSourceSheetMode === "edit" && editingIncomeSourceId) {
-        await renameIncomeSource(token, editingIncomeSourceId, trimmed)
+        await renameIncomeSource(token, editingIncomeSourceId, trimmed, incomeSourceIcon ?? undefined)
       }
       await refetchIncomeSources()
       closeIncomeSourceSheet()
@@ -943,6 +966,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     editingIncomeSourceId,
     incomeSourceName,
     incomeSourceSheetMode,
+    incomeSourceIcon,
     refetchIncomeSources,
     token,
   ])
@@ -2805,6 +2829,104 @@ function TransactionsPanel({
         </div>
       ) : null}
 
+      {isIncomeIconPickerOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 45,
+            padding: "0 12px 12px",
+          }}
+          onClick={() => {
+            setIsIncomeIconPickerOpen(false)
+            if (lastIncomeSourceModeRef.current) {
+              setIncomeSourceSheetMode(lastIncomeSourceModeRef.current)
+            }
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: 16,
+              boxShadow: "none",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выбор иконки</div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+                gap: 10,
+              }}
+            >
+              {incomeIconKeys.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setIncomeSourceIcon(key)
+                    setIsIncomeIconPickerOpen(false)
+                    if (lastIncomeSourceModeRef.current) {
+                      setIncomeSourceSheetMode(lastIncomeSourceModeRef.current)
+                    }
+                  }}
+                  style={{
+                    padding: 10,
+                    borderRadius: 12,
+                    border: incomeSourceIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                    background: "#fff",
+                    display: "grid",
+                    gap: 6,
+                    placeItems: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <FinanceIcon iconKey={key} size="lg" />
+                  <div style={{ fontSize: 11, color: "#6b7280", textAlign: "center" }}>{key}</div>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsIncomeIconPickerOpen(false)
+                if (lastIncomeSourceModeRef.current) {
+                  setIncomeSourceSheetMode(lastIncomeSourceModeRef.current)
+                }
+              }}
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              Назад
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {isPeriodMenuOpen ? (
         <div
           role="dialog"
@@ -3642,7 +3764,7 @@ function TransactionsPanel({
             zIndex: 45,
             padding: "0 12px 12px",
           }}
-          onClick={closeIncomeSourceSheet}
+          onClick={() => closeIncomeSourceSheet()}
         >
           <div
             style={{
@@ -3681,40 +3803,61 @@ function TransactionsPanel({
               />
               <div style={{ display: "grid", gap: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Иконка</div>
-                <input
-                  value={incomeSourceIcon ?? ""}
-                  onChange={(e) => setIncomeSourceIcon(e.target.value)}
-                  placeholder="Введите emoji"
-                  style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
-                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    lastIncomeSourceModeRef.current = incomeSourceSheetMode
+                    closeIncomeSourceSheet({ preserveForm: true })
+                    setIsIncomeIconPickerOpen(true)
+                  }}
+                  style={{
+                    padding: 12,
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#0f172a" }}>
+                    {incomeSourceIcon && isFinanceIconKey(incomeSourceIcon) ? <FinanceIcon iconKey={incomeSourceIcon} size="md" /> : null}
+                    <span style={{ fontSize: 14 }}>
+                      {incomeSourceIcon && isFinanceIconKey(incomeSourceIcon) ? incomeSourceIcon : "Без иконки"}
+                    </span>
+                  </span>
+                  <span style={{ color: "#9ca3af", fontSize: 12 }}>▼</span>
+                </button>
               </div>
               {incomeSourceError ? (
                 <div style={{ color: "#b91c1c", fontSize: 13 }}>{incomeSourceError}</div>
               ) : null}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
-                    disabled={deletingIncomeSourceId === editingIncomeSourceId}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: "1px solid #fee2e2",
-                      background: deletingIncomeSourceId === editingIncomeSourceId ? "#fecdd3" : "#fff",
-                      color: "#b91c1c",
-                      cursor: deletingIncomeSourceId === editingIncomeSourceId ? "not-allowed" : "pointer",
-                      width: "100%",
-                    }}
-                  >
-                    {deletingIncomeSourceId === editingIncomeSourceId ? "Удаляем…" : "Удалить"}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
+                      disabled={deletingIncomeSourceId === editingIncomeSourceId}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #fee2e2",
+                        background: deletingIncomeSourceId === editingIncomeSourceId ? "#fecdd3" : "#fff",
+                        color: "#b91c1c",
+                        cursor: deletingIncomeSourceId === editingIncomeSourceId ? "not-allowed" : "pointer",
+                        width: "100%",
+                      }}
+                    >
+                      {deletingIncomeSourceId === editingIncomeSourceId ? "Удаляем…" : "Удалить"}
+                    </button>
                 ) : (
                   <div />
                 )}
                 <button
                   type="button"
-                  onClick={closeIncomeSourceSheet}
+                  onClick={() => closeIncomeSourceSheet()}
                   style={{
                     padding: "10px 12px",
                     borderRadius: 10,
