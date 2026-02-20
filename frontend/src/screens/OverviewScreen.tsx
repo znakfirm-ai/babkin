@@ -1032,8 +1032,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   })
 
   const summaryBalance = accounts.reduce((sum, acc) => sum + acc.balance.amount, 0)
-  const formatDate = (iso: string) =>
-    new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(new Date(iso))
   const accountNameById = useMemo(() => {
     const map = new Map<string, string>()
     accounts.forEach((a) => map.set(a.id, a.name))
@@ -1167,6 +1165,21 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
         items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
       }))
   }, [filteredAccountTx])
+
+  const groupedCategoryTx = useMemo(() => {
+    const groups = new Map<string, Transaction[]>()
+    filteredCategoryTx.forEach((tx) => {
+      const key = tx.date.slice(0, 10)
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(tx)
+    })
+    return Array.from(groups.entries())
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([date, items]) => ({
+        dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
+        items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
+      }))
+  }, [filteredCategoryTx])
 
   return (
     <div className="overview">
@@ -1531,57 +1544,61 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                         paddingRight: 2,
                       }}
                     >
-                      {filteredCategoryTx.length === 0 ? (
+                      {groupedCategoryTx.length === 0 ? (
                         <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций</div>
                       ) : (
-                        filteredCategoryTx.map((tx) => {
-                          const displayAccountName = getTxAccountName(tx)
-                          const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
-                          return (
-                            <div
-                              key={tx.id}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "8px 10px",
-                                borderRadius: 12,
-                                border: "1px solid rgba(226,232,240,0.7)",
-                                background: "#f8fafc",
-                                marginBottom: 6,
-                                cursor: "pointer",
-                              }}
-                              onClick={() => openTxActions(tx.id)}
-                            >
-                              <div style={{ display: "grid", gap: 2 }}>
-                                <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
-                                  {displayAccountName}
-                                </div>
-                                <div style={{ color: "#6b7280", fontSize: 12 }}>{formatDate(tx.date)}</div>
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <div style={{ fontWeight: 600, color: "#b91c1c", fontSize: 14 }}>{amountText}</div>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    openTxActions(tx.id)
-                                  }}
+                        groupedCategoryTx.map((group) => (
+                          <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
+                            <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
+                            {group.items.map((tx) => {
+                              const displayAccountName = getTxAccountName(tx)
+                              const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
+                              return (
+                                <div
+                                  key={tx.id}
                                   style={{
-                                    padding: "4px 6px",
-                                    border: "none",
-                                    background: "transparent",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    padding: "8px 10px",
+                                    borderRadius: 12,
+                                    border: "1px solid rgba(226,232,240,0.7)",
+                                    background: "#f8fafc",
+                                    marginBottom: 6,
                                     cursor: "pointer",
-                                    fontSize: 16,
-                                    lineHeight: 1,
                                   }}
+                                  onClick={() => openTxActions(tx.id)}
                                 >
-                                  ✎
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        })
+                                  <div style={{ display: "grid", gap: 2 }}>
+                                    <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
+                                      {displayAccountName}
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div style={{ fontWeight: 600, color: "#b91c1c", fontSize: 14 }}>{amountText}</div>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        openTxActions(tx.id)
+                                      }}
+                                      style={{
+                                        padding: "4px 6px",
+                                        border: "none",
+                                        background: "transparent",
+                                        cursor: "pointer",
+                                        fontSize: 16,
+                                        lineHeight: 1,
+                                      }}
+                                    >
+                                      ✎
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ))
                       )}
                     </div>
                     <button
