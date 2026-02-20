@@ -163,7 +163,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     async (token: string) => {
       try {
         const data = await getIncomeSources(token)
-        const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name }))
+        const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? undefined }))
         setIncomeSources(mapped)
       } catch (err) {
         if (err instanceof Error) {

@@ -495,7 +495,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const refetchIncomeSources = useCallback(async () => {
     if (!token) return
     const data = await getIncomeSources(token)
-    const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name }))
+    const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? undefined }))
     setIncomeSources(mapped)
   }, [setIncomeSources, token])
 

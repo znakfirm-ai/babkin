@@ -439,8 +439,8 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                     selectedAccountId === acc.id,
                     "account",
                   ),
-              )}
-            </div>
+                )}
+              </div>
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 8 }}>
