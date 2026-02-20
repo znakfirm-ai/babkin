@@ -1745,17 +1745,50 @@ function TransactionsPanel({
                     </div>
                   </div>
 
-                  <div style={txListContainerStyle}>
-                    <div style={txScrollableStyle}>
-                      {groupedIncomeSourceTx.length === 0 ? (
-                        <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций</div>
-                      ) : (
-                        <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>
-                          Операции источника пока скрыты на этом шаге
+                  <TransactionsPanel
+                    groups={groupedIncomeSourceTx}
+                    emptyText="Нет операций"
+                    renderDayTotal={(items) => (
+                      <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                        {formatMoney(items.reduce((sum, tx) => sum + Math.abs(tx.amount.amount), 0), baseCurrency)}
+                      </div>
+                    )}
+                    renderRow={(tx, idx) => {
+                      const displayAccountName = getTxAccountName(tx)
+                      const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
+                      return (
+                        <div
+                          key={tx.id}
+                          style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
+                          onClick={() => openTxActions(tx.id)}
+                        >
+                          <div style={{ display: "grid", gap: 2 }}>
+                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openTxActions(tx.id)
+                              }}
+                              style={{
+                                padding: "4px 6px",
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                lineHeight: 1,
+                              }}
+                            >
+                              ✎
+                            </button>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
+                      )
+                    }}
+                  />
 
                   <button
                     type="button"
