@@ -249,7 +249,7 @@ function App() {
         setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null })))
 
         const incData = await getIncomeSources(token)
-        setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? undefined })))
+        setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name })))
 
         const txData = await getTransactions(token)
         setTransactions(
@@ -314,7 +314,7 @@ function App() {
       setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null })))
 
       const incData = await getIncomeSources(appToken)
-      setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? undefined })))
+      setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name })))
 
       const txData = await getTransactions(appToken)
       setTransactions(
