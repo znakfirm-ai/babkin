@@ -13,6 +13,8 @@ const IconPreviewScreen: React.FC<Props> = ({ onBack }) => {
         padding: 16,
         minHeight: "100dvh",
         boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -37,6 +39,8 @@ const IconPreviewScreen: React.FC<Props> = ({ onBack }) => {
         style={{
           display: "grid",
           gap: 20,
+          flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
           paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
