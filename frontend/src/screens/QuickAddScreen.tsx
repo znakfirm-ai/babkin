@@ -156,7 +156,12 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
     <div className="app-shell" style={{ background: "#f5f6f8" }}>
       <div
         className="app-shell__inner overview"
-        style={{ paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))", overflowY: "auto" }}
+        style={{
+          paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y",
+        }}
       >
         <div style={{ display: "grid", gap: 10, padding: "12px 16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
