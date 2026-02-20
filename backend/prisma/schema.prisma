@@ -158,6 +158,7 @@ model transactions {
   from_account_id String?
   to_account_id   String?
   income_source_id String?
+  goal_id         String?
 
   workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   account   accounts?  @relation("transactions_account", fields: [account_id], references: [id])
@@ -165,6 +166,7 @@ model transactions {
   from_account accounts? @relation("transactions_from_account", fields: [from_account_id], references: [id])
   to_account   accounts? @relation("transactions_to_account", fields: [to_account_id], references: [id])
   income_source income_sources? @relation(fields: [income_source_id], references: [id])
+  goal goals? @relation(fields: [goal_id], references: [id])
 
   @@index([workspace_id])
   @@index([account_id])
@@ -172,6 +174,7 @@ model transactions {
   @@index([from_account_id])
   @@index([to_account_id])
   @@index([income_source_id])
+  @@index([goal_id])
 }
 
 model goals {
@@ -187,6 +190,7 @@ model goals {
   completed_at   DateTime?
 
   workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  transactions transactions[]
 
   @@index([workspace_id])
 }

@@ -65,6 +65,7 @@ function mapTx(tx) {
         toAccountId: tx.to_account_id ?? null,
         toAccountName: tx.to_account?.name ?? null,
         incomeSourceId: tx.income_source_id ?? null,
+        goalId: tx.goal_id ?? null,
     };
 }
 async function transactionsRoutes(fastify, _opts) {
@@ -76,8 +77,12 @@ async function transactionsRoutes(fastify, _opts) {
         if (!user?.active_workspace_id) {
             return reply.status(400).send({ error: "No active workspace" });
         }
+        const goalId = request.query.goalId;
         const txs = await prisma_1.prisma.transactions.findMany({
-            where: { workspace_id: user.active_workspace_id },
+            where: {
+                workspace_id: user.active_workspace_id,
+                ...(goalId ? { goal_id: goalId } : {}),
+            },
             orderBy: { happened_at: "desc" },
             include: {
                 account: { select: { id: true, name: true } },

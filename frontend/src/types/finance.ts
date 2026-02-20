@@ -43,6 +43,7 @@ export type Transaction = {
   accountName?: string | null
   fromAccountName?: string | null
   toAccountName?: string | null
+  goalId?: string | null
 
   // для income/expense/debt:
   accountId: string

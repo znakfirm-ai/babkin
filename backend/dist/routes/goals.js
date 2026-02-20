@@ -107,4 +107,47 @@ async function goalsRoutes(fastify, _opts) {
         });
         return reply.send({ goal: mapGoal(created) });
     });
+    fastify.patch("/goals/:id", async (request, reply) => {
+        const userId = await resolveUserId(request, reply);
+        if (!userId)
+            return;
+        const user = await prisma_1.prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } });
+        if (!user?.active_workspace_id) {
+            return reply.status(400).send({ error: "No active workspace" });
+        }
+        const goalId = request.params.id;
+        if (!goalId) {
+            return reply.status(400).send({ error: "Bad Request", reason: "missing_id" });
+        }
+        const body = request.body;
+        const existing = await prisma_1.prisma.goals.findFirst({ where: { id: goalId, workspace_id: user.active_workspace_id } });
+        if (!existing) {
+            return reply.status(404).send({ error: "Not Found" });
+        }
+        const data = {};
+        if (body.name !== undefined) {
+            const nm = body.name.trim();
+            if (!nm)
+                return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" });
+            data.name = nm;
+        }
+        if (body.icon !== undefined) {
+            data.icon = body.icon?.trim() || null;
+        }
+        if (body.targetAmount !== undefined) {
+            if (!Number.isFinite(body.targetAmount) || body.targetAmount <= 0) {
+                return reply.status(400).send({ error: "Bad Request", reason: "invalid_target_amount" });
+            }
+            data.target_amount = new client_1.Prisma.Decimal(body.targetAmount);
+        }
+        if (body.status && (body.status === "active" || body.status === "completed")) {
+            data.status = body.status;
+            data.completed_at = body.status === "completed" ? new Date() : null;
+        }
+        const updated = await prisma_1.prisma.goals.update({
+            where: { id: goalId },
+            data,
+        });
+        return reply.send({ goal: mapGoal(updated) });
+    });
 }

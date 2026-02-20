@@ -44,3 +44,23 @@ export async function createGoal(token: string, input: { name: string; icon?: st
   }
   return (await res.json()) as { goal: GoalDto }
 }
+
+export async function updateGoal(
+  token: string,
+  id: string,
+  input: { name?: string; icon?: string | null; targetAmount?: number; status?: "active" | "completed" },
+) {
+  const res = await fetch(`https://babkin.onrender.com/api/v1/goals/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`PATCH /goals failed: ${res.status} ${res.statusText} ${text}`)
+  }
+  return (await res.json()) as { goal: GoalDto }
+}

@@ -12,6 +12,7 @@ export type TransactionDto = {
   toAccountId?: string | null
   toAccountName?: string | null
   incomeSourceId?: string | null
+  goalId?: string | null
 }
 
 export type GetTransactionsResponse = {
@@ -26,6 +27,7 @@ export type CreateTransactionBody = {
   fromAccountId?: string
   toAccountId?: string
   incomeSourceId?: string | null
+  goalId?: string | null
   happenedAt?: string
   note?: string | null
 }

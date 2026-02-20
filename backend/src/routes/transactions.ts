@@ -19,6 +19,7 @@ type TransactionResponse = {
   toAccountId: string | null
   toAccountName?: string | null
   incomeSourceId: string | null
+  goalId: string | null
 }
 
 async function resolveUserId(request: any, reply: any): Promise<string | null> {
@@ -82,6 +83,7 @@ function mapTx(tx: any): TransactionResponse {
     toAccountId: tx.to_account_id ?? null,
     toAccountName: tx.to_account?.name ?? null,
     incomeSourceId: tx.income_source_id ?? null,
+    goalId: tx.goal_id ?? null,
   }
 }
 
@@ -95,8 +97,13 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
       return reply.status(400).send({ error: "No active workspace" })
     }
 
+    const goalId = (request.query as { goalId?: string }).goalId
+
     const txs = await prisma.transactions.findMany({
-      where: { workspace_id: user.active_workspace_id },
+      where: {
+        workspace_id: user.active_workspace_id,
+        ...(goalId ? { goal_id: goalId } : {}),
+      },
       orderBy: { happened_at: "desc" },
       include: {
         account: { select: { id: true, name: true } },

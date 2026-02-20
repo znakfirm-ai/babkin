@@ -6,7 +6,7 @@ import { AppIcon, type IconName } from "../components/AppIcon"
 import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccountBalance } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
-import { createGoal, getGoals } from "../api/goals"
+import { createGoal, getGoals, updateGoal } from "../api/goals"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 
@@ -330,14 +330,18 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [detailIncomeSourceId, setDetailIncomeSourceId] = useState<string | null>(null)
   const [isGoalsListOpen, setIsGoalsListOpen] = useState(false)
   const [goalTab, setGoalTab] = useState<"active" | "completed">("active")
+  const [detailGoalId, setDetailGoalId] = useState<string | null>(null)
+  const [goalSearch, setGoalSearch] = useState("")
   const [isGoalSheetOpen, setIsGoalSheetOpen] = useState(false)
   const [goalName, setGoalName] = useState("")
   const [goalTarget, setGoalTarget] = useState("")
   const [goalIcon, setGoalIcon] = useState("")
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
+  const [goalSheetMode, setGoalSheetMode] = useState<"create" | "edit">("create")
   const [pendingGoalCreate, setPendingGoalCreate] = useState(false)
   const [pendingOpenGoalsList, setPendingOpenGoalsList] = useState(false)
+  const [pendingGoalEdit, setPendingGoalEdit] = useState<{ id: string; title: string } | null>(null)
   const [detailTitle, setDetailTitle] = useState<string>("")
   const [accountSearch, setAccountSearch] = useState("")
   const [categorySearch, setCategorySearch] = useState("")
@@ -446,6 +450,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
   const filteredGoals = useMemo(() => goals.filter((g) => g.status === goalTab), [goalTab, goals])
+  const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
 
   if (overviewError) {
     return (
@@ -539,6 +544,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       incomeSourceId: t.incomeSourceId ?? undefined,
       toAccountId: t.toAccountId ?? undefined,
       toAccountName: t.toAccountName ?? null,
+      goalId: t.goalId ?? undefined,
     }))
     setTransactions(mapped)
   }, [setTransactions, token])
@@ -557,6 +563,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       setGoalError(msg)
     }
     setIsGoalsListOpen(true)
+    setDetailGoalId(null)
   }, [refetchGoals])
 
   useEffect(() => {
@@ -572,6 +579,19 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       void openGoalsList()
     }
   }, [isGoalSheetOpen, openGoalsList, pendingOpenGoalsList])
+
+  useEffect(() => {
+    if (!detailGoalId && pendingGoalEdit) {
+      setGoalError(null)
+      const goal = goals.find((g) => g.id === pendingGoalEdit.id)
+      setGoalName(goal?.name ?? pendingGoalEdit.title)
+      setGoalTarget(goal ? String(goal.targetAmount) : "")
+      setGoalIcon(goal?.icon ?? "")
+      setGoalSheetMode("edit")
+      setPendingGoalEdit(null)
+      setIsGoalSheetOpen(true)
+    }
+  }, [detailGoalId, goals, pendingGoalEdit])
 
   const openEditCategory = useCallback((id: string, title: string) => {
     setDetailCategoryId(id)
@@ -685,10 +705,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setDetailAccountId(null)
     setDetailCategoryId(null)
     setDetailIncomeSourceId(null)
+    setDetailGoalId(null)
     setDetailTitle("")
     setAccountSearch("")
     setCategorySearch("")
     setIncomeSourceSearch("")
+    setGoalSearch("")
     setSearchFocused(false)
     closeTxSheet()
   }, [closeTxSheet])
@@ -928,6 +950,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setGoalName("")
     setGoalTarget("")
     setGoalIcon("")
+    setGoalSheetMode("create")
     setPendingGoalCreate(true)
     setIsGoalsListOpen(false)
   }, [])
@@ -947,7 +970,15 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     }
     setIsSavingGoal(true)
     try {
-      await createGoal(token, { name: trimmed, icon: goalIcon.trim() || null, targetAmount: Math.round(target * 100) / 100 })
+      if (goalSheetMode === "create") {
+        await createGoal(token, { name: trimmed, icon: goalIcon.trim() || null, targetAmount: Math.round(target * 100) / 100 })
+      } else if (goalSheetMode === "edit" && detailGoalId) {
+        await updateGoal(token, detailGoalId, {
+          name: trimmed,
+          icon: goalIcon.trim() || null,
+          targetAmount: Math.round(target * 100) / 100,
+        })
+      }
       await refetchGoals()
       setPendingOpenGoalsList(true)
       setIsGoalSheetOpen(false)
@@ -1420,6 +1451,42 @@ function TransactionsPanel({
       }))
   }, [filteredIncomeSourceTx])
 
+  const goalTx = useMemo(() => {
+    if (!detailGoalId) return []
+    return displayTransactions.filter((t) => t.type !== "adjustment" && t.goalId === detailGoalId)
+  }, [detailGoalId, displayTransactions])
+
+  const filteredGoalTx = useMemo(() => {
+    if (!detailGoalId) return []
+    const { start, end } = accountPeriod
+    const filtered = goalTx.filter((tx) => {
+      const d = new Date(tx.date)
+      return d >= start && d < end
+    })
+    const query = goalSearch.trim().toLowerCase()
+    if (!query) return filtered
+    return filtered.filter((tx) => {
+      const name = tx.accountName ?? "Операция"
+      const amountText = String(Math.abs(tx.amount.amount))
+      return name.toLowerCase().includes(query) || amountText.includes(query)
+    })
+  }, [accountPeriod, detailGoalId, goalSearch, goalTx])
+
+  const groupedGoalTx = useMemo(() => {
+    const groups = new Map<string, Transaction[]>()
+    filteredGoalTx.forEach((tx) => {
+      const key = tx.date.slice(0, 10)
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(tx)
+    })
+    return Array.from(groups.entries())
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([date, items]) => ({
+        dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
+        items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
+      }))
+  }, [filteredGoalTx])
+
   return (
     <div className="overview">
       <div className="overview__header">
@@ -1488,10 +1555,19 @@ function TransactionsPanel({
         baseCurrency={baseCurrency}
       />
 
-      <Section title="Цели" items={goalsItems} rowScroll baseCurrency={baseCurrency} onGoalClick={() => void openGoalsList()} />
+      <Section
+        title="Цели"
+        items={goalsItems}
+        rowScroll
+        baseCurrency={baseCurrency}
+        onGoalClick={() => {
+          setDetailGoalId(null)
+          void openGoalsList()
+        }}
+      />
       <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} rowScroll baseCurrency={baseCurrency} />
 
-      {(detailAccountId || detailCategoryId || detailIncomeSourceId) && (
+      {(detailAccountId || detailCategoryId || detailIncomeSourceId || detailGoalId) && (
         <div
           role="dialog"
           aria-modal="true"
@@ -1531,7 +1607,9 @@ function TransactionsPanel({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{detailTitle || "Детали"}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
+                {detailTitle || detailGoal?.name || "Детали"}
+              </div>
               <button
                 type="button"
                 onClick={closeDetails}
@@ -1915,6 +1993,162 @@ function TransactionsPanel({
                     Редактировать источник
                   </button>
                 </div>
+              ) : detailGoal ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
+                  <input
+                    value={goalSearch}
+                    onChange={(e) => setGoalSearch(e.target.value)}
+                    placeholder="Поиск по операциям"
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 15,
+                      outline: "none",
+                      boxShadow: "none",
+                      WebkitAppearance: "none",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPeriodMenuOpen(true)}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#f8fafc",
+                        fontWeight: 600,
+                        color: "#0f172a",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        width: "fit-content",
+                      }}
+                    >
+                      Период
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
+                    </button>
+
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: "#6b7280",
+                        maxWidth: "100%",
+                        flex: 1,
+                        textAlign: "right",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "clip",
+                      }}
+                    >
+                      {accountPeriod.label}
+                    </div>
+                  </div>
+
+                  <TransactionsPanel
+                    groups={groupedGoalTx}
+                    emptyText="Нет операций"
+                    renderDayTotal={(items) => (
+                      <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                        {formatMoney(items.reduce((sum, tx) => sum + Math.abs(tx.amount.amount), 0), baseCurrency)}
+                      </div>
+                    )}
+                    renderRow={(tx, idx) => {
+                      const displayName = tx.accountName ?? "Операция"
+                      const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
+                      return (
+                        <div
+                          key={tx.id}
+                          style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
+                          onClick={() => openTxActions(tx.id)}
+                        >
+                          <div style={{ display: "grid", gap: 2 }}>
+                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openTxActions(tx.id)
+                              }}
+                              style={{
+                                padding: "4px 6px",
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                lineHeight: 1,
+                              }}
+                            >
+                              ✎
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }}
+                  />
+
+                  <div style={{ display: "flex", gap: 10, marginTop: 4, justifyContent: "space-between" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (detailGoalId) {
+                          setPendingGoalCreate(false)
+                          setPendingOpenGoalsList(false)
+                          setIsGoalSheetOpen(false)
+                          closeDetails()
+                          setPendingGoalEdit({ id: detailGoalId, title: detailGoal.name })
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        color: "#0f172a",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!token || !detailGoalId) return
+                        setIsSavingGoal(true)
+                        try {
+                          await updateGoal(token, detailGoalId, { status: "completed" })
+                          await refetchGoals()
+                          closeDetails()
+                          setPendingOpenGoalsList(true)
+                        } catch (err) {
+                          const msg = err instanceof Error ? err.message : "Не удалось завершить цель"
+                          setGoalError(msg)
+                        } finally {
+                          setIsSavingGoal(false)
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #0f172a",
+                        background: "#0f172a",
+                        color: "#fff",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Завершить цель
+                    </button>
+                  </div>
+                </div>
               ) : null}
                 </div>
             {detailAccountId && (!searchFocused && !accountSearch) && (
@@ -2208,14 +2442,25 @@ function TransactionsPanel({
                     const percent = goal.targetAmount > 0 ? Math.min(100, Math.max(0, (goal.currentAmount / goal.targetAmount) * 100)) : 0
                     const isLast = idx === filteredGoals.length - 1
                     return (
-                      <div
+                      <button
                         key={goal.id}
+                        type="button"
+                        onClick={() => {
+                          setDetailGoalId(goal.id)
+                          setIsGoalsListOpen(false)
+                          setGoalSearch("")
+                        }}
                         style={{
                           display: "grid",
                           gap: 8,
                           padding: 8,
                           borderRadius: 12,
+                          border: "none",
+                          textAlign: "left",
+                          background: "transparent",
+                          width: "100%",
                           borderBottom: isLast ? "none" : "1px solid #e5e7eb",
+                          cursor: "pointer",
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2235,7 +2480,7 @@ function TransactionsPanel({
                         <div style={{ fontSize: 13, color: "#475569" }}>
                           {goalProgressLabel(goal.currentAmount, goal.targetAmount, baseCurrency)}
                         </div>
-                      </div>
+                      </button>
                     )
                   })
                 )}
