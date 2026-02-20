@@ -4,9 +4,10 @@ import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
 type Props = {
   onOpenCategories?: () => void
+  onOpenIconsPreview?: () => void
 }
 
-const SettingsScreen: React.FC<Props> = ({ onOpenCategories }) => {
+const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview }) => {
   const { currency, setCurrency } = useAppStore()
   const current = normalizeCurrency(currency)
 
@@ -43,6 +44,22 @@ const SettingsScreen: React.FC<Props> = ({ onOpenCategories }) => {
         }}
       >
         Категории
+      </button>
+
+      <button
+        type="button"
+        onClick={onOpenIconsPreview}
+        style={{
+          padding: 12,
+          borderRadius: 10,
+          border: "1px solid #e5e7eb",
+          background: "#fff",
+          fontSize: 14,
+          textAlign: "left",
+          cursor: "pointer",
+        }}
+      >
+        Иконки (preview)
       </button>
     </div>
   )

@@ -9,6 +9,7 @@ import OverviewScreen from "./screens/OverviewScreen"
 import AddScreen from "./screens/AddScreen"
 import QuickAddScreen from "./screens/QuickAddScreen"
 import SettingsScreen from "./screens/SettingsScreen"
+import IconPreviewScreen from "./screens/IconPreviewScreen"
 import ReportsScreen from "./screens/ReportsScreen"
 import SummaryReportScreen from "./screens/SummaryReportScreen"
 import ExpensesByCategoryScreen from "./screens/ExpensesByCategoryScreen"
@@ -18,7 +19,7 @@ import "./BottomNav.css"
 import "./App.css"
 
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
-type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add"
+type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add" | "icons-preview"
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
 type ErrorBoundaryState = { hasError: boolean; error: Error | null }
@@ -366,7 +367,13 @@ function App() {
           />
         )
       case "settings":
-        return <SettingsScreen />
+        return (
+          <SettingsScreen
+            onOpenIconsPreview={() => setActiveScreen("icons-preview")}
+          />
+        )
+      case "icons-preview":
+        return <IconPreviewScreen onBack={() => setActiveScreen("settings")} />
       case "report-summary":
         return <SummaryReportScreen onBack={() => setActiveScreen("reports")} />
       case "report-expenses-by-category":
