@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, useEffect } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -22,6 +22,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [keyboardInsetPx, setKeyboardInsetPx] = useState(0)
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
   const spendByCategory = useMemo(() => {
@@ -151,6 +152,24 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
     debt: "Долг",
     goal: "Цель",
   }
+
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+
+    const handleViewport = () => {
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+      setKeyboardInsetPx((prev) => (Math.abs(prev - inset) > 1 ? inset : prev))
+    }
+
+    handleViewport()
+    viewport.addEventListener("resize", handleViewport)
+    viewport.addEventListener("scroll", handleViewport)
+    return () => {
+      viewport.removeEventListener("resize", handleViewport)
+      viewport.removeEventListener("scroll", handleViewport)
+    }
+  }, [])
 
   return (
     <div
@@ -292,23 +311,31 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                 }}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
-              <button
-                type="button"
-                disabled={!expenseReady || loading}
-                onClick={() => void submitExpense()}
+              <div
                 style={{
-                  marginTop: 4,
-                  padding: "14px 16px",
-                  borderRadius: 12,
-                  border: "1px solid #0f172a",
-                  background: expenseReady ? "#0f172a" : "#e5e7eb",
-                  color: expenseReady ? "#fff" : "#9ca3af",
-                  fontWeight: 700,
-                  cursor: expenseReady ? "pointer" : "not-allowed",
+                  position: "sticky",
+                  bottom: `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + ${keyboardInsetPx}px)`,
+                  paddingTop: 4,
                 }}
               >
-                {loading ? "Сохранение..." : "Готово"}
-              </button>
+                <button
+                  type="button"
+                  disabled={!expenseReady || loading}
+                  onClick={() => void submitExpense()}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: expenseReady && !loading ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                    color: expenseReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
+                    fontWeight: 700,
+                    cursor: expenseReady && !loading ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {loading ? "Сохранение..." : "Готово"}
+                </button>
+              </div>
             </div>
           </div>
         )}
