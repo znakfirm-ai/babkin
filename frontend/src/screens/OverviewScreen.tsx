@@ -192,84 +192,81 @@ const Section: React.FC<{
     <section className="overview-section">
       <div className="overview-section__title overview-section__title--muted">{title}</div>
       <div className={listClass}>
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className={`tile-card ${item.isAdd ? "tile-card--add overview-add-tile" : ""} ${
-              item.type ? `tile-card--${item.type}` : ""
-            } tile--${item.size ?? "md"}`}
-            role={item.isAdd ? "button" : "button"}
-            tabIndex={0}
-            style={
-              item.type === "account" && !item.isAdd
-                ? {
-                    background: item.color,
-                    color: item.textColor ?? "#0f172a",
-                    border: "1px solid rgba(0,0,0,0.08)",
-                  }
-                : undefined
-            }
-            onClick={() => {
-              if (item.isAdd && item.id === "add-accounts") onAddAccounts?.()
-              if (item.isAdd && item.id === "add-category") onAddCategory?.()
-              if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
-              if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
-              if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
-            }}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" && e.key !== " ") return
-              if (item.isAdd && item.id === "add-accounts") onAddAccounts?.()
-              if (item.isAdd && item.id === "add-category") onAddCategory?.()
-              if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
-              if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
-              if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
-            }}
-          >
+        {items.map((item) => {
+          const categoryHighlight =
+            item.type === "category" && item.budgetTone
+              ? item.budgetTone === "alert"
+                ? { background: "#fef2f2", border: "1.5px dashed #ef4444" }
+                : item.budgetTone === "warn"
+                ? { background: "#fffbeb", border: "1.5px dashed #f59e0b" }
+                : null
+              : null
+          const tileStyle =
+            item.type === "account" && !item.isAdd
+              ? {
+                  background: item.color,
+                  color: item.textColor ?? "#0f172a",
+                  border: "1px solid rgba(0,0,0,0.08)",
+                }
+              : item.type === "category" && categoryHighlight
+              ? categoryHighlight
+              : undefined
+
+          return (
             <div
-              className="tile-card__icon"
-              style={
-                item.isAdd
-                  ? undefined
-                  : { background: item.type === "account" && !item.isAdd ? "rgba(255,255,255,0.2)" : "rgba(15, 23, 42, 0.05)", color: item.textColor ?? "rgba(15, 23, 42, 0.85)", opacity: item.type === "account" && !item.isAdd ? 1 : 0.75 }
-              }
+              key={item.id}
+              className={`tile-card ${item.isAdd ? "tile-card--add overview-add-tile" : ""} ${
+                item.type ? `tile-card--${item.type}` : ""
+              } tile--${item.size ?? "md"}`}
+              role={item.isAdd ? "button" : "button"}
+              tabIndex={0}
+              style={tileStyle}
+              onClick={() => {
+                if (item.isAdd && item.id === "add-accounts") onAddAccounts?.()
+                if (item.isAdd && item.id === "add-category") onAddCategory?.()
+                if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
+                if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
+                if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return
+                if (item.isAdd && item.id === "add-accounts") onAddAccounts?.()
+                if (item.isAdd && item.id === "add-category") onAddCategory?.()
+                if (item.isAdd && item.id === "add-income-source") onAddIncomeSource?.()
+                if (!item.isAdd && item.type === "category") onCategoryClick?.(item.id, item.title)
+                if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
+              }}
             >
-              <AppIcon name={item.icon as IconName} size={16} />
-            </div>
-            <div className="tile-card__title">{item.title}</div>
-            {!item.isAdd && (
               <div
-                className="tile-card__amount"
+                className="tile-card__icon"
                 style={
-                  item.type === "account"
-                    ? { color: item.textColor ?? "#0f172a" }
-                    : item.type === "category" && item.budgetTone === "alert"
-                    ? { color: "#b91c1c" }
-                    : item.type === "category" && item.budgetTone === "warn"
-                    ? { color: "#d97706" }
-                    : undefined
+                  item.isAdd
+                    ? undefined
+                    : {
+                        background:
+                          item.type === "account" && !item.isAdd ? "rgba(255,255,255,0.2)" : "rgba(15, 23, 42, 0.05)",
+                        color: item.textColor ?? "rgba(15, 23, 42, 0.85)",
+                        opacity: item.type === "account" && !item.isAdd ? 1 : 0.75,
+                      }
                 }
               >
-                {formatMoney(item.amount, baseCurrency)}
-                {item.type === "category" && item.budget != null ? (
-                  <div
-                    style={{
-                      marginTop: 2,
-                      fontSize: 11,
-                      color:
-                        item.budgetTone === "alert"
-                          ? "#b91c1c"
-                          : item.budgetTone === "warn"
-                          ? "#d97706"
-                          : "#6b7280",
-                    }}
-                  >
-                    Бюджет: {formatMoney(item.budget, baseCurrency)}
-                  </div>
-                ) : null}
+                <AppIcon name={item.icon as IconName} size={16} />
               </div>
-            )}
-          </div>
-        ))}
+              <div className="tile-card__title">{item.title}</div>
+              {!item.isAdd && (
+                <div
+                  className="tile-card__amount"
+                  style={item.type === "account" ? { color: item.textColor ?? "#0f172a" } : undefined}
+                >
+                  {formatMoney(item.amount, baseCurrency)}
+                  {item.type === "category" && item.budget != null ? (
+                    <div style={{ marginTop: 2, fontSize: 11, color: "#6b7280" }}>{formatMoney(item.budget, baseCurrency)}</div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </section>
   )
