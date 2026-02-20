@@ -1032,8 +1032,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   })
 
   const summaryBalance = accounts.reduce((sum, acc) => sum + acc.balance.amount, 0)
-  const accountNameById = useMemo(() => {
-    const map = new Map<string, string>()
+const accountNameById = useMemo(() => {
+  const map = new Map<string, string>()
     accounts.forEach((a) => map.set(a.id, a.name))
     transactions.forEach((t) => {
       if (t.accountId && t.accountName && !map.has(t.accountId)) map.set(t.accountId, t.accountName)
@@ -1041,7 +1041,46 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       if (t.toAccountId && t.toAccountName && !map.has(t.toAccountId)) map.set(t.toAccountId, t.toAccountName)
     })
     return map
-  }, [accounts, transactions])
+}, [accounts, transactions])
+
+const txListContainerStyle = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 18,
+  background: "#fff",
+  padding: 12,
+  boxShadow: "none",
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 10,
+  overflow: "hidden",
+  flex: 1,
+  minHeight: 0,
+}
+
+const txScrollableStyle = {
+  flex: 1,
+  minHeight: 0,
+  overflowY: "auto" as const,
+  paddingRight: 2,
+}
+
+const txDateHeaderStyle = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+} as const
+
+const txRowStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "8px 10px",
+  borderRadius: 12,
+  background: "#f8fafc",
+  border: "1px solid rgba(226,232,240,0.7)",
+  marginBottom: 6,
+  cursor: "pointer",
+} as const
   const getTxAccountName = useCallback(
     (tx: Transaction) => tx.accountName ?? (tx.accountId ? accountNameById.get(tx.accountId) ?? "Счёт" : "Счёт"),
     [accountNameById],
@@ -1531,84 +1570,64 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 0 }}>
-                    <div
-                      style={{
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 18,
-                        background: "#fff",
-                        padding: 12,
-                        boxShadow: "none",
-                        flex: 1,
-                        minHeight: 0,
-                        overflowY: "auto",
-                        paddingRight: 2,
-                      }}
-                    >
-                      <div style={{ maxWidth: 520, margin: "0 auto", paddingLeft: 16, paddingRight: 16 }}>
-                        {groupedCategoryTx.length === 0 ? (
-                          <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций</div>
-                        ) : (
-                          groupedCategoryTx.map((group) => (
-                            <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
-                              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                                <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
-                                <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                                  {formatMoney(
-                                    group.items.reduce((sum, tx) => sum + Math.abs(tx.amount.amount), 0),
-                                    baseCurrency,
-                                  )}
+                    <div style={txListContainerStyle}>
+                      <div style={txScrollableStyle}>
+                        <div style={{ maxWidth: 520, margin: "0 auto", paddingLeft: 16, paddingRight: 16 }}>
+                          {groupedCategoryTx.length === 0 ? (
+                            <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Нет операций</div>
+                          ) : (
+                            groupedCategoryTx.map((group) => (
+                              <div key={group.dateLabel} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
+                                <div style={txDateHeaderStyle}>
+                                  <div style={{ fontSize: 13, color: "#6b7280" }}>{group.dateLabel}</div>
+                                  <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                                    {formatMoney(
+                                      group.items.reduce((sum, tx) => sum + Math.abs(tx.amount.amount), 0),
+                                      baseCurrency,
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              {group.items.map((tx) => {
-                                const displayAccountName = getTxAccountName(tx)
-                                const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
-                                return (
-                                  <div
-                                    key={tx.id}
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "space-between",
-                                      padding: "8px 10px",
-                                      borderRadius: 12,
-                                      border: "1px solid rgba(226,232,240,0.7)",
-                                      background: "#f8fafc",
-                                      marginBottom: 6,
-                                      cursor: "pointer",
-                                    }}
-                                    onClick={() => openTxActions(tx.id)}
-                                  >
-                                    <div style={{ display: "grid", gap: 2 }}>
-                                      <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
-                                        {displayAccountName}
+                                {group.items.map((tx) => {
+                                  const displayAccountName = getTxAccountName(tx)
+                                  const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
+                                  return (
+                                    <div
+                                      key={tx.id}
+                                      style={txRowStyle}
+                                      onClick={() => openTxActions(tx.id)}
+                                    >
+                                      <div style={{ display: "grid", gap: 2 }}>
+                                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
+                                          {displayAccountName}
+                                        </div>
+                                      </div>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            openTxActions(tx.id)
+                                          }}
+                                          style={{
+                                            padding: "4px 6px",
+                                            border: "none",
+                                            background: "transparent",
+                                            cursor: "pointer",
+                                            fontSize: 16,
+                                            lineHeight: 1,
+                                          }}
+                                        >
+                                          ✎
+                                        </button>
                                       </div>
                                     </div>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                      <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          openTxActions(tx.id)
-                                        }}
-                                        style={{
-                                          padding: "4px 6px",
-                                          border: "none",
-                                          background: "transparent",
-                                          cursor: "pointer",
-                                          fontSize: 16,
-                                          lineHeight: 1,
-                                        }}
-                                      >
-                                        ✎
-                                      </button>
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          ))
-                        )}
+                                  )
+                                })}
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </div>
                     </div>
                     <button
