@@ -129,6 +129,8 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
           id: a.id,
           name: a.name,
           balance: { amount: a.balance, currency: a.currency },
+          color: a.color ?? undefined,
+          icon: a.icon ?? null,
         }))
         setAccounts(mapped)
       } catch (err) {

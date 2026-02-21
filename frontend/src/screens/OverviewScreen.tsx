@@ -1602,6 +1602,7 @@ function TransactionsPanel({
           setBalance("0")
           setType("cash")
           setAccountColor(accountColorOptions[0])
+          setAccountIcon(null)
           setIsConfirmingDelete(false)
           setIsAccountSheetOpen(true)
         }}

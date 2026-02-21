@@ -77,6 +77,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
           name: a.name,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
+          icon: a.icon ?? null,
         })),
       )
       const txData = await getTransactions(token)
@@ -136,6 +137,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
           name: a.name,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
+          icon: a.icon ?? null,
         })),
       )
       const txData = await getTransactions(token)
@@ -333,6 +335,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                       id: acc.id,
                       title: acc.name,
                       icon: "wallet",
+                      iconKey: isFinanceIconKey((acc as { icon?: string | null }).icon ?? "") ? ((acc as { icon?: string | null }).icon as string) : null,
                       color: acc.color ?? "#EEF2F7",
                       text: formatMoney(acc.balance.amount, baseCurrency),
                     },
@@ -428,17 +431,18 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для зачисления</div>
               <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
-                {accounts.map((acc) =>
-                  renderTile(
-                    {
-                      id: acc.id,
-                      title: acc.name,
-                      icon: "wallet",
-                      color: acc.color ?? "#EEF2F7",
-                      text: formatMoney(acc.balance.amount, baseCurrency),
-                    },
-                    selectedAccountId === acc.id,
-                    "account",
+              {accounts.map((acc) =>
+                renderTile(
+                  {
+                    id: acc.id,
+                    title: acc.name,
+                    icon: "wallet",
+                    iconKey: isFinanceIconKey((acc as { icon?: string | null }).icon ?? "") ? ((acc as { icon?: string | null }).icon as string) : null,
+                    color: acc.color ?? "#EEF2F7",
+                    text: formatMoney(acc.balance.amount, baseCurrency),
+                  },
+                  selectedAccountId === acc.id,
+                  "account",
                   ),
               )}
             </div>
