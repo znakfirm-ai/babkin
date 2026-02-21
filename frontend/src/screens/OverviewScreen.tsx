@@ -3712,8 +3712,36 @@ function TransactionsPanel({
                           boxShadow: "none",
                           color: "#0f172a",
                         }}
-                  />
-                </label>
+                      />
+                    </label>
+                    <div style={{ display: "grid", gap: 6, color: "rgba(255,255,255,0.92)" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>Иконка</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAccountSheetIntent("openAccountIconPicker")
+                          setIsAccountSheetOpen(false)
+                        }}
+                        style={{
+                          padding: 12,
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,255,255,0.35)",
+                          background: "rgba(255,255,255,0.97)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                          cursor: "pointer",
+                          color: "#0f172a",
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {accountIcon && isFinanceIconKey(accountIcon) ? <FinanceIcon iconKey={accountIcon} size="md" /> : null}
+                          <span style={{ fontSize: 14 }}>{accountIcon && isFinanceIconKey(accountIcon) ? accountIcon : "Не выбрано"}</span>
+                        </span>
+                        <span style={{ color: "#9ca3af", fontSize: 12 }}>▼</span>
+                      </button>
+                    </div>
                   </div>
                   <div style={{ display: "grid", gap: 10 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>
