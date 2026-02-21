@@ -139,6 +139,7 @@ const incomeBySource = useMemo(() => {
         amount: Math.round(amt * 100) / 100,
         accountId: selectedAccountId,
         categoryId: selectedCategoryId,
+        happenedAt: `${transferDate}T00:00:00.000Z`,
       })
       const accountsData = await getAccounts(token)
       setAccounts(
@@ -199,6 +200,7 @@ const incomeBySource = useMemo(() => {
         amount: Math.round(amt * 100) / 100,
         accountId: selectedAccountId,
         incomeSourceId: selectedIncomeSourceId,
+        happenedAt: `${transferDate}T00:00:00.000Z`,
       })
       const accountsData = await getAccounts(token)
       setAccounts(
@@ -578,20 +580,35 @@ const incomeBySource = useMemo(() => {
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 8 }}>
-              <input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Сумма"
-                inputMode="decimal"
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  fontSize: 16,
-                  outline: "none",
-                  boxShadow: "none",
-                }}
-              />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <input
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Сумма"
+                  inputMode="decimal"
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+                <input
+                  type="date"
+                  value={transferDate}
+                  onChange={(e) => setTransferDate(e.target.value)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+              </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
                 <button
@@ -654,20 +671,35 @@ const incomeBySource = useMemo(() => {
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 8 }}>
-              <input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Сумма"
-                inputMode="decimal"
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  fontSize: 16,
-                  outline: "none",
-                  boxShadow: "none",
-                }}
-              />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <input
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Сумма"
+                  inputMode="decimal"
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+                <input
+                  type="date"
+                  value={transferDate}
+                  onChange={(e) => setTransferDate(e.target.value)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+              </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
                 <button
