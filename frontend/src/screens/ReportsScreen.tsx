@@ -5,7 +5,7 @@ import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 
 type Props = {
   onOpenSummary: () => void
-  onOpenExpensesByCategory: () => void
+  onOpenExpensesByCategory?: () => void
 }
 
 const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
@@ -23,9 +23,55 @@ const getMonthRange = (offset: number) => {
   return { start, end, label: `${MONTHS[target.getMonth()]} ${target.getFullYear()}` }
 }
 
+type Slice = {
+  value: number
+  label: string
+  color: string
+}
+
+const polarToCartesian = (cx: number, cy: number, r: number, angleDeg: number) => {
+  const rad = ((angleDeg - 90) * Math.PI) / 180
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
+}
+
+const describeArc = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
+  const start = polarToCartesian(cx, cy, r, endAngle)
+  const end = polarToCartesian(cx, cy, r, startAngle)
+  const large = endAngle - startAngle <= 180 ? "0" : "1"
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${large} 0 ${end.x} ${end.y}`
+}
+
+const layoutLabels = (slices: Slice[], total: number, radius: number) => {
+  const labels = slices.map((s, idx) => {
+    const startAngle = (slices.slice(0, idx).reduce((a, v) => a + v.value, 0) / total) * 360
+    const sweep = (s.value / total) * 360
+    const mid = startAngle + sweep / 2
+    const rad = (mid * Math.PI) / 180
+    const anchor = {
+      x: Math.cos(rad) * (radius + 8),
+      y: Math.sin(rad) * (radius + 8),
+    }
+    return { ...s, mid, anchor }
+  })
+  const left = labels.filter((l) => Math.cos((l.mid * Math.PI) / 180) < 0)
+  const right = labels.filter((l) => Math.cos((l.mid * Math.PI) / 180) >= 0)
+  const adjustColumn = (arr: typeof labels) => {
+    const sorted = [...arr].sort((a, b) => a.anchor.y - b.anchor.y)
+    const minGap = 14
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].anchor.y - sorted[i - 1].anchor.y < minGap) {
+        sorted[i].anchor.y = sorted[i - 1].anchor.y + minGap
+      }
+    }
+    return sorted
+  }
+  return [...adjustColumn(left), ...adjustColumn(right)]
+}
+
 const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
+  const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const touchStartX = useRef<number | null>(null)
   const { start, end, label } = useMemo(() => getMonthRange(monthOffset), [monthOffset])
 
@@ -70,14 +116,6 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     return { total, slices, sliceLabels, colors, list }
   }, [categories, end, start, transactions])
 
-  const legendItems = useMemo(() => {
-    const palette = expenseData.colors
-    return expenseData.sliceLabels.map((labelText, idx) => ({
-      label: labelText,
-      color: palette[idx % palette.length],
-    }))
-  }, [expenseData.colors, expenseData.sliceLabels])
-
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartX.current = e.touches[0].clientX
   }
@@ -94,131 +132,259 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     touchStartX.current = null
   }
 
+  const slices = useMemo(() => {
+    if (expenseData.total <= 0) return []
+    const values = expenseData.slices
+    const labels = expenseData.sliceLabels
+    const palette = expenseData.colors
+    return values.map((v, idx) => ({
+      value: v,
+      label: labels[idx] ?? "—",
+      color: palette[idx % palette.length],
+    }))
+  }, [expenseData.colors, expenseData.sliceLabels, expenseData.slices, expenseData.total])
+
+  const labeledSlices = useMemo(
+    () => (expenseData.total > 0 ? layoutLabels(slices, expenseData.total, 70) : []),
+    [expenseData.total, slices],
+  )
+
   return (
-    <div style={{ padding: 16, display: "grid", gap: 16 }}>
-      <div style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>Отчёты</div>
+    <>
+      <div style={{ padding: 16, display: "grid", gap: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>Отчёты</div>
 
-      <button
-        type="button"
-        onClick={onOpenSummary}
-        style={{
-          padding: 14,
-          borderRadius: 12,
-          border: "1px solid #e5e7eb",
-          background: "#fff",
-          textAlign: "left",
-          fontSize: 15,
-          cursor: "pointer",
-        }}
-      >
-        Доходы vs Расходы
-      </button>
-
-      <div
-        style={{
-          padding: 14,
-          borderRadius: 12,
-          border: "1px solid #e5e7eb",
-          background: "#fff",
-          display: "grid",
-          gap: 12,
-        }}
-      >
-        <div
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}
+        <button
+          type="button"
+          onClick={onOpenSummary}
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            border: "1px solid #e5e7eb",
+            background: "#fff",
+            textAlign: "left",
+            fontSize: 15,
+            cursor: "pointer",
+          }}
         >
-          <button
-            type="button"
-            onClick={() => setMonthOffset((prev) => prev - 1)}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 10,
-              border: "1px solid #e5e7eb",
-              background: "#f8fafc",
-              cursor: "pointer",
-            }}
-          >
-            ←
-          </button>
-          <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 15, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center" }}>
-            {label}
-          </div>
-          <button
-            type="button"
-            onClick={() => setMonthOffset((prev) => Math.min(0, prev + 1))}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 10,
-              border: "1px solid #e5e7eb",
-              background: "#f8fafc",
-              cursor: monthOffset === 0 ? "not-allowed" : "pointer",
-              opacity: monthOffset === 0 ? 0.4 : 1,
-            }}
-            disabled={monthOffset === 0}
-          >
-            →
-          </button>
-        </div>
+          Доходы vs Расходы
+        </button>
 
-        <div style={{ display: "grid", placeItems: "center" }}>
+        <button
+          type="button"
+          onClick={() => setIsExpensesSheetOpen(true)}
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            border: "1px solid #e5e7eb",
+            background: "#fff",
+            textAlign: "left",
+            fontSize: 15,
+            cursor: "pointer",
+          }}
+        >
+          Расходы по категориям
+        </button>
+      </div>
+
+      {isExpensesSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsExpensesSheetOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 80,
+            padding: "0 12px 12px",
+          }}
+        >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               width: "100%",
-              maxWidth: 200,
-              aspectRatio: "1 / 1",
-              borderRadius: "50%",
-              background: `conic-gradient(${expenseData.slices
-                .map((value, idx) => {
-                  const startDeg =
-                    (expenseData.slices.slice(0, idx).reduce((acc, v) => acc + v, 0) / (expenseData.total || 1)) * 360
-                  const endDeg = ((expenseData.slices.slice(0, idx).reduce((acc, v) => acc + v, 0) + value) / (expenseData.total || 1)) * 360
-                  return `${expenseData.colors[idx % expenseData.colors.length]} ${startDeg}deg ${endDeg}deg`
-                })
-                .join(", ")})`,
+              maxWidth: 520,
+              background: "#fff",
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
+              padding: 16,
+              boxShadow: "none",
+              maxHeight: "85vh",
+              overflow: "hidden",
+              display: "grid",
+              gap: 12,
             }}
-          />
-        </div>
-
-        <div style={{ display: "grid", gap: 6 }}>
-          {legendItems.map((l, idx) => (
-            <div key={`${l.label}-${idx}`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 999, background: l.color }} />
-              <span style={{ fontSize: 14, color: "#0f172a" }}>{l.label}</span>
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Расходы по категориям</div>
+              <button
+                type="button"
+                onClick={() => setIsExpensesSheetOpen(false)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Закрыть
+              </button>
             </div>
-          ))}
-        </div>
 
-        <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
-          {expenseData.list.map((item) => (
             <div
-              key={item.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                borderBottom: "1px solid #e5e7eb",
-                paddingBottom: 8,
-              }}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
-                  {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
-                </span>
-                <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
-                  {item.title}
-                </span>
+              <button
+                type="button"
+                onClick={() => setMonthOffset((prev) => prev - 1)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  background: "#f8fafc",
+                  cursor: "pointer",
+                }}
+              >
+                ←
+              </button>
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontWeight: 600,
+                  fontSize: 15,
+                  color: "#0f172a",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  textAlign: "center",
+                }}
+              >
+                {label}
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
-                <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
-                <span style={{ color: "#6b7280" }}>{item.percentText}</span>
+              <button
+                type="button"
+                onClick={() => setMonthOffset((prev) => Math.min(0, prev + 1))}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  background: "#f8fafc",
+                  cursor: monthOffset === 0 ? "not-allowed" : "pointer",
+                  opacity: monthOffset === 0 ? 0.4 : 1,
+                }}
+                disabled={monthOffset === 0}
+              >
+                →
+              </button>
+            </div>
+
+            <div style={{ fontSize: 14, color: "#475569" }}>
+              Итог: {formatMoney(expenseData.total, currency ?? "RUB")}
+            </div>
+
+            <div style={{ display: "grid", gap: 10, overflow: "auto", minHeight: 0 }}>
+              <div style={{ display: "grid", placeItems: "center" }}>
+                {expenseData.total > 0 ? (
+                  <svg width="260" height="220" viewBox="-130 -110 260 220" role="img" aria-label="Диаграмма расходов">
+                    {(() => {
+                      const r = 70
+                      const thickness = 10
+                      let startAngle = 0
+                      return slices.map((s, idx) => {
+                        const sweep = (s.value / expenseData.total) * 360
+                        const endAngle = startAngle + sweep
+                        const path = describeArc(0, 0, r, startAngle, endAngle)
+                        const el = (
+                          <path
+                            key={`${s.label}-${idx}`}
+                            d={path}
+                            stroke={s.color}
+                            strokeWidth={thickness}
+                            fill="none"
+                            strokeLinecap="butt"
+                          />
+                        )
+                        startAngle = endAngle
+                        return el
+                      })
+                    })()}
+                    {labeledSlices.map((s, idx) => {
+                      const angleRad = (s.mid * Math.PI) / 180
+                      const rOuter = 75
+                      const start = { x: Math.cos(angleRad) * rOuter, y: Math.sin(angleRad) * rOuter }
+                      const midX = Math.cos(angleRad) * (rOuter + 12)
+                      const midY = s.anchor.y
+                      const endX = Math.sign(Math.cos(angleRad)) * 110
+                      const endY = midY
+                      const textAnchor = endX > 0 ? "start" : "end"
+                      const lineColor = "#94a3b8"
+                      const text = `${s.label}: ${Math.round((s.value / expenseData.total) * 100)}%`
+                      return (
+                        <g key={`label-${idx}`} stroke={lineColor} fill="none">
+                          <path
+                            d={`M ${start.x} ${start.y} L ${midX} ${midY} L ${endX} ${endY}`}
+                            strokeWidth={1}
+                            strokeDasharray="3 3"
+                          />
+                          <text
+                            x={endX + (endX > 0 ? 4 : -4)}
+                            y={endY + 4}
+                            textAnchor={textAnchor}
+                            fontSize={12}
+                            fill="#0f172a"
+                          >
+                            {text}
+                          </text>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                ) : (
+                  <div style={{ color: "#6b7280", fontSize: 14 }}>Нет расходов за период</div>
+                )}
+              </div>
+
+              <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
+                {expenseData.list.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      borderBottom: "1px solid #e5e7eb",
+                      paddingBottom: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                        {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
+                      </span>
+                      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
+                        {item.title}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
+                      <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
+                      <span style={{ color: "#6b7280" }}>{item.percentText}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          </div>
         </div>
-      </div>
-    </div>
+      ) : null}
+    </>
   )
 }
 
