@@ -8,10 +8,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
-const DEFAULT_INCOME_SOURCES = [
-    { name: "Зарплата" },
-    { name: "Бизнес" },
-];
+const DEFAULT_INCOME_SOURCES = [{ name: "Зарплата" }, { name: "Бизнес" }];
 const unauthorized = async (reply, reason) => {
     await reply.status(401).send({ error: "Unauthorized", reason });
     return null;
@@ -70,6 +67,7 @@ async function incomeSourcesRoutes(fastify, _opts) {
                 data: DEFAULT_INCOME_SOURCES.map((s) => ({
                     workspace_id: workspaceId,
                     name: s.name,
+                    icon: null,
                 })),
                 skipDuplicates: true,
             });
@@ -78,7 +76,7 @@ async function incomeSourcesRoutes(fastify, _opts) {
             ? existing
             : await prisma_1.prisma.income_sources.findMany({ where: { workspace_id: workspaceId } });
         const payload = {
-            incomeSources: sources.map((s) => ({ id: s.id, name: s.name })),
+            incomeSources: sources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })),
         };
         return reply.send(payload);
     });
@@ -105,10 +103,11 @@ async function incomeSourcesRoutes(fastify, _opts) {
             data: {
                 workspace_id: user.active_workspace_id,
                 name,
+                icon: body?.icon ?? null,
             },
         });
         const payload = {
-            incomeSource: { id: created.id, name: created.name },
+            incomeSource: { id: created.id, name: created.name, icon: created.icon ?? null },
         };
         return reply.send(payload);
     });
@@ -147,9 +146,9 @@ async function incomeSourcesRoutes(fastify, _opts) {
         }
         const updated = await prisma_1.prisma.income_sources.update({
             where: { id: incomeSourceId },
-            data: { name },
+            data: { name, icon: body?.icon ?? null },
         });
-        return reply.send({ incomeSource: { id: updated.id, name: updated.name } });
+        return reply.send({ incomeSource: { id: updated.id, name: updated.name, icon: updated.icon ?? null } });
     });
     fastify.delete("/income-sources/:id", async (request, reply) => {
         const userId = await resolveUserId(request, reply);

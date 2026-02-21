@@ -4,14 +4,12 @@ import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
 
-const DEFAULT_INCOME_SOURCES = [
-  { name: "Зарплата" },
-  { name: "Бизнес" },
-]
+const DEFAULT_INCOME_SOURCES = [{ name: "Зарплата" }, { name: "Бизнес" }]
 
 type IncomeSourceResponse = {
   id: string
   name: string
+  icon?: string | null
 }
 
 const unauthorized = async (reply: FastifyReply, reason: string) => {
@@ -81,6 +79,7 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
         data: DEFAULT_INCOME_SOURCES.map((s) => ({
           workspace_id: workspaceId,
           name: s.name,
+          icon: null,
         })),
         skipDuplicates: true,
       })
@@ -91,7 +90,7 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       : await prisma.income_sources.findMany({ where: { workspace_id: workspaceId } })
 
     const payload: { incomeSources: IncomeSourceResponse[] } = {
-      incomeSources: sources.map((s) => ({ id: s.id, name: s.name })),
+      incomeSources: sources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })),
     }
 
     return reply.send(payload)
@@ -106,7 +105,7 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       return reply.status(400).send({ error: "No active workspace" })
     }
 
-    const body = request.body as { name?: string }
+    const body = request.body as { name?: string; icon?: string | null }
     const name = body?.name?.trim()
     if (!name) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
@@ -123,11 +122,12 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       data: {
         workspace_id: user.active_workspace_id,
         name,
+        icon: body?.icon ?? null,
       },
     })
 
     const payload: { incomeSource: IncomeSourceResponse } = {
-      incomeSource: { id: created.id, name: created.name },
+      incomeSource: { id: created.id, name: created.name, icon: created.icon ?? null },
     }
 
     return reply.send(payload)
@@ -147,7 +147,7 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       return reply.status(400).send({ error: "Bad Request", reason: "missing_id" })
     }
 
-    const body = request.body as { name?: string }
+    const body = request.body as { name?: string; icon?: string | null }
     const name = body?.name?.trim()
     if (!name) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
@@ -173,10 +173,10 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
 
     const updated = await prisma.income_sources.update({
       where: { id: incomeSourceId },
-      data: { name },
+      data: { name, icon: body?.icon ?? null },
     })
 
-    return reply.send({ incomeSource: { id: updated.id, name: updated.name } })
+    return reply.send({ incomeSource: { id: updated.id, name: updated.name, icon: updated.icon ?? null } })
   })
 
   fastify.delete("/income-sources/:id", async (request, reply) => {

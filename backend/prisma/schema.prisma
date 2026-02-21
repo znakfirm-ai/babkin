@@ -35,6 +35,7 @@ model income_sources {
   id           String   @id @default(uuid())
   workspace_id String
   name         String
+  icon         String?
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
