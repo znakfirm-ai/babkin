@@ -11,6 +11,7 @@ import { transactionsRoutes } from "./routes/transactions"
 import { incomeSourcesRoutes } from "./routes/incomeSources"
 import { analyticsRoutes } from "./routes/analytics"
 import { goalsRoutes } from "./routes/goals"
+import { devRoutes } from "./routes/dev"
 
 const fastify = Fastify({
   logger: true,
@@ -27,6 +28,7 @@ fastify.register(incomeSourcesRoutes, { prefix: "/api/v1" })
 fastify.register(goalsRoutes, { prefix: "/api/v1" })
 fastify.register(transactionsRoutes, { prefix: "/api/v1" })
 fastify.register(analyticsRoutes, { prefix: "/api/v1" })
+fastify.register(devRoutes, { prefix: "/api" })
 
 const port = Number(process.env.PORT) || env.PORT
 

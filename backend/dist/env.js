@@ -9,6 +9,7 @@ const baseSchema = zod_1.z.object({
     JWT_SECRET: zod_1.z.string().min(1, "JWT_SECRET is required"),
     PORT: zod_1.z.coerce.number().int().positive().default(3001),
     NODE_ENV: zod_1.z.string().default("development"),
+    DEV_RESET_TOKEN: zod_1.z.string().optional(),
 });
 const parsed = baseSchema.parse(process.env);
 const normalizedBotToken = parsed.BOT_TOKEN ?? parsed.TELEGRAM_BOT_TOKEN;

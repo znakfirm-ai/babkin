@@ -7,6 +7,7 @@ const baseSchema = z.object({
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   PORT: z.coerce.number().int().positive().default(3001),
   NODE_ENV: z.string().default("development"),
+  DEV_RESET_TOKEN: z.string().optional(),
 })
 
 const parsed = baseSchema.parse(process.env)
