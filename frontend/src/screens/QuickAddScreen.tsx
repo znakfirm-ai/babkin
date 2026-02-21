@@ -11,37 +11,108 @@ import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 
 const MONTH_LABELS_RU = ["янв", "фев", "март", "апр", "май", "июнь", "июль", "авг", "сен", "окт", "нояб", "дек"]
 
-const formatDateLabelRu = (isoDate: string) => {
-  const d = new Date(isoDate)
-  if (Number.isNaN(d.getTime())) return isoDate
-  const day = d.getDate()
-  const month = MONTH_LABELS_RU[d.getMonth()] ?? ""
-  const year = d.getFullYear()
-  return `${day} ${month} ${year}`
-}
-
-const dateInputStyle: React.CSSProperties = {
-  padding: 12,
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
-  fontSize: 16,
-  outline: "none",
-  boxShadow: "none",
-  width: "100%",
-  color: "transparent",
-}
-
-const dateOverlayStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  display: "flex",
-  alignItems: "center",
-  paddingLeft: 12,
-  paddingRight: 12,
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  color: "#0f172a",
+const DatePillsInline: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => {
+  const d = new Date(value)
+  const day = Number.isNaN(d.getTime()) ? "" : d.getDate().toString().padStart(1, "0")
+  const month = Number.isNaN(d.getTime()) ? "" : MONTH_LABELS_RU[d.getMonth()] ?? ""
+  const year = Number.isNaN(d.getTime()) ? "" : d.getFullYear().toString()
+  return (
+    <div style={{ display: "flex", gap: 8, width: "100%" }}>
+      <div style={{ position: "relative", flex: 1 }}>
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0,
+            width: "100%",
+            height: "100%",
+            cursor: "pointer",
+          }}
+        />
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid #e5e7eb",
+            fontSize: 16,
+            textAlign: "center",
+            background: "#fff",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            pointerEvents: "none",
+          }}
+        >
+          {day}
+        </div>
+      </div>
+      <div style={{ position: "relative", flex: 1 }}>
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0,
+            width: "100%",
+            height: "100%",
+            cursor: "pointer",
+          }}
+        />
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid #e5e7eb",
+            fontSize: 16,
+            textAlign: "center",
+            background: "#fff",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            pointerEvents: "none",
+          }}
+        >
+          {month}
+        </div>
+      </div>
+      <div style={{ position: "relative", flex: 1 }}>
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0,
+            width: "100%",
+            height: "100%",
+            cursor: "pointer",
+          }}
+        />
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid #e5e7eb",
+            fontSize: 16,
+            textAlign: "center",
+            background: "#fff",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            pointerEvents: "none",
+          }}
+        >
+          {year}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
@@ -495,18 +566,6 @@ const incomeBySource = useMemo(() => {
     goal: "Цель",
   }
 
-  const renderDateInput = (value: string, onChange: (val: string) => void) => (
-    <div style={{ position: "relative" }}>
-      <input
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={dateInputStyle}
-      />
-      <span style={dateOverlayStyle}>{formatDateLabelRu(value)}</span>
-    </div>
-  )
-
   return (
     <div
       className="app-shell"
@@ -642,7 +701,7 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                {renderDateInput(transferDate, setTransferDate)}
+                <DatePillsInline value={transferDate} onChange={setTransferDate} />
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -721,7 +780,7 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                {renderDateInput(transferDate, setTransferDate)}
+                <DatePillsInline value={transferDate} onChange={setTransferDate} />
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -876,7 +935,7 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                {renderDateInput(transferDate, setTransferDate)}
+                <DatePillsInline value={transferDate} onChange={setTransferDate} />
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 4 }}>
