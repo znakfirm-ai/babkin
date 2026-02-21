@@ -348,13 +348,15 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [isGoalSheetOpen, setIsGoalSheetOpen] = useState(false)
   const [goalName, setGoalName] = useState("")
   const [goalTarget, setGoalTarget] = useState("")
-  const [goalIcon, setGoalIcon] = useState("")
+  const [goalIcon, setGoalIcon] = useState<string | null>(null)
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
   const [goalSheetMode, setGoalSheetMode] = useState<"create" | "edit">("create")
   const [pendingGoalCreate, setPendingGoalCreate] = useState(false)
   const [pendingOpenGoalsList, setPendingOpenGoalsList] = useState(false)
   const [pendingGoalEdit, setPendingGoalEdit] = useState<{ id: string; title: string } | null>(null)
+  const [isGoalIconPickerOpen, setIsGoalIconPickerOpen] = useState(false)
+  const [goalSheetIntent, setGoalSheetIntent] = useState<null | "openGoalIconPicker" | "returnToGoalSheet">(null)
   const [detailTitle, setDetailTitle] = useState<string>("")
   const [accountSearch, setAccountSearch] = useState("")
   const [categorySearch, setCategorySearch] = useState("")
@@ -476,6 +478,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   }, [])
   const accountIconKeys = useMemo(() => {
     const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "accounts")
+    return section ? section.keys : []
+  }, [])
+  const goalIconKeys = useMemo(() => {
+    const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "goals")
     return section ? section.keys : []
   }, [])
 
@@ -610,6 +616,20 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   }, [isGoalSheetOpen, openGoalsList, pendingOpenGoalsList])
 
   useEffect(() => {
+    if (!isGoalSheetOpen && goalSheetIntent === "openGoalIconPicker") {
+      setIsGoalIconPickerOpen(true)
+      setGoalSheetIntent(null)
+    }
+  }, [goalSheetIntent, isGoalSheetOpen])
+
+  useEffect(() => {
+    if (!isGoalIconPickerOpen && goalSheetIntent === "returnToGoalSheet") {
+      setIsGoalSheetOpen(true)
+      setGoalSheetIntent(null)
+    }
+  }, [goalSheetIntent, isGoalIconPickerOpen])
+
+  useEffect(() => {
     if (!isAccountSheetOpen && accountSheetIntent === "openAccountIconPicker") {
       setIsAccountIconPickerOpen(true)
       setAccountSheetIntent(null)
@@ -629,7 +649,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       const goal = goals.find((g) => g.id === pendingGoalEdit.id)
       setGoalName(goal?.name ?? pendingGoalEdit.title)
       setGoalTarget(goal ? String(goal.targetAmount) : "")
-      setGoalIcon(goal?.icon ?? "")
+      setGoalIcon(goal?.icon ?? null)
       setGoalSheetMode("edit")
       setPendingGoalEdit(null)
       setIsGoalSheetOpen(true)
@@ -1016,7 +1036,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setGoalError(null)
     setGoalName("")
     setGoalTarget("")
-    setGoalIcon("")
+    setGoalIcon(null)
     setGoalSheetMode("create")
     setPendingGoalCreate(true)
     setIsGoalsListOpen(false)
@@ -1038,11 +1058,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setIsSavingGoal(true)
     try {
       if (goalSheetMode === "create") {
-        await createGoal(token, { name: trimmed, icon: goalIcon.trim() || null, targetAmount: Math.round(target * 100) / 100 })
+        await createGoal(token, { name: trimmed, icon: goalIcon?.trim() || null, targetAmount: Math.round(target * 100) / 100 })
       } else if (goalSheetMode === "edit" && detailGoalId) {
         await updateGoal(token, detailGoalId, {
           name: trimmed,
-          icon: goalIcon.trim() || null,
+          icon: goalIcon?.trim() || null,
           targetAmount: Math.round(target * 100) / 100,
         })
       }
@@ -2347,22 +2367,33 @@ function TransactionsPanel({
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Иконка (emoji)</span>
-              <input
-                value={goalIcon}
-                onChange={(e) => setGoalIcon(e.target.value)}
-                placeholder="🎯"
+            <div style={{ display: "grid", gap: 6 }}>
+              <span style={{ fontSize: 13, color: "#475569" }}>Иконка</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsGoalSheetOpen(false)
+                  setGoalSheetIntent("openGoalIconPicker")
+                }}
                 style={{
-                  padding: 12,
+                  padding: "12px 14px",
                   borderRadius: 12,
                   border: "1px solid #e5e7eb",
-                  fontSize: 15,
-                  outline: "none",
-                  boxShadow: "none",
+                  background: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  color: "#0f172a",
                 }}
-              />
-            </label>
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {goalIcon && isFinanceIconKey(goalIcon) ? <FinanceIcon iconKey={goalIcon} size="md" /> : null}
+                  <span style={{ fontSize: 15 }}>{goalIcon && isFinanceIconKey(goalIcon) ? goalIcon : "Не выбрано"}</span>
+                </span>
+                <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
+              </button>
+            </div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
@@ -2541,7 +2572,9 @@ function TransactionsPanel({
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ fontSize: 18 }}>{goal.icon || "🎯"}</div>
+                          <div style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                            {goal.icon && isFinanceIconKey(goal.icon) ? <FinanceIcon iconKey={goal.icon} size="md" /> : null}
+                          </div>
                           <div style={{ fontWeight: 600, color: "#0f172a" }}>{goal.name}</div>
                         </div>
                         <div style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
@@ -2953,6 +2986,101 @@ function TransactionsPanel({
               onClick={() => {
                 setIsAccountIconPickerOpen(false)
                 setAccountSheetIntent("returnToAccountSheet")
+              }}
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              Назад
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {isGoalIconPickerOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 45,
+            padding: "0 12px 12px",
+          }}
+          onClick={() => {
+            setIsGoalIconPickerOpen(false)
+            setGoalSheetIntent("returnToGoalSheet")
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              margin: "0 auto",
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: 16,
+              boxShadow: "none",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выбор иконки</div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+                gap: 10,
+              }}
+            >
+              {(goalIconKeys ?? []).length === 0 ? (
+                <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Нет иконок</div>
+              ) : (
+                goalIconKeys.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setGoalIcon(key)
+                      setIsGoalIconPickerOpen(false)
+                      setGoalSheetIntent("returnToGoalSheet")
+                    }}
+                    style={{
+                      padding: 10,
+                      borderRadius: 12,
+                      border: goalIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                      background: "#fff",
+                      display: "grid",
+                      placeItems: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isFinanceIconKey(key) ? <FinanceIcon iconKey={key} size="lg" /> : null}
+                  </button>
+                ))
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsGoalIconPickerOpen(false)
+                setGoalSheetIntent("returnToGoalSheet")
               }}
               style={{
                 marginTop: 12,
