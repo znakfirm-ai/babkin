@@ -59,6 +59,33 @@ export const DateIconButton: React.FC<{ value: string; onChange: (val: string) =
   </label>
 )
 
+const AmountDateRow: React.FC<{
+  amount: string
+  onAmountChange: (val: string) => void
+  date: string
+  onDateChange: (val: string) => void
+}> = ({ amount, onAmountChange, date, onDateChange }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+    <input
+      value={amount}
+      onChange={(e) => onAmountChange(e.target.value)}
+      placeholder="Сумма"
+      inputMode="decimal"
+      style={{
+        flex: 1,
+        minWidth: 0,
+        padding: 12,
+        borderRadius: 12,
+        border: "1px solid #e5e7eb",
+        fontSize: 16,
+        outline: "none",
+        boxShadow: "none",
+      }}
+    />
+    <DateIconButton value={date} onChange={onDateChange} />
+  </div>
+)
+
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 
 type Props = {
@@ -630,27 +657,12 @@ const incomeBySource = useMemo(() => {
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                <input
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Сумма"
-                  inputMode="decimal"
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    outline: "none",
-                    boxShadow: "none",
-                  }}
-                />
-                <div style={{ flex: "0 0 auto" }}>
-                  <DateIconButton value={transferDate} onChange={setTransferDate} />
-                </div>
-              </div>
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+              />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
                 <button
