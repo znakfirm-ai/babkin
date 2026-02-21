@@ -1,7 +1,8 @@
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, useRef } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
+import { getGoals } from "../api/goals"
 import { getAccounts } from "../api/accounts"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
@@ -15,7 +16,7 @@ type Props = {
 }
 
 export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
-  const { accounts, categories, incomeSources, goals, transactions, setAccounts, setTransactions, currency } = useAppStore()
+  const { accounts, categories, incomeSources, goals, transactions, setAccounts, setTransactions, setGoals, currency } = useAppStore()
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
@@ -32,6 +33,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false)
+  const goalsFetchInFlight = useRef(false)
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
   const incomeSourcesList = useMemo(() => incomeSources, [incomeSources])
@@ -401,6 +403,27 @@ const incomeBySource = useMemo(() => {
     goal: "Цель",
   }
 
+  const ensureGoalsLoaded = useCallback(async () => {
+    if (goals.length > 0 || !token || goalsFetchInFlight.current) return
+    goalsFetchInFlight.current = true
+    try {
+      const data = await getGoals(token)
+      const mapped = data.goals.map((g) => ({
+        id: g.id,
+        name: g.name,
+        icon: g.icon ?? null,
+        targetAmount: Number(g.targetAmount),
+        currentAmount: Number(g.currentAmount),
+        status: g.status,
+      }))
+      setGoals(mapped)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      goalsFetchInFlight.current = false
+    }
+  }, [goals.length, setGoals, token])
+
   return (
     <div
       className="app-shell"
@@ -716,7 +739,11 @@ const incomeBySource = useMemo(() => {
                   <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
                   <button
                     type="button"
-                    onClick={() => setIsGoalPickerOpen(true)}
+                    onClick={async () => {
+                      setError(null)
+                      await ensureGoalsLoaded()
+                      setIsGoalPickerOpen(true)
+                    }}
                     style={{
                       padding: "12px 14px",
                       borderRadius: 12,
