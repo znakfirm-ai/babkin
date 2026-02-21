@@ -5,7 +5,7 @@ import { createTransaction, getTransactions } from "../api/transactions"
 import { getAccounts } from "../api/accounts"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
-import { getAccountDisplay, getCategoryDisplay, getIncomeSourceDisplay } from "../shared/display"
+import { getAccountDisplay, getCategoryDisplay, getGoalDisplay, getIncomeSourceDisplay } from "../shared/display"
 
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 
@@ -14,7 +14,7 @@ type Props = {
 }
 
 export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
-  const { accounts, categories, incomeSources, transactions, setAccounts, setTransactions, currency } = useAppStore()
+  const { accounts, categories, incomeSources, goals, transactions, setAccounts, setTransactions, currency } = useAppStore()
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
@@ -22,9 +22,15 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState<string | null>(null)
+  const [transferFromAccountId, setTransferFromAccountId] = useState<string | null>(null)
+  const [transferToAccountId, setTransferToAccountId] = useState<string | null>(null)
+  const [transferTargetType, setTransferTargetType] = useState<"account" | "goal" | "debt">("account")
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
+  const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false)
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
   const incomeSourcesList = useMemo(() => incomeSources, [incomeSources])
@@ -51,6 +57,7 @@ const incomeBySource = useMemo(() => {
   const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts])
   const categoriesById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
   const incomeSourcesById = useMemo(() => Object.fromEntries(incomeSources.map((s) => [s.id, s])), [incomeSources])
+  const goalsById = useMemo(() => Object.fromEntries(goals.map((g) => [g.id, g])), [goals])
 
   const accountTiles = useMemo(
     () =>
@@ -105,6 +112,19 @@ const incomeBySource = useMemo(() => {
         }
       }),
     [incomeBySource, incomeSourcesById, incomeSourcesList],
+  )
+
+  const goalTiles = useMemo(
+    () =>
+      goals.map((goal) => {
+        const display = getGoalDisplay(goal.id, goalsById)
+        return {
+          id: goal.id,
+          title: display.title,
+          iconKey: display.iconKey ?? null,
+        }
+      }),
+    [goals, goalsById],
   )
 
   const submitExpense = useCallback(async () => {
@@ -243,19 +263,26 @@ const incomeBySource = useMemo(() => {
       budgetTone?: "normal" | "warn" | "alert"
     },
     active: boolean,
-    kind: "account" | "category" | "income-source",
+    kind: "account" | "category" | "income-source" | "goal",
+    onSelect?: (id: string) => void,
   ) => (
     <button
       key={item.id}
       type="button"
       className={`tile-card ${kind === "category" ? "tile-card--category" : "tile-card--account"}`}
       onClick={() => {
+        if (onSelect) {
+          onSelect(item.id)
+          return
+        }
         if (kind === "account") {
           setSelectedAccountId(item.id)
         } else if (kind === "category") {
           setSelectedCategoryId(item.id)
-        } else {
+        } else if (kind === "income-source") {
           setSelectedIncomeSourceId(item.id)
+        } else if (kind === "goal") {
+          setSelectedGoalId(item.id)
         }
       }}
       style={{
@@ -295,8 +322,88 @@ const incomeBySource = useMemo(() => {
     </button>
   )
 
+  const submitTransfer = useCallback(async () => {
+    if (!token) {
+      setError("Нет токена")
+      return
+    }
+    if (transferTargetType === "debt") {
+      setError("Переводы в долги появятся позже")
+      return
+    }
+    if (transferTargetType === "goal") {
+      setError("Переводы на цели будут добавлены позже")
+      return
+    }
+    if (!transferFromAccountId || !transferToAccountId) {
+      setError("Выберите счета")
+      return
+    }
+    if (transferFromAccountId === transferToAccountId) {
+      setError("Счета должны различаться")
+      return
+    }
+    const amt = Number(amount.replace(",", "."))
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setError("Введите сумму")
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      await createTransaction(token, {
+        kind: "transfer",
+        amount: Math.round(amt * 100) / 100,
+        accountId: transferFromAccountId,
+        toAccountId: transferToAccountId,
+        happenedAt: `${transferDate}T00:00:00.000Z`,
+      })
+      const accountsData = await getAccounts(token)
+      setAccounts(
+        accountsData.accounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: { amount: a.balance, currency: a.currency },
+          color: a.color ?? undefined,
+          icon: a.icon ?? null,
+        })),
+      )
+      const txData = await getTransactions(token)
+      setTransactions(
+        txData.transactions.map((t) => ({
+          id: t.id,
+          type: t.kind,
+          amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
+          date: t.happenedAt,
+          accountId: t.accountId ?? t.fromAccountId ?? "",
+          accountName: t.accountName ?? null,
+          fromAccountId: t.fromAccountId ?? undefined,
+          fromAccountName: t.fromAccountName ?? null,
+          categoryId: t.categoryId ?? undefined,
+          incomeSourceId: t.incomeSourceId ?? undefined,
+          toAccountId: t.toAccountId ?? undefined,
+          toAccountName: t.toAccountName ?? null,
+          goalId: (t as { goalId?: string | null }).goalId ?? undefined,
+        })),
+      )
+      onClose()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Не удалось сохранить"
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [amount, onClose, setAccounts, setTransactions, token, transferDate, transferFromAccountId, transferToAccountId, transferTargetType])
+
   const expenseReady = selectedAccountId && selectedCategoryId && Number(amount.replace(",", ".")) > 0
   const incomeReady = selectedAccountId && selectedIncomeSourceId && Number(amount.replace(",", ".")) > 0
+  const transferAmountNumber = Number(amount.replace(",", "."))
+  const transferReady =
+    transferTargetType === "account"
+      ? Boolean(transferFromAccountId && transferToAccountId && transferFromAccountId !== transferToAccountId && transferAmountNumber > 0)
+      : transferTargetType === "goal"
+      ? Boolean(transferFromAccountId && selectedGoalId && transferAmountNumber > 0)
+      : false
 
   const labelMap: Record<QuickAddTab, string> = {
     expense: "Расход",
@@ -538,9 +645,250 @@ const incomeBySource = useMemo(() => {
               </div>
             </div>
           </div>
+        ) : activeTab === "transfer" ? (
+          <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
+            <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт — откуда</div>
+            <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+              {accountTiles.map((acc) =>
+                renderTile(
+                  {
+                    id: acc.id,
+                    title: acc.title,
+                    icon: "wallet",
+                    iconKey: acc.iconKey,
+                    color: acc.color,
+                    text: acc.text,
+                  },
+                  transferFromAccountId === acc.id,
+                  "account",
+                  (id) => {
+                    setTransferFromAccountId(id)
+                    setError(null)
+                  },
+                ),
+              )}
+            </div>
+
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
+              <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Куда</div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                {[
+                  { key: "account", label: "Счёт" },
+                  { key: "goal", label: "Мои цели" },
+                  { key: "debt", label: "Долги / Кредиты" },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setTransferTargetType(opt.key as "account" | "goal" | "debt")
+                      setError(null)
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: transferTargetType === opt.key ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                      background: transferTargetType === opt.key ? "#0f172a" : "#fff",
+                      color: transferTargetType === opt.key ? "#fff" : "#0f172a",
+                      fontWeight: 600,
+                      minWidth: 90,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {transferTargetType === "account" ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт — куда</div>
+                  <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+                    {accountTiles.map((acc) =>
+                      renderTile(
+                        {
+                          id: acc.id,
+                          title: acc.title,
+                          icon: "wallet",
+                          iconKey: acc.iconKey,
+                          color: acc.color,
+                          text: acc.text,
+                        },
+                        transferToAccountId === acc.id,
+                        "account",
+                        (id) => {
+                          setTransferToAccountId(id)
+                          setError(null)
+                        },
+                      ),
+                    )}
+                  </div>
+                </div>
+              ) : transferTargetType === "goal" ? (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
+                  <button
+                    type="button"
+                    onClick={() => setIsGoalPickerOpen(true)}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {selectedGoalId && isFinanceIconKey(getGoalDisplay(selectedGoalId, goalsById).iconKey ?? "") ? (
+                        <FinanceIcon iconKey={getGoalDisplay(selectedGoalId, goalsById).iconKey ?? ""} size={16} />
+                      ) : null}
+                      <span style={{ fontSize: 15 }}>
+                        {selectedGoalId ? getGoalDisplay(selectedGoalId, goalsById).title : "Выбрать цель"}
+                      </span>
+                    </span>
+                    <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
+                  </button>
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13 }}>Долги и кредиты будут доступны позже</div>
+              )}
+            </div>
+
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <input
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Сумма"
+                  inputMode="decimal"
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+                <input
+                  type="date"
+                  value={transferDate}
+                  onChange={(e) => setTransferDate(e.target.value)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+              </div>
+              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
+              <div style={{ paddingTop: 4 }}>
+                <button
+                  type="button"
+                  disabled={!transferReady || loading}
+                  onClick={() => void submitTransfer()}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: transferReady && !loading ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                    color: transferReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
+                    fontWeight: 700,
+                    cursor: transferReady && !loading ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {loading ? "Сохранение..." : "Готово"}
+                </button>
+              </div>
+            </div>
+          </div>
         ) : (
           <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
         )}
+
+        {isGoalPickerOpen ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.35)",
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              zIndex: 90,
+              padding: "0 12px 12px",
+            }}
+            onClick={() => setIsGoalPickerOpen(false)}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 520,
+                margin: "0 auto",
+                background: "#fff",
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+                padding: 16,
+                boxShadow: "none",
+                maxHeight: "70vh",
+                overflowY: "auto",
+                paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+                Выбор цели
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(72px, 1fr))",
+                  gap: 10,
+                }}
+              >
+                {goalTiles.map((goal) => (
+                  <button
+                    key={goal.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedGoalId(goal.id)
+                      setIsGoalPickerOpen(false)
+                      setError(null)
+                    }}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: selectedGoalId === goal.id ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                      background: "#fff",
+                      display: "grid",
+                      gap: 6,
+                      justifyItems: "center",
+                    }}
+                  >
+                    {goal.iconKey && isFinanceIconKey(goal.iconKey) ? <FinanceIcon iconKey={goal.iconKey} size={20} /> : null}
+                    <div style={{ fontSize: 12, color: "#0f172a", textAlign: "center" }}>{goal.title}</div>
+                  </button>
+                ))}
+                {goalTiles.length === 0 ? (
+                  <div style={{ fontSize: 13, color: "#6b7280", gridColumn: "1 / -1", textAlign: "center" }}>
+                    Цели отсутствуют
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
