@@ -8,6 +8,7 @@ import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { getAccountDisplay, getCategoryDisplay, getGoalDisplay, getIncomeSourceDisplay } from "../shared/display"
 import { GoalList } from "../components/GoalList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
+import { getReadableTextColor } from "../utils/getReadableTextColor"
 
 export const DateIconButton: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => (
   <label
@@ -335,60 +336,102 @@ const incomeBySource = useMemo(() => {
     kind: "account" | "category" | "income-source" | "goal",
     onSelect?: (id: string) => void,
   ) => (
-    <button
-      key={item.id}
-      type="button"
-      className={`tile-card ${kind === "category" ? "tile-card--category" : "tile-card--account"}`}
-      onClick={() => {
-        if (onSelect) {
-          onSelect(item.id)
-          return
-        }
-        if (kind === "account") {
-          setSelectedAccountId(item.id)
-        } else if (kind === "category") {
-          setSelectedCategoryId(item.id)
-        } else if (kind === "income-source") {
-          setSelectedIncomeSourceId(item.id)
-        } else if (kind === "goal") {
-          setSelectedGoalId(item.id)
-        }
-      }}
-      style={{
-        background: item.color || undefined,
-        border: item.budgetTone
-          ? item.budgetTone === "alert"
-            ? "1px solid #ef4444"
-            : item.budgetTone === "warn"
-            ? "1px solid #f59e0b"
-            : undefined
-          : undefined,
-        backgroundColor:
-          item.budgetTone === "alert"
-            ? "rgba(248,113,113,0.12)"
-            : item.budgetTone === "warn"
-            ? "rgba(251,191,36,0.12)"
-            : item.color || undefined,
-        boxShadow: active ? "0 0 0 2px #0f172a inset" : undefined,
-        color: "#0f172a",
-      }}
-    >
-      <div className="tile-card__icon" style={{ background: "rgba(15,23,42,0.06)", opacity: 1 }}>
-        {item.iconKey && isFinanceIconKey(item.iconKey) ? (
-          <FinanceIcon iconKey={item.iconKey} size={16} />
-        ) : item.icon ? (
-          <AppIcon name={(item.icon as IconName) ?? "wallet"} size={16} />
-        ) : null}
-      </div>
-      <div className="tile-card__title" style={{ fontWeight: 600 }}>{item.title}</div>
-      {item.text ? <div style={{ fontSize: 12, color: "#6b7280" }}>{item.text}</div> : null}
-      {item.amount !== undefined ? (
-        <div className="tile-card__amount">{formatMoney(item.amount, baseCurrency)}</div>
-      ) : null}
-      {item.budget != null ? (
-        <div style={{ marginTop: 2, fontSize: 9, color: "#6b7280" }}>{formatMoney(item.budget, baseCurrency)}</div>
-      ) : null}
-    </button>
+    (() => {
+      const isAccount = kind === "account"
+      const bg = isAccount ? item.color ?? "#EEF2F7" : item.color
+      const contentColor = isAccount ? getReadableTextColor(bg ?? "#EEF2F7") : "#0f172a"
+      const secondaryColor =
+        isAccount && contentColor === "#FFFFFF" ? "rgba(255,255,255,0.85)" : "rgba(17,17,17,0.75)"
+      const shadow = isAccount && contentColor === "#FFFFFF" ? "0 1px 2px rgba(0,0,0,0.25)" : "none"
+      const buttonStyle =
+        isAccount && !item.budgetTone
+          ? {
+              background: bg,
+              color: contentColor,
+              border: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: active ? "0 0 0 2px #0f172a inset" : undefined,
+            }
+          : {
+              background: item.budgetTone
+                ? item.budgetTone === "alert"
+                  ? "rgba(248,113,113,0.12)"
+                  : item.budgetTone === "warn"
+                  ? "rgba(251,191,36,0.12)"
+                  : bg
+                : bg,
+              border: item.budgetTone
+                ? item.budgetTone === "alert"
+                  ? "1px solid #ef4444"
+                  : item.budgetTone === "warn"
+                  ? "1px solid #f59e0b"
+                  : undefined
+                : "1px solid rgba(0,0,0,0.08)",
+              boxShadow: active ? "0 0 0 2px #0f172a inset" : undefined,
+              color: isAccount ? contentColor : "#0f172a",
+            }
+
+      return (
+        <button
+          key={item.id}
+          type="button"
+          className={`tile-card ${kind === "category" ? "tile-card--category" : "tile-card--account"}`}
+          onClick={() => {
+            if (onSelect) {
+              onSelect(item.id)
+              return
+            }
+            if (kind === "account") {
+              setSelectedAccountId(item.id)
+            } else if (kind === "category") {
+              setSelectedCategoryId(item.id)
+            } else if (kind === "income-source") {
+              setSelectedIncomeSourceId(item.id)
+            } else if (kind === "goal") {
+              setSelectedGoalId(item.id)
+            }
+          }}
+          style={buttonStyle}
+        >
+          <div
+            className="tile-card__icon"
+            style={
+              isAccount
+                ? {
+                    background: "transparent",
+                    color: contentColor,
+                    filter: contentColor === "#FFFFFF" ? "drop-shadow(0 1px 2px rgba(0,0,0,0.25))" : "none",
+                  }
+                : { background: "rgba(15,23,42,0.06)", opacity: 1 }
+            }
+          >
+            {item.iconKey && isFinanceIconKey(item.iconKey) ? (
+              <FinanceIcon iconKey={item.iconKey} size={16} />
+            ) : item.icon ? (
+              <AppIcon name={(item.icon as IconName) ?? "wallet"} size={16} />
+            ) : null}
+          </div>
+          <div
+            className="tile-card__title"
+            style={isAccount ? { fontWeight: 600, color: secondaryColor, textShadow: shadow } : { fontWeight: 600 }}
+          >
+            {item.title}
+          </div>
+          {item.text ? (
+            <div style={isAccount ? { fontSize: 12, color: secondaryColor } : { fontSize: 12, color: "#6b7280" } }>
+              {item.text}
+            </div>
+          ) : null}
+          {item.amount !== undefined ? (
+            <div className="tile-card__amount" style={isAccount ? { color: contentColor, textShadow: shadow } : undefined}>
+              {formatMoney(item.amount, baseCurrency)}
+            </div>
+          ) : null}
+          {item.budget != null ? (
+            <div style={{ marginTop: 2, fontSize: 9, color: "#6b7280" }}>{formatMoney(item.budget, baseCurrency)}</div>
+          ) : null}
+        </button>
+      )
+    })()
   )
 
   const ensureGoalsLoaded = useCallback(async () => {
