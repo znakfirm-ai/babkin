@@ -1099,6 +1099,7 @@ const incomeBySource = useMemo(() => {
                     setError(null)
                   }}
                   emptyText="Цели отсутствуют"
+                  currency={baseCurrency}
                 />
               </div>
           </div>

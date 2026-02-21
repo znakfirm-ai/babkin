@@ -34,3 +34,14 @@ export function formatMoney(value: number, currency: string): string {
   const formatted = formatter.format(value).replace(/,/g, " ")
   return `${formatted} ${getSymbol(code)}`
 }
+
+export function formatMoneyIntl(value: number, currency: string, locale = "ru-RU"): string {
+  const code = normalizeCurrency(currency)
+  const hasFraction = Math.round(value * 100) % 100 !== 0
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: code,
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  }).format(value)
+}

@@ -1,14 +1,22 @@
 import type { Goal } from "../types/finance"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
+import { formatMoneyIntl } from "../utils/formatMoney"
 
 type GoalListProps = {
   goals: Goal[]
   onSelectGoal: (goal: Goal) => void
   emptyText?: string
   selectedGoalId?: string | null
+  currency: string
 }
 
-export const GoalList: React.FC<GoalListProps> = ({ goals, onSelectGoal, emptyText = "Пока нет целей", selectedGoalId = null }) => {
+export const GoalList: React.FC<GoalListProps> = ({
+  goals,
+  onSelectGoal,
+  emptyText = "Пока нет целей",
+  selectedGoalId = null,
+  currency,
+}) => {
   if (goals.length === 0) {
     return (
       <div style={{ padding: "12px 4px", fontSize: 14, color: "#6b7280" }}>
@@ -22,8 +30,11 @@ export const GoalList: React.FC<GoalListProps> = ({ goals, onSelectGoal, emptyTe
       {goals.map((goal, idx) => {
         const percent =
           goal.targetAmount > 0 ? Math.min(100, Math.max(0, (goal.currentAmount / goal.targetAmount) * 100)) : 0
+        const percentText = percent > 0 && percent < 1 ? "<1%" : `${Math.round(percent)}%`
         const isLast = idx === goals.length - 1
         const isSelected = selectedGoalId === goal.id
+        const formattedCurrent = formatMoneyIntl(goal.currentAmount, currency)
+        const formattedTarget = formatMoneyIntl(goal.targetAmount, currency)
         return (
           <button
             key={goal.id}
@@ -46,7 +57,10 @@ export const GoalList: React.FC<GoalListProps> = ({ goals, onSelectGoal, emptyTe
               <div style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
                 {goal.icon && isFinanceIconKey(goal.icon) ? <FinanceIcon iconKey={goal.icon} size="md" /> : null}
               </div>
-              <div style={{ fontWeight: 600, color: "#0f172a" }}>{goal.name}</div>
+              <div style={{ display: "grid", gap: 2 }}>
+                <div style={{ fontWeight: 600, color: "#0f172a" }}>{goal.name}</div>
+                <div style={{ fontSize: 12, color: "#475569" }}>{percentText}</div>
+              </div>
             </div>
             <div style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
               <div
@@ -58,8 +72,8 @@ export const GoalList: React.FC<GoalListProps> = ({ goals, onSelectGoal, emptyTe
               />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#475569" }}>
-              <span>{goal.currentAmount.toFixed(2)}</span>
-              <span>{goal.targetAmount.toFixed(2)}</span>
+              <span>{formattedCurrent}</span>
+              <span>{formattedTarget}</span>
             </div>
           </button>
         )

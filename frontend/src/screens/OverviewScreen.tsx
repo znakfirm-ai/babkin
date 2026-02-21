@@ -2581,6 +2581,7 @@ function TransactionsPanel({
                     setGoalSearch("")
                   }}
                   emptyText="Пока нет целей"
+                  currency={baseCurrency}
                 />
               </div>
             </div>
