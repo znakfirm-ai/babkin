@@ -507,7 +507,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const refetchIncomeSources = useCallback(async () => {
     if (!token) return
     const data = await getIncomeSources(token)
-    const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name }))
+    const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
     setIncomeSources(mapped)
   }, [setIncomeSources, token])
 
@@ -2899,7 +2899,6 @@ function TransactionsPanel({
                   }}
                 >
                   <FinanceIcon iconKey={key} size="lg" />
-                  <div style={{ fontSize: 11, color: "#6b7280", textAlign: "center" }}>{key}</div>
                 </button>
               ))}
             </div>

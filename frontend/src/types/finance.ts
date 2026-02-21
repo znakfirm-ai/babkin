@@ -21,7 +21,7 @@ export type Category = {
 export type IncomeSource = {
   id: string
   name: string
-  icon?: string
+  icon?: string | null
 }
 
 export type Goal = {

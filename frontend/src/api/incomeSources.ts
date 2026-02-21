@@ -1,6 +1,7 @@
 export type IncomeSourceDto = {
   id: string
   name: string
+  icon?: string | null
 }
 
 export type GetIncomeSourcesResponse = {
