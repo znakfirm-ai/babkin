@@ -20,6 +20,30 @@ const formatDateLabelRu = (isoDate: string) => {
   return `${day} ${month} ${year}`
 }
 
+const dateInputStyle: React.CSSProperties = {
+  padding: 12,
+  borderRadius: 12,
+  border: "1px solid #e5e7eb",
+  fontSize: 16,
+  outline: "none",
+  boxShadow: "none",
+  width: "100%",
+  color: "transparent",
+}
+
+const dateOverlayStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  display: "flex",
+  alignItems: "center",
+  paddingLeft: 12,
+  paddingRight: 12,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  color: "#0f172a",
+}
+
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 
 type Props = {
@@ -471,6 +495,18 @@ const incomeBySource = useMemo(() => {
     goal: "Цель",
   }
 
+  const renderDateInput = (value: string, onChange: (val: string) => void) => (
+    <div style={{ position: "relative" }}>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={dateInputStyle}
+      />
+      <span style={dateOverlayStyle}>{formatDateLabelRu(value)}</span>
+    </div>
+  )
+
   return (
     <div
       className="app-shell"
@@ -606,22 +642,7 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                <input
-                  type="date"
-                  value={transferDate}
-                  onChange={(e) => setTransferDate(e.target.value)}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    outline: "none",
-                    boxShadow: "none",
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: 13, color: "#475569", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {formatDateLabelRu(transferDate)}
+                {renderDateInput(transferDate, setTransferDate)}
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -700,22 +721,7 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                <input
-                  type="date"
-                  value={transferDate}
-                  onChange={(e) => setTransferDate(e.target.value)}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    outline: "none",
-                    boxShadow: "none",
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: 13, color: "#475569", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {formatDateLabelRu(transferDate)}
+                {renderDateInput(transferDate, setTransferDate)}
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -870,19 +876,7 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                <input
-                  type="date"
-                  value={transferDate}
-                  onChange={(e) => setTransferDate(e.target.value)}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    outline: "none",
-                    boxShadow: "none",
-                  }}
-                />
+                {renderDateInput(transferDate, setTransferDate)}
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 4 }}>
