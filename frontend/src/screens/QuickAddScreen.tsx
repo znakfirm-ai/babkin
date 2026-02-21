@@ -10,6 +10,14 @@ import { GoalList } from "../components/GoalList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
 
+const getTodayLocalDate = () => {
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = String(now.getMonth() + 1).padStart(2, "0")
+  const dd = String(now.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
 export const DateIconButton: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => (
   <label
     style={{
@@ -106,7 +114,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   const [transferToAccountId, setTransferToAccountId] = useState<string | null>(null)
   const [transferTargetType, setTransferTargetType] = useState<"account" | "goal" | "debt">("account")
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
-  const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [transferDate, setTransferDate] = useState(() => getTodayLocalDate())
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
