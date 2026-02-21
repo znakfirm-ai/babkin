@@ -1057,12 +1057,15 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     }
     setIsSavingGoal(true)
     try {
+      const currentGoalIcon =
+        goalIcon?.trim() ??
+        (goalSheetMode === "edit" && detailGoalId ? goals.find((g) => g.id === detailGoalId)?.icon ?? null : null)
       if (goalSheetMode === "create") {
-        await createGoal(token, { name: trimmed, icon: goalIcon?.trim() || null, targetAmount: Math.round(target * 100) / 100 })
+        await createGoal(token, { name: trimmed, icon: currentGoalIcon ?? null, targetAmount: Math.round(target * 100) / 100 })
       } else if (goalSheetMode === "edit" && detailGoalId) {
         await updateGoal(token, detailGoalId, {
           name: trimmed,
-          icon: goalIcon?.trim() || null,
+          icon: currentGoalIcon ?? null,
           targetAmount: Math.round(target * 100) / 100,
         })
       }
