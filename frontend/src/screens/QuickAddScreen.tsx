@@ -5,6 +5,7 @@ import { createTransaction, getTransactions } from "../api/transactions"
 import { getAccounts } from "../api/accounts"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
+import { getAccountDisplay, getCategoryDisplay, getIncomeSourceDisplay } from "../shared/display"
 
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 
@@ -37,15 +38,74 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
     return map
   }, [transactions])
 
-  const incomeBySource = useMemo(() => {
-    const map = new Map<string, number>()
-    transactions.forEach((t) => {
-      if (t.type !== "income") return
-      if (!t.incomeSourceId) return
-      map.set(t.incomeSourceId, (map.get(t.incomeSourceId) ?? 0) + t.amount.amount)
-    })
-    return map
-  }, [transactions])
+const incomeBySource = useMemo(() => {
+  const map = new Map<string, number>()
+  transactions.forEach((t) => {
+    if (t.type !== "income") return
+    if (!t.incomeSourceId) return
+    map.set(t.incomeSourceId, (map.get(t.incomeSourceId) ?? 0) + t.amount.amount)
+  })
+  return map
+}, [transactions])
+
+  const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts])
+  const categoriesById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
+  const incomeSourcesById = useMemo(() => Object.fromEntries(incomeSources.map((s) => [s.id, s])), [incomeSources])
+
+  const accountTiles = useMemo(
+    () =>
+      accounts.map((acc) => {
+        const display = getAccountDisplay(acc.id, accountsById)
+        return {
+          id: acc.id,
+          title: display.title,
+          iconKey: display.iconKey ?? null,
+          color: display.color ?? "#EEF2F7",
+          text: formatMoney(acc.balance.amount, baseCurrency),
+        }
+      }),
+    [accounts, accountsById, baseCurrency],
+  )
+
+  const expenseCategoryTiles = useMemo(
+    () =>
+      expenseCategories.map((cat) => {
+        const display = getCategoryDisplay(cat.id, categoriesById)
+        const budget = (cat as { budget?: number | null }).budget ?? null
+        const spent = spendByCategory.get(cat.id) ?? 0
+        const budgetTone = (() => {
+          if (!budget || budget <= 0) return "normal" as const
+          const ratio = spent / budget
+          if (ratio > 1) return "alert" as const
+          if (ratio > 0.7) return "warn" as const
+          return "normal" as const
+        })()
+        return {
+          id: cat.id,
+          title: display.title,
+          iconKey: display.iconKey ?? null,
+          amount: spent,
+          budget,
+          budgetTone,
+        }
+      }),
+    [categoriesById, expenseCategories, spendByCategory],
+  )
+
+  const incomeSourceTiles = useMemo(
+    () =>
+      incomeSourcesList.map((src) => {
+        const display = getIncomeSourceDisplay(src.id, incomeSourcesById)
+        return {
+          id: src.id,
+          title: display.title,
+          iconKey: display.iconKey ?? null,
+          amount: incomeBySource.get(src.id) ?? 0,
+          color: "#EEF2F7",
+        }
+      }),
+    [incomeBySource, incomeSourcesById, incomeSourcesList],
+  )
 
   const submitExpense = useCallback(async () => {
     if (!token) {
@@ -218,7 +278,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
       }}
     >
       <div className="tile-card__icon" style={{ background: "rgba(15,23,42,0.06)", opacity: 1 }}>
-        {kind === "income-source" && item.iconKey && isFinanceIconKey(item.iconKey) ? (
+        {item.iconKey && isFinanceIconKey(item.iconKey) ? (
           <FinanceIcon iconKey={item.iconKey} size={16} />
         ) : item.icon ? (
           <AppIcon name={(item.icon as IconName) ?? "wallet"} size={16} />
@@ -329,15 +389,15 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
             <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для списания</div>
             <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
-              {accounts.map((acc) =>
+              {accountTiles.map((acc) =>
                 renderTile(
                     {
                       id: acc.id,
-                      title: acc.name,
+                      title: acc.title,
                       icon: "wallet",
-                      iconKey: isFinanceIconKey((acc as { icon?: string | null }).icon ?? "") ? ((acc as { icon?: string | null }).icon as string) : null,
-                      color: acc.color ?? "#EEF2F7",
-                      text: formatMoney(acc.balance.amount, baseCurrency),
+                      iconKey: acc.iconKey,
+                      color: acc.color,
+                      text: acc.text,
                     },
                     selectedAccountId === acc.id,
                     "account",
@@ -348,22 +408,15 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Категория расходов</div>
               <div className="overview-expenses-row">
-                {expenseCategories.map((cat) =>
+                {expenseCategoryTiles.map((cat) =>
                   renderTile(
                     {
                       id: cat.id,
-                      title: cat.name,
-                      iconKey: isFinanceIconKey(cat.icon ?? "") ? cat.icon : null,
-                      amount: spendByCategory.get(cat.id) ?? 0,
-                      budget: (cat as { budget?: number | null }).budget ?? null,
-                      budgetTone: (() => {
-                        const budget = (cat as { budget?: number | null }).budget ?? null
-                        if (!budget || budget <= 0) return "normal"
-                        const ratio = (spendByCategory.get(cat.id) ?? 0) / budget
-                        if (ratio > 1) return "alert"
-                        if (ratio > 0.7) return "warn"
-                        return "normal"
-                      })(),
+                      title: cat.title,
+                      iconKey: cat.iconKey,
+                      amount: cat.amount,
+                      budget: cat.budget,
+                      budgetTone: cat.budgetTone,
                     },
                     selectedCategoryId === cat.id,
                     "category",
@@ -413,14 +466,14 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
             <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Источник дохода</div>
             <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
-              {incomeSourcesList.map((src) =>
+              {incomeSourceTiles.map((src) =>
                 renderTile(
                   {
                     id: src.id,
-                    title: src.name,
-                    iconKey: isFinanceIconKey(src.icon ?? "") ? src.icon : null,
-                    amount: incomeBySource.get(src.id) ?? 0,
-                    color: "#EEF2F7",
+                    title: src.title,
+                    iconKey: src.iconKey,
+                    amount: src.amount,
+                    color: src.color,
                   },
                   selectedIncomeSourceId === src.id,
                   "income-source",
@@ -431,15 +484,15 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для зачисления</div>
               <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
-              {accounts.map((acc) =>
+              {accountTiles.map((acc) =>
                 renderTile(
                   {
                     id: acc.id,
-                    title: acc.name,
+                    title: acc.title,
                     icon: "wallet",
-                    iconKey: isFinanceIconKey((acc as { icon?: string | null }).icon ?? "") ? ((acc as { icon?: string | null }).icon as string) : null,
-                    color: acc.color ?? "#EEF2F7",
-                    text: formatMoney(acc.balance.amount, baseCurrency),
+                    iconKey: acc.iconKey,
+                    color: acc.color,
+                    text: acc.text,
                   },
                   selectedAccountId === acc.id,
                   "account",
