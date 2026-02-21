@@ -352,6 +352,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
   const [goalSheetMode, setGoalSheetMode] = useState<"create" | "edit">("create")
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
   const [pendingGoalCreate, setPendingGoalCreate] = useState(false)
   const [pendingOpenGoalsList, setPendingOpenGoalsList] = useState(false)
   const [pendingGoalEdit, setPendingGoalEdit] = useState<{ id: string; title: string } | null>(null)
@@ -651,6 +652,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       setGoalTarget(goal ? String(goal.targetAmount) : "")
       setGoalIcon(goal?.icon ?? null)
       setGoalSheetMode("edit")
+      setEditingGoalId(pendingGoalEdit.id)
       setPendingGoalEdit(null)
       setIsGoalSheetOpen(true)
     }
@@ -1037,6 +1039,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setGoalName("")
     setGoalTarget("")
     setGoalIcon(null)
+    setEditingGoalId(null)
     setGoalSheetMode("create")
     setPendingGoalCreate(true)
     setIsGoalsListOpen(false)
@@ -1059,11 +1062,11 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     try {
       const currentGoalIcon =
         goalIcon?.trim() ??
-        (goalSheetMode === "edit" && detailGoalId ? goals.find((g) => g.id === detailGoalId)?.icon ?? null : null)
+        (goalSheetMode === "edit" && editingGoalId ? goals.find((g) => g.id === editingGoalId)?.icon ?? null : null)
       if (goalSheetMode === "create") {
         await createGoal(token, { name: trimmed, icon: currentGoalIcon ?? null, targetAmount: Math.round(target * 100) / 100 })
-      } else if (goalSheetMode === "edit" && detailGoalId) {
-        await updateGoal(token, detailGoalId, {
+      } else if (goalSheetMode === "edit" && editingGoalId) {
+        await updateGoal(token, editingGoalId, {
           name: trimmed,
           icon: currentGoalIcon ?? null,
           targetAmount: Math.round(target * 100) / 100,
@@ -1072,6 +1075,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       await refetchGoals()
       setPendingOpenGoalsList(true)
       setIsGoalSheetOpen(false)
+      setEditingGoalId(null)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось создать цель"
       setGoalError(msg)
