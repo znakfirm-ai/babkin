@@ -982,7 +982,19 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       if (categorySheetMode === "create") {
         await createCategory(token, { name: trimmed, kind: "expense", icon: categoryIcon ?? null, budget: budgetNumber })
       } else if (categorySheetMode === "edit" && editingCategoryId) {
-        await renameCategory(token, editingCategoryId, trimmed, { icon: categoryIcon ?? null, budget: budgetNumber })
+        const updated = await renameCategory(token, editingCategoryId, trimmed, { icon: categoryIcon ?? null, budget: budgetNumber })
+        const mappedCategories = categories.map((c) =>
+          c.id === updated.id
+            ? {
+                id: updated.id,
+                name: updated.name,
+                type: updated.kind,
+                icon: updated.icon,
+                budget: updated.budget ?? null,
+              }
+            : c,
+        )
+        setCategories(mappedCategories)
       }
       await refetchCategories()
       closeCategorySheet()
@@ -992,7 +1004,17 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     } finally {
       setIsSavingCategory(false)
     }
-  }, [categoryBudget, categoryIcon, categoryName, categorySheetMode, closeCategorySheet, editingCategoryId, refetchCategories, token])
+  }, [
+    categories,
+    categoryBudget,
+    categoryIcon,
+    categoryName,
+    categorySheetMode,
+    closeCategorySheet,
+    editingCategoryId,
+    refetchCategories,
+    token,
+  ])
 
   const handleSaveIncomeSource = useCallback(async () => {
     if (!token) {
