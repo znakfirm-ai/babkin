@@ -9,51 +9,54 @@ import { getAccountDisplay, getCategoryDisplay, getGoalDisplay, getIncomeSourceD
 import { GoalList } from "../components/GoalList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 
-const DatePillsInline: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => (
-  <div style={{ display: "flex", gap: 8, width: "100%" }}>
-    {[0, 1, 2].map((idx) => {
-      const d = new Date(value)
-      const parts = [
-        Number.isNaN(d.getTime()) ? "" : d.getDate().toString(),
-        Number.isNaN(d.getTime()) ? "" : d.toLocaleString("ru-RU", { month: "short" }),
-        Number.isNaN(d.getTime()) ? "" : d.getFullYear().toString(),
-      ]
-      const label = parts[idx]
-      return (
-        <label key={idx} style={{ position: "relative", flex: 1 }}>
-          <input
-            type="date"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            style={{
-              position: "absolute",
-              inset: 0,
-              opacity: 0,
-              width: "100%",
-              height: "100%",
-              cursor: "pointer",
-            }}
-          />
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 12,
-              border: "1px solid #e5e7eb",
-              fontSize: 16,
-              textAlign: "center",
-              background: "#fff",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              pointerEvents: "none",
-            }}
-          >
-            {label}
-          </div>
-        </label>
-      )
-    })}
-  </div>
+export const DateIconButton: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => (
+  <label style={{ position: "relative", width: 48, height: 48 }}>
+    <input
+      type="date"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        position: "absolute",
+        inset: 0,
+        opacity: 0,
+        width: "100%",
+        height: "100%",
+        cursor: "pointer",
+      }}
+    />
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        borderRadius: 12,
+        border: "1px solid #e5e7eb",
+        background: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <svg
+        width={22}
+        height={22}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+        <path d="M16 14h-2.5a2.5 2.5 0 1 0 0 5H16" />
+        <path d="M18 20v-6" />
+      </svg>
+    </div>
+  </label>
 )
 
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
@@ -642,7 +645,7 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                <DatePillsInline value={transferDate} onChange={setTransferDate} />
+                <DateIconButton value={transferDate} onChange={setTransferDate} />
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -721,7 +724,7 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                <DatePillsInline value={transferDate} onChange={setTransferDate} />
+                <DateIconButton value={transferDate} onChange={setTransferDate} />
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -876,7 +879,7 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                <DatePillsInline value={transferDate} onChange={setTransferDate} />
+                <DateIconButton value={transferDate} onChange={setTransferDate} />
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 4 }}>
