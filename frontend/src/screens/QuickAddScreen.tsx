@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -412,6 +412,12 @@ const incomeBySource = useMemo(() => {
     }
   }, [goals.length, setGoals, token])
 
+  useEffect(() => {
+    if (activeTab === "goal") {
+      void ensureGoalsLoaded()
+    }
+  }, [activeTab, ensureGoalsLoaded])
+
   const submitTransfer = useCallback(async () => {
     if (!token) {
       setError("Нет токена")
@@ -528,6 +534,7 @@ const incomeBySource = useMemo(() => {
       : transferTargetType === "goal"
       ? Boolean(transferFromAccountId && selectedGoalId && transferAmountNumber > 0)
       : false
+  const goalReady = Boolean(selectedAccountId && selectedGoalId && Number(amount.replace(",", ".")) > 0)
 
   const labelMap: Record<QuickAddTab, string> = {
     expense: "Расход",
@@ -536,6 +543,69 @@ const incomeBySource = useMemo(() => {
     debt: "Долг",
     goal: "Цель",
   }
+
+  const submitGoal = useCallback(async () => {
+    if (!token) {
+      setError("Нет токена")
+      return
+    }
+    if (!selectedAccountId) {
+      setError("Выберите счёт")
+      return
+    }
+    if (!selectedGoalId) {
+      setError("Выберите цель")
+      return
+    }
+    const amt = Number(amount.replace(",", "."))
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setError("Введите сумму")
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      await contributeGoal(token, selectedGoalId, {
+        accountId: selectedAccountId,
+        amount: Math.round(amt * 100) / 100,
+        date: `${transferDate}T00:00:00.000Z`,
+      })
+      const accountsData = await getAccounts(token)
+      setAccounts(
+        accountsData.accounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: { amount: a.balance, currency: a.currency },
+          color: a.color ?? undefined,
+          icon: a.icon ?? null,
+        })),
+      )
+      const txData = await getTransactions(token)
+      setTransactions(
+        txData.transactions.map((t) => ({
+          id: t.id,
+          type: t.kind,
+          amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
+          date: t.happenedAt,
+          accountId: t.accountId ?? t.fromAccountId ?? "",
+          accountName: t.accountName ?? null,
+          fromAccountId: t.fromAccountId ?? undefined,
+          fromAccountName: t.fromAccountName ?? null,
+          categoryId: t.categoryId ?? undefined,
+          incomeSourceId: t.incomeSourceId ?? undefined,
+          toAccountId: t.toAccountId ?? undefined,
+          toAccountName: t.toAccountName ?? null,
+          goalId: (t as { goalId?: string | null }).goalId ?? undefined,
+        })),
+      )
+      onClose()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Не удалось сохранить"
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [amount, onClose, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
 
   return (
     <div
@@ -868,7 +938,7 @@ const incomeBySource = useMemo(() => {
               )}
             </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -876,7 +946,7 @@ const incomeBySource = useMemo(() => {
                 onDateChange={setTransferDate}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
-              <div style={{ paddingTop: 4 }}>
+              <div style={{ paddingTop: 8 }}>
                 <button
                   type="button"
                   disabled={!transferReady || loading}
@@ -890,6 +960,78 @@ const incomeBySource = useMemo(() => {
                     color: transferReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
                     fontWeight: 700,
                     cursor: transferReady && !loading ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {loading ? "Сохранение..." : "Готово"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === "goal" ? (
+          <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
+            <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт</div>
+            <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+              {accountTiles.map((acc) =>
+                renderTile(
+                  {
+                    id: acc.id,
+                    title: acc.title,
+                    icon: "wallet",
+                    iconKey: acc.iconKey,
+                    color: acc.color,
+                    text: acc.text,
+                  },
+                  selectedAccountId === acc.id,
+                  "account",
+                  ),
+              )}
+            </div>
+
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
+              <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
+              <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+                {goals.map((goal) =>
+                  renderTile(
+                    {
+                      id: goal.id,
+                      title: getGoalDisplay(goal.id, goalsById).title,
+                      iconKey: getGoalDisplay(goal.id, goalsById).iconKey ?? null,
+                      amount: goal.currentAmount,
+                      budget: goal.targetAmount,
+                    },
+                    selectedGoalId === goal.id,
+                    "goal",
+                    (id) => {
+                      setSelectedGoalId(id)
+                      setError(null)
+                    },
+                  ),
+                )}
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+              />
+              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
+              <div style={{ paddingTop: 8 }}>
+                <button
+                  type="button"
+                  disabled={!goalReady || loading}
+                  onClick={() => void submitGoal()}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: goalReady && !loading ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                    color: goalReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
+                    fontWeight: 700,
+                    cursor: goalReady && !loading ? "pointer" : "not-allowed",
                   }}
                 >
                   {loading ? "Сохранение..." : "Готово"}
