@@ -885,6 +885,8 @@ const incomeBySource = useMemo(() => {
                 background: "#fff",
                 borderTopLeftRadius: 16,
                 borderTopRightRadius: 16,
+                borderBottomLeftRadius: 16,
+                borderBottomRightRadius: 16,
                 padding: 16,
                 boxShadow: "none",
                 maxHeight: "75vh",
@@ -899,16 +901,24 @@ const incomeBySource = useMemo(() => {
             <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
               Выбор цели
             </div>
-              <GoalList
-                goals={goals}
-                selectedGoalId={selectedGoalId}
-                onSelectGoal={(goal) => {
-                  setSelectedGoalId(goal.id)
-                  setIsGoalPickerOpen(false)
-                  setError(null)
+              <div
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 14,
+                  padding: 8,
                 }}
-                emptyText="Цели отсутствуют"
-              />
+              >
+                <GoalList
+                  goals={goals}
+                  selectedGoalId={selectedGoalId}
+                  onSelectGoal={(goal) => {
+                    setSelectedGoalId(goal.id)
+                    setIsGoalPickerOpen(false)
+                    setError(null)
+                  }}
+                  emptyText="Цели отсутствуют"
+                />
+              </div>
           </div>
         </div>
       ) : null}
