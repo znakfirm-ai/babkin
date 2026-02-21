@@ -2,12 +2,12 @@ import { useMemo, useState, useCallback, useRef } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
-import { getGoals } from "../api/goals"
 import { getAccounts } from "../api/accounts"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { getAccountDisplay, getCategoryDisplay, getGoalDisplay, getIncomeSourceDisplay } from "../shared/display"
 import { GoalList } from "../components/GoalList"
+import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 
@@ -312,6 +312,27 @@ const incomeBySource = useMemo(() => {
     </button>
   )
 
+  const ensureGoalsLoaded = useCallback(async () => {
+    if (goals.length > 0 || !token || goalsFetchInFlight.current) return
+    goalsFetchInFlight.current = true
+    try {
+      const data = await getGoals(token)
+      const mapped = data.goals.map((g: GoalDto) => ({
+        id: g.id,
+        name: g.name,
+        icon: g.icon ?? null,
+        targetAmount: Number(g.targetAmount),
+        currentAmount: Number(g.currentAmount),
+        status: g.status,
+      }))
+      setGoals(mapped)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      goalsFetchInFlight.current = false
+    }
+  }, [goals.length, setGoals, token])
+
   const submitTransfer = useCallback(async () => {
     if (!token) {
       setError("Нет токена")
@@ -321,33 +342,52 @@ const incomeBySource = useMemo(() => {
       setError("Переводы в долги появятся позже")
       return
     }
-    if (transferTargetType === "goal") {
-      setError("Переводы на цели будут добавлены позже")
-      return
-    }
-    if (!transferFromAccountId || !transferToAccountId) {
-      setError("Выберите счета")
-      return
-    }
-    if (transferFromAccountId === transferToAccountId) {
-      setError("Счета должны различаться")
-      return
-    }
     const amt = Number(amount.replace(",", "."))
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Введите сумму")
       return
     }
+    if (transferTargetType === "account") {
+      if (!transferFromAccountId || !transferToAccountId) {
+        setError("Выберите счета")
+        return
+      }
+      if (transferFromAccountId === transferToAccountId) {
+        setError("Счета должны различаться")
+        return
+      }
+    }
+    if (transferTargetType === "goal") {
+      if (!transferFromAccountId) {
+        setError("Выберите счёт")
+        return
+      }
+      if (!selectedGoalId) {
+        setError("Выберите цель")
+        return
+      }
+    }
     setLoading(true)
     setError(null)
     try {
-      await createTransaction(token, {
-        kind: "transfer",
-        amount: Math.round(amt * 100) / 100,
-        accountId: transferFromAccountId,
-        toAccountId: transferToAccountId,
-        happenedAt: `${transferDate}T00:00:00.000Z`,
-      })
+      if (transferTargetType === "account") {
+        const fromId = transferFromAccountId as string
+        const toId = transferToAccountId as string
+        await createTransaction(token, {
+          kind: "transfer",
+          amount: Math.round(amt * 100) / 100,
+          accountId: fromId,
+          toAccountId: toId,
+          happenedAt: `${transferDate}T00:00:00.000Z`,
+        })
+      } else if (transferTargetType === "goal" && selectedGoalId && transferFromAccountId) {
+        const fromId = transferFromAccountId as string
+        await contributeGoal(token, selectedGoalId, {
+          accountId: fromId,
+          amount: Math.round(amt * 100) / 100,
+          date: `${transferDate}T00:00:00.000Z`,
+        })
+      }
       const accountsData = await getAccounts(token)
       setAccounts(
         accountsData.accounts.map((a) => ({
@@ -376,6 +416,9 @@ const incomeBySource = useMemo(() => {
           goalId: (t as { goalId?: string | null }).goalId ?? undefined,
         })),
       )
+      if (transferTargetType === "goal") {
+        await ensureGoalsLoaded()
+      }
       onClose()
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось сохранить"
@@ -383,7 +426,19 @@ const incomeBySource = useMemo(() => {
     } finally {
       setLoading(false)
     }
-  }, [amount, onClose, setAccounts, setTransactions, token, transferDate, transferFromAccountId, transferToAccountId, transferTargetType])
+  }, [
+    amount,
+    ensureGoalsLoaded,
+    onClose,
+    selectedGoalId,
+    setAccounts,
+    setTransactions,
+    token,
+    transferDate,
+    transferFromAccountId,
+    transferToAccountId,
+    transferTargetType,
+  ])
 
   const expenseReady = selectedAccountId && selectedCategoryId && Number(amount.replace(",", ".")) > 0
   const incomeReady = selectedAccountId && selectedIncomeSourceId && Number(amount.replace(",", ".")) > 0
@@ -402,27 +457,6 @@ const incomeBySource = useMemo(() => {
     debt: "Долг",
     goal: "Цель",
   }
-
-  const ensureGoalsLoaded = useCallback(async () => {
-    if (goals.length > 0 || !token || goalsFetchInFlight.current) return
-    goalsFetchInFlight.current = true
-    try {
-      const data = await getGoals(token)
-      const mapped = data.goals.map((g) => ({
-        id: g.id,
-        name: g.name,
-        icon: g.icon ?? null,
-        targetAmount: Number(g.targetAmount),
-        currentAmount: Number(g.currentAmount),
-        status: g.status,
-      }))
-      setGoals(mapped)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      goalsFetchInFlight.current = false
-    }
-  }, [goals.length, setGoals, token])
 
   return (
     <div

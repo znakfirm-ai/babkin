@@ -150,4 +150,67 @@ async function goalsRoutes(fastify, _opts) {
         });
         return reply.send({ goal: mapGoal(updated) });
     });
+    fastify.post("/goals/:id/contribute", async (request, reply) => {
+        const userId = await resolveUserId(request, reply);
+        if (!userId)
+            return;
+        const user = await prisma_1.prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } });
+        if (!user?.active_workspace_id) {
+            return reply.status(400).send({ error: "No active workspace" });
+        }
+        const goalId = request.params.id;
+        if (!goalId) {
+            return reply.status(400).send({ error: "Bad Request", reason: "missing_goal_id" });
+        }
+        const body = request.body;
+        if (!body.accountId) {
+            return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" });
+        }
+        const amt = body.amount;
+        if (amt === undefined || amt === null || !Number.isFinite(amt) || amt <= 0) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_amount" });
+        }
+        const happenedAt = body.date ? new Date(body.date) : new Date();
+        if (Number.isNaN(happenedAt.getTime())) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_date" });
+        }
+        const workspaceId = user.active_workspace_id;
+        const [goal, account] = await Promise.all([
+            prisma_1.prisma.goals.findFirst({ where: { id: goalId, workspace_id: workspaceId } }),
+            prisma_1.prisma.accounts.findFirst({ where: { id: body.accountId, workspace_id: workspaceId, is_archived: false, archived_at: null } }),
+        ]);
+        if (!goal) {
+            return reply.status(404).send({ error: "Not Found", reason: "goal_not_found" });
+        }
+        if (!account) {
+            return reply.status(404).send({ error: "Not Found", reason: "account_not_found" });
+        }
+        const amountDec = new client_1.Prisma.Decimal(amt);
+        const updatedGoal = await prisma_1.prisma.$transaction(async (tx) => {
+            await tx.accounts.update({
+                where: { id: account.id },
+                data: { balance: { decrement: amountDec } },
+            });
+            const g = await tx.goals.update({
+                where: { id: goal.id },
+                data: { current_amount: { increment: amountDec } },
+            });
+            await tx.transactions.create({
+                data: {
+                    workspace_id: workspaceId,
+                    kind: "transfer",
+                    amount: amountDec,
+                    happened_at: happenedAt,
+                    account_id: account.id,
+                    to_account_id: null,
+                    category_id: null,
+                    income_source_id: null,
+                    goal_id: goal.id,
+                    note: body.note?.trim() || null,
+                },
+            });
+            return g;
+        });
+        return reply.send({ goal: mapGoal(updatedGoal) });
+    });
 }

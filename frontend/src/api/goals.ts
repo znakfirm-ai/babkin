@@ -64,3 +64,28 @@ export async function updateGoal(
   }
   return (await res.json()) as { goal: GoalDto }
 }
+
+export async function contributeGoal(
+  token: string,
+  goalId: string,
+  body: { accountId: string; amount: number; date?: string; note?: string | null },
+) {
+  const res = await fetch(`https://babkin.onrender.com/api/v1/goals/${goalId}/contribute`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      accountId: body.accountId,
+      amount: body.amount,
+      date: body.date,
+      note: body.note ?? null,
+    }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`POST /goals/${goalId}/contribute failed: ${res.status} ${res.statusText} ${text}`)
+  }
+  return (await res.json()) as { goal: GoalDto }
+}
