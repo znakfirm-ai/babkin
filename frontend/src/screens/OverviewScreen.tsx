@@ -548,6 +548,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       name: a.name,
       balance: { amount: a.balance, currency: a.currency },
       color: a.color ?? undefined,
+      icon: a.icon ?? null,
     }))
     setAccounts(mapped)
   }, [setAccounts, token])
