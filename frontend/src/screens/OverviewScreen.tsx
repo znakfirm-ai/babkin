@@ -322,6 +322,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [isSavingCategory, setIsSavingCategory] = useState(false)
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
   const [pendingCategoryEdit, setPendingCategoryEdit] = useState<{ id: string; title: string } | null>(null)
+  const [isCategoryIconPickerOpen, setIsCategoryIconPickerOpen] = useState(false)
+  const lastCategorySheetModeRef = useRef<"create" | "edit" | null>(null)
   const [incomeSourceSheetMode, setIncomeSourceSheetMode] = useState<"create" | "edit" | null>(null)
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState<string | null>(null)
   const [incomeSourceName, setIncomeSourceName] = useState("")
@@ -463,6 +465,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "income")
     return section ? section.keys : []
   }, [])
+  const categoryIconKeys = useMemo(() => {
+    const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "expense")
+    return section ? section.keys : []
+  }, [])
 
   if (overviewError) {
     return (
@@ -563,6 +569,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const openCreateCategory = useCallback(() => {
     setCategorySheetMode("create")
+    lastCategorySheetModeRef.current = "create"
     setEditingCategoryId(null)
     setCategoryName("")
   }, [])
@@ -629,15 +636,20 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setDetailCategoryId(null)
   }, [])
 
-  const closeCategorySheet = useCallback(() => {
-    setCategorySheetMode(null)
-    setEditingCategoryId(null)
-    setCategoryName("")
-    setCategoryBudget("")
-    setCategoryIcon(null)
-    setIsSavingCategory(false)
-    setDeletingCategoryId(null)
-  }, [])
+  const closeCategorySheet = useCallback(
+    (opts?: { preserveForm?: boolean }) => {
+      setCategorySheetMode(null)
+      if (!opts?.preserveForm) {
+        setEditingCategoryId(null)
+        setCategoryName("")
+        setCategoryBudget("")
+        setCategoryIcon(null)
+        setIsSavingCategory(false)
+        setDeletingCategoryId(null)
+      }
+    },
+    [],
+  )
 
   const resetIncomeSourceForm = useCallback(() => {
     setEditingIncomeSourceId(null)
@@ -663,6 +675,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const openEditCategorySheet = useCallback(
     (id: string, title: string) => {
       setCategorySheetMode("edit")
+      lastCategorySheetModeRef.current = "edit"
       setEditingCategoryId(id)
       setCategoryName(title)
       const cat = categories.find((c) => c.id === id)
@@ -1118,7 +1131,9 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
         id: cat.id,
         title: cat.name,
         amount: spent,
-        icon: "tag",
+        financeIconKey: isFinanceIconKey((cat as { icon?: string | null }).icon ?? "")
+          ? ((cat as { icon?: string | null }).icon as string)
+          : null,
         color: cardColors[(idx + 2) % cardColors.length],
         type: "category" as const,
         size: "md" as const,
@@ -3622,7 +3637,7 @@ function TransactionsPanel({
             zIndex: 45,
             padding: "0 12px 12px",
           }}
-          onClick={closeCategorySheet}
+          onClick={() => closeCategorySheet()}
         >
           <div
             style={{
@@ -3671,7 +3686,9 @@ function TransactionsPanel({
                 <button
                   type="button"
                   onClick={() => {
-                    /* TODO: icon picker */
+                    lastCategorySheetModeRef.current = categorySheetMode
+                    closeCategorySheet({ preserveForm: true })
+                    setIsCategoryIconPickerOpen(true)
                   }}
                   style={{
                     padding: "12px 14px",
@@ -3685,8 +3702,10 @@ function TransactionsPanel({
                   }}
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <AppIcon name={(categoryIcon as IconName) || "tag"} size={16} />
-                    <span style={{ fontSize: 15 }}>Иконка</span>
+                    {categoryIcon && isFinanceIconKey(categoryIcon) ? <FinanceIcon iconKey={categoryIcon} size={16} /> : null}
+                    <span style={{ fontSize: 15 }}>
+                      {categoryIcon && isFinanceIconKey(categoryIcon) ? categoryIcon : "Не выбрано"}
+                    </span>
                   </span>
                   <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
                 </button>
@@ -3714,7 +3733,7 @@ function TransactionsPanel({
                 )}
                 <button
                   type="button"
-                  onClick={closeCategorySheet}
+                  onClick={() => closeCategorySheet()}
                   style={{
                     padding: "10px 12px",
                     borderRadius: 10,
@@ -3745,6 +3764,103 @@ function TransactionsPanel({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isCategoryIconPickerOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 45,
+            padding: "0 12px 12px",
+          }}
+          onClick={() => {
+            setIsCategoryIconPickerOpen(false)
+            if (lastCategorySheetModeRef.current) {
+              setCategorySheetMode(lastCategorySheetModeRef.current)
+            }
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              margin: "0 auto",
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: 16,
+              boxShadow: "none",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выбор иконки</div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+                gap: 10,
+              }}
+            >
+              {categoryIconKeys.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setCategoryIcon(key)
+                    setIsCategoryIconPickerOpen(false)
+                    if (lastCategorySheetModeRef.current) {
+                      setCategorySheetMode(lastCategorySheetModeRef.current)
+                    }
+                  }}
+                  style={{
+                    padding: 10,
+                    borderRadius: 12,
+                    border: categoryIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                    background: "#fff",
+                    display: "grid",
+                    placeItems: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <FinanceIcon iconKey={key} size="lg" />
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsCategoryIconPickerOpen(false)
+                if (lastCategorySheetModeRef.current) {
+                  setCategorySheetMode(lastCategorySheetModeRef.current)
+                }
+              }}
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              Назад
+            </button>
           </div>
         </div>
       ) : null}

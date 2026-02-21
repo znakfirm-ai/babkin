@@ -350,7 +350,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                     {
                       id: cat.id,
                       title: cat.name,
-                      icon: "tag",
+                      iconKey: isFinanceIconKey(cat.icon ?? "") ? cat.icon : null,
                       amount: spendByCategory.get(cat.id) ?? 0,
                       budget: (cat as { budget?: number | null }).budget ?? null,
                       budgetTone: (() => {
