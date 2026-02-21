@@ -10,7 +10,7 @@ import { GoalList } from "../components/GoalList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 
 export const DateIconButton: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => (
-  <label style={{ position: "relative", width: 48, height: 48 }}>
+  <label style={{ position: "relative", width: 48, height: 48, flex: "0 0 48px" }}>
     <input
       type="date"
       value={value}
