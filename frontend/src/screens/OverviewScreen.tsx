@@ -11,6 +11,7 @@ import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeS
 import { createGoal, getGoals, updateGoal } from "../api/goals"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
+import { getReadableTextColor } from "../utils/getReadableTextColor"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -24,6 +25,7 @@ type CardItem = {
   financeIconKey?: string | null
   color: string
   textColor?: string
+  textShadow?: string
   isAdd?: boolean
   type?: TileType
   size?: TileSize
@@ -156,16 +158,6 @@ const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRi
 
 const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag
 
-const pickTextColor = (hex: string) => {
-  const raw = hex.replace("#", "")
-  if (raw.length !== 6) return "#0f172a"
-  const r = parseInt(raw.slice(0, 2), 16)
-  const g = parseInt(raw.slice(2, 4), 16)
-  const b = parseInt(raw.slice(4, 6), 16)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.55 ? "#0f172a" : "#fff"
-}
-
 const Section: React.FC<{
   title: string
   items: CardItem[]
@@ -214,6 +206,7 @@ const Section: React.FC<{
               ? {
                   background: item.color,
                   color: item.textColor ?? "#0f172a",
+                  textShadow: item.textShadow,
                   border: "1px solid rgba(0,0,0,0.08)",
                 }
               : item.type === "category" && categoryHighlight
@@ -1169,7 +1162,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
 
   const accountItems: CardItem[] = accounts.map((account, idx) => {
     const bg = account.color ?? DEFAULT_ACCOUNT_COLOR
-    const txt = pickTextColor(bg)
+    const txt = getReadableTextColor(bg)
+    const shadow = txt === "#FFFFFF" ? "0 1px 2px rgba(0,0,0,0.25)" : "none"
     return {
       id: account.id,
       title: account.name,
@@ -1178,6 +1172,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       icon: idx % 2 === 0 ? "wallet" : "card",
       color: bg,
       textColor: txt,
+    textShadow: shadow,
       type: "account" as const,
       size: "lg",
     }
