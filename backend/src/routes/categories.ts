@@ -192,7 +192,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       where: {
         workspace_id: user.active_workspace_id,
         name: { equals: name, mode: "insensitive" },
-        NOT: { id: categoryId },
+        id: { not: categoryId },
       },
     })
     if (duplicate) {

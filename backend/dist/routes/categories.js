@@ -162,7 +162,7 @@ async function categoriesRoutes(fastify, _opts) {
             where: {
                 workspace_id: user.active_workspace_id,
                 name: { equals: name, mode: "insensitive" },
-                NOT: { id: categoryId },
+                id: { not: categoryId },
             },
         });
         if (duplicate) {
