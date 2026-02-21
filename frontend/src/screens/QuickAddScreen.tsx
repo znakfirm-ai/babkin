@@ -725,23 +725,12 @@ const incomeBySource = useMemo(() => {
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <input
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Сумма"
-                  inputMode="decimal"
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    outline: "none",
-                    boxShadow: "none",
-                  }}
-                />
-                <DateIconButton value={transferDate} onChange={setTransferDate} />
-              </div>
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+              />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
                 <button
@@ -880,23 +869,12 @@ const incomeBySource = useMemo(() => {
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <input
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Сумма"
-                  inputMode="decimal"
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    outline: "none",
-                    boxShadow: "none",
-                  }}
-                />
-                <DateIconButton value={transferDate} onChange={setTransferDate} />
-              </div>
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+              />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 4 }}>
                 <button
