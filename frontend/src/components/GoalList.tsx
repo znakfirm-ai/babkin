@@ -53,14 +53,14 @@ export const GoalList: React.FC<GoalListProps> = ({
               cursor: "pointer",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
-                {goal.icon && isFinanceIconKey(goal.icon) ? <FinanceIcon iconKey={goal.icon} size="md" /> : null}
-              </div>
-              <div style={{ display: "grid", gap: 2 }}>
-                <div style={{ fontWeight: 600, color: "#0f172a" }}>{goal.name}</div>
-                <div style={{ fontSize: 12, color: "#475569" }}>{percentText}</div>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                  {goal.icon && isFinanceIconKey(goal.icon) ? <FinanceIcon iconKey={goal.icon} size="md" /> : null}
+                </span>
+                <span style={{ fontWeight: 600, color: "#0f172a" }}>{goal.name}</span>
+              </span>
+              <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap" }}>{`Выполнено: ${percentText}`}</span>
             </div>
             <div style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
               <div
