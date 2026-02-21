@@ -312,6 +312,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [type, setType] = useState("cash")
   const [balance, setBalance] = useState("0")
   const [accountColor, setAccountColor] = useState(accountColorOptions[0])
+  const [accountIcon, setAccountIcon] = useState<string | null>(null)
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [accountActionError, setAccountActionError] = useState<string | null>(null)
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
@@ -402,6 +403,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       setType(accType)
       const accClr = (acc as { color?: string } | undefined)?.color ?? accountColorOptions[0]
       setAccountColor(accClr)
+      setAccountIcon((acc as { icon?: string | null } | undefined)?.icon ?? null)
       setIsConfirmingDelete(false)
       setAccountActionError(null)
       setIsAccountSheetOpen(true)
@@ -418,7 +420,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     setName("")
     setBalance("0")
     setType("cash")
-      setAccountColor(accountColorOptions[0])
+    setAccountColor(accountColorOptions[0])
+    setAccountIcon(null)
   }, [])
 
   const { incomeSum, expenseSum, incomeBySource, expenseByCategory } = useMemo(() => {
@@ -1094,6 +1097,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       id: account.id,
       title: account.name,
       amount: account.balance.amount,
+      financeIconKey: isFinanceIconKey(account.icon ?? "") ? (account.icon as string) : null,
       icon: idx % 2 === 0 ? "wallet" : "card",
       color: bg,
       textColor: txt,
@@ -1177,7 +1181,10 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
       const balanceChanged =
         typeof currentBalance === "number" ? Math.round(currentBalance * 100) / 100 !== balanceNumber : false
       const needUpdateAccount =
-        editingAccountId && (name.trim() !== currentAccount?.name || accountColor !== (currentAccount as { color?: string })?.color)
+        editingAccountId &&
+        (name.trim() !== currentAccount?.name ||
+          accountColor !== (currentAccount as { color?: string })?.color ||
+          accountIcon !== (currentAccount as { icon?: string | null })?.icon)
 
       if (editingAccountId) {
         if (needUpdateAccount) {
@@ -1186,6 +1193,7 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
             type: type || "cash",
             currency: baseCurrency,
             color: accountColor,
+            icon: accountIcon ?? null,
           })
         }
         if (balanceChanged) {
@@ -1198,6 +1206,7 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
           currency: baseCurrency,
           balance: balanceNumber,
           color: accountColor,
+          icon: accountIcon ?? null,
         })
       }
       await refetchAccountsSeq()
@@ -3347,6 +3356,39 @@ function TransactionsPanel({
                         }}
                       />
                     </label>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Иконка</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAccountSheetOpen(false)
+                          setPendingIncomeSourceEdit(null)
+                          setPendingCategoryEdit(null)
+                          setIsCategoryIconPickerOpen(false)
+                          setIsIncomeIconPickerOpen(false)
+                          lastCategorySheetModeRef.current = null
+                          lastIncomeSourceModeRef.current = null
+                          setIsAccountSheetOpen(false)
+                        }}
+                        style={{
+                          padding: 12,
+                          borderRadius: 10,
+                          border: "1px solid #e5e7eb",
+                          background: "#fff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#0f172a" }}>
+                          {accountIcon && isFinanceIconKey(accountIcon) ? <FinanceIcon iconKey={accountIcon} size="md" /> : null}
+                          <span style={{ fontSize: 14 }}>{accountIcon && isFinanceIconKey(accountIcon) ? accountIcon : "Не выбрано"}</span>
+                        </span>
+                        <span style={{ color: "#9ca3af", fontSize: 12 }}>▼</span>
+                      </button>
+                    </div>
                   </div>
                   <div style={{ display: "grid", gap: 10 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Оформление</div>

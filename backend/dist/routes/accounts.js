@@ -64,7 +64,7 @@ async function accountsRoutes(fastify, _opts) {
         }
         const accounts = await prisma_1.prisma.accounts.findMany({
             where: { workspace_id: user.active_workspace_id, archived_at: null, is_archived: false },
-            select: { id: true, name: true, type: true, currency: true, balance: true, color: true },
+            select: { id: true, name: true, type: true, currency: true, balance: true, color: true, icon: true },
         });
         const payload = {
             accounts: accounts.map((a) => ({
@@ -74,6 +74,7 @@ async function accountsRoutes(fastify, _opts) {
                 currency: a.currency,
                 balance: Number(a.balance),
                 color: a.color,
+                icon: a.icon ?? null,
             })),
         };
         return reply.send(payload);
@@ -101,6 +102,7 @@ async function accountsRoutes(fastify, _opts) {
                 currency: body.currency,
                 balance: body.balance ?? 0,
                 color: body.color ?? null,
+                icon: body.icon ?? null,
             },
         });
         const account = {
@@ -110,6 +112,7 @@ async function accountsRoutes(fastify, _opts) {
             currency: created.currency,
             balance: Number(created.balance),
             color: created.color,
+            icon: created.icon ?? null,
         };
         return reply.send({ account });
     });
@@ -136,6 +139,7 @@ async function accountsRoutes(fastify, _opts) {
                 type: body?.type ?? undefined,
                 currency: body?.currency ?? undefined,
                 color: body?.color !== undefined ? body.color : undefined,
+                icon: body?.icon !== undefined ? body.icon : undefined,
             },
         });
         if (updated.count === 0) {
@@ -143,7 +147,7 @@ async function accountsRoutes(fastify, _opts) {
         }
         const account = await prisma_1.prisma.accounts.findUnique({
             where: { id: accountId },
-            select: { id: true, name: true, type: true, currency: true, balance: true, color: true },
+            select: { id: true, name: true, type: true, currency: true, balance: true, color: true, icon: true },
         });
         if (!account)
             return reply.status(404).send({ error: "Not Found" });
@@ -155,6 +159,7 @@ async function accountsRoutes(fastify, _opts) {
                 currency: account.currency,
                 balance: Number(account.balance),
                 color: account.color,
+                icon: account.icon ?? null,
             },
         };
         return reply.send(payload);

@@ -243,6 +243,7 @@ function App() {
             name: a.name,
             balance: { amount: a.balance, currency: a.currency },
             color: a.color ?? undefined,
+            icon: a.icon ?? null,
           }))
         )
 
@@ -308,6 +309,7 @@ function App() {
           name: a.name,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
+          icon: a.icon ?? null,
         }))
       )
 

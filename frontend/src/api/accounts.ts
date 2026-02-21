@@ -5,6 +5,7 @@ export type ApiAccount = {
   currency: string
   balance: number
   color?: string | null
+  icon?: string | null
 }
 
 export type GetAccountsResponse = {
@@ -62,6 +63,7 @@ export type CreateAccountBody = {
   currency: string
   balance?: number
   color?: string | null
+  icon?: string | null
 }
 
 export type UpdateAccountBody = Partial<CreateAccountBody>

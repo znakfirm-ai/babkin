@@ -12,6 +12,7 @@ type AccountResponse = {
   currency: string
   balance: number
   color: string | null
+  icon: string | null
 }
 
 export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -76,7 +77,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
 
     const accounts = await prisma.accounts.findMany({
       where: { workspace_id: user.active_workspace_id, archived_at: null, is_archived: false },
-      select: { id: true, name: true, type: true, currency: true, balance: true, color: true },
+      select: { id: true, name: true, type: true, currency: true, balance: true, color: true, icon: true },
     })
 
     const payload: { accounts: AccountResponse[] } = {
@@ -87,6 +88,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
         currency: a.currency,
         balance: Number(a.balance),
         color: a.color,
+        icon: a.icon ?? null,
       })),
     }
 
@@ -112,6 +114,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       currency?: string
       balance?: number
       color?: string | null
+      icon?: string | null
     }
 
     if (!body?.name || !body.type || !body.currency) {
@@ -126,6 +129,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
         currency: body.currency,
         balance: body.balance ?? 0,
         color: body.color ?? null,
+        icon: body.icon ?? null,
       },
     })
 
@@ -136,6 +140,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       currency: created.currency,
       balance: Number(created.balance),
       color: created.color,
+      icon: created.icon ?? null,
     }
 
     return reply.send({ account })
@@ -159,7 +164,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" })
     }
 
-    const body = request.body as { name?: string; type?: string; currency?: string; color?: string | null }
+    const body = request.body as { name?: string; type?: string; currency?: string; color?: string | null; icon?: string | null }
 
     const updated = await prisma.accounts.updateMany({
       where: { id: accountId, workspace_id: user.active_workspace_id },
@@ -168,6 +173,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
         type: body?.type ?? undefined,
         currency: body?.currency ?? undefined,
         color: body?.color !== undefined ? body.color : undefined,
+        icon: body?.icon !== undefined ? body.icon : undefined,
       },
     })
 
@@ -177,7 +183,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
 
     const account = await prisma.accounts.findUnique({
       where: { id: accountId },
-      select: { id: true, name: true, type: true, currency: true, balance: true, color: true },
+      select: { id: true, name: true, type: true, currency: true, balance: true, color: true, icon: true },
     })
 
     if (!account) return reply.status(404).send({ error: "Not Found" })
@@ -190,6 +196,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
         currency: account.currency,
         balance: Number(account.balance),
         color: account.color,
+        icon: account.icon ?? null,
       },
     }
 
