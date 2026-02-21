@@ -201,12 +201,21 @@ const Section: React.FC<{
                 ? { background: "#fffbeb", border: "1px solid #f59e0b" }
                 : null
               : null
+          const bg = item.type === "account" && !item.isAdd ? item.color ?? DEFAULT_ACCOUNT_COLOR : undefined
+          const contentColor = item.type === "account" && !item.isAdd ? item.textColor ?? "#0f172a" : undefined
+          const shadow = contentColor === "#FFFFFF" ? "0 1px 2px rgba(0,0,0,0.25)" : "none"
+          const secondaryColor =
+            item.type === "account" && !item.isAdd
+              ? contentColor === "#FFFFFF"
+                ? "rgba(255,255,255,0.85)"
+                : "rgba(17,17,17,0.75)"
+              : undefined
+
           const tileStyle =
             item.type === "account" && !item.isAdd
               ? {
-                  background: item.color,
-                  color: item.textColor ?? "#0f172a",
-                  textShadow: item.textShadow,
+                  background: bg,
+                  color: contentColor ?? "#0f172a",
                   border: "1px solid rgba(0,0,0,0.08)",
                 }
               : item.type === "category" && categoryHighlight
@@ -248,10 +257,10 @@ const Section: React.FC<{
                   item.isAdd
                     ? undefined
                     : {
-                        background:
-                          item.type === "account" && !item.isAdd ? "rgba(255,255,255,0.2)" : "rgba(15, 23, 42, 0.05)",
-                        color: item.textColor ?? "rgba(15, 23, 42, 0.85)",
-                        opacity: item.type === "account" && !item.isAdd ? 1 : 0.75,
+                        background: item.type === "account" && !item.isAdd ? "transparent" : "rgba(15, 23, 42, 0.05)",
+                        color: item.type === "account" && !item.isAdd ? contentColor ?? "rgba(15, 23, 42, 0.85)" : "rgba(15, 23, 42, 0.85)",
+                        opacity: 1,
+                        filter: item.type === "account" && !item.isAdd && contentColor === "#FFFFFF" ? "drop-shadow(0 1px 2px rgba(0,0,0,0.25))" : "none",
                       }
                 }
               >
@@ -261,11 +270,24 @@ const Section: React.FC<{
                   <AppIcon name={item.icon as IconName} size={16} />
                 ) : null}
               </div>
-              <div className="tile-card__title">{item.title}</div>
+              <div
+                className="tile-card__title"
+                style={
+                  item.type === "account" && !item.isAdd
+                    ? { color: secondaryColor, textShadow: contentColor === "#FFFFFF" ? "0 1px 2px rgba(0,0,0,0.25)" : "none" }
+                    : undefined
+                }
+              >
+                {item.title}
+              </div>
               {!item.isAdd && (
                 <div
                   className="tile-card__amount"
-                  style={item.type === "account" ? { color: item.textColor ?? "#0f172a" } : undefined}
+                  style={
+                    item.type === "account"
+                      ? { color: contentColor ?? "#0f172a", textShadow: shadow }
+                      : undefined
+                  }
                 >
                   {formatMoney(item.amount, baseCurrency)}
                   {item.type === "category" && item.budget != null ? (
@@ -1163,7 +1185,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const accountItems: CardItem[] = accounts.map((account, idx) => {
     const bg = account.color ?? DEFAULT_ACCOUNT_COLOR
     const txt = getReadableTextColor(bg)
-    const shadow = txt === "#FFFFFF" ? "0 1px 2px rgba(0,0,0,0.25)" : "none"
     return {
       id: account.id,
       title: account.name,
@@ -1172,7 +1193,6 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       icon: idx % 2 === 0 ? "wallet" : "card",
       color: bg,
       textColor: txt,
-    textShadow: shadow,
       type: "account" as const,
       size: "lg",
     }
