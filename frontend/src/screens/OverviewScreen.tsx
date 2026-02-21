@@ -315,6 +315,8 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [accountIcon, setAccountIcon] = useState<string | null>(null)
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [accountActionError, setAccountActionError] = useState<string | null>(null)
+  const [isAccountIconPickerOpen, setIsAccountIconPickerOpen] = useState(false)
+  const [accountSheetIntent, setAccountSheetIntent] = useState<null | "openAccountIconPicker" | "returnToAccountSheet">(null)
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryName, setCategoryName] = useState("")
@@ -472,6 +474,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
     const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "expense")
     return section ? section.keys : []
   }, [])
+  const accountIconKeys = useMemo(() => {
+    const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "accounts")
+    return section ? section.keys : []
+  }, [])
 
   if (overviewError) {
     return (
@@ -601,6 +607,20 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       void openGoalsList()
     }
   }, [isGoalSheetOpen, openGoalsList, pendingOpenGoalsList])
+
+  useEffect(() => {
+    if (!isAccountSheetOpen && accountSheetIntent === "openAccountIconPicker") {
+      setIsAccountIconPickerOpen(true)
+      setAccountSheetIntent(null)
+    }
+  }, [accountSheetIntent, isAccountSheetOpen])
+
+  useEffect(() => {
+    if (!isAccountIconPickerOpen && accountSheetIntent === "returnToAccountSheet") {
+      setIsAccountSheetOpen(true)
+      setAccountSheetIntent(null)
+    }
+  }, [accountSheetIntent, isAccountIconPickerOpen])
 
   useEffect(() => {
     if (!detailGoalId && pendingGoalEdit) {
@@ -2853,6 +2873,101 @@ function TransactionsPanel({
         </div>
       ) : null}
 
+      {isAccountIconPickerOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 45,
+            padding: "0 12px 12px",
+          }}
+          onClick={() => {
+            setIsAccountIconPickerOpen(false)
+            setAccountSheetIntent("returnToAccountSheet")
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              margin: "0 auto",
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: 16,
+              boxShadow: "none",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выбор иконки</div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+                gap: 10,
+              }}
+            >
+              {(accountIconKeys ?? []).length === 0 ? (
+                <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Нет иконок</div>
+              ) : (
+                accountIconKeys.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setAccountIcon(key)
+                      setIsAccountIconPickerOpen(false)
+                      setAccountSheetIntent("returnToAccountSheet")
+                    }}
+                    style={{
+                      padding: 10,
+                      borderRadius: 12,
+                      border: accountIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                      background: "#fff",
+                      display: "grid",
+                      placeItems: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isFinanceIconKey(key) ? <FinanceIcon iconKey={key} size="lg" /> : null}
+                  </button>
+                ))
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAccountIconPickerOpen(false)
+                setAccountSheetIntent("returnToAccountSheet")
+              }}
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              Назад
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {isIncomeIconPickerOpen ? (
         <div
           role="dialog"
@@ -3361,13 +3476,7 @@ function TransactionsPanel({
                       <button
                         type="button"
                         onClick={() => {
-                          setIsAccountSheetOpen(false)
-                          setPendingIncomeSourceEdit(null)
-                          setPendingCategoryEdit(null)
-                          setIsCategoryIconPickerOpen(false)
-                          setIsIncomeIconPickerOpen(false)
-                          lastCategorySheetModeRef.current = null
-                          lastIncomeSourceModeRef.current = null
+                          setAccountSheetIntent("openAccountIconPicker")
                           setIsAccountSheetOpen(false)
                         }}
                         style={{
