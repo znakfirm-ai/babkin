@@ -6,6 +6,7 @@ import { getAccounts } from "../api/accounts"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { getAccountDisplay, getCategoryDisplay, getGoalDisplay, getIncomeSourceDisplay } from "../shared/display"
+import { GoalList } from "../components/GoalList"
 
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 
@@ -112,19 +113,6 @@ const incomeBySource = useMemo(() => {
         }
       }),
     [incomeBySource, incomeSourcesById, incomeSourcesList],
-  )
-
-  const goalTiles = useMemo(
-    () =>
-      goals.map((goal) => {
-        const display = getGoalDisplay(goal.id, goalsById)
-        return {
-          id: goal.id,
-          title: display.title,
-          iconKey: display.iconKey ?? null,
-        }
-      }),
-    [goals, goalsById],
   )
 
   const submitExpense = useCallback(async () => {
@@ -846,49 +834,23 @@ const incomeBySource = useMemo(() => {
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
                 <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-                Выбор цели
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(72px, 1fr))",
-                  gap: 10,
-                }}
-              >
-                {goalTiles.map((goal) => (
-                  <button
-                    key={goal.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedGoalId(goal.id)
-                      setIsGoalPickerOpen(false)
-                      setError(null)
-                    }}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: selectedGoalId === goal.id ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                      background: "#fff",
-                      display: "grid",
-                      gap: 6,
-                      justifyItems: "center",
-                    }}
-                  >
-                    {goal.iconKey && isFinanceIconKey(goal.iconKey) ? <FinanceIcon iconKey={goal.iconKey} size={20} /> : null}
-                    <div style={{ fontSize: 12, color: "#0f172a", textAlign: "center" }}>{goal.title}</div>
-                  </button>
-                ))}
-                {goalTiles.length === 0 ? (
-                  <div style={{ fontSize: 13, color: "#6b7280", gridColumn: "1 / -1", textAlign: "center" }}>
-                    Цели отсутствуют
-                  </div>
-                ) : null}
-              </div>
             </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+              Выбор цели
+            </div>
+              <GoalList
+                goals={goals}
+                selectedGoalId={selectedGoalId}
+                onSelectGoal={(goal) => {
+                  setSelectedGoalId(goal.id)
+                  setIsGoalPickerOpen(false)
+                  setError(null)
+                }}
+                emptyText="Цели отсутствуют"
+              />
           </div>
-        ) : null}
+        </div>
+      ) : null}
       </div>
     </div>
   )

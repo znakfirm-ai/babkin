@@ -4,6 +4,7 @@ import type { Goal, Transaction } from "../types/finance"
 import "./OverviewScreen.css"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, FINANCE_ICON_SECTIONS, isFinanceIconKey } from "../shared/icons/financeIcons"
+import { GoalList } from "../components/GoalList"
 import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccountBalance } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
@@ -1354,12 +1355,6 @@ const txDateHeaderStyle = {
   justifyContent: "space-between",
 } as const
 
-const goalProgressLabel = (current: number, target: number, currency: string) => {
-  const safeTarget = target || 1
-  const percent = Math.min(100, Math.max(0, Math.floor((current / safeTarget) * 100)))
-  return `${formatMoney(current, currency)} / ${formatMoney(target, currency)} (${percent}%)`
-}
-
 const txRowStyle = {
   display: "flex",
   alignItems: "center",
@@ -2578,57 +2573,15 @@ function TransactionsPanel({
 
             <div style={txListContainerStyle}>
               <div style={txScrollableStyle}>
-                {filteredGoals.length === 0 ? (
-                  <div style={{ padding: "12px 4px", fontSize: 14, color: "#6b7280" }}>Пока нет целей</div>
-                ) : (
-                  filteredGoals.map((goal, idx) => {
-                    const percent = goal.targetAmount > 0 ? Math.min(100, Math.max(0, (goal.currentAmount / goal.targetAmount) * 100)) : 0
-                    const isLast = idx === filteredGoals.length - 1
-                    return (
-                      <button
-                        key={goal.id}
-                        type="button"
-                        onClick={() => {
-                          setDetailGoalId(goal.id)
-                          setIsGoalsListOpen(false)
-                          setGoalSearch("")
-                        }}
-                        style={{
-                          display: "grid",
-                          gap: 8,
-                          padding: 8,
-                          borderRadius: 12,
-                          border: "none",
-                          textAlign: "left",
-                          background: "transparent",
-                          width: "100%",
-                          borderBottom: isLast ? "none" : "1px solid #e5e7eb",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
-                            {goal.icon && isFinanceIconKey(goal.icon) ? <FinanceIcon iconKey={goal.icon} size="md" /> : null}
-                          </div>
-                          <div style={{ fontWeight: 600, color: "#0f172a" }}>{goal.name}</div>
-                        </div>
-                        <div style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
-                          <div
-                            style={{
-                              height: "100%",
-                              width: `${percent}%`,
-                              background: "#0f172a",
-                              transition: "width 0.2s ease",
-                            }}
-                          />
-                        </div>
-                        <div style={{ fontSize: 13, color: "#475569" }}>
-                          {goalProgressLabel(goal.currentAmount, goal.targetAmount, baseCurrency)}
-                        </div>
-                      </button>
-                    )
-                  })
-                )}
+                <GoalList
+                  goals={filteredGoals}
+                  onSelectGoal={(goal) => {
+                    setDetailGoalId(goal.id)
+                    setIsGoalsListOpen(false)
+                    setGoalSearch("")
+                  }}
+                  emptyText="Пока нет целей"
+                />
               </div>
             </div>
           </div>
