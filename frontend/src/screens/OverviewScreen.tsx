@@ -324,6 +324,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
   const [categoryIcon, setCategoryIcon] = useState<string | null>(null)
   const [isSavingCategory, setIsSavingCategory] = useState(false)
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
+  const [categorySaveError, setCategorySaveError] = useState<string | null>(null)
   const [pendingCategoryEdit, setPendingCategoryEdit] = useState<{ id: string; title: string } | null>(null)
   const [isCategoryIconPickerOpen, setIsCategoryIconPickerOpen] = useState(false)
   const lastCategorySheetModeRef = useRef<"create" | "edit" | null>(null)
@@ -977,6 +978,7 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       if (!Number.isFinite(num) || num < 0) return null
       return Math.round(num * 100) / 100
     })()
+    setCategorySaveError(null)
     setIsSavingCategory(true)
     try {
       if (categorySheetMode === "create") {
@@ -999,8 +1001,12 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       await refetchCategories()
       closeCategorySheet()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Ошибка"
-      setAccountActionError(msg)
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return
+      }
+      const msg = err instanceof Error ? err.message : "Не удалось сохранить. Попробуйте ещё раз."
+      console.error("updateCategory failed", err)
+      setCategorySaveError(msg)
     } finally {
       setIsSavingCategory(false)
     }
@@ -4047,12 +4053,15 @@ function TransactionsPanel({
                   </span>
                   <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
                 </button>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                {categorySheetMode === "edit" && editingCategoryId ? (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteCategory(editingCategoryId)}
+            </div>
+            {categorySaveError ? (
+              <div style={{ color: "#b91c1c", fontSize: 12, marginTop: -4 }}>{categorySaveError}</div>
+            ) : null}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              {categorySheetMode === "edit" && editingCategoryId ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteCategory(editingCategoryId)}
                     disabled={deletingCategoryId === editingCategoryId}
                     style={{
                       padding: "10px 12px",
