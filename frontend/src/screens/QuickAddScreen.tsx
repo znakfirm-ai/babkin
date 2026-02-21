@@ -9,6 +9,17 @@ import { getAccountDisplay, getCategoryDisplay, getGoalDisplay, getIncomeSourceD
 import { GoalList } from "../components/GoalList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 
+const MONTH_LABELS_RU = ["янв", "фев", "март", "апр", "май", "июнь", "июль", "авг", "сен", "окт", "нояб", "дек"]
+
+const formatDateLabelRu = (isoDate: string) => {
+  const d = new Date(isoDate)
+  if (Number.isNaN(d.getTime())) return isoDate
+  const day = d.getDate()
+  const month = MONTH_LABELS_RU[d.getMonth()] ?? ""
+  const year = d.getFullYear()
+  return `${day} ${month} ${year}`
+}
+
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 
 type Props = {
@@ -579,7 +590,7 @@ const incomeBySource = useMemo(() => {
               </div>
             </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 8 }}>
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <input
                   value={amount}
@@ -608,6 +619,9 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
+              </div>
+              <div style={{ fontSize: 13, color: "#475569", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {formatDateLabelRu(transferDate)}
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -670,7 +684,7 @@ const incomeBySource = useMemo(() => {
             </div>
             </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 8 }}>
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <input
                   value={amount}
@@ -699,6 +713,9 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
+              </div>
+              <div style={{ fontSize: 13, color: "#475569", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {formatDateLabelRu(transferDate)}
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
