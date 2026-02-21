@@ -188,25 +188,30 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       return reply.status(404).send({ error: "Not Found" })
     }
 
-    const duplicate = await prisma.categories.findFirst({
-      where: {
-        workspace_id: user.active_workspace_id,
-        name: { equals: name, mode: "insensitive" },
-        id: { not: categoryId },
-      },
-    })
-    if (duplicate) {
-      fastify.log.warn(
-        {
-          code: "CATEGORY_NAME_EXISTS",
-          categoryId,
-          workspaceId: user.active_workspace_id,
-          name,
-          duplicateId: duplicate.id,
+    const normalizedName = name.toLowerCase()
+    const normalizedExisting = existing.name.trim().toLowerCase()
+
+    if (normalizedName !== normalizedExisting) {
+      const duplicate = await prisma.categories.findFirst({
+        where: {
+          workspace_id: user.active_workspace_id,
+          name: { equals: name, mode: "insensitive" },
+          id: { not: categoryId },
         },
-        "Category update conflict: name already exists",
-      )
-      return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" })
+      })
+      if (duplicate) {
+        fastify.log.warn(
+          {
+            msg: "CATEGORY_NAME_EXISTS",
+            categoryId,
+            workspaceId: user.active_workspace_id,
+            name,
+            duplicateId: duplicate.id,
+          },
+          "Category update conflict: name already exists",
+        )
+        return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" })
+      }
     }
 
     const updated = await prisma.categories.update({
