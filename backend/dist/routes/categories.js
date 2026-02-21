@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.categoriesRoutes = categoriesRoutes;
+const client_1 = require("@prisma/client");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
@@ -179,10 +180,27 @@ async function categoriesRoutes(fastify, _opts) {
                 return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" });
             }
         }
-        const updated = await prisma_1.prisma.categories.update({
-            where: { id: categoryId },
-            data: { name, icon: body.icon ?? undefined, budget: body.budget ?? undefined },
-        });
+        let updated;
+        try {
+            updated = await prisma_1.prisma.categories.update({
+                where: { id: categoryId },
+                data: { name, icon: body.icon ?? undefined, budget: body.budget ?? undefined },
+            });
+        }
+        catch (err) {
+            if (err instanceof client_1.Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+                fastify.log.error({
+                    msg: "CATEGORY_NAME_EXISTS_P2002",
+                    categoryId,
+                    workspaceId: user.active_workspace_id,
+                    name,
+                    target: err.meta?.target,
+                }, "Category update unique constraint failed");
+                return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" });
+            }
+            fastify.log.error({ msg: "CATEGORY_UPDATE_FAILED", categoryId, workspaceId: user.active_workspace_id, name, err }, "Category update failed");
+            throw err;
+        }
         const category = {
             id: updated.id,
             name: updated.name,

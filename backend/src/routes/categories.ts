@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions, FastifyReply, FastifyRequest } from "fastify"
+import { Prisma } from "@prisma/client"
 import jwt from "jsonwebtoken"
 import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
@@ -214,10 +215,32 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       }
     }
 
-    const updated = await prisma.categories.update({
-      where: { id: categoryId },
-      data: { name, icon: body.icon ?? undefined, budget: body.budget ?? undefined },
-    })
+    let updated
+    try {
+      updated = await prisma.categories.update({
+        where: { id: categoryId },
+        data: { name, icon: body.icon ?? undefined, budget: body.budget ?? undefined },
+      })
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        fastify.log.error(
+          {
+            msg: "CATEGORY_NAME_EXISTS_P2002",
+            categoryId,
+            workspaceId: user.active_workspace_id,
+            name,
+            target: err.meta?.target,
+          },
+          "Category update unique constraint failed",
+        )
+        return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" })
+      }
+      fastify.log.error(
+        { msg: "CATEGORY_UPDATE_FAILED", categoryId, workspaceId: user.active_workspace_id, name, err },
+        "Category update failed",
+      )
+      throw err
+    }
 
     const category: CategoryResponse = {
       id: updated.id,
