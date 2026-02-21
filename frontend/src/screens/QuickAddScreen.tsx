@@ -376,7 +376,7 @@ const incomeBySource = useMemo(() => {
         await createTransaction(token, {
           kind: "transfer",
           amount: Math.round(amt * 100) / 100,
-          accountId: fromId,
+          fromAccountId: fromId,
           toAccountId: toId,
           happenedAt: `${transferDate}T00:00:00.000Z`,
         })
