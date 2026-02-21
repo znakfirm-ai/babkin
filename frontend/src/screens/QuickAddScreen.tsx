@@ -630,13 +630,15 @@ const incomeBySource = useMemo(() => {
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
                 <input
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="Сумма"
                   inputMode="decimal"
                   style={{
+                    flex: 1,
+                    minWidth: 0,
                     padding: 12,
                     borderRadius: 12,
                     border: "1px solid #e5e7eb",
@@ -645,7 +647,9 @@ const incomeBySource = useMemo(() => {
                     boxShadow: "none",
                   }}
                 />
-                <DateIconButton value={transferDate} onChange={setTransferDate} />
+                <div style={{ flex: "0 0 auto" }}>
+                  <DateIconButton value={transferDate} onChange={setTransferDate} />
+                </div>
               </div>
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
