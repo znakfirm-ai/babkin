@@ -196,6 +196,16 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       },
     })
     if (duplicate) {
+      fastify.log.warn(
+        {
+          code: "CATEGORY_NAME_EXISTS",
+          categoryId,
+          workspaceId: user.active_workspace_id,
+          name,
+          duplicateId: duplicate.id,
+        },
+        "Category update conflict: name already exists",
+      )
       return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" })
     }
 
