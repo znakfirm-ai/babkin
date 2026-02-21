@@ -832,13 +832,13 @@ const incomeBySource = useMemo(() => {
               style={{
                 width: "100%",
                 maxWidth: 520,
-                margin: "0 auto",
+                margin: "24px auto 16px",
                 background: "#fff",
                 borderTopLeftRadius: 16,
                 borderTopRightRadius: 16,
                 padding: 16,
                 boxShadow: "none",
-                maxHeight: "70vh",
+                maxHeight: "75vh",
                 overflowY: "auto",
                 paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
               }}
