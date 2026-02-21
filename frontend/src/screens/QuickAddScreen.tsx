@@ -10,7 +10,20 @@ import { GoalList } from "../components/GoalList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 
 export const DateIconButton: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => (
-  <label style={{ position: "relative", width: 48, height: 48, flex: "0 0 48px" }}>
+  <label
+    style={{
+      position: "relative",
+      width: 48,
+      height: 48,
+      flex: "0 0 48px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 12,
+      border: "1px solid #e5e7eb",
+      background: "#fff",
+    }}
+  >
     <input
       type="date"
       value={value}
@@ -24,38 +37,25 @@ export const DateIconButton: React.FC<{ value: string; onChange: (val: string) =
         cursor: "pointer",
       }}
     />
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        borderRadius: 12,
-        border: "1px solid #e5e7eb",
-        background: "#fff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
+    <svg
+      width={22}
+      height={22}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
     >
-      <svg
-        width={22}
-        height={22}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-        <path d="M16 14h-2.5a2.5 2.5 0 1 0 0 5H16" />
-        <path d="M18 20v-6" />
-      </svg>
-    </div>
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+      <path d="M16 14h-2.5a2.5 2.5 0 1 0 0 5H16" />
+      <path d="M18 20v-6" />
+    </svg>
   </label>
 )
 
