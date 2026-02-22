@@ -27,6 +27,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
+  const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null)
   const touchStartX = useRef<number | null>(null)
   const { start, end, label } = useMemo(() => getMonthRange(monthOffset), [monthOffset])
 
@@ -287,16 +288,24 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                               const startRad = (Math.PI / 180) * start
                               const endRad = (Math.PI / 180) * end
                               const largeArc = sweep > 180 ? 1 : 0
-                              const x1 = donutCx + Math.cos(startRad) * outerR
-                              const y1 = donutCy + Math.sin(startRad) * outerR
-                              const x2 = donutCx + Math.cos(endRad) * outerR
-                              const y2 = donutCy + Math.sin(endRad) * outerR
-                              const arcPath = `M ${x1} ${y1} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2}`
-                              const innerX1 = donutCx + Math.cos(endRad) * innerR
-                              const innerY1 = donutCy + Math.sin(endRad) * innerR
-                              const innerX2 = donutCx + Math.cos(startRad) * innerR
-                              const innerY2 = donutCy + Math.sin(startRad) * innerR
-                              const innerArcPath = `A ${innerR} ${innerR} 0 ${largeArc} 0 ${innerX2} ${innerY2}`
+                              const midAngleRad = (Math.PI / 180) * ((start + end) / 2)
+                              const isSelected = slice.id === selectedSliceId
+                              const outer = isSelected ? outerR + 6 : outerR
+                              const inner = innerR
+                              const dx = isSelected ? Math.cos(midAngleRad) * 4 : 0
+                              const dy = isSelected ? Math.sin(midAngleRad) * 4 : 0
+                              const cx = donutCx + dx
+                              const cy = donutCy + dy
+                              const x1 = cx + Math.cos(startRad) * outer
+                              const y1 = cy + Math.sin(startRad) * outer
+                              const x2 = cx + Math.cos(endRad) * outer
+                              const y2 = cy + Math.sin(endRad) * outer
+                              const arcPath = `M ${x1} ${y1} A ${outer} ${outer} 0 ${largeArc} 1 ${x2} ${y2}`
+                              const innerX1 = cx + Math.cos(endRad) * inner
+                              const innerY1 = cy + Math.sin(endRad) * inner
+                              const innerX2 = cx + Math.cos(startRad) * inner
+                              const innerY2 = cy + Math.sin(startRad) * inner
+                              const innerArcPath = `A ${inner} ${inner} 0 ${largeArc} 0 ${innerX2} ${innerY2}`
                               const path = `${arcPath} L ${innerX1} ${innerY1} ${innerArcPath} Z`
 
                               return <path key={slice.id} d={path} fill={slice.color} />
@@ -319,7 +328,11 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                             </svg>
                             {chartSlices.slice(0, 5).map((slice) => {
                               return (
-                                <div key={slice.id} style={{ height: legendRowHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0 }}>
+                                <div
+                                  key={slice.id}
+                                  style={{ height: legendRowHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0, cursor: "pointer" }}
+                                  onClick={() => setSelectedSliceId((prev) => (prev === slice.id ? null : slice.id))}
+                                >
                                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
                                     <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
                                     <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
