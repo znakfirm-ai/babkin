@@ -254,7 +254,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                           position: "relative",
                           display: "flex",
                           gap: legendColumnGap,
-                          alignItems: "flex-start",
+                          alignItems: "center",
                           width: "100%",
                           minWidth: 0,
                           overflow: "visible",
