@@ -352,24 +352,39 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                     })()}
                     {labeledSlices.map((s, idx) => {
                       const rOuter = 78
-                      const textX = s.isRight ? rOuter + 26 : -(rOuter + 26)
+                      const labelGap = 12
+                      const textX = s.isRight ? rOuter + labelGap : -(rOuter + labelGap)
                       const textY = s.anchor.y
+                      const markerOffset = 6
+                      const markerX = s.isRight ? textX - markerOffset : textX + markerOffset
+                      const markerY = textY - 3
                       const textAnchor = s.isRight ? "start" : "end"
                       const truncatedLabel = s.label.length > 12 ? `${s.label.slice(0, 12)}…` : s.label
                       const percentVal = Math.round((s.value / expenseData.total) * 100)
                       const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
                       const text = `${truncatedLabel} · ${percentText}`
                       return (
-                        <text
-                          key={`label-${idx}`}
-                          x={textX}
-                          y={textY + 4}
-                          textAnchor={textAnchor}
-                          fontSize={12}
-                          fill="#0f172a"
-                        >
-                          {text}
-                        </text>
+                        <g key={`label-${idx}`}>
+                          <rect
+                            x={markerX - 3}
+                            y={markerY}
+                            width={6}
+                            height={6}
+                            rx={2}
+                            ry={2}
+                            fill={s.color}
+                            opacity={0.9}
+                          />
+                          <text
+                            x={textX}
+                            y={textY + 4}
+                            textAnchor={textAnchor}
+                            fontSize={12}
+                            fill="#0f172a"
+                          >
+                            {text}
+                          </text>
+                        </g>
                       )
                     })}
                   </svg>
