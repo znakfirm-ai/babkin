@@ -41,7 +41,7 @@ const describeArc = (cx: number, cy: number, r: number, startAngle: number, endA
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${large} 0 ${end.x} ${end.y}`
 }
 
-const layoutLabels = (slices: Slice[], total: number, radius: number) => {
+const layoutLabels = (slices: Slice[], total: number, radius: number, gap: number) => {
   const minGap = 16
   const topBound = -90
   const bottomBound = 90
@@ -52,8 +52,8 @@ const layoutLabels = (slices: Slice[], total: number, radius: number) => {
     const mid = startAngle + sweep / 2
     const rad = (mid * Math.PI) / 180
     const anchor = {
-      x: Math.cos(rad) * (radius + 6),
-      y: Math.sin(rad) * (radius + 6),
+      x: Math.cos(rad) * (radius + gap),
+      y: Math.sin(rad) * (radius + gap),
     }
     return { ...s, mid, anchor }
   })
@@ -83,7 +83,7 @@ const layoutLabels = (slices: Slice[], total: number, radius: number) => {
     }
     return sorted.map((s) => ({
       ...s,
-      textX: isRight ? radius + 40 : -(radius + 40),
+      textX: isRight ? radius + gap + 8 : -(radius + gap + 8),
       isRight,
     }))
   }
@@ -170,7 +170,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   }, [expenseData.colors, expenseData.sliceLabels, expenseData.slices, expenseData.total])
 
   const labeledSlices = useMemo(
-    () => (expenseData.total > 0 ? layoutLabels(slices, expenseData.total, 70) : []),
+    () => (expenseData.total > 0 ? layoutLabels(slices, expenseData.total, 70, 14) : []),
     [expenseData.total, slices],
   )
 
@@ -320,9 +320,9 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
           <div style={{ display: "grid", placeItems: "center" }}>
             {expenseData.total > 0 ? (
               <svg
-                width="320"
-                height="220"
-                viewBox="-160 -110 320 220"
+                width="260"
+                height="200"
+                viewBox="-130 -100 260 200"
                 role="img"
                 aria-label="Диаграмма расходов"
                 style={{ overflow: "visible" }}
@@ -350,37 +350,26 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                         )
                       })
                     })()}
-                {labeledSlices.map((s, idx) => {
-                  const angleRad = (s.mid * Math.PI) / 180
-                  const rOuter = 78
-                  const start = { x: Math.cos(angleRad) * rOuter, y: Math.sin(angleRad) * rOuter }
-                  const elbowX = Math.cos(angleRad) * (rOuter + 12)
-                  const endX = s.isRight ? 150 : -150
-                  const endY = s.anchor.y
-                  const lineColor = "rgba(0,0,0,0.35)"
-                  const textAnchor = s.isRight ? "start" : "end"
-                  const truncatedLabel = s.label.length > 12 ? `${s.label.slice(0, 12)}…` : s.label
-                  const percentVal = Math.round((s.value / expenseData.total) * 100)
-                  const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
-                  const text = `${truncatedLabel} · ${percentText}`
-                  return (
-                    <g key={`label-${idx}`} stroke={lineColor} fill="none">
-                          <polyline
-                            points={`${start.x},${start.y} ${elbowX},${endY} ${endX},${endY}`}
-                            strokeWidth={1}
-                            strokeDasharray="2 3"
-                            opacity={0.6}
-                          />
-                          <text
-                            x={endX + (s.isRight ? 4 : -4)}
-                            y={endY + 4}
-                            textAnchor={textAnchor}
-                            fontSize={12}
-                            fill="#0f172a"
-                          >
-                            {text}
-                          </text>
-                        </g>
+                    {labeledSlices.map((s, idx) => {
+                      const rOuter = 78
+                      const textX = s.isRight ? rOuter + 26 : -(rOuter + 26)
+                      const textY = s.anchor.y
+                      const textAnchor = s.isRight ? "start" : "end"
+                      const truncatedLabel = s.label.length > 12 ? `${s.label.slice(0, 12)}…` : s.label
+                      const percentVal = Math.round((s.value / expenseData.total) * 100)
+                      const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
+                      const text = `${truncatedLabel} · ${percentText}`
+                      return (
+                        <text
+                          key={`label-${idx}`}
+                          x={textX}
+                          y={textY + 4}
+                          textAnchor={textAnchor}
+                          fontSize={12}
+                          fill="#0f172a"
+                        >
+                          {text}
+                        </text>
                       )
                     })}
                   </svg>
