@@ -127,26 +127,22 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const legendStartY = (graphHeight - legendTotalHeight) / 2 + legendRowHeight / 2
   const donutBoxWidth = donutSize + 20
   const legendColumnGap = 14
+  const legendMaxWidth = 170
+  const overlayWidth = donutBoxWidth + legendColumnGap + legendMaxWidth
+  const overlayHeight = graphHeight
   const legendStartX = donutBoxWidth + legendColumnGap
   const lineStartX = legendStartX + 2
   const rMid = (outerR + innerR) / 2
   const pad = 10
   const donutLeft = donutCx - outerR - pad
   const donutRight = donutCx + outerR + pad
-  const donutTop = donutCy - outerR - pad
-  const donutBottom = donutCy + outerR + pad
 
   const buildConnectorPath = (startX: number, startY: number, endX: number, endY: number) => {
-    const knee1X = donutRight + 12
-    const knee1Y = startY
-    const corridorY = endY < donutCy ? donutTop : donutBottom
-    const knee2X = knee1X
-    const knee2Y = corridorY
-    const knee3X = knee1X
-    const knee3Y = endY
-    const entryX = endX > donutCx ? donutRight : donutLeft
-    const entryY = endY
-    return `M ${startX} ${startY} L ${knee1X} ${knee1Y} L ${knee2X} ${knee2Y} L ${knee3X} ${knee3Y} L ${entryX} ${entryY} L ${endX} ${endY}`
+    const bypassX = endX >= donutCx ? donutRight + 10 : donutLeft - 10
+    const clampedStartX = Math.max(0, Math.min(overlayWidth, startX))
+    const clampedEndX = Math.max(0, Math.min(overlayWidth, endX))
+    const clampedBypassX = Math.max(0, Math.min(overlayWidth, bypassX))
+    return `M ${clampedStartX} ${startY} L ${clampedBypassX} ${startY} L ${clampedBypassX} ${endY} L ${clampedEndX} ${endY}`
   }
 
   const legendLines = useMemo(() => {
@@ -309,11 +305,13 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       height: graphHeight,
                     }}
                   >
-                            <svg
-                              width="100%"
-                              height={graphHeight}
-                              style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
-                            >
+                          <svg
+                            width="100%"
+                            height={graphHeight}
+                            viewBox={`0 0 ${overlayWidth} ${overlayHeight}`}
+                            preserveAspectRatio="none"
+                            style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
+                          >
                               {legendLines.map((line) => (
                                 <path
                                   key={line.id}
