@@ -214,25 +214,53 @@ const labeledSlices = useMemo(() => {
   const safeLeft = cx - (donutOuter + safePadding)
   const safeRight = cx + (donutOuter + safePadding)
 
-  const baseSlices = dominantMode
-    ? slicesWithAngles.filter((s) => s.id !== dominantInfo.dominant?.id)
-    : slicesWithAngles
+  if (dominantMode) {
+    const others = slicesWithAngles.filter((s) => s.id !== dominantInfo.dominant?.id)
+    const n = others.length
+    const startDeg = 240
+    const endDeg = 120
+    const safeTextR = donutOuter + 28
+    const safeLeftX = cx - (donutOuter + 10)
 
-  const itemsBase: LabelItem[] = baseSlices.map((s) => {
-    const textX = s.isRight ? s.mx + gapForText : s.mx - gapForText
-    return {
-      id: s.id,
+    const positioned: LabelItem[] = others.map((s, idx) => {
+      const t = n === 1 ? 0.5 : idx / Math.max(1, n - 1)
+      const angleDeg = startDeg + (endDeg - startDeg) * t
+      const angleRad = (angleDeg * Math.PI) / 180
+      const tx = Math.min(Math.cos(angleRad) * safeTextR, safeLeftX)
+      const ty = Math.sin(angleRad) * safeTextR
+      return {
+        id: s.id,
         name: s.label,
         percentText: s.percentText,
         color: s.color,
         mid: s.midRad,
         mx: s.mx,
         my: s.my,
-        textX,
-        textYDesired: s.my,
-        textY: s.my,
-        isRight: s.isRight,
+        textX: tx,
+        textYDesired: ty,
+        textY: ty,
+        isRight: false,
       }
+    })
+
+    return adjustLabelPositions(positioned)
+  }
+
+  const itemsBase: LabelItem[] = slicesWithAngles.map((s) => {
+    const textX = s.isRight ? s.mx + gapForText : s.mx - gapForText
+    return {
+      id: s.id,
+      name: s.label,
+      percentText: s.percentText,
+      color: s.color,
+      mid: s.midRad,
+      mx: s.mx,
+      my: s.my,
+      textX,
+      textYDesired: s.my,
+      textY: s.my,
+      isRight: s.isRight,
+    }
   })
 
   const itemsPrepared = itemsBase.map((item) => {
@@ -242,7 +270,8 @@ const labeledSlices = useMemo(() => {
         : !item.isRight && item.textX > cx - donutOuter - 18
         ? cx - donutOuter - 18
         : item.textX
-    const withinSafe = clampX > safeLeft && clampX < safeRight && item.textY > -donutOuter && item.textY < donutOuter
+    const withinSafe =
+      clampX > safeLeft && clampX < safeRight && item.textY > -donutOuter && item.textY < donutOuter
     const finalX =
       withinSafe && item.isRight ? cx + donutOuter + 18 : withinSafe && !item.isRight ? cx - donutOuter - 18 : clampX
     return {
@@ -250,25 +279,6 @@ const labeledSlices = useMemo(() => {
       textX: finalX,
     }
   })
-
-  if (dominantMode) {
-    const others = itemsPrepared.filter((i) => i.id !== dominantInfo.dominant?.id)
-    const n = others.length
-    const startDeg = 240
-    const endDeg = 120
-    const outerEdge = donutOuter
-    const safeTextR = outerEdge + 36
-    const positioned = others.map((item, idx) => {
-      const t = n === 1 ? 0.5 : idx / Math.max(1, n - 1)
-      const angleDeg = startDeg + (endDeg - startDeg) * t
-      const angleRad = (angleDeg * Math.PI) / 180
-      const tx = Math.min(Math.cos(angleRad) * safeTextR, - (outerEdge + 14))
-      const ty = Math.sin(angleRad) * safeTextR
-      return { ...item, textX: tx, textYDesired: ty, textY: ty, isRight: false }
-    })
-    const adjusted = adjustLabelPositions(positioned)
-    return adjusted
-  }
 
   return adjustLabelPositions(itemsPrepared)
 }, [RING_RADIUS, RING_THICKNESS, slicesWithAngles, expenseData.total, dominantMode, dominantInfo.dominant])
