@@ -48,6 +48,7 @@ const ReportsScreen: React.FC<Props> = ({
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const activePointerId = useRef<number | null>(null)
+  const [gestureDebug, setGestureDebug] = useState("")
   const todayDate = useMemo(() => format(new Date()), [])
   const minDate = useMemo(() => new Date(2020, 0, 1, 0, 0, 0, 0), [])
 
@@ -197,6 +198,9 @@ const ReportsScreen: React.FC<Props> = ({
     touchStartY.current = null
     if (Math.abs(dy) > Math.abs(dx)) return
     const threshold = 40
+    if (import.meta.env.DEV) {
+      setGestureDebug(`up dx=${Math.round(dx)} dy=${Math.round(dy)}`)
+    }
     if (dx < -threshold) {
       shiftPeriod("prev")
     } else if (dx > threshold) {
@@ -215,6 +219,7 @@ const ReportsScreen: React.FC<Props> = ({
   const handleTouchCancel = () => {
     touchStartX.current = null
     touchStartY.current = null
+    if (import.meta.env.DEV) setGestureDebug("cancel")
   }
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -239,6 +244,7 @@ const ReportsScreen: React.FC<Props> = ({
     touchStartX.current = null
     touchStartY.current = null
     activePointerId.current = null
+    if (import.meta.env.DEV) setGestureDebug("cancel")
   }
 
   const chartSlices = useMemo(() => {
@@ -399,9 +405,15 @@ const ReportsScreen: React.FC<Props> = ({
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                   onTouchCancel={handleTouchCancel}
+                  onTouchStartCapture={handleTouchStart}
+                  onTouchEndCapture={handleTouchEnd}
+                  onTouchCancelCapture={handleTouchCancel}
                   onPointerDown={handlePointerDown}
                   onPointerUp={handlePointerUp}
                   onPointerCancel={handlePointerCancel}
+                  onPointerDownCapture={handlePointerDown}
+                  onPointerUpCapture={handlePointerUp}
+                  onPointerCancelCapture={handlePointerCancel}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -444,6 +456,9 @@ const ReportsScreen: React.FC<Props> = ({
                   >
                     {periodDisplayText}
                   </div>
+                  {import.meta.env.DEV && gestureDebug ? (
+                    <div style={{ position: "absolute", left: 6, top: -14, fontSize: 10, color: "#9ca3af" }}>{gestureDebug}</div>
+                  ) : null}
 
                   {isPeriodMenuOpen ? (
                     <div
@@ -583,7 +598,7 @@ const ReportsScreen: React.FC<Props> = ({
                               viewBox={`0 0 ${donutBoxWidth} ${graphHeight}`}
                               role="img"
                               aria-label="Диаграмма расходов"
-                              style={{ flex: "0 0 auto", position: "relative", zIndex: 2 }}
+                              style={{ flex: "0 0 auto", position: "relative", zIndex: 2, pointerEvents: "none" }}
                             >
                               {hasData ? (
                                 isSingleCategory ? (
