@@ -47,6 +47,7 @@ const ReportsScreen: React.FC<Props> = ({
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null)
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
+  const activePointerId = useRef<number | null>(null)
   const todayDate = useMemo(() => format(new Date()), [])
   const minDate = useMemo(() => new Date(2020, 0, 1, 0, 0, 0, 0), [])
 
@@ -218,17 +219,26 @@ const ReportsScreen: React.FC<Props> = ({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return
+    activePointerId.current = e.pointerId
     handleGestureStart(e.clientX, e.clientY)
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch (err) {
+      // ignore capture errors on unsupported platforms
+    }
   }
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return
+    if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return
     handleGestureEnd(e.clientX, e.clientY)
+    activePointerId.current = null
   }
 
   const handlePointerCancel = () => {
     touchStartX.current = null
     touchStartY.current = null
+    activePointerId.current = null
   }
 
   const chartSlices = useMemo(() => {
@@ -400,6 +410,8 @@ const ReportsScreen: React.FC<Props> = ({
                     justifyContent: "space-between",
                     position: "relative",
                     touchAction: "pan-y",
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
                   }}
                 >
                   <button
