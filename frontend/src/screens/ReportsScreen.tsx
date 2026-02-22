@@ -180,12 +180,13 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
             style={{
               maxWidth: 640,
               width: "100%",
-              padding: "16px 16px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 20px)",
+              padding: "16px",
               margin: "0 auto",
               borderRadius: "18px 18px 20px 20px",
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
+              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
               maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
             }}
           >
