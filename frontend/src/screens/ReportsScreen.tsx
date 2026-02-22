@@ -8,6 +8,7 @@ import { format } from "../utils/date"
 type Props = {
   onOpenSummary: () => void
   onOpenExpensesByCategory?: () => void
+  onOpenCategorySheet?: (id: string, title: string) => void
 }
 
 const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
@@ -25,7 +26,7 @@ const getMonthRange = (offset: number) => {
   return { start, end, label: `${MONTHS[target.getMonth()]} ${target.getFullYear()}` }
 }
 
-const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
+const ReportsScreen: React.FC<Props> = ({ onOpenSummary, onOpenExpensesByCategory: _onOpenExpensesByCategory, onOpenCategorySheet }) => {
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
   const [periodMode, setPeriodMode] = useState<"today" | "day" | "week" | "month" | "custom">("month")
@@ -35,7 +36,6 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null)
-  const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null)
   const touchStartX = useRef<number | null>(null)
   const todayDate = useMemo(() => format(new Date()), [])
 
@@ -195,22 +195,6 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   }, [currentRange.end, currentRange.label, currentRange.start, periodMode])
   const hasData = expenseData.total > 0
   const isSingleCategory = expenseData.list.length === 1
-  const detailCategory = detailCategoryId ? categories.find((c) => c.id === detailCategoryId) : null
-
-  const detailTransactions = useMemo(() => {
-    if (!detailCategoryId || !currentRange.start || !currentRange.end) return []
-    return transactions
-      .filter((t) => {
-        const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
-        if (kind !== "expense") return false
-        if ((t as { kind?: string }).kind === "adjustment") return false
-        const catId = (t as { categoryId?: string | null }).categoryId ?? "uncategorized"
-        if (catId !== detailCategoryId) return false
-        const date = new Date(t.date)
-        return date >= currentRange.start && date <= currentRange.end
-      })
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
-  }, [currentRange.end, currentRange.start, detailCategoryId, transactions])
 
 
   return (
@@ -554,65 +538,37 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
 
                 <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
                   <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
-                    {detailCategoryId == null ? (
-                      expenseData.list.length === 0 ? (
-                        <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций за период</div>
-                      ) : (
-                        expenseData.list.map((item) => (
-                          <div
-                            key={item.id}
-                            onClick={() => {
-                              setDetailCategoryId(item.id)
-                              setSelectedSliceId(item.id)
-                            }}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                              borderBottom: "1px solid #e5e7eb",
-                              paddingBottom: 8,
-                              cursor: "pointer",
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                              <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
-                                {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
-                              </span>
-                              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
-                                {item.title}
-                              </span>
-                            </div>
-                            <div style={{ display: "flex", gap: 8, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
-                              <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
-                              <span style={{ color: "#6b7280" }}>{item.percentText}</span>
-                            </div>
-                          </div>
-                        ))
-                      )
-                    ) : detailTransactions.length === 0 ? (
-                      <div style={{ color: "#6b7280", fontSize: 14 }}>Нет расходов</div>
+                    {expenseData.list.length === 0 ? (
+                      <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций за период</div>
                     ) : (
-                      detailTransactions.map((t) => (
+                      expenseData.list.map((item) => (
                         <div
-                          key={t.id}
+                          key={item.id}
+                          onClick={() => {
+                            onOpenCategorySheet?.(item.id, item.title)
+                            setIsExpensesSheetOpen(false)
+                          }}
                           style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr auto",
+                            display: "flex",
                             alignItems: "center",
-                            gap: 8,
+                            gap: 10,
                             borderBottom: "1px solid #e5e7eb",
                             paddingBottom: 8,
+                            cursor: "pointer",
                           }}
                         >
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-                            <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(t.date))}
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                            <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                              {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
                             </span>
-                            <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {detailCategory?.name ?? "Категория"}
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
+                              {item.title}
                             </span>
                           </div>
-                          <div style={{ fontSize: 14, color: "#0f172a", textAlign: "right" }}>{formatMoney((t as { amount?: { amount?: number } }).amount?.amount ?? 0, currency ?? "RUB")}</div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
+                            <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
+                            <span style={{ color: "#6b7280" }}>{item.percentText}</span>
+                          </div>
                         </div>
                       ))
                     )}

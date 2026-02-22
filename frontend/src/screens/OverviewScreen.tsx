@@ -306,9 +306,11 @@ const Section: React.FC<{
 type OverviewScreenProps = {
   overviewError?: string | null
   onRetryOverview?: () => Promise<void> | void
+  externalCategoryId?: string | null
+  onConsumeExternalCategory?: () => void
 }
 
-function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScreenProps) {
+function OverviewScreen({ overviewError = null, onRetryOverview, externalCategoryId, onConsumeExternalCategory }: OverviewScreenProps) {
   const {
     accounts,
     categories,
@@ -646,6 +648,15 @@ function OverviewScreen({ overviewError = null, onRetryOverview }: OverviewScree
       setGoalSheetIntent(null)
     }
   }, [goalSheetIntent, isGoalIconPickerOpen])
+
+  useEffect(() => {
+    if (externalCategoryId) {
+      const cat = categories.find((c) => c.id === externalCategoryId)
+      setDetailCategoryId(externalCategoryId)
+      setDetailTitle(cat?.name ?? "Категория")
+      onConsumeExternalCategory?.()
+    }
+  }, [categories, externalCategoryId, onConsumeExternalCategory])
 
   useEffect(() => {
     if (!isAccountSheetOpen && accountSheetIntent === "openAccountIconPicker") {

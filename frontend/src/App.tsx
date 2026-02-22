@@ -113,6 +113,7 @@ function App() {
   const [appToken, setAppToken] = useState<string | null>(null)
   const [appWorkspaces, setAppWorkspaces] = useState<Workspace[]>([])
   const [appActiveWorkspace, setAppActiveWorkspace] = useState<Workspace | null>(null)
+  const [pendingCategoryOpenId, setPendingCategoryOpenId] = useState<string | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions } = useAppStore()
 
   interface TelegramWebApp {
@@ -355,7 +356,14 @@ function App() {
           <HomeScreen initialWorkspaces={appWorkspaces} initialActiveWorkspace={appActiveWorkspace} />
         )
       case "overview":
-        return <OverviewScreen overviewError={overviewError} onRetryOverview={retryOverviewData} />
+        return (
+          <OverviewScreen
+            overviewError={overviewError}
+            onRetryOverview={retryOverviewData}
+            externalCategoryId={pendingCategoryOpenId}
+            onConsumeExternalCategory={() => setPendingCategoryOpenId(null)}
+          />
+        )
       case "add":
         prevScreen.current = "overview"
         return <AddScreen />
@@ -366,6 +374,11 @@ function App() {
           <ReportsScreen
             onOpenSummary={() => setActiveScreen("report-summary")}
             onOpenExpensesByCategory={() => setActiveScreen("report-expenses-by-category")}
+            onOpenCategorySheet={(id) => {
+              setPendingCategoryOpenId(id)
+              setActiveNav("overview")
+              setActiveScreen("overview")
+            }}
           />
         )
       case "settings":
