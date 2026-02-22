@@ -130,6 +130,24 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const legendStartX = donutBoxWidth + legendColumnGap
   const lineStartX = legendStartX + 2
   const rMid = (outerR + innerR) / 2
+  const pad = 10
+  const donutLeft = donutCx - outerR - pad
+  const donutRight = donutCx + outerR + pad
+  const donutTop = donutCy - outerR - pad
+  const donutBottom = donutCy + outerR + pad
+
+  const buildConnectorPath = (startX: number, startY: number, endX: number, endY: number) => {
+    const knee1X = donutRight + 12
+    const knee1Y = startY
+    const corridorY = endY < donutCy ? donutTop : donutBottom
+    const knee2X = knee1X
+    const knee2Y = corridorY
+    const knee3X = knee1X
+    const knee3Y = endY
+    const entryX = endX > donutCx ? donutRight : donutLeft
+    const entryY = endY
+    return `M ${startX} ${startY} L ${knee1X} ${knee1Y} L ${knee2X} ${knee2Y} L ${knee3X} ${knee3Y} L ${entryX} ${entryY} L ${endX} ${endY}`
+  }
 
   const legendLines = useMemo(() => {
     let cursor = -90
@@ -137,24 +155,19 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
       const sweep = slice.share * 360
       const midAngle = cursor + sweep / 2
       cursor += sweep
-      let cosA = Math.cos((midAngle * Math.PI) / 180)
+      const cosA = Math.cos((midAngle * Math.PI) / 180)
       const sinA = Math.sin((midAngle * Math.PI) / 180)
-      if (cosA < 0) cosA = Math.abs(cosA)
       const endX = donutCx + cosA * rMid
       const endY = donutCy + sinA * rMid
-      const lineKneeX = endX + 14
       const startY = legendStartY + idx * (legendRowHeight + legendGap)
+      const path = buildConnectorPath(lineStartX, startY, endX, endY)
       return {
         id: slice.id,
         color: slice.color,
-        startX: lineStartX,
-        startY,
-        kneeX: lineKneeX,
-        endX,
-        endY,
+        path,
       }
     })
-  }, [chartSlices, donutCx, donutCy, legendGap, legendRowHeight, legendStartY, lineStartX, rMid])
+  }, [buildConnectorPath, chartSlices, donutCx, donutCy, legendGap, legendRowHeight, legendStartY, lineStartX, rMid])
 
   return (
     <>
@@ -296,23 +309,22 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       height: graphHeight,
                     }}
                   >
-                          <svg
-                            width="100%"
-                            height={graphHeight}
-                            style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
-                          >
-                            {/* тестовая линия была для диагностики, удалена */}
+                            <svg
+                              width="100%"
+                              height={graphHeight}
+                              style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
+                            >
                               {legendLines.map((line) => (
                                 <path
                                   key={line.id}
-                                  d={`M ${line.startX} ${line.startY} L ${line.kneeX} ${line.startY} L ${line.endX} ${line.endY}`}
+                                  d={line.path}
                                   stroke={line.color}
                                   strokeWidth={2}
                                   fill="none"
                                   strokeLinecap="round"
                                 />
                               ))}
-                          </svg>
+                            </svg>
                     {(() => {
                       const pills = chartSlices.slice(0, 5)
                       let cursor = -90
@@ -359,14 +371,14 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
 
                           <div style={{ position: "relative", flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
                             <svg
-                              width={lineStartX - (donutSize + 20)}
+                              width="100%"
                               height={graphHeight}
-                              style={{ position: "absolute", left: donutSize + 20, top: 0, pointerEvents: "none", overflow: "visible" }}
+                              style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
                             >
                               {legendLines.map((line) => (
                                 <path
                                   key={line.id}
-                                  d={`M ${line.startX} ${line.startY} L ${line.kneeX} ${line.startY} L ${line.endX} ${line.endY}`}
+                                  d={line.path}
                                   stroke={line.color}
                                   strokeWidth={2}
                                   fill="none"
