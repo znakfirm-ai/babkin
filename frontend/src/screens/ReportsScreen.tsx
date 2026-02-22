@@ -178,7 +178,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
             alignItems: "flex-end",
             justifyContent: "center",
             zIndex: 80,
-            padding: "0 12px 12px",
+            padding: "0 12px calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px)",
           }}
         >
           <div
