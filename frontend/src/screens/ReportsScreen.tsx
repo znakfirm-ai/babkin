@@ -28,7 +28,7 @@ const getMonthRange = (offset: number) => {
 const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
-  const [periodMode, setPeriodMode] = useState<"today" | "day" | "week" | "custom">("today")
+  const [periodMode, setPeriodMode] = useState<"today" | "day" | "week" | "month" | "custom">("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [singleDay, setSingleDay] = useState("")
@@ -36,43 +36,48 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null)
   const touchStartX = useRef<number | null>(null)
-  const { start, end, label } = useMemo(() => getMonthRange(monthOffset), [monthOffset])
+  const todayDate = useMemo(() => format(new Date()), [])
 
-  const todayDate = useMemo(() => {
-    const now = new Date()
-    return format(now)
-  }, [])
+  const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
 
   const currentRange = useMemo(() => {
     const now = new Date()
+
+    const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
+    const dayEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+
     if (periodMode === "today") {
-      return { from: todayDate, to: todayDate }
+      const d = dayStart(now)
+      return { start: d, end: dayEnd(now), label: format(d) }
     }
     if (periodMode === "day") {
-      const d = singleDay || todayDate
-      return { from: d, to: d }
+      const picked = singleDay ? new Date(singleDay) : now
+      return { start: dayStart(picked), end: dayEnd(picked), label: format(picked) }
     }
     if (periodMode === "week") {
-      const day = now.getDay() === 0 ? 7 : now.getDay()
-      const startWeek = new Date(now)
-      startWeek.setDate(now.getDate() - (day - 1))
-      const from = format(startWeek)
-      const to = format(now)
-      return { from, to }
+      const dow = now.getDay() === 0 ? 7 : now.getDay()
+      const start = dayStart(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dow - 1)))
+      const end = dayEnd(now)
+      return { start, end, label: "" }
     }
-    const from = customFrom || todayDate
-    const to = customTo || todayDate
-    return { from, to }
-  }, [periodMode, singleDay, customFrom, customTo, todayDate])
+    if (periodMode === "month") {
+      const { start, end, label } = monthRange
+      return { start, end, label }
+    }
+    const fromDate = customFrom ? new Date(customFrom) : now
+    const toDate = customTo ? new Date(customTo) : now
+    return { start: dayStart(fromDate), end: dayEnd(toDate), label: "" }
+  }, [customFrom, customTo, monthRange, periodMode, singleDay])
 
   const expenseData = useMemo(() => {
+    if (!currentRange.start || !currentRange.end) {
+      return { total: 0, slices: [], sliceLabels: [], colors: [], list: [] }
+    }
     const totals = new Map<string, number>()
     let total = 0
     transactions.forEach((t) => {
       const date = new Date(t.date)
-      const fromDate = new Date(`${currentRange.from}T00:00:00.000Z`)
-      const toExclusive = new Date(new Date(`${currentRange.to}T00:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000)
-      if (date < fromDate || date >= toExclusive) return
+      if (date < currentRange.start || date > currentRange.end) return
       const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
       if (kind !== "expense") return
       if ((t as { kind?: string }).kind === "adjustment") return
@@ -106,7 +111,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
       return { ...i, percentText }
     })
     return { total, slices, sliceLabels, colors, list }
-  }, [categories, end, start, transactions])
+  }, [categories, currentRange.end, currentRange.start, transactions])
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartX.current = e.touches[0].clientX
@@ -116,10 +121,12 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     if (touchStartX.current == null) return
     const delta = e.changedTouches[0].clientX - touchStartX.current
     const threshold = 40
-    if (delta < -threshold) {
-      setMonthOffset((prev) => prev - 1)
-    } else if (delta > threshold) {
-      setMonthOffset((prev) => Math.min(0, prev + 1))
+    if (periodMode === "month") {
+      if (delta < -threshold) {
+        setMonthOffset((prev) => prev - 1)
+      } else if (delta > threshold) {
+        setMonthOffset((prev) => Math.min(0, prev + 1))
+      }
     }
     touchStartX.current = null
   }
@@ -162,21 +169,23 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const legendGap = 6
   const donutBoxWidth = donutSize + 20
   const legendColumnGap = 14
-  const formattedPeriod = label ? label.charAt(0).toUpperCase() + label.slice(1) : label
 
-  const formatDisplayDate = (iso: string) =>
-    new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(iso))
+  const formatDisplayDate = (date: Date) =>
+    new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric" }).format(date)
 
   const periodDisplayText = useMemo(() => {
-    if (!currentRange.from || !currentRange.to) return ""
-    if (currentRange.from === currentRange.to) {
-      const text = formatDisplayDate(currentRange.from)
+    if (!currentRange.start || !currentRange.end) return ""
+    if (currentRange.start.getTime() === currentRange.end.getTime()) {
+      const text = formatDisplayDate(currentRange.start)
       return text.charAt(0).toUpperCase() + text.slice(1)
     }
-    const fromText = formatDisplayDate(currentRange.from)
-    const toText = formatDisplayDate(currentRange.to)
+    if (periodMode === "month" && currentRange.label) {
+      return currentRange.label.charAt(0).toUpperCase() + currentRange.label.slice(1)
+    }
+    const fromText = formatDisplayDate(currentRange.start)
+    const toText = formatDisplayDate(currentRange.end)
     return `${fromText} — ${toText}`
-  }, [currentRange.from, currentRange.to])
+  }, [currentRange.end, currentRange.label, currentRange.start, periodMode])
 
   return (
     <>
@@ -293,7 +302,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       textAlign: "right",
                     }}
                   >
-                    {periodDisplayText || formattedPeriod}
+                    {periodDisplayText}
                   </div>
 
                   {isPeriodMenuOpen ? (
@@ -318,6 +327,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                         { key: "today", label: "Сегодня" },
                         { key: "day", label: "День" },
                         { key: "week", label: "Неделя" },
+                        { key: "month", label: "Месяц" },
                         { key: "custom", label: "Свой" },
                       ].map((opt) => (
                         <button
@@ -332,6 +342,9 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                             if (opt.key === "custom") {
                               setCustomFrom(customFrom || todayDate)
                               setCustomTo(customTo || todayDate)
+                            }
+                            if (opt.key === "month") {
+                              setMonthOffset(0)
                             }
                           }}
                           style={{
