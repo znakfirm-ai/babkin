@@ -189,7 +189,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
               background: "#fff",
               borderTopLeftRadius: 18,
               borderTopRightRadius: 18,
-              padding: 16,
+              padding: "16px 16px calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px)",
               boxShadow: "none",
               maxHeight: "85vh",
               overflow: "hidden",
@@ -197,10 +197,11 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
               gap: 12,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Расходы по категориям</div>
-              <button
-                type="button"
+            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "grid", gap: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Расходы по категориям</div>
+                <button
+                  type="button"
                 onClick={() => setIsExpensesSheetOpen(false)}
                 style={{
                   padding: "8px 12px",
@@ -210,16 +211,16 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
-              >
-                Закрыть
-              </button>
-            </div>
+                >
+                  Закрыть
+                </button>
+              </div>
 
-            <div
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-              style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}
-            >
+              <div
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}
+              >
               <button
                 type="button"
                 style={{
@@ -247,12 +248,12 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
               >
                 {label}
               </div>
-            </div>
+              </div>
 
-            <div style={{ display: "grid", gap: 12, overflow: "auto", minHeight: 0 }}>
-              {expenseData.total > 0 ? (
-                <div style={{ display: "grid", gap: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
+              <div style={{ display: "grid", gap: 12, overflow: "auto", minHeight: 0 }}>
+                {expenseData.total > 0 ? (
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
                     Итого {formatMoney(expenseData.total, currency ?? "RUB")}
                   </div>
                   <div
@@ -378,6 +379,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                   </div>
                 ))}
               </div>
+            </div>
             </div>
           </div>
         </div>
