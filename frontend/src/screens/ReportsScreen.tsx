@@ -48,9 +48,18 @@ const ReportsScreen: React.FC<Props> = ({
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const activePointerId = useRef<number | null>(null)
-  const [gestureDebug, setGestureDebug] = useState("")
+  const [debugSwipeText, setDebugSwipeText] = useState("")
+  const [debugSwipeEnabled, setDebugSwipeEnabled] = useState(false)
   const todayDate = useMemo(() => format(new Date()), [])
   const minDate = useMemo(() => new Date(2020, 0, 1, 0, 0, 0, 0), [])
+
+  useEffect(() => {
+    try {
+      setDebugSwipeEnabled(localStorage.getItem("debugSwipe") === "1")
+    } catch {
+      setDebugSwipeEnabled(false)
+    }
+  }, [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
 
@@ -198,8 +207,8 @@ const ReportsScreen: React.FC<Props> = ({
     touchStartY.current = null
     if (Math.abs(dy) > Math.abs(dx)) return
     const threshold = 40
-    if (import.meta.env.DEV) {
-      setGestureDebug(`up dx=${Math.round(dx)} dy=${Math.round(dy)}`)
+    if (debugSwipeEnabled) {
+      setDebugSwipeText(`dx=${Math.round(dx)} dy=${Math.round(dy)}`)
     }
     if (dx < -threshold) {
       shiftPeriod("prev")
@@ -219,7 +228,7 @@ const ReportsScreen: React.FC<Props> = ({
   const handleTouchCancel = () => {
     touchStartX.current = null
     touchStartY.current = null
-    if (import.meta.env.DEV) setGestureDebug("cancel")
+    if (debugSwipeEnabled) setDebugSwipeText("cancel")
   }
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -244,7 +253,7 @@ const ReportsScreen: React.FC<Props> = ({
     touchStartX.current = null
     touchStartY.current = null
     activePointerId.current = null
-    if (import.meta.env.DEV) setGestureDebug("cancel")
+    if (debugSwipeEnabled) setDebugSwipeText("cancel")
   }
 
   const chartSlices = useMemo(() => {
@@ -402,18 +411,6 @@ const ReportsScreen: React.FC<Props> = ({
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
                 <div
-                  onTouchStart={handleTouchStart}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchCancel={handleTouchCancel}
-                  onTouchStartCapture={handleTouchStart}
-                  onTouchEndCapture={handleTouchEnd}
-                  onTouchCancelCapture={handleTouchCancel}
-                  onPointerDown={handlePointerDown}
-                  onPointerUp={handlePointerUp}
-                  onPointerCancel={handlePointerCancel}
-                  onPointerDownCapture={handlePointerDown}
-                  onPointerUpCapture={handlePointerUp}
-                  onPointerCancelCapture={handlePointerCancel}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -421,11 +418,32 @@ const ReportsScreen: React.FC<Props> = ({
                     minWidth: 0,
                     justifyContent: "space-between",
                     position: "relative",
-                    touchAction: "pan-y",
-                    userSelect: "none",
-                    WebkitUserSelect: "none",
                   }}
                 >
+                  <div
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchCancel={handleTouchCancel}
+                    onTouchStartCapture={handleTouchStart}
+                    onTouchEndCapture={handleTouchEnd}
+                    onTouchCancelCapture={handleTouchCancel}
+                    onPointerDown={handlePointerDown}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerCancel}
+                    onPointerDownCapture={handlePointerDown}
+                    onPointerUpCapture={handlePointerUp}
+                    onPointerCancelCapture={handlePointerCancel}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      pointerEvents: "auto",
+                      background: "transparent",
+                      zIndex: 6,
+                      touchAction: "pan-y",
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                    }}
+                  />
                   <button
                     type="button"
                     style={{
@@ -456,8 +474,8 @@ const ReportsScreen: React.FC<Props> = ({
                   >
                     {periodDisplayText}
                   </div>
-                  {import.meta.env.DEV && gestureDebug ? (
-                    <div style={{ position: "absolute", left: 6, top: -14, fontSize: 10, color: "#9ca3af" }}>{gestureDebug}</div>
+                  {debugSwipeEnabled && debugSwipeText ? (
+                    <div style={{ position: "absolute", left: 6, top: -14, fontSize: 10, color: "#9ca3af", zIndex: 7 }}>{debugSwipeText}</div>
                   ) : null}
 
                   {isPeriodMenuOpen ? (
