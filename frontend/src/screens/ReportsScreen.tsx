@@ -254,11 +254,10 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                           position: "relative",
                           display: "flex",
                           gap: legendColumnGap,
-                          alignItems: "center",
+                          alignItems: "flex-start",
                           width: "100%",
                           minWidth: 0,
                           overflow: "visible",
-                          height: graphHeight,
                           border: "1px solid #e5e7eb",
                           borderRadius: 12,
                           padding: "6px 10px",
@@ -316,7 +315,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                                 </text>
                               </svg>
 
-                              <div style={{ position: "relative", flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
+                              <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
                                 <svg
                                   width="100%"
                                   height={graphHeight}
