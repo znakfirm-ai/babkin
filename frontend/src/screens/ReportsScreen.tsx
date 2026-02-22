@@ -246,9 +246,9 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
+                <div style={{ display: "grid", gap: 8, minHeight: 0 }}>
                   {expenseData.total > 0 ? (
-                    <div style={{ display: "grid", gap: 12 }}>
+                    <div style={{ display: "grid", gap: 10 }}>
                       <div
                         style={{
                           position: "relative",
@@ -259,6 +259,9 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                           minWidth: 0,
                           overflow: "visible",
                           height: graphHeight,
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 12,
+                          padding: 10,
                         }}
                       >
                         {(() => {
