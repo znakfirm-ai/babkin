@@ -117,12 +117,12 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
 
   const graphHeight = 268
   const pillHeight = 44
-  const pillGap = 12
+  const pillGap = 10
   const donutSize = 190
   const donutCx = donutSize / 2
   const donutCy = graphHeight / 2
-  const innerR = 42
-  const outerR = 62
+  const outerR = 74
+  const innerR = 61
 
   return (
     <>
@@ -310,23 +310,14 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                           <div style={{ flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: pillGap }}>
                             {chartSlices.slice(0, 5).map((slice) => {
                               return (
-                                <div key={slice.id} style={{ height: pillHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                                    <span
-                                      style={{
-                                        width: 6,
-                                        height: 6,
-                                        borderRadius: "50%",
-                                        background: slice.color,
-                                        display: "inline-block",
-                                        flexShrink: 0,
-                                      }}
-                                    />
+                                <div key={slice.id} style={{ height: pillHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+                                    <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
                                     <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                       {slice.label}
                                     </span>
                                   </div>
-                                  <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
+                                  <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}></span>
                                 </div>
                               )
                             })}
