@@ -87,22 +87,31 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     touchStartX.current = null
   }
 
-  const stackedSegments = useMemo(() => {
+  const slices = useMemo(() => {
     if (expenseData.total <= 0) return []
     const palette = expenseData.colors
-    const labels = expenseData.sliceLabels
-    return expenseData.slices.map((value, idx) => {
-      const label = labels[idx] ?? "—"
-      const color = label === "Остальное" ? "#cbd5e1" : palette[idx % palette.length]
-      const percent = expenseData.total > 0 ? (value / expenseData.total) * 100 : 0
+    const topFour = expenseData.list.slice(0, 4)
+    const restSum = expenseData.list.slice(4).reduce((acc, i) => acc + i.sum, 0)
+    const base = topFour.map((item, idx) => {
+      const percent = expenseData.total > 0 ? (item.sum / expenseData.total) * 100 : 0
       return {
-        id: `${label}-${idx}`,
-        label,
-        color,
+        id: item.id,
+        label: item.title,
+        color: palette[idx % palette.length],
+        value: item.sum,
         percent,
       }
     })
-  }, [expenseData.colors, expenseData.sliceLabels, expenseData.slices, expenseData.total])
+    const restPercent = expenseData.total > 0 ? (restSum / expenseData.total) * 100 : 0
+    const restSlice = {
+      id: "rest",
+      label: "Остальное",
+      color: "#cbd5e1",
+      value: restSum,
+      percent: restPercent,
+    }
+    return [...base, restSlice]
+  }, [expenseData.colors, expenseData.list, expenseData.total])
 
   return (
     <>
@@ -241,10 +250,10 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       display: "flex",
                     }}
                   >
-                    {stackedSegments.map((segment, idx) => {
-                      const isLast = idx === stackedSegments.length - 1
+                    {slices.map((segment, idx) => {
+                      const isLast = idx === slices.length - 1
                       const borderRadius =
-                        stackedSegments.length === 1
+                        slices.length === 1
                           ? 10
                           : idx === 0
                           ? "10px 0 0 10px"
