@@ -443,11 +443,14 @@ const labeledSlices = useMemo(() => {
                     </text>
                     {labeledSlices.map((s) => {
                       const textY = s.textY
+                      const outerEdge = RING_RADIUS + RING_THICKNESS / 2
+                      const leftAnchor = -(outerEdge + 10)
                       const textAnchor = s.mx >= 0 ? "start" : "end"
+                      const textX = s.mx >= 0 ? s.textX : leftAnchor
                       const truncatedLabel = s.name.length > 11 ? `${s.name.slice(0, 11)}…` : s.name
                       return (
                         <g key={s.id}>
-                          <text x={s.textX} y={textY + 4} textAnchor={textAnchor} fontSize={12} fill="#4b5563">
+                          <text x={textX} y={textY + 4} textAnchor={textAnchor} fontSize={12} fill="#4b5563">
                             <tspan>{truncatedLabel}</tspan>
                             <tspan fill={s.color}>{` · ${s.percentText}`}</tspan>
                           </text>
