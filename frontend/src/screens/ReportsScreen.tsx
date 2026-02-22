@@ -317,21 +317,28 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
             </div>
 
             <div style={{ display: "grid", gap: 10, overflow: "auto", minHeight: 0 }}>
-              <div style={{ display: "grid", placeItems: "center" }}>
-                {expenseData.total > 0 ? (
-                  <svg width="260" height="220" viewBox="-130 -110 260 220" role="img" aria-label="Диаграмма расходов">
-                    {(() => {
-                      const r = 70
-                      const thickness = 8
-                      const gap = 1
-                      let startAngle = 0
-                      return slices.map((s, idx) => {
-                        const sweep = (s.value / expenseData.total) * 360
-                        const adjStart = startAngle + gap / 2
-                        const adjEnd = startAngle + sweep - gap / 2
-                        const path = describeArc(0, 0, r, adjStart, adjEnd)
-                        startAngle += sweep
-                        return (
+          <div style={{ display: "grid", placeItems: "center" }}>
+            {expenseData.total > 0 ? (
+              <svg
+                width="320"
+                height="220"
+                viewBox="-160 -110 320 220"
+                role="img"
+                aria-label="Диаграмма расходов"
+                style={{ overflow: "visible" }}
+              >
+                {(() => {
+                  const r = 70
+                  const thickness = 8
+                  const gap = 1
+                  let startAngle = 0
+                  return slices.map((s, idx) => {
+                    const sweep = (s.value / expenseData.total) * 360
+                    const adjStart = startAngle + gap / 2
+                    const adjEnd = startAngle + sweep - gap / 2
+                    const path = describeArc(0, 0, r, adjStart, adjEnd)
+                    startAngle += sweep
+                    return (
                           <path
                             key={`${s.label}-${idx}`}
                             d={path}
@@ -343,21 +350,21 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                         )
                       })
                     })()}
-                    {labeledSlices.map((s, idx) => {
-                      const angleRad = (s.mid * Math.PI) / 180
-                      const rOuter = 78
-                      const start = { x: Math.cos(angleRad) * rOuter, y: Math.sin(angleRad) * rOuter }
-                      const elbowX = Math.cos(angleRad) * (rOuter + 12)
-                      const endX = s.textX
-                      const endY = s.anchor.y
-                      const lineColor = "rgba(0,0,0,0.35)"
-                      const textAnchor = s.isRight ? "start" : "end"
-                      const truncatedLabel = s.label.length > 18 ? `${s.label.slice(0, 18)}…` : s.label
-                      const percentVal = Math.round((s.value / expenseData.total) * 100)
-                      const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
-                      const text = `${truncatedLabel} · ${percentText}`
-                      return (
-                        <g key={`label-${idx}`} stroke={lineColor} fill="none">
+                {labeledSlices.map((s, idx) => {
+                  const angleRad = (s.mid * Math.PI) / 180
+                  const rOuter = 78
+                  const start = { x: Math.cos(angleRad) * rOuter, y: Math.sin(angleRad) * rOuter }
+                  const elbowX = Math.cos(angleRad) * (rOuter + 12)
+                  const endX = s.isRight ? 150 : -150
+                  const endY = s.anchor.y
+                  const lineColor = "rgba(0,0,0,0.35)"
+                  const textAnchor = s.isRight ? "start" : "end"
+                  const truncatedLabel = s.label.length > 12 ? `${s.label.slice(0, 12)}…` : s.label
+                  const percentVal = Math.round((s.value / expenseData.total) * 100)
+                  const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
+                  const text = `${truncatedLabel} · ${percentText}`
+                  return (
+                    <g key={`label-${idx}`} stroke={lineColor} fill="none">
                           <polyline
                             points={`${start.x},${start.y} ${elbowX},${endY} ${endX},${endY}`}
                             strokeWidth={1}
