@@ -153,7 +153,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     touchStartX.current = null
   }
 
-  const RING_RADIUS = 64
+  const RING_RADIUS = 60
   const RING_THICKNESS = 8
   const MARKER_GAP = 5
 
@@ -199,7 +199,13 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const labeledSlices = useMemo(() => {
     if (expenseData.total <= 0) return []
     const gapForText = 12
-    const items: LabelItem[] = slicesWithAngles.map((s) => {
+    const donutOuter = RING_RADIUS + RING_THICKNESS / 2
+    const safePadding = 12
+    const cx = 0
+    const safeLeft = cx - (donutOuter + safePadding)
+    const safeRight = cx + (donutOuter + safePadding)
+
+    const itemsBase: LabelItem[] = slicesWithAngles.map((s) => {
       const textX = s.isRight ? s.mx + gapForText : s.mx - gapForText
       return {
         id: s.id,
@@ -215,8 +221,36 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
         isRight: s.isRight,
       }
     })
-    return adjustLabelPositions(items)
-  }, [slicesWithAngles])
+
+    const maxSlice = slicesWithAngles.reduce((acc, s) => (s.value > acc.value ? s : acc), slicesWithAngles[0])
+    const maxPercent = (maxSlice.value / expenseData.total) * 100
+    const itemsPrepared = itemsBase.map((item) => {
+      if (item.id === maxSlice.id && maxPercent >= 55) {
+        return {
+          ...item,
+          textX: donutOuter + 22,
+          textYDesired: 5,
+          textY: 5,
+          isRight: true,
+        }
+      }
+      const clampX =
+        item.isRight && item.textX < cx + donutOuter + 18
+          ? cx + donutOuter + 18
+          : !item.isRight && item.textX > cx - donutOuter - 18
+          ? cx - donutOuter - 18
+          : item.textX
+      const withinSafe = clampX > safeLeft && clampX < safeRight && item.textY > -donutOuter && item.textY < donutOuter
+      const finalX =
+        withinSafe && item.isRight ? cx + donutOuter + 18 : withinSafe && !item.isRight ? cx - donutOuter - 18 : clampX
+      return {
+        ...item,
+        textX: finalX,
+      }
+    })
+
+    return adjustLabelPositions(itemsPrepared)
+  }, [RING_RADIUS, RING_THICKNESS, slicesWithAngles, expenseData.total])
 
   return (
     <>
@@ -381,10 +415,10 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       const textX = s.mx >= 0 ? s.mx + labelGap : s.mx - labelGap
                       const textY = s.textY
                       const textAnchor = s.mx >= 0 ? "start" : "end"
-                      const truncatedLabel = s.name.length > 12 ? `${s.name.slice(0, 12)}…` : s.name
+                      const truncatedLabel = s.name.length > 11 ? `${s.name.slice(0, 11)}…` : s.name
                       return (
                         <g key={s.id}>
-                          <text x={textX} y={textY + 4} textAnchor={textAnchor} fontSize={12} fill="#0f172a">
+                          <text x={textX} y={textY + 4} textAnchor={textAnchor} fontSize={12} fill="#4b5563">
                             <tspan>{truncatedLabel}</tspan>
                             <tspan fill={s.color}>{` · ${s.percentText}`}</tspan>
                           </text>
