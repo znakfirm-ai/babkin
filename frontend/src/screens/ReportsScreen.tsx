@@ -117,7 +117,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     return [...base, restSlice]
   }, [expenseData.colors, expenseData.list, expenseData.total])
 
-  const graphHeight = 268
+  const graphHeight = 200
   const donutSize = 190
   const donutCx = donutSize / 2
   const donutCy = graphHeight / 2
@@ -315,7 +315,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                                 </text>
                               </svg>
 
-                              <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
+                              <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: legendGap }}>
                                 <svg
                                   width="100%"
                                   height={graphHeight}
