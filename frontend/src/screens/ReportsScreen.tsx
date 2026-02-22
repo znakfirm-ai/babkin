@@ -261,7 +261,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                           height: graphHeight,
                           border: "1px solid #e5e7eb",
                           borderRadius: 12,
-                          padding: 10,
+                          padding: "6px 10px",
                         }}
                       >
                         {(() => {
