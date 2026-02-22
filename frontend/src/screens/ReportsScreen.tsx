@@ -127,6 +127,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const legendGap = 6
   const donutBoxWidth = donutSize + 20
   const legendColumnGap = 14
+  const formattedPeriod = label ? label.charAt(0).toUpperCase() + label.slice(1) : label
 
   return (
     <>
@@ -213,7 +214,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                 <div
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
-                  style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, justifyContent: "space-between" }}
                 >
                   <button
                     type="button"
@@ -232,24 +233,22 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                     style={{
                       flex: 1,
                       minWidth: 0,
-                      fontWeight: 600,
-                      fontSize: 15,
-                      color: "#0f172a",
+                      fontWeight: 500,
+                      fontSize: 14,
+                      color: "#6b7280",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
+                      textAlign: "right",
                     }}
                   >
-                    {label}
+                    {formattedPeriod}
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
                   {expenseData.total > 0 ? (
                     <div style={{ display: "grid", gap: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
-                        Итого {formatMoney(expenseData.total, currency ?? "RUB")}
-                      </div>
                       <div
                         style={{
                           position: "relative",
