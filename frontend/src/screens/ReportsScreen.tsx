@@ -37,6 +37,7 @@ const ReportsScreen: React.FC<Props> = ({
 }) => {
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
+  const [weekOffset, setWeekOffset] = useState(0)
   const [periodMode, setPeriodMode] = useState<"today" | "day" | "week" | "month" | "custom">("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
@@ -45,7 +46,9 @@ const ReportsScreen: React.FC<Props> = ({
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null)
   const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
   const todayDate = useMemo(() => format(new Date()), [])
+  const minDate = useMemo(() => new Date(2020, 0, 1, 0, 0, 0, 0), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
 
@@ -65,8 +68,9 @@ const ReportsScreen: React.FC<Props> = ({
     }
     if (periodMode === "week") {
       const dow = now.getDay() === 0 ? 7 : now.getDay()
-      const start = dayStart(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dow - 1)))
-      const end = dayEnd(now)
+      const baseStart = dayStart(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dow - 1)))
+      const start = dayStart(new Date(baseStart.getTime() + weekOffset * 7 * 24 * 60 * 60 * 1000))
+      const end = dayEnd(new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6))
       return { start, end, label: "" }
     }
     if (periodMode === "month") {
@@ -124,20 +128,79 @@ const ReportsScreen: React.FC<Props> = ({
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  const shiftPeriod = (direction: "prev" | "next") => {
+    const delta = direction === "prev" ? -1 : 1
+    const today = new Date()
+    const dayMs = 24 * 60 * 60 * 1000
+
+    const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
+    const dayEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+
+    if (periodMode === "month") {
+      const nextOffset = monthOffset + delta
+      if (nextOffset > 0) return
+      const candidate = getMonthRange(nextOffset)
+      if (candidate.start < minDate) return
+      if (candidate.start > today) return
+      setMonthOffset(nextOffset)
+      return
+    }
+
+    if (periodMode === "week") {
+      const baseStart = dayStart(currentRange.start)
+      const baseEnd = dayEnd(currentRange.end)
+      const candidateStart = new Date(baseStart.getTime() + delta * 7 * dayMs)
+      const candidateEnd = new Date(baseEnd.getTime() + delta * 7 * dayMs)
+      const todayEnd = dayEnd(today)
+      if (candidateStart < minDate) return
+      if (candidateEnd > todayEnd) return
+      setWeekOffset((prev) => prev + delta)
+      return
+    }
+
+    if (periodMode === "today" || periodMode === "day") {
+      const base = periodMode === "today" ? today : singleDay ? new Date(singleDay) : today
+      const candidate = new Date(base.getTime() + delta * dayMs)
+      const candidateStart = dayStart(candidate)
+      const todayStart = dayStart(today)
+      if (candidateStart < minDate) return
+      if (candidateStart > todayStart) return
+      setSingleDay(format(candidate))
+      if (periodMode === "today") setPeriodMode("day")
+      return
+    }
+
+    if (periodMode === "custom") {
+      const fromDate = customFrom ? new Date(customFrom) : today
+      const toDate = customTo ? new Date(customTo) : today
+      const spanDays = Math.max(1, Math.round((dayStart(toDate).getTime() - dayStart(fromDate).getTime()) / dayMs) + 1)
+      const shiftMs = spanDays * dayMs * delta
+      const candidateFrom = new Date(fromDate.getTime() + shiftMs)
+      const candidateTo = new Date(toDate.getTime() + shiftMs)
+      const todayEnd = dayEnd(today)
+      if (dayStart(candidateFrom) < minDate) return
+      if (dayEnd(candidateTo) > todayEnd) return
+      setCustomFrom(format(candidateFrom))
+      setCustomTo(format(candidateTo))
+    }
   }
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX.current == null) return
-    const delta = e.changedTouches[0].clientX - touchStartX.current
-    const threshold = 40
-    if (periodMode === "month") {
-      if (delta < -threshold) {
-        setMonthOffset((prev) => prev - 1)
-      } else if (delta > threshold) {
-        setMonthOffset((prev) => Math.min(0, prev + 1))
-      }
-    }
+    if (touchStartX.current == null || touchStartY.current == null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const dy = e.changedTouches[0].clientY - touchStartY.current
     touchStartX.current = null
+    touchStartY.current = null
+    if (Math.abs(dy) > Math.abs(dx)) return
+    const threshold = 40
+    if (dx < -threshold) {
+      shiftPeriod("prev")
+    } else if (dx > threshold) {
+      shiftPeriod("next")
+    }
   }
 
   const chartSlices = useMemo(() => {
