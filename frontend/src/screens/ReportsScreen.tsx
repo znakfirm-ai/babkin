@@ -184,191 +184,196 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
               margin: "0 auto",
               borderRadius: "18px 18px 20px 20px",
               overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
             }}
           >
-            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "grid", gap: 12 }}>
+            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Расходы по категориям</div>
                 <button
                   type="button"
-                onClick={() => setIsExpensesSheetOpen(false)}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
+                  onClick={() => setIsExpensesSheetOpen(false)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
                 >
                   Закрыть
                 </button>
               </div>
 
-              <div
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-                style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}
-              >
-              <button
-                type="button"
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Период
-              </button>
-              <div
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  fontWeight: 600,
-                  fontSize: 15,
-                  color: "#0f172a",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {label}
-              </div>
-              </div>
-
-              <div style={{ display: "grid", gap: 12, overflow: "auto", minHeight: 0 }}>
-                {expenseData.total > 0 ? (
-                  <div style={{ display: "grid", gap: 12 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
-                    Итого {formatMoney(expenseData.total, currency ?? "RUB")}
-                  </div>
-                  <div
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={handleTouchEnd}
+                  style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}
+                >
+                  <button
+                    type="button"
                     style={{
-                      position: "relative",
-                      display: "flex",
-                      gap: legendColumnGap,
-                      alignItems: "center",
-                      width: "100%",
-                      minWidth: 0,
-                      overflow: "visible",
-                      height: graphHeight,
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      fontWeight: 600,
+                      cursor: "pointer",
                     }}
                   >
-                    {(() => {
-                      const pills = chartSlices.slice(0, 5)
-                      let cursor = -90
-                      return (
-                        <>
-                          <svg
-                            width={donutBoxWidth}
-                            height={graphHeight}
-                            viewBox={`0 0 ${donutBoxWidth} ${graphHeight}`}
-                            role="img"
-                            aria-label="Диаграмма расходов"
-                            style={{ flex: "0 0 auto", position: "relative", zIndex: 2 }}
-                          >
-                            {pills.map((slice) => {
-                              const sweep = slice.share * 360
-                              const start = cursor
-                              const end = cursor + sweep
-                              cursor += sweep
-                              const startRad = (Math.PI / 180) * start
-                              const endRad = (Math.PI / 180) * end
-                              const largeArc = sweep > 180 ? 1 : 0
-                              const midAngleRad = (Math.PI / 180) * ((start + end) / 2)
-                              const isSelected = slice.id === selectedSliceId
-                              const outer = isSelected ? outerR + 6 : outerR
-                              const inner = innerR
-                              const dx = isSelected ? Math.cos(midAngleRad) * 4 : 0
-                              const dy = isSelected ? Math.sin(midAngleRad) * 4 : 0
-                              const cx = donutCx + dx
-                              const cy = donutCy + dy
-                              const x1 = cx + Math.cos(startRad) * outer
-                              const y1 = cy + Math.sin(startRad) * outer
-                              const x2 = cx + Math.cos(endRad) * outer
-                              const y2 = cy + Math.sin(endRad) * outer
-                              const arcPath = `M ${x1} ${y1} A ${outer} ${outer} 0 ${largeArc} 1 ${x2} ${y2}`
-                              const innerX1 = cx + Math.cos(endRad) * inner
-                              const innerY1 = cy + Math.sin(endRad) * inner
-                              const innerX2 = cx + Math.cos(startRad) * inner
-                              const innerY2 = cy + Math.sin(startRad) * inner
-                              const innerArcPath = `A ${inner} ${inner} 0 ${largeArc} 0 ${innerX2} ${innerY2}`
-                              const path = `${arcPath} L ${innerX1} ${innerY1} ${innerArcPath} Z`
-
-                              return <path key={slice.id} d={path} fill={slice.color} />
-                            })}
-                            <circle cx={donutCx} cy={donutCy} r={innerR} fill="#fff" />
-                            <text x={donutCx} y={donutCy - 6} textAnchor="middle" fontSize={11} fill="#475569">
-                              Итого
-                            </text>
-                            <text x={donutCx} y={donutCy + 12} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
-                              {formatMoney(expenseData.total, currency ?? "RUB")}
-                            </text>
-                          </svg>
-
-                          <div style={{ position: "relative", flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
-                            <svg
-                              width="100%"
-                              height={graphHeight}
-                              style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
-                            >
-                            </svg>
-                            {chartSlices.slice(0, 5).map((slice) => {
-                              return (
-                                <div
-                                  key={slice.id}
-                                  style={{ height: legendRowHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0, cursor: "pointer" }}
-                                  onClick={() => setSelectedSliceId((prev) => (prev === slice.id ? null : slice.id))}
-                                >
-                                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
-                                    <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
-                                    <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                      {slice.label}
-                                    </span>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </>
-                      )
-                    })()}
+                    Период
+                  </button>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontWeight: 600,
+                      fontSize: 15,
+                      color: "#0f172a",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {label}
                   </div>
                 </div>
-              ) : (
-                <div style={{ color: "#6b7280", fontSize: 14 }}>Нет расходов за период</div>
-              )}
-              <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
-                {expenseData.list.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      borderBottom: "1px solid #e5e7eb",
-                      paddingBottom: 8,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                      <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
-                        {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
-                      </span>
-                      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
-                        {item.title}
-                      </span>
+
+                <div style={{ display: "grid", gap: 12, minHeight: 0 }}>
+                  {expenseData.total > 0 ? (
+                    <div style={{ display: "grid", gap: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
+                        Итого {formatMoney(expenseData.total, currency ?? "RUB")}
+                      </div>
+                      <div
+                        style={{
+                          position: "relative",
+                          display: "flex",
+                          gap: legendColumnGap,
+                          alignItems: "center",
+                          width: "100%",
+                          minWidth: 0,
+                          overflow: "visible",
+                          height: graphHeight,
+                        }}
+                      >
+                        {(() => {
+                          const pills = chartSlices.slice(0, 5)
+                          let cursor = -90
+                          return (
+                            <>
+                              <svg
+                                width={donutBoxWidth}
+                                height={graphHeight}
+                                viewBox={`0 0 ${donutBoxWidth} ${graphHeight}`}
+                                role="img"
+                                aria-label="Диаграмма расходов"
+                                style={{ flex: "0 0 auto", position: "relative", zIndex: 2 }}
+                              >
+                                {pills.map((slice) => {
+                                  const sweep = slice.share * 360
+                                  const start = cursor
+                                  const end = cursor + sweep
+                                  cursor += sweep
+                                  const startRad = (Math.PI / 180) * start
+                                  const endRad = (Math.PI / 180) * end
+                                  const largeArc = sweep > 180 ? 1 : 0
+                                  const midAngleRad = (Math.PI / 180) * ((start + end) / 2)
+                                  const isSelected = slice.id === selectedSliceId
+                                  const outer = isSelected ? outerR + 6 : outerR
+                                  const inner = innerR
+                                  const dx = isSelected ? Math.cos(midAngleRad) * 4 : 0
+                                  const dy = isSelected ? Math.sin(midAngleRad) * 4 : 0
+                                  const cx = donutCx + dx
+                                  const cy = donutCy + dy
+                                  const x1 = cx + Math.cos(startRad) * outer
+                                  const y1 = cy + Math.sin(startRad) * outer
+                                  const x2 = cx + Math.cos(endRad) * outer
+                                  const y2 = cy + Math.sin(endRad) * outer
+                                  const arcPath = `M ${x1} ${y1} A ${outer} ${outer} 0 ${largeArc} 1 ${x2} ${y2}`
+                                  const innerX1 = cx + Math.cos(endRad) * inner
+                                  const innerY1 = cy + Math.sin(endRad) * inner
+                                  const innerX2 = cx + Math.cos(startRad) * inner
+                                  const innerY2 = cy + Math.sin(startRad) * inner
+                                  const innerArcPath = `A ${inner} ${inner} 0 ${largeArc} 0 ${innerX2} ${innerY2}`
+                                  const path = `${arcPath} L ${innerX1} ${innerY1} ${innerArcPath} Z`
+
+                                  return <path key={slice.id} d={path} fill={slice.color} />
+                                })}
+                                <circle cx={donutCx} cy={donutCy} r={innerR} fill="#fff" />
+                                <text x={donutCx} y={donutCy - 6} textAnchor="middle" fontSize={11} fill="#475569">
+                                  Итого
+                                </text>
+                                <text x={donutCx} y={donutCy + 12} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
+                                  {formatMoney(expenseData.total, currency ?? "RUB")}
+                                </text>
+                              </svg>
+
+                              <div style={{ position: "relative", flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
+                                <svg
+                                  width="100%"
+                                  height={graphHeight}
+                                  style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
+                                >
+                                </svg>
+                                {chartSlices.slice(0, 5).map((slice) => {
+                                  return (
+                                    <div
+                                      key={slice.id}
+                                      style={{ height: legendRowHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0, cursor: "pointer" }}
+                                      onClick={() => setSelectedSliceId((prev) => (prev === slice.id ? null : slice.id))}
+                                    >
+                                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+                                        <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
+                                        <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                          {slice.label}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </>
+                          )
+                        })()}
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
-                      <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
-                      <span style={{ color: "#6b7280" }}>{item.percentText}</span>
-                    </div>
+                  ) : (
+                    <div style={{ color: "#6b7280", fontSize: 14 }}>Нет расходов за период</div>
+                  )}
+                  <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
+                    {expenseData.list.map((item) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          borderBottom: "1px solid #e5e7eb",
+                          paddingBottom: 8,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                          <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                            {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
+                          </span>
+                          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
+                            {item.title}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
+                          <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
+                          <span style={{ color: "#6b7280" }}>{item.percentText}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
             </div>
           </div>
         </div>
