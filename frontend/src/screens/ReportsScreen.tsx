@@ -123,8 +123,6 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const donutCy = graphHeight / 2
   const innerR = 42
   const outerR = 62
-  const totalPillsHeight = 5 * pillHeight + 4 * pillGap
-  const firstPillCenterY = donutCy - totalPillsHeight / 2 + pillHeight / 2
 
   return (
     <>
@@ -266,7 +264,6 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                     }}
                   >
                     {(() => {
-                      const kneeX = donutCx + 80
                       const pills = chartSlices.slice(0, 5)
                       let cursor = -90
                       return (
@@ -311,73 +308,25 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                           </svg>
 
                           <div style={{ flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: pillGap }}>
-                            {chartSlices.slice(0, 5).map((slice, idx) => {
-                              const centerY = firstPillCenterY + idx * (pillHeight + pillGap)
-                              const badgeCenterY = centerY
-                              const badgeCX = donutSize + 20 + 8
-                              const prevSweep = chartSlices.slice(0, idx).reduce((acc, s) => acc + s.share * 360, 0)
-                              const midAngle = -90 + prevSweep + slice.share * 180
-                              const anchorX = donutCx + Math.cos((midAngle * Math.PI) / 180) * outerR
-                              const anchorY = donutCy + Math.sin((midAngle * Math.PI) / 180) * outerR
+                            {chartSlices.slice(0, 5).map((slice) => {
                               return (
-                                <div key={slice.id} style={{ position: "relative", height: pillHeight }}>
-                                  <svg
-                                    width={donutSize + 140}
-                                    height={pillHeight}
-                                    style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible" }}
-                                  >
-                                    <path
-                                      d={`M ${anchorX} ${anchorY} L ${kneeX} ${anchorY} L ${badgeCX - 10} ${badgeCenterY}`}
-                                      stroke={slice.color}
-                                      strokeWidth={2}
-                                      fill="none"
-                                      strokeLinecap="round"
-                                    />
-                                  </svg>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 10,
-                                      background: "#eef2f7",
-                                      border: "1px solid #e5e7eb",
-                                      borderRadius: 14,
-                                      padding: "8px 12px",
-                                      height: pillHeight,
-                                      boxSizing: "border-box",
-                                      width: "100%",
-                                    }}
-                                  >
-                                    <div
+                                <div key={slice.id} style={{ height: pillHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                    <span
                                       style={{
-                                        width: 30,
-                                        height: 30,
+                                        width: 6,
+                                        height: 6,
                                         borderRadius: "50%",
-                                        border: `2px solid ${slice.color}`,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        background: "#fff",
-                                        color: slice.color,
-                                        fontWeight: 700,
-                                        fontSize: 12,
+                                        background: slice.color,
+                                        display: "inline-block",
                                         flexShrink: 0,
                                       }}
-                                    >
-                                      {slice.percentText}
-                                    </div>
-                                    <div
-                                      style={{
-                                        fontSize: 14,
-                                        color: "#0f172a",
-                                        whiteSpace: "nowrap",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                      }}
-                                    >
+                                    />
+                                    <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                       {slice.label}
-                                    </div>
+                                    </span>
                                   </div>
+                                  <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
                                 </div>
                               )
                             })}
