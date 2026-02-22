@@ -185,11 +185,11 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "100%",
-              maxWidth: 520,
+              maxWidth: 640,
               background: "#fff",
               borderTopLeftRadius: 18,
               borderTopRightRadius: 18,
-              padding: "16px 16px calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px)",
+              padding: "16px 16px calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 20px)",
               boxShadow: "none",
               maxHeight: "85vh",
               overflow: "hidden",
