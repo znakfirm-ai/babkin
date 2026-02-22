@@ -117,7 +117,6 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
 
   const graphHeight = 268
   const pillHeight = 44
-  const pillGap = 10
   const donutSize = 190
   const donutCx = donutSize / 2
   const donutCy = graphHeight / 2
@@ -307,7 +306,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                             </text>
                           </svg>
 
-                          <div style={{ flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: pillGap }}>
+                          <div style={{ flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: 10 }}>
                             {chartSlices.slice(0, 5).map((slice) => {
                               return (
                                 <div key={slice.id} style={{ height: pillHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
