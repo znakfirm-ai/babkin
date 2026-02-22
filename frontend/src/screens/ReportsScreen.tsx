@@ -210,7 +210,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                 </button>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
                 <div
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
@@ -246,7 +246,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gap: 8, minHeight: 0 }}>
+                <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
                   {expenseData.total > 0 ? (
                     <div style={{ display: "grid", gap: 10 }}>
                       <div
@@ -315,7 +315,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                                 </text>
                               </svg>
 
-                              <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: legendGap }}>
+                              <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
                                 <svg
                                   width="100%"
                                   height={graphHeight}
@@ -347,6 +347,9 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                   ) : (
                     <div style={{ color: "#6b7280", fontSize: 14 }}>Нет расходов за период</div>
                   )}
+                </div>
+
+                <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
                   <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
                     {expenseData.list.map((item) => (
                       <div
