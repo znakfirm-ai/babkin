@@ -195,6 +195,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
               overflow: "hidden",
               display: "grid",
               gap: 12,
+              margin: "16px auto calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
             }}
           >
             <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "grid", gap: 12 }}>
