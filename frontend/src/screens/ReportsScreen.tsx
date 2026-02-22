@@ -3,6 +3,7 @@ import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
+import { format } from "../utils/date"
 
 type Props = {
   onOpenSummary: () => void
@@ -27,17 +28,51 @@ const getMonthRange = (offset: number) => {
 const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
+  const [periodMode, setPeriodMode] = useState<"today" | "day" | "week" | "custom">("today")
+  const [customFrom, setCustomFrom] = useState("")
+  const [customTo, setCustomTo] = useState("")
+  const [singleDay, setSingleDay] = useState("")
+  const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null)
   const touchStartX = useRef<number | null>(null)
   const { start, end, label } = useMemo(() => getMonthRange(monthOffset), [monthOffset])
+
+  const todayDate = useMemo(() => {
+    const now = new Date()
+    return format(now)
+  }, [])
+
+  const currentRange = useMemo(() => {
+    const now = new Date()
+    if (periodMode === "today") {
+      return { from: todayDate, to: todayDate }
+    }
+    if (periodMode === "day") {
+      const d = singleDay || todayDate
+      return { from: d, to: d }
+    }
+    if (periodMode === "week") {
+      const day = now.getDay() === 0 ? 7 : now.getDay()
+      const startWeek = new Date(now)
+      startWeek.setDate(now.getDate() - (day - 1))
+      const from = format(startWeek)
+      const to = format(now)
+      return { from, to }
+    }
+    const from = customFrom || todayDate
+    const to = customTo || todayDate
+    return { from, to }
+  }, [periodMode, singleDay, customFrom, customTo, todayDate])
 
   const expenseData = useMemo(() => {
     const totals = new Map<string, number>()
     let total = 0
     transactions.forEach((t) => {
       const date = new Date(t.date)
-      if (date < start || date > end) return
+      const fromDate = new Date(`${currentRange.from}T00:00:00.000Z`)
+      const toExclusive = new Date(new Date(`${currentRange.to}T00:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000)
+      if (date < fromDate || date >= toExclusive) return
       const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
       if (kind !== "expense") return
       if ((t as { kind?: string }).kind === "adjustment") return
@@ -129,6 +164,20 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const legendColumnGap = 14
   const formattedPeriod = label ? label.charAt(0).toUpperCase() + label.slice(1) : label
 
+  const formatDisplayDate = (iso: string) =>
+    new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(iso))
+
+  const periodDisplayText = useMemo(() => {
+    if (!currentRange.from || !currentRange.to) return ""
+    if (currentRange.from === currentRange.to) {
+      const text = formatDisplayDate(currentRange.from)
+      return text.charAt(0).toUpperCase() + text.slice(1)
+    }
+    const fromText = formatDisplayDate(currentRange.from)
+    const toText = formatDisplayDate(currentRange.to)
+    return `${fromText} — ${toText}`
+  }, [currentRange.from, currentRange.to])
+
   return (
     <>
       <div style={{ padding: 16, display: "grid", gap: 12 }}>
@@ -214,18 +263,20 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                 <div
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
-                  style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, justifyContent: "space-between" }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, justifyContent: "space-between", position: "relative" }}
                 >
                   <button
                     type="button"
                     style={{
                       padding: "8px 12px",
                       borderRadius: 10,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
                       fontWeight: 600,
                       cursor: "pointer",
                     }}
+                    onClick={() => setIsPeriodMenuOpen((prev) => !prev)}
                   >
                     Период
                   </button>
@@ -242,9 +293,115 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       textAlign: "right",
                     }}
                   >
-                    {formattedPeriod}
+                    {periodDisplayText || formattedPeriod}
                   </div>
+
+                  {isPeriodMenuOpen ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        marginTop: 6,
+                        background: "#fff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                        zIndex: 5,
+                        width: 200,
+                        display: "grid",
+                        gap: 4,
+                        padding: 8,
+                      }}
+                    >
+                      {[
+                        { key: "today", label: "Сегодня" },
+                        { key: "day", label: "День" },
+                        { key: "week", label: "Неделя" },
+                        { key: "custom", label: "Свой" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => {
+                            setPeriodMode(opt.key as typeof periodMode)
+                            setIsPeriodMenuOpen(false)
+                            if (opt.key === "day") {
+                              setSingleDay(todayDate)
+                            }
+                            if (opt.key === "custom") {
+                              setCustomFrom(customFrom || todayDate)
+                              setCustomTo(customTo || todayDate)
+                            }
+                          }}
+                          style={{
+                            width: "100%",
+                            textAlign: "left",
+                            padding: "8px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #e5e7eb",
+                            background: periodMode === opt.key ? "#f1f5f9" : "#fff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
+
+                {periodMode === "day" ? (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <input
+                      type="date"
+                      value={singleDay || todayDate}
+                      onChange={(e) => setSingleDay(e.target.value)}
+                      style={{
+                        flex: "0 0 auto",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        padding: "8px 10px",
+                        fontSize: 14,
+                      }}
+                    />
+                  </div>
+                ) : null}
+
+                {periodMode === "custom" ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>с</span>
+                      <input
+                        type="date"
+                        value={customFrom || todayDate}
+                        onChange={(e) => setCustomFrom(e.target.value)}
+                        style={{
+                          width: "100%",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          padding: "8px 10px",
+                          fontSize: 14,
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>по</span>
+                      <input
+                        type="date"
+                        value={customTo || todayDate}
+                        onChange={(e) => setCustomTo(e.target.value)}
+                        style={{
+                          width: "100%",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          padding: "8px 10px",
+                          fontSize: 14,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
 
                 <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
                   {expenseData.total > 0 ? (
