@@ -121,6 +121,33 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const donutCy = graphHeight / 2
   const outerR = 74
   const innerR = 61
+  const legendRowHeight = 32
+  const legendGap = 6
+  const legendTotalHeight = legendRowHeight * 5 + legendGap * 4
+  const legendStartY = (graphHeight - legendTotalHeight) / 2 + legendRowHeight / 2
+  const lineStartX = donutSize + 140
+  const lineKneeX = donutCx + outerR + 20
+  const lineEndX = donutCx + outerR + 2
+
+  const legendLines = useMemo(() => {
+    let cursor = -90
+    return chartSlices.slice(0, 5).map((slice, idx) => {
+      const sweep = slice.share * 360
+      const midAngle = cursor + sweep / 2
+      cursor += sweep
+      const anchorY = donutCy + Math.sin((midAngle * Math.PI) / 180) * outerR
+      const startY = legendStartY + idx * (legendRowHeight + legendGap)
+      return {
+        id: slice.id,
+        color: slice.color,
+        startX: lineStartX,
+        startY,
+        kneeX: lineKneeX,
+        endX: lineEndX,
+        anchorY,
+      }
+    })
+  }, [chartSlices, legendGap, legendRowHeight, legendStartY, lineEndX, lineKneeX, lineStartX, outerR, donutCy])
 
   return (
     <>
@@ -305,10 +332,26 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                             </text>
                           </svg>
 
-                          <div style={{ flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
+                          <div style={{ position: "relative", flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
+                            <svg
+                              width={lineStartX - (donutSize + 20)}
+                              height={graphHeight}
+                              style={{ position: "absolute", left: donutSize + 20, top: 0, pointerEvents: "none", overflow: "visible" }}
+                            >
+                              {legendLines.map((line) => (
+                                <path
+                                  key={line.id}
+                                  d={`M ${line.startX} ${line.startY} L ${line.kneeX} ${line.startY} L ${line.endX} ${line.anchorY}`}
+                                  stroke={line.color}
+                                  strokeWidth={2}
+                                  fill="none"
+                                  strokeLinecap="round"
+                                />
+                              ))}
+                            </svg>
                             {chartSlices.slice(0, 5).map((slice) => {
                               return (
-                                <div key={slice.id} style={{ height: 32, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0 }}>
+                                <div key={slice.id} style={{ height: legendRowHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0 }}>
                                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
                                     <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
                                     <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
