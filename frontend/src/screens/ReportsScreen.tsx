@@ -41,7 +41,21 @@ const describeArc = (cx: number, cy: number, r: number, startAngle: number, endA
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${large} 0 ${end.x} ${end.y}`
 }
 
-const layoutLabels = (slices: Slice[], total: number, radius: number, gap: number) => {
+type LabelItem = {
+  id: string
+  name: string
+  percentText: string
+  color: string
+  mid: number
+  mx: number
+  my: number
+  textX: number
+  textYDesired: number
+  textY: number
+  isRight: boolean
+}
+
+const layoutLabels = (slices: Slice[], total: number, radius: number, gap: number): LabelItem[] => {
   const minGap = 16
   const topBound = -90
   const bottomBound = 90
@@ -51,39 +65,51 @@ const layoutLabels = (slices: Slice[], total: number, radius: number, gap: numbe
     const sweep = (s.value / total) * 360
     const mid = startAngle + sweep / 2
     const rad = (mid * Math.PI) / 180
-    const anchor = {
-      x: Math.cos(rad) * (radius + gap),
-      y: Math.sin(rad) * (radius + gap),
+    const mx = Math.cos(rad) * (radius + gap)
+    const my = Math.sin(rad) * (radius + gap)
+    const isRight = mx >= 0
+    const textX = isRight ? mx + 12 : mx - 12
+    return {
+      id: `${s.label}-${idx}`,
+      name: s.label,
+      percentText: "", // fill later when percent known
+      color: s.color,
+      mid,
+      mx,
+      my,
+      textX,
+      textYDesired: my,
+      textY: my,
+      isRight,
     }
-    return { ...s, mid, anchor, desiredY: anchor.y }
   })
 
-  const layoutSide = (items: typeof labels, isRight: boolean) => {
-    const sorted = [...items].sort((a, b) => a.desiredY - b.desiredY)
+  const layoutSide = (items: LabelItem[], isRight: boolean) => {
+    const sorted = [...items].sort((a, b) => a.textYDesired - b.textYDesired)
     for (let i = 0; i < sorted.length; i++) {
       if (i === 0) {
-        sorted[i].desiredY = Math.max(sorted[i].desiredY, topBound)
-      } else if (sorted[i].desiredY - sorted[i - 1].desiredY < minGap) {
-        sorted[i].desiredY = sorted[i - 1].desiredY + minGap
+        sorted[i].textYDesired = Math.max(sorted[i].textYDesired, topBound)
+      } else if (sorted[i].textYDesired - sorted[i - 1].textYDesired < minGap) {
+        sorted[i].textYDesired = sorted[i - 1].textYDesired + minGap
       }
     }
     for (let i = sorted.length - 2; i >= 0; i--) {
-      if (sorted[i].desiredY > bottomBound) sorted[i].desiredY = bottomBound
-      if (sorted[i + 1].desiredY - sorted[i].desiredY < minGap) {
-        sorted[i].desiredY = sorted[i + 1].desiredY - minGap
+      if (sorted[i].textYDesired > bottomBound) sorted[i].textYDesired = bottomBound
+      if (sorted[i + 1].textYDesired - sorted[i].textYDesired < minGap) {
+        sorted[i].textYDesired = sorted[i + 1].textYDesired - minGap
       }
     }
     if (sorted.length > 0) {
-      if (sorted[sorted.length - 1].desiredY > bottomBound) sorted[sorted.length - 1].desiredY = bottomBound
+      if (sorted[sorted.length - 1].textYDesired > bottomBound) sorted[sorted.length - 1].textYDesired = bottomBound
       for (let i = sorted.length - 2; i >= 0; i--) {
-        if (sorted[i + 1].desiredY - sorted[i].desiredY < minGap) {
-          sorted[i].desiredY = sorted[i + 1].desiredY - minGap
+        if (sorted[i + 1].textYDesired - sorted[i].textYDesired < minGap) {
+          sorted[i].textYDesired = sorted[i + 1].textYDesired - minGap
         }
       }
     }
     return sorted.map((s) => ({
       ...s,
-      textY: s.desiredY,
+      textY: s.textYDesired,
       isRight,
     }))
   }
@@ -170,7 +196,19 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   }, [expenseData.colors, expenseData.sliceLabels, expenseData.slices, expenseData.total])
 
   const labeledSlices = useMemo(
-    () => (expenseData.total > 0 ? layoutLabels(slices, expenseData.total, 70, 14) : []),
+    () =>
+      expenseData.total > 0
+        ? layoutLabels(
+            slices.map((s, idx) => {
+              const percentVal = Math.round((s.value / expenseData.total) * 100)
+              const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
+              return { ...s, percentText, id: `${s.label}-${idx}` }
+            }),
+            expenseData.total,
+            70,
+            14,
+          )
+        : [],
     [expenseData.total, slices],
   )
 
@@ -327,18 +365,18 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                 aria-label="Диаграмма расходов"
                 style={{ overflow: "visible" }}
               >
-                {(() => {
-                  const r = 70
-                  const thickness = 8
-                  const gap = 1
-                  let startAngle = 0
-                  return slices.map((s, idx) => {
-                    const sweep = (s.value / expenseData.total) * 360
-                    const adjStart = startAngle + gap / 2
-                    const adjEnd = startAngle + sweep - gap / 2
-                    const path = describeArc(0, 0, r, adjStart, adjEnd)
-                    startAngle += sweep
-                    return (
+                    {(() => {
+                      const r = 70
+                      const thickness = 8
+                      const gap = 1
+                      let startAngle = 0
+                      return slices.map((s, idx) => {
+                        const sweep = (s.value / expenseData.total) * 360
+                        const adjStart = startAngle + gap / 2
+                        const adjEnd = startAngle + sweep - gap / 2
+                        const path = describeArc(0, 0, r, adjStart, adjEnd)
+                        startAngle += sweep
+                        return (
                           <path
                             key={`${s.label}-${idx}`}
                             d={path}
@@ -352,17 +390,15 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                     })()}
                     {labeledSlices.map((s, idx) => {
                       const labelGap = 12
-                      const anchorX = s.anchor.x
-                      const anchorY = s.anchor.y
+                      const anchorX = s.mx
+                      const anchorY = s.my
                       const textX = anchorX >= 0 ? anchorX + labelGap : anchorX - labelGap
                       const textY = s.textY
                       const markerX = anchorX
                       const markerY = anchorY
                       const textAnchor = anchorX >= 0 ? "start" : "end"
-                      const truncatedLabel = s.label.length > 12 ? `${s.label.slice(0, 12)}…` : s.label
-                      const percentVal = Math.round((s.value / expenseData.total) * 100)
-                      const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
-                      const text = `${truncatedLabel} · ${percentText}`
+                      const truncatedLabel = s.name.length > 12 ? `${s.name.slice(0, 12)}…` : s.name
+                      const text = `${truncatedLabel} · ${s.percentText}`
                       return (
                         <g key={`label-${idx}`}>
                           <circle cx={markerX} cy={markerY} r={3.5} fill={s.color} opacity={0.9} />
