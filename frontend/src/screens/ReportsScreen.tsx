@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef } from "react"
+import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
@@ -170,32 +171,19 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
           role="dialog"
           aria-modal="true"
           onClick={() => setIsExpensesSheetOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-            zIndex: 80,
-            padding: "0 12px calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px)",
-          }}
+          className="tx-modal__backdrop"
+          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            className="tx-modal"
             style={{
-              width: "100%",
               maxWidth: 640,
-              background: "#fff",
-              borderTopLeftRadius: 18,
-              borderTopRightRadius: 18,
-              padding: "16px 16px calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 20px)",
-              boxShadow: "none",
-              maxHeight: "85vh",
+              width: "100%",
+              padding: "16px 16px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 20px)",
+              margin: "0 auto",
+              borderRadius: "18px 18px 0 0",
               overflow: "hidden",
-              display: "grid",
-              gap: 12,
-              margin: "16px auto calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
             }}
           >
             <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "grid", gap: 12 }}>
