@@ -87,28 +87,30 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     touchStartX.current = null
   }
 
-  const slices = useMemo(() => {
+  const chartSlices = useMemo(() => {
     if (expenseData.total <= 0) return []
     const palette = expenseData.colors
     const topFour = expenseData.list.slice(0, 4)
-    const restSum = expenseData.list.slice(4).reduce((acc, i) => acc + i.sum, 0)
+    const restSum = Math.max(0, expenseData.total - topFour.reduce((acc, i) => acc + i.sum, 0))
     const base = topFour.map((item, idx) => {
-      const percent = expenseData.total > 0 ? (item.sum / expenseData.total) * 100 : 0
+      const share = expenseData.total > 0 ? item.sum / expenseData.total : 0
       return {
         id: item.id,
         label: item.title,
         color: palette[idx % palette.length],
         value: item.sum,
-        percent,
+        share,
+        percentText: share > 0 && share * 100 < 1 ? "<1%" : `${Math.round(share * 100)}%`,
       }
     })
-    const restPercent = expenseData.total > 0 ? (restSum / expenseData.total) * 100 : 0
+    const restShare = expenseData.total > 0 ? restSum / expenseData.total : 0
     const restSlice = {
       id: "rest",
       label: "Остальное",
       color: "#cbd5e1",
       value: restSum,
-      percent: restPercent,
+      share: restShare,
+      percentText: restShare > 0 && restShare * 100 < 1 ? "<1%" : `${Math.round(restShare * 100)}%`,
     }
     return [...base, restSlice]
   }, [expenseData.colors, expenseData.list, expenseData.total])
@@ -237,44 +239,112 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
 
             <div style={{ display: "grid", gap: 12, overflow: "auto", minHeight: 0 }}>
               {expenseData.total > 0 ? (
-                <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>v2 donut+pill layout</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
                     Итого {formatMoney(expenseData.total, currency ?? "RUB")}
                   </div>
-                  <div
-                    style={{
-                      background: "#eef2f7",
-                      borderRadius: 10,
-                      height: 14,
-                      overflow: "hidden",
-                      display: "flex",
-                    }}
-                  >
-                    {slices.map((segment, idx) => {
-                      const isLast = idx === slices.length - 1
-                      const borderRadius =
-                        slices.length === 1
-                          ? 10
-                          : idx === 0
-                          ? "10px 0 0 10px"
-                          : isLast
-                          ? "0 10px 10px 0"
-                          : undefined
-                      const width = isLast ? undefined : `${segment.percent}%`
+                  <div style={{ display: "flex", gap: 16, alignItems: "center", justifyContent: "center" }}>
+                    {(() => {
+                      const size = 200
+                      const cx = size / 2
+                      const cy = size / 2
+                      const innerR = 42
+                      const outerR = 62
+                      let cursor = -90
+                      const kneeX = cx + 110
+                      const pillHeight = 42
+                      const pillsGap = 10
+                      const pillsStartY = cy - ((pillHeight * 5 + pillsGap * 4) / 2)
+                      const pills = chartSlices.slice(0, 5)
                       return (
-                        <div
-                          key={segment.id}
-                          style={{
-                            height: "100%",
-                            background: segment.color,
-                            width,
-                            flex: isLast ? 1 : "0 0 auto",
-                            borderRadius,
-                          }}
-                          aria-label={`${segment.label}: ${Math.round(segment.percent)}%`}
-                        />
+                        <svg width={size + 160} height={size} viewBox={`0 0 ${size + 160} ${size}`} role="img" aria-label="Диаграмма расходов">
+                          {pills.map((slice, idx) => {
+                            const share = slice.share
+                            const sweep = share * 360
+                            const start = cursor
+                            const end = cursor + sweep
+                            cursor += sweep
+                            const startRad = (Math.PI / 180) * start
+                            const endRad = (Math.PI / 180) * end
+                            const midRad = (Math.PI / 180) * ((start + end) / 2)
+                            const largeArc = sweep > 180 ? 1 : 0
+                            const x1 = cx + Math.cos(startRad) * outerR
+                            const y1 = cy + Math.sin(startRad) * outerR
+                            const x2 = cx + Math.cos(endRad) * outerR
+                            const y2 = cy + Math.sin(endRad) * outerR
+                            const arcPath = `M ${x1} ${y1} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2}`
+                            const innerX1 = cx + Math.cos(endRad) * innerR
+                            const innerY1 = cy + Math.sin(endRad) * innerR
+                            const innerX2 = cx + Math.cos(startRad) * innerR
+                            const innerY2 = cy + Math.sin(startRad) * innerR
+                            const innerArcPath = `A ${innerR} ${innerR} 0 ${largeArc} 0 ${innerX2} ${innerY2}`
+                            const path = `${arcPath} L ${innerX1} ${innerY1} ${innerArcPath} Z`
+
+                            const anchorX = cx + Math.cos(midRad) * outerR
+                            const anchorY = cy + Math.sin(midRad) * outerR
+                            const pillYCenter = pillsStartY + idx * (pillHeight + pillsGap) + pillHeight / 2
+                            const badgeCX = size + 20
+                            const badgeCY = pillYCenter
+                            return (
+                              <g key={slice.id}>
+                                <path d={path} fill={slice.color} />
+                                <path
+                                  d={`M ${anchorX} ${anchorY} L ${kneeX} ${anchorY} L ${badgeCX - 16} ${badgeCY}`}
+                                  stroke={slice.color}
+                                  strokeWidth={2}
+                                  fill="none"
+                                  strokeLinecap="round"
+                                />
+                                <foreignObject x={size} y={pillYCenter - pillHeight / 2} width={160} height={pillHeight}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 10,
+                                      background: "#eef2f7",
+                                      border: "1px solid #e5e7eb",
+                                      borderRadius: 14,
+                                      padding: "8px 12px",
+                                      height: pillHeight,
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        width: 30,
+                                        height: 30,
+                                        borderRadius: "50%",
+                                        border: `2px solid ${slice.color}`,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        background: "#fff",
+                                        color: slice.color,
+                                        fontWeight: 700,
+                                        fontSize: 12,
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      {slice.percentText}
+                                    </div>
+                                    <div style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                      {slice.label}
+                                    </div>
+                                  </div>
+                                </foreignObject>
+                              </g>
+                            )
+                          })}
+                          <circle cx={cx} cy={cy} r={innerR} fill="#fff" />
+                          <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fill="#475569">
+                            Итого
+                          </text>
+                          <text x={cx} y={cy + 12} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
+                            {formatMoney(expenseData.total, currency ?? "RUB")}
+                          </text>
+                        </svg>
                       )
-                    })}
+                    })()}
                   </div>
                 </div>
               ) : (
