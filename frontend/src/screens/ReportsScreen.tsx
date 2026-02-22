@@ -42,30 +42,55 @@ const describeArc = (cx: number, cy: number, r: number, startAngle: number, endA
 }
 
 const layoutLabels = (slices: Slice[], total: number, radius: number) => {
+  const minGap = 16
+  const topBound = -90
+  const bottomBound = 90
+
   const labels = slices.map((s, idx) => {
     const startAngle = (slices.slice(0, idx).reduce((a, v) => a + v.value, 0) / total) * 360
     const sweep = (s.value / total) * 360
     const mid = startAngle + sweep / 2
     const rad = (mid * Math.PI) / 180
     const anchor = {
-      x: Math.cos(rad) * (radius + 8),
-      y: Math.sin(rad) * (radius + 8),
+      x: Math.cos(rad) * (radius + 6),
+      y: Math.sin(rad) * (radius + 6),
     }
     return { ...s, mid, anchor }
   })
-  const left = labels.filter((l) => Math.cos((l.mid * Math.PI) / 180) < 0)
-  const right = labels.filter((l) => Math.cos((l.mid * Math.PI) / 180) >= 0)
-  const adjustColumn = (arr: typeof labels) => {
-    const sorted = [...arr].sort((a, b) => a.anchor.y - b.anchor.y)
-    const minGap = 14
-    for (let i = 1; i < sorted.length; i++) {
-      if (sorted[i].anchor.y - sorted[i - 1].anchor.y < minGap) {
+
+  const layoutSide = (items: typeof labels, isRight: boolean) => {
+    const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y)
+    for (let i = 0; i < sorted.length; i++) {
+      if (i === 0) {
+        sorted[i].anchor.y = Math.max(sorted[i].anchor.y, topBound)
+      } else if (sorted[i].anchor.y - sorted[i - 1].anchor.y < minGap) {
         sorted[i].anchor.y = sorted[i - 1].anchor.y + minGap
       }
     }
-    return sorted
+    for (let i = sorted.length - 2; i >= 0; i--) {
+      if (sorted[i].anchor.y > bottomBound) sorted[i].anchor.y = bottomBound
+      if (sorted[i + 1].anchor.y - sorted[i].anchor.y < minGap) {
+        sorted[i].anchor.y = sorted[i + 1].anchor.y - minGap
+      }
+    }
+    if (sorted.length > 0) {
+      if (sorted[sorted.length - 1].anchor.y > bottomBound) sorted[sorted.length - 1].anchor.y = bottomBound
+      for (let i = sorted.length - 2; i >= 0; i--) {
+        if (sorted[i + 1].anchor.y - sorted[i].anchor.y < minGap) {
+          sorted[i].anchor.y = sorted[i + 1].anchor.y - minGap
+        }
+      }
+    }
+    return sorted.map((s) => ({
+      ...s,
+      textX: isRight ? radius + 40 : -(radius + 40),
+      isRight,
+    }))
   }
-  return [...adjustColumn(left), ...adjustColumn(right)]
+
+  const left = labels.filter((l) => Math.cos((l.mid * Math.PI) / 180) < 0)
+  const right = labels.filter((l) => Math.cos((l.mid * Math.PI) / 180) >= 0)
+  return [...layoutSide(left, false), ...layoutSide(right, true)]
 }
 
 const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
@@ -140,7 +165,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     return values.map((v, idx) => ({
       value: v,
       label: labels[idx] ?? "—",
-      color: palette[idx % palette.length],
+      color: labels[idx] === "Остальное" ? "#cbd5e1" : palette[idx % palette.length],
     }))
   }, [expenseData.colors, expenseData.sliceLabels, expenseData.slices, expenseData.total])
 
@@ -297,13 +322,16 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                   <svg width="260" height="220" viewBox="-130 -110 260 220" role="img" aria-label="Диаграмма расходов">
                     {(() => {
                       const r = 70
-                      const thickness = 10
+                      const thickness = 8
+                      const gap = 1
                       let startAngle = 0
                       return slices.map((s, idx) => {
                         const sweep = (s.value / expenseData.total) * 360
-                        const endAngle = startAngle + sweep
-                        const path = describeArc(0, 0, r, startAngle, endAngle)
-                        const el = (
+                        const adjStart = startAngle + gap / 2
+                        const adjEnd = startAngle + sweep - gap / 2
+                        const path = describeArc(0, 0, r, adjStart, adjEnd)
+                        startAngle += sweep
+                        return (
                           <path
                             key={`${s.label}-${idx}`}
                             d={path}
@@ -313,30 +341,31 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                             strokeLinecap="butt"
                           />
                         )
-                        startAngle = endAngle
-                        return el
                       })
                     })()}
                     {labeledSlices.map((s, idx) => {
                       const angleRad = (s.mid * Math.PI) / 180
-                      const rOuter = 75
+                      const rOuter = 78
                       const start = { x: Math.cos(angleRad) * rOuter, y: Math.sin(angleRad) * rOuter }
-                      const midX = Math.cos(angleRad) * (rOuter + 12)
-                      const midY = s.anchor.y
-                      const endX = Math.sign(Math.cos(angleRad)) * 110
-                      const endY = midY
-                      const textAnchor = endX > 0 ? "start" : "end"
-                      const lineColor = "#94a3b8"
-                      const text = `${s.label}: ${Math.round((s.value / expenseData.total) * 100)}%`
+                      const elbowX = Math.cos(angleRad) * (rOuter + 12)
+                      const endX = s.textX
+                      const endY = s.anchor.y
+                      const lineColor = "rgba(0,0,0,0.35)"
+                      const textAnchor = s.isRight ? "start" : "end"
+                      const truncatedLabel = s.label.length > 18 ? `${s.label.slice(0, 18)}…` : s.label
+                      const percentVal = Math.round((s.value / expenseData.total) * 100)
+                      const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
+                      const text = `${truncatedLabel} · ${percentText}`
                       return (
                         <g key={`label-${idx}`} stroke={lineColor} fill="none">
-                          <path
-                            d={`M ${start.x} ${start.y} L ${midX} ${midY} L ${endX} ${endY}`}
+                          <polyline
+                            points={`${start.x},${start.y} ${elbowX},${endY} ${endX},${endY}`}
                             strokeWidth={1}
-                            strokeDasharray="3 3"
+                            strokeDasharray="2 3"
+                            opacity={0.6}
                           />
                           <text
-                            x={endX + (endX > 0 ? 4 : -4)}
+                            x={endX + (s.isRight ? 4 : -4)}
                             y={endY + 4}
                             textAnchor={textAnchor}
                             fontSize={12}
