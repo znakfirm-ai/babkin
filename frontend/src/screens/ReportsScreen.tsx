@@ -386,28 +386,17 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                         )
                       })
                     })()}
-                    {labeledSlices.map((s, idx) => {
+                    {labeledSlices.map((s) => {
                       const labelGap = 12
-                      const anchorX = s.mx
-                      const anchorY = s.my
-                      const textX = anchorX >= 0 ? anchorX + labelGap : anchorX - labelGap
+                      const textX = s.mx >= 0 ? s.mx + labelGap : s.mx - labelGap
                       const textY = s.textY
-                      const markerX = anchorX
-                      const markerY = anchorY
-                      const textAnchor = anchorX >= 0 ? "start" : "end"
+                      const textAnchor = s.mx >= 0 ? "start" : "end"
                       const truncatedLabel = s.name.length > 12 ? `${s.name.slice(0, 12)}…` : s.name
-                      const text = `${truncatedLabel} · ${s.percentText}`
                       return (
-                        <g key={`label-${idx}`}>
-                          <circle cx={markerX} cy={markerY} r={3.5} fill={s.color} opacity={0.9} />
-                          <text
-                            x={textX}
-                            y={textY + 4}
-                            textAnchor={textAnchor}
-                            fontSize={12}
-                            fill="#0f172a"
-                          >
-                            {text}
+                        <g key={s.id}>
+                          <text x={textX} y={textY + 4} textAnchor={textAnchor} fontSize={12} fill="#0f172a">
+                            <tspan>{truncatedLabel}</tspan>
+                            <tspan fill={s.color}>{` · ${s.percentText}`}</tspan>
                           </text>
                         </g>
                       )
