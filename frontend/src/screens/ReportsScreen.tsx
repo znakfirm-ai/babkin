@@ -115,6 +115,17 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     return [...base, restSlice]
   }, [expenseData.colors, expenseData.list, expenseData.total])
 
+  const graphHeight = 268
+  const pillHeight = 44
+  const pillGap = 12
+  const donutSize = 190
+  const donutCx = donutSize / 2
+  const donutCy = graphHeight / 2
+  const innerR = 42
+  const outerR = 62
+  const totalPillsHeight = 5 * pillHeight + 4 * pillGap
+  const firstPillCenterY = donutCy - totalPillsHeight / 2 + pillHeight / 2
+
   return (
     <>
       <div style={{ padding: 16, display: "grid", gap: 12 }}>
@@ -240,63 +251,89 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
             <div style={{ display: "grid", gap: 12, overflow: "auto", minHeight: 0 }}>
               {expenseData.total > 0 ? (
                 <div style={{ display: "grid", gap: 12 }}>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>v2 donut+pill layout</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
                     Итого {formatMoney(expenseData.total, currency ?? "RUB")}
                   </div>
-                  <div style={{ display: "flex", gap: 16, alignItems: "center", justifyContent: "center" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 14,
+                      alignItems: "center",
+                      width: "100%",
+                      minWidth: 0,
+                      overflow: "visible",
+                      height: graphHeight,
+                    }}
+                  >
                     {(() => {
-                      const size = 200
-                      const cx = size / 2
-                      const cy = size / 2
-                      const innerR = 42
-                      const outerR = 62
-                      let cursor = -90
-                      const kneeX = cx + 110
-                      const pillHeight = 42
-                      const pillsGap = 10
-                      const pillsStartY = cy - ((pillHeight * 5 + pillsGap * 4) / 2)
+                      const kneeX = donutCx + 80
                       const pills = chartSlices.slice(0, 5)
+                      let cursor = -90
                       return (
-                        <svg width={size + 160} height={size} viewBox={`0 0 ${size + 160} ${size}`} role="img" aria-label="Диаграмма расходов">
-                          {pills.map((slice, idx) => {
-                            const share = slice.share
-                            const sweep = share * 360
-                            const start = cursor
-                            const end = cursor + sweep
-                            cursor += sweep
-                            const startRad = (Math.PI / 180) * start
-                            const endRad = (Math.PI / 180) * end
-                            const midRad = (Math.PI / 180) * ((start + end) / 2)
-                            const largeArc = sweep > 180 ? 1 : 0
-                            const x1 = cx + Math.cos(startRad) * outerR
-                            const y1 = cy + Math.sin(startRad) * outerR
-                            const x2 = cx + Math.cos(endRad) * outerR
-                            const y2 = cy + Math.sin(endRad) * outerR
-                            const arcPath = `M ${x1} ${y1} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2}`
-                            const innerX1 = cx + Math.cos(endRad) * innerR
-                            const innerY1 = cy + Math.sin(endRad) * innerR
-                            const innerX2 = cx + Math.cos(startRad) * innerR
-                            const innerY2 = cy + Math.sin(startRad) * innerR
-                            const innerArcPath = `A ${innerR} ${innerR} 0 ${largeArc} 0 ${innerX2} ${innerY2}`
-                            const path = `${arcPath} L ${innerX1} ${innerY1} ${innerArcPath} Z`
+                        <>
+                          <svg
+                            width={donutSize + 20}
+                            height={graphHeight}
+                            viewBox={`0 0 ${donutSize + 20} ${graphHeight}`}
+                            role="img"
+                            aria-label="Диаграмма расходов"
+                            style={{ flex: "0 0 auto" }}
+                          >
+                            {pills.map((slice) => {
+                              const sweep = slice.share * 360
+                              const start = cursor
+                              const end = cursor + sweep
+                              cursor += sweep
+                              const startRad = (Math.PI / 180) * start
+                              const endRad = (Math.PI / 180) * end
+                              const largeArc = sweep > 180 ? 1 : 0
+                              const x1 = donutCx + Math.cos(startRad) * outerR
+                              const y1 = donutCy + Math.sin(startRad) * outerR
+                              const x2 = donutCx + Math.cos(endRad) * outerR
+                              const y2 = donutCy + Math.sin(endRad) * outerR
+                              const arcPath = `M ${x1} ${y1} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2}`
+                              const innerX1 = donutCx + Math.cos(endRad) * innerR
+                              const innerY1 = donutCy + Math.sin(endRad) * innerR
+                              const innerX2 = donutCx + Math.cos(startRad) * innerR
+                              const innerY2 = donutCy + Math.sin(startRad) * innerR
+                              const innerArcPath = `A ${innerR} ${innerR} 0 ${largeArc} 0 ${innerX2} ${innerY2}`
+                              const path = `${arcPath} L ${innerX1} ${innerY1} ${innerArcPath} Z`
 
-                            const anchorX = cx + Math.cos(midRad) * outerR
-                            const anchorY = cy + Math.sin(midRad) * outerR
-                            const pillYCenter = pillsStartY + idx * (pillHeight + pillsGap) + pillHeight / 2
-                            const badgeCX = size + 20
-                            const badgeCY = pillYCenter
-                            return (
-                              <g key={slice.id}>
-                                <path d={path} fill={slice.color} />
-                                <path
-                                  d={`M ${anchorX} ${anchorY} L ${kneeX} ${anchorY} L ${badgeCX - 16} ${badgeCY}`}
-                                  stroke={slice.color}
-                                  strokeWidth={2}
-                                  fill="none"
-                                  strokeLinecap="round"
-                                />
-                                <foreignObject x={size} y={pillYCenter - pillHeight / 2} width={160} height={pillHeight}>
+                              return <path key={slice.id} d={path} fill={slice.color} />
+                            })}
+                            <circle cx={donutCx} cy={donutCy} r={innerR} fill="#fff" />
+                            <text x={donutCx} y={donutCy - 6} textAnchor="middle" fontSize={11} fill="#475569">
+                              Итого
+                            </text>
+                            <text x={donutCx} y={donutCy + 12} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
+                              {formatMoney(expenseData.total, currency ?? "RUB")}
+                            </text>
+                          </svg>
+
+                          <div style={{ flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: pillGap }}>
+                            {chartSlices.slice(0, 5).map((slice, idx) => {
+                              const centerY = firstPillCenterY + idx * (pillHeight + pillGap)
+                              const badgeCenterY = centerY
+                              const badgeCX = donutSize + 20 + 8
+                              const prevSweep = chartSlices.slice(0, idx).reduce((acc, s) => acc + s.share * 360, 0)
+                              const midAngle = -90 + prevSweep + slice.share * 180
+                              const anchorX = donutCx + Math.cos((midAngle * Math.PI) / 180) * outerR
+                              const anchorY = donutCy + Math.sin((midAngle * Math.PI) / 180) * outerR
+                              return (
+                                <div key={slice.id} style={{ position: "relative", height: pillHeight }}>
+                                  <svg
+                                    width={donutSize + 140}
+                                    height={pillHeight}
+                                    style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible" }}
+                                  >
+                                    <path
+                                      d={`M ${anchorX} ${anchorY} L ${kneeX} ${anchorY} L ${badgeCX - 10} ${badgeCenterY}`}
+                                      stroke={slice.color}
+                                      strokeWidth={2}
+                                      fill="none"
+                                      strokeLinecap="round"
+                                    />
+                                  </svg>
                                   <div
                                     style={{
                                       display: "flex",
@@ -307,6 +344,8 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                                       borderRadius: 14,
                                       padding: "8px 12px",
                                       height: pillHeight,
+                                      boxSizing: "border-box",
+                                      width: "100%",
                                     }}
                                   >
                                     <div
@@ -327,22 +366,23 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                                     >
                                       {slice.percentText}
                                     </div>
-                                    <div style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    <div
+                                      style={{
+                                        fontSize: 14,
+                                        color: "#0f172a",
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                      }}
+                                    >
                                       {slice.label}
                                     </div>
                                   </div>
-                                </foreignObject>
-                              </g>
-                            )
-                          })}
-                          <circle cx={cx} cy={cy} r={innerR} fill="#fff" />
-                          <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fill="#475569">
-                            Итого
-                          </text>
-                          <text x={cx} y={cy + 12} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
-                            {formatMoney(expenseData.total, currency ?? "RUB")}
-                          </text>
-                        </svg>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </>
                       )
                     })()}
                   </div>
