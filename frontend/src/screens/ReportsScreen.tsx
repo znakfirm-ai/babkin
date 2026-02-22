@@ -305,7 +305,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                             </text>
                           </svg>
 
-                          <div style={{ flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: 10 }}>
+                          <div style={{ flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
                             {chartSlices.slice(0, 5).map((slice) => {
                               return (
                                 <div key={slice.id} style={{ height: 32, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0 }}>
