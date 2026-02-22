@@ -196,6 +196,15 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     })
   }, [expenseData.colors, expenseData.sliceLabels, expenseData.slices, expenseData.total])
 
+  const dominantInfo = useMemo(() => {
+    if (slicesWithAngles.length === 0 || expenseData.total <= 0) return { dominant: null as typeof slicesWithAngles[number] | null, dominantPercent: 0 }
+    const dom = slicesWithAngles.reduce((acc, s) => (s.value > acc.value ? s : acc), slicesWithAngles[0])
+    const domPercent = (dom.value / expenseData.total) * 100
+    return { dominant: dom, dominantPercent: domPercent }
+  }, [expenseData.total, slicesWithAngles])
+
+  const dominantMode = dominantInfo.dominantPercent >= 60
+
   const labeledSlices = useMemo(() => {
     if (expenseData.total <= 0) return []
     const gapForText = 12
@@ -205,7 +214,11 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     const safeLeft = cx - (donutOuter + safePadding)
     const safeRight = cx + (donutOuter + safePadding)
 
-    const itemsBase: LabelItem[] = slicesWithAngles.map((s) => {
+    const baseSlices = dominantMode
+      ? slicesWithAngles.filter((s) => s.id !== dominantInfo.dominant?.id)
+      : slicesWithAngles
+
+    const itemsBase: LabelItem[] = baseSlices.map((s) => {
       const textX = s.isRight ? s.mx + gapForText : s.mx - gapForText
       return {
         id: s.id,
@@ -222,18 +235,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
       }
     })
 
-    const maxSlice = slicesWithAngles.reduce((acc, s) => (s.value > acc.value ? s : acc), slicesWithAngles[0])
-    const maxPercent = (maxSlice.value / expenseData.total) * 100
     const itemsPrepared = itemsBase.map((item) => {
-      if (item.id === maxSlice.id && maxPercent >= 55) {
-        return {
-          ...item,
-          textX: donutOuter + 22,
-          textYDesired: 5,
-          textY: 5,
-          isRight: true,
-        }
-      }
       const clampX =
         item.isRight && item.textX < cx + donutOuter + 18
           ? cx + donutOuter + 18
@@ -250,7 +252,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     })
 
     return adjustLabelPositions(itemsPrepared)
-  }, [RING_RADIUS, RING_THICKNESS, slicesWithAngles, expenseData.total])
+  }, [RING_RADIUS, RING_THICKNESS, slicesWithAngles, expenseData.total, dominantMode, dominantInfo.dominant])
 
   return (
     <>
@@ -425,6 +427,29 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                         </g>
                       )
                     })}
+                    {dominantMode && dominantInfo.dominant ? (
+                      <g key="dominant-label">
+                        <text
+                          x={RING_RADIUS + RING_THICKNESS / 2 + 22}
+                          y={RING_RADIUS + RING_THICKNESS / 2 + 6}
+                          textAnchor="start"
+                          fontSize={14}
+                          fontWeight={700}
+                          fill={dominantInfo.dominant.color}
+                        >
+                          {dominantInfo.dominant.percentText}
+                        </text>
+                        <text
+                          x={RING_RADIUS + RING_THICKNESS / 2 + 22}
+                          y={RING_RADIUS + RING_THICKNESS / 2 + 22}
+                          textAnchor="start"
+                          fontSize={13}
+                          fill="#4b5563"
+                        >
+                          {dominantInfo.dominant.label}
+                        </text>
+                      </g>
+                    ) : null}
                   </svg>
                 ) : (
                   <div style={{ color: "#6b7280", fontSize: 14 }}>Нет расходов за период</div>
