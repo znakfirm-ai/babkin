@@ -23,12 +23,6 @@ const getMonthRange = (offset: number) => {
   return { start, end, label: `${MONTHS[target.getMonth()]} ${target.getFullYear()}` }
 }
 
-type Slice = {
-  value: number
-  label: string
-  color: string
-}
-
 const polarToCartesian = (cx: number, cy: number, r: number, angleDeg: number) => {
   const rad = ((angleDeg - 90) * Math.PI) / 180
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
@@ -55,37 +49,13 @@ type LabelItem = {
   isRight: boolean
 }
 
-const layoutLabels = (slices: Slice[], total: number, radius: number, gap: number): LabelItem[] => {
+const adjustLabelPositions = (items: LabelItem[]): LabelItem[] => {
   const minGap = 16
   const topBound = -90
   const bottomBound = 90
 
-  const labels = slices.map((s, idx) => {
-    const startAngle = (slices.slice(0, idx).reduce((a, v) => a + v.value, 0) / total) * 360
-    const sweep = (s.value / total) * 360
-    const mid = startAngle + sweep / 2
-    const rad = (mid * Math.PI) / 180
-    const mx = Math.cos(rad) * (radius + gap)
-    const my = Math.sin(rad) * (radius + gap)
-    const isRight = mx >= 0
-    const textX = isRight ? mx + 12 : mx - 12
-    return {
-      id: `${s.label}-${idx}`,
-      name: s.label,
-      percentText: "", // fill later when percent known
-      color: s.color,
-      mid,
-      mx,
-      my,
-      textX,
-      textYDesired: my,
-      textY: my,
-      isRight,
-    }
-  })
-
-  const layoutSide = (items: LabelItem[], isRight: boolean) => {
-    const sorted = [...items].sort((a, b) => a.textYDesired - b.textYDesired)
+  const layoutSide = (side: LabelItem[], isRight: boolean) => {
+    const sorted = [...side].sort((a, b) => a.textYDesired - b.textYDesired)
     for (let i = 0; i < sorted.length; i++) {
       if (i === 0) {
         sorted[i].textYDesired = Math.max(sorted[i].textYDesired, topBound)
@@ -114,8 +84,8 @@ const layoutLabels = (slices: Slice[], total: number, radius: number, gap: numbe
     }))
   }
 
-  const left = labels.filter((l) => Math.cos((l.mid * Math.PI) / 180) < 0)
-  const right = labels.filter((l) => Math.cos((l.mid * Math.PI) / 180) >= 0)
+  const left = items.filter((l) => !l.isRight)
+  const right = items.filter((l) => l.isRight)
   return [...layoutSide(left, false), ...layoutSide(right, true)]
 }
 
@@ -183,34 +153,66 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     touchStartX.current = null
   }
 
-  const slices = useMemo(() => {
+  const slicesWithAngles = useMemo(() => {
     if (expenseData.total <= 0) return []
-    const values = expenseData.slices
-    const labels = expenseData.sliceLabels
+    const gapDeg = 1
+    let angleCursor = 0
     const palette = expenseData.colors
-    return values.map((v, idx) => ({
-      value: v,
-      label: labels[idx] ?? "—",
-      color: labels[idx] === "Остальное" ? "#cbd5e1" : palette[idx % palette.length],
-    }))
+    const labels = expenseData.sliceLabels
+    return expenseData.slices.map((value, idx) => {
+      const label = labels[idx] ?? "—"
+      const color = label === "Остальное" ? "#cbd5e1" : palette[idx % palette.length]
+      const sweepDeg = (value / expenseData.total) * 360
+      const adjStart = angleCursor + gapDeg / 2
+      const adjEnd = angleCursor + sweepDeg - gapDeg / 2
+      const midDeg = (adjStart + adjEnd) / 2
+      const midRad = ((midDeg - 90) * Math.PI) / 180
+      const startRad = ((adjStart - 90) * Math.PI) / 180
+      const endRad = ((adjEnd - 90) * Math.PI) / 180
+      const outerEdge = 70 + 8 / 2
+      const markerR = outerEdge + 5
+      const mx = Math.cos(midRad) * markerR
+      const my = Math.sin(midRad) * markerR
+      const percentVal = Math.round((value / expenseData.total) * 100)
+      const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
+      angleCursor += sweepDeg
+      return {
+        id: `${label}-${idx}`,
+        value,
+        label,
+        color,
+        percentText,
+        startRad,
+        endRad,
+        midRad,
+        mx,
+        my,
+        isRight: mx >= 0,
+      }
+    })
   }, [expenseData.colors, expenseData.sliceLabels, expenseData.slices, expenseData.total])
 
-  const labeledSlices = useMemo(
-    () =>
-      expenseData.total > 0
-        ? layoutLabels(
-            slices.map((s, idx) => {
-              const percentVal = Math.round((s.value / expenseData.total) * 100)
-              const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
-              return { ...s, percentText, id: `${s.label}-${idx}` }
-            }),
-            expenseData.total,
-            70,
-            14,
-          )
-        : [],
-    [expenseData.total, slices],
-  )
+  const labeledSlices = useMemo(() => {
+    if (expenseData.total <= 0) return []
+    const gapForText = 12
+    const items: LabelItem[] = slicesWithAngles.map((s) => {
+      const textX = s.isRight ? s.mx + gapForText : s.mx - gapForText
+      return {
+        id: s.id,
+        name: s.label,
+        percentText: s.percentText,
+        color: s.color,
+        mid: s.midRad,
+        mx: s.mx,
+        my: s.my,
+        textX,
+        textYDesired: s.my,
+        textY: s.my,
+        isRight: s.isRight,
+      }
+    })
+    return adjustLabelPositions(items)
+  }, [slicesWithAngles])
 
   return (
     <>
@@ -368,17 +370,13 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                     {(() => {
                       const r = 70
                       const thickness = 8
-                      const gap = 1
-                      let startAngle = 0
-                      return slices.map((s, idx) => {
-                        const sweep = (s.value / expenseData.total) * 360
-                        const adjStart = startAngle + gap / 2
-                        const adjEnd = startAngle + sweep - gap / 2
-                        const path = describeArc(0, 0, r, adjStart, adjEnd)
-                        startAngle += sweep
+                      return slicesWithAngles.map((s) => {
+                        const startDeg = (s.startRad * 180) / Math.PI + 90
+                        const endDeg = (s.endRad * 180) / Math.PI + 90
+                        const path = describeArc(0, 0, r, startDeg, endDeg)
                         return (
                           <path
-                            key={`${s.label}-${idx}`}
+                            key={s.id}
                             d={path}
                             stroke={s.color}
                             strokeWidth={thickness}
