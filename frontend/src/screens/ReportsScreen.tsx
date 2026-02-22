@@ -116,7 +116,6 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   }, [expenseData.colors, expenseData.list, expenseData.total])
 
   const graphHeight = 268
-  const pillHeight = 44
   const donutSize = 190
   const donutCx = donutSize / 2
   const donutCy = graphHeight / 2
@@ -309,14 +308,13 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                           <div style={{ flex: 1, minWidth: 0, height: graphHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: 10 }}>
                             {chartSlices.slice(0, 5).map((slice) => {
                               return (
-                                <div key={slice.id} style={{ height: pillHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                                <div key={slice.id} style={{ height: 32, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0 }}>
                                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
                                     <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
                                     <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                       {slice.label}
                                     </span>
                                   </div>
-                                  <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}></span>
                                 </div>
                               )
                             })}
