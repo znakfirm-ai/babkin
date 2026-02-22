@@ -23,72 +23,6 @@ const getMonthRange = (offset: number) => {
   return { start, end, label: `${MONTHS[target.getMonth()]} ${target.getFullYear()}` }
 }
 
-const polarToCartesian = (cx: number, cy: number, r: number, angleDeg: number) => {
-  const rad = ((angleDeg - 90) * Math.PI) / 180
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
-}
-
-const describeArc = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
-  const start = polarToCartesian(cx, cy, r, endAngle)
-  const end = polarToCartesian(cx, cy, r, startAngle)
-  const large = endAngle - startAngle <= 180 ? "0" : "1"
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${large} 0 ${end.x} ${end.y}`
-}
-
-type LabelItem = {
-  id: string
-  name: string
-  percentText: string
-  color: string
-  mid: number
-  mx: number
-  my: number
-  textX: number
-  textYDesired: number
-  textY: number
-  isRight: boolean
-}
-
-const adjustLabelPositions = (items: LabelItem[]): LabelItem[] => {
-  const minGap = 16
-  const topBound = -90
-  const bottomBound = 90
-
-  const layoutSide = (side: LabelItem[], isRight: boolean) => {
-    const sorted = [...side].sort((a, b) => a.textYDesired - b.textYDesired)
-    for (let i = 0; i < sorted.length; i++) {
-      if (i === 0) {
-        sorted[i].textYDesired = Math.max(sorted[i].textYDesired, topBound)
-      } else if (sorted[i].textYDesired - sorted[i - 1].textYDesired < minGap) {
-        sorted[i].textYDesired = sorted[i - 1].textYDesired + minGap
-      }
-    }
-    for (let i = sorted.length - 2; i >= 0; i--) {
-      if (sorted[i].textYDesired > bottomBound) sorted[i].textYDesired = bottomBound
-      if (sorted[i + 1].textYDesired - sorted[i].textYDesired < minGap) {
-        sorted[i].textYDesired = sorted[i + 1].textYDesired - minGap
-      }
-    }
-    if (sorted.length > 0) {
-      if (sorted[sorted.length - 1].textYDesired > bottomBound) sorted[sorted.length - 1].textYDesired = bottomBound
-      for (let i = sorted.length - 2; i >= 0; i--) {
-        if (sorted[i + 1].textYDesired - sorted[i].textYDesired < minGap) {
-          sorted[i].textYDesired = sorted[i + 1].textYDesired - minGap
-        }
-      }
-    }
-    return sorted.map((s) => ({
-      ...s,
-      textY: s.textYDesired,
-      isRight,
-    }))
-  }
-
-  const left = items.filter((l) => !l.isRight)
-  const right = items.filter((l) => l.isRight)
-  return [...layoutSide(left, false), ...layoutSide(right, true)]
-}
-
 const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
@@ -153,136 +87,22 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     touchStartX.current = null
   }
 
-  const RING_RADIUS = 60
-  const RING_THICKNESS = 8
-  const MARKER_GAP = 5
-
-  const slicesWithAngles = useMemo(() => {
+  const stackedSegments = useMemo(() => {
     if (expenseData.total <= 0) return []
-    const gapDeg = 1
-    let angleCursor = 0
     const palette = expenseData.colors
     const labels = expenseData.sliceLabels
     return expenseData.slices.map((value, idx) => {
       const label = labels[idx] ?? "—"
       const color = label === "Остальное" ? "#cbd5e1" : palette[idx % palette.length]
-      const sweepDeg = (value / expenseData.total) * 360
-      const adjStart = angleCursor + gapDeg / 2
-      const adjEnd = angleCursor + sweepDeg - gapDeg / 2
-      const midDeg = (adjStart + adjEnd) / 2
-      const midRad = ((midDeg - 90) * Math.PI) / 180
-      const startRad = ((adjStart - 90) * Math.PI) / 180
-      const endRad = ((adjEnd - 90) * Math.PI) / 180
-      const outerEdge = RING_RADIUS + RING_THICKNESS / 2
-      const markerR = outerEdge + MARKER_GAP
-      const mx = Math.cos(midRad) * markerR
-      const my = Math.sin(midRad) * markerR
-      const percentVal = Math.round((value / expenseData.total) * 100)
-      const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
-      angleCursor += sweepDeg
+      const percent = expenseData.total > 0 ? (value / expenseData.total) * 100 : 0
       return {
         id: `${label}-${idx}`,
-        value,
         label,
         color,
-        percentText,
-        startRad,
-        endRad,
-        midRad,
-        mx,
-        my,
-        isRight: mx >= 0,
+        percent,
       }
     })
   }, [expenseData.colors, expenseData.sliceLabels, expenseData.slices, expenseData.total])
-
-  const dominantInfo = useMemo(() => {
-    if (slicesWithAngles.length === 0 || expenseData.total <= 0) return { dominant: null as typeof slicesWithAngles[number] | null, dominantPercent: 0 }
-    const dom = slicesWithAngles.reduce((acc, s) => (s.value > acc.value ? s : acc), slicesWithAngles[0])
-    const domPercent = (dom.value / expenseData.total) * 100
-    return { dominant: dom, dominantPercent: domPercent }
-  }, [expenseData.total, slicesWithAngles])
-
-const dominantMode = dominantInfo.dominantPercent >= 60
-
-  const labeledSlices = useMemo(() => {
-    if (expenseData.total <= 0) return []
-    const gapForTextRight = 12
-    const gapForTextLeft = 8
-    const donutOuter = RING_RADIUS + RING_THICKNESS / 2
-    const safePadding = 12
-    const cx = 0
-  const safeLeft = cx - (donutOuter + safePadding)
-  const safeRight = cx + (donutOuter + safePadding)
-
-  if (dominantMode) {
-    const others = slicesWithAngles.filter((s) => s.id !== dominantInfo.dominant?.id)
-    const n = others.length
-    const startDeg = 240
-    const endDeg = 120
-    const safeTextR = donutOuter + 18
-    const safeLeftX = cx - (donutOuter + 8)
-
-    const positioned: LabelItem[] = others.map((s, idx) => {
-      const t = n === 1 ? 0.5 : idx / Math.max(1, n - 1)
-      const angleDeg = startDeg + (endDeg - startDeg) * t
-      const angleRad = (angleDeg * Math.PI) / 180
-      const tx = Math.min(Math.cos(angleRad) * safeTextR, safeLeftX)
-      const ty = Math.sin(angleRad) * safeTextR
-      return {
-        id: s.id,
-        name: s.label,
-        percentText: s.percentText,
-        color: s.color,
-        mid: s.midRad,
-        mx: s.mx,
-        my: s.my,
-        textX: tx,
-        textYDesired: ty,
-        textY: ty,
-        isRight: false,
-      }
-    })
-
-    return adjustLabelPositions(positioned)
-  }
-
-  const itemsBase: LabelItem[] = slicesWithAngles.map((s) => {
-    const textX = s.isRight ? s.mx + gapForTextRight : s.mx - gapForTextLeft
-    return {
-      id: s.id,
-      name: s.label,
-      percentText: s.percentText,
-      color: s.color,
-      mid: s.midRad,
-      mx: s.mx,
-      my: s.my,
-      textX,
-      textYDesired: s.my,
-      textY: s.my,
-      isRight: s.isRight,
-    }
-  })
-
-  const itemsPrepared = itemsBase.map((item) => {
-    const clampX =
-      item.isRight && item.textX < cx + donutOuter + 10
-        ? cx + donutOuter + 10
-        : !item.isRight && item.textX > cx - donutOuter - 10
-        ? cx - donutOuter - 10
-        : item.textX
-    const withinSafe =
-      clampX > safeLeft && clampX < safeRight && item.textY > -donutOuter && item.textY < donutOuter
-    const finalX =
-      withinSafe && item.isRight ? cx + donutOuter + 18 : withinSafe && !item.isRight ? cx - donutOuter - 18 : clampX
-    return {
-      ...item,
-      textX: finalX,
-    }
-  })
-
-  return adjustLabelPositions(itemsPrepared)
-}, [RING_RADIUS, RING_THICKNESS, slicesWithAngles, expenseData.total, dominantMode, dominantInfo.dominant])
 
   return (
     <>
@@ -406,87 +226,51 @@ const dominantMode = dominantInfo.dominantPercent >= 60
               </div>
             </div>
 
-            <div style={{ display: "grid", gap: 10, overflow: "auto", minHeight: 0 }}>
-          <div style={{ display: "grid", placeItems: "center" }}>
-            {expenseData.total > 0 ? (
-              <svg
-                width="260"
-                height="200"
-                viewBox="-130 -100 260 200"
-                role="img"
-                aria-label="Диаграмма расходов"
-                style={{ overflow: "visible" }}
-              >
-                    {(() => {
-                      const r = RING_RADIUS
-                      const thickness = RING_THICKNESS
-                      return slicesWithAngles.map((s) => {
-                        const startDeg = (s.startRad * 180) / Math.PI + 90
-                        const endDeg = (s.endRad * 180) / Math.PI + 90
-                        const path = describeArc(0, 0, r, startDeg, endDeg)
-                        return (
-                          <path
-                            key={s.id}
-                            d={path}
-                            stroke={s.color}
-                            strokeWidth={thickness}
-                            fill="none"
-                            strokeLinecap="butt"
-                          />
-                        )
-                      })
-                    })()}
-                    <text x={0} y={-4} textAnchor="middle" fontSize={11} fill="#475569">
-                      Итого
-                    </text>
-                    <text x={0} y={12} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
-                      {formatMoney(expenseData.total, currency ?? "RUB")}
-                    </text>
-                    {labeledSlices.map((s) => {
-                      const textY = s.textY
-                      const outerEdge = RING_RADIUS + RING_THICKNESS / 2
-                      const leftAnchor = -(outerEdge + 10)
-                      const textAnchor = s.mx >= 0 ? "start" : "end"
-                      const textX = s.mx >= 0 ? s.textX : leftAnchor
-                      const truncatedLabel = s.name.length > 11 ? `${s.name.slice(0, 11)}…` : s.name
+            <div style={{ display: "grid", gap: 12, overflow: "auto", minHeight: 0 }}>
+              {expenseData.total > 0 ? (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
+                    Итого {formatMoney(expenseData.total, currency ?? "RUB")}
+                  </div>
+                  <div
+                    style={{
+                      background: "#eef2f7",
+                      borderRadius: 10,
+                      height: 14,
+                      overflow: "hidden",
+                      display: "flex",
+                    }}
+                  >
+                    {stackedSegments.map((segment, idx) => {
+                      const isLast = idx === stackedSegments.length - 1
+                      const borderRadius =
+                        stackedSegments.length === 1
+                          ? 10
+                          : idx === 0
+                          ? "10px 0 0 10px"
+                          : isLast
+                          ? "0 10px 10px 0"
+                          : undefined
+                      const width = isLast ? undefined : `${segment.percent}%`
                       return (
-                        <g key={s.id}>
-                          <text x={textX} y={textY + 4} textAnchor={textAnchor} fontSize={12} fill="#4b5563">
-                            <tspan>{truncatedLabel}</tspan>
-                            <tspan fill={s.color}>{` · ${s.percentText}`}</tspan>
-                          </text>
-                        </g>
+                        <div
+                          key={segment.id}
+                          style={{
+                            height: "100%",
+                            background: segment.color,
+                            width,
+                            flex: isLast ? 1 : "0 0 auto",
+                            borderRadius,
+                          }}
+                          aria-label={`${segment.label}: ${Math.round(segment.percent)}%`}
+                        />
                       )
                     })}
-                    {dominantMode && dominantInfo.dominant ? (
-                      <g key="dominant-label">
-                        <text
-                          x={RING_RADIUS + RING_THICKNESS / 2 + 22}
-                          y={RING_RADIUS + RING_THICKNESS / 2 + 6}
-                          textAnchor="start"
-                          fontSize={14}
-                          fontWeight={700}
-                          fill={dominantInfo.dominant.color}
-                        >
-                          {dominantInfo.dominant.percentText}
-                        </text>
-                        <text
-                          x={RING_RADIUS + RING_THICKNESS / 2 + 22}
-                          y={RING_RADIUS + RING_THICKNESS / 2 + 22}
-                          textAnchor="start"
-                          fontSize={13}
-                          fill="#4b5563"
-                        >
-                          {dominantInfo.dominant.label}
-                        </text>
-                      </g>
-                    ) : null}
-                  </svg>
-                ) : (
-                  <div style={{ color: "#6b7280", fontSize: 14 }}>Нет расходов за период</div>
-                )}
-              </div>
-
+                  </div>
+                </div>
+              ) : (
+                <div style={{ color: "#6b7280", fontSize: 14 }}>Нет расходов за период</div>
+              )}
               <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
                 {expenseData.list.map((item) => (
                   <div
