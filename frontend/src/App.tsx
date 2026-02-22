@@ -114,6 +114,8 @@ function App() {
   const [appWorkspaces, setAppWorkspaces] = useState<Workspace[]>([])
   const [appActiveWorkspace, setAppActiveWorkspace] = useState<Workspace | null>(null)
   const [pendingCategoryOpenId, setPendingCategoryOpenId] = useState<string | null>(null)
+  const [pendingReturnToReport, setPendingReturnToReport] = useState(false)
+  const [autoOpenExpensesSheet, setAutoOpenExpensesSheet] = useState(false)
   const { setAccounts, setCategories, setIncomeSources, setTransactions } = useAppStore()
 
   interface TelegramWebApp {
@@ -362,6 +364,13 @@ function App() {
             onRetryOverview={retryOverviewData}
             externalCategoryId={pendingCategoryOpenId}
             onConsumeExternalCategory={() => setPendingCategoryOpenId(null)}
+            returnToReport={pendingReturnToReport}
+            onReturnToReport={() => {
+              setPendingReturnToReport(false)
+              setActiveNav("reports")
+              setActiveScreen("reports")
+              setAutoOpenExpensesSheet(true)
+            }}
           />
         )
       case "add":
@@ -378,7 +387,10 @@ function App() {
               setPendingCategoryOpenId(id)
               setActiveNav("overview")
               setActiveScreen("overview")
+              setPendingReturnToReport(true)
             }}
+            autoOpenExpensesSheet={autoOpenExpensesSheet}
+            onConsumeAutoOpenExpenses={() => setAutoOpenExpensesSheet(false)}
           />
         )
       case "settings":

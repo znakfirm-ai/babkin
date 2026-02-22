@@ -308,9 +308,18 @@ type OverviewScreenProps = {
   onRetryOverview?: () => Promise<void> | void
   externalCategoryId?: string | null
   onConsumeExternalCategory?: () => void
+  returnToReport?: boolean
+  onReturnToReport?: () => void
 }
 
-function OverviewScreen({ overviewError = null, onRetryOverview, externalCategoryId, onConsumeExternalCategory }: OverviewScreenProps) {
+function OverviewScreen({
+  overviewError = null,
+  onRetryOverview,
+  externalCategoryId,
+  onConsumeExternalCategory,
+  returnToReport,
+  onReturnToReport,
+}: OverviewScreenProps) {
   const {
     accounts,
     categories,
@@ -829,7 +838,10 @@ function OverviewScreen({ overviewError = null, onRetryOverview, externalCategor
     setGoalSearch("")
     setSearchFocused(false)
     closeTxSheet()
-  }, [closeTxSheet])
+    if (returnToReport) {
+      onReturnToReport?.()
+    }
+  }, [closeTxSheet, onReturnToReport, returnToReport])
 
   const openEditAccountFromDetails = useCallback(
     (accountId: string) => {

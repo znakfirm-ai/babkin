@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
@@ -9,6 +9,8 @@ type Props = {
   onOpenSummary: () => void
   onOpenExpensesByCategory?: () => void
   onOpenCategorySheet?: (id: string, title: string) => void
+  autoOpenExpensesSheet?: boolean
+  onConsumeAutoOpenExpenses?: () => void
 }
 
 const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
@@ -26,7 +28,13 @@ const getMonthRange = (offset: number) => {
   return { start, end, label: `${MONTHS[target.getMonth()]} ${target.getFullYear()}` }
 }
 
-const ReportsScreen: React.FC<Props> = ({ onOpenSummary, onOpenExpensesByCategory: _onOpenExpensesByCategory, onOpenCategorySheet }) => {
+const ReportsScreen: React.FC<Props> = ({
+  onOpenSummary,
+  onOpenExpensesByCategory: _onOpenExpensesByCategory,
+  onOpenCategorySheet,
+  autoOpenExpensesSheet,
+  onConsumeAutoOpenExpenses,
+}) => {
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
   const [periodMode, setPeriodMode] = useState<"today" | "day" | "week" | "month" | "custom">("month")
@@ -195,6 +203,13 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary, onOpenExpensesByCategor
   }, [currentRange.end, currentRange.label, currentRange.start, periodMode])
   const hasData = expenseData.total > 0
   const isSingleCategory = expenseData.list.length === 1
+
+  useEffect(() => {
+    if (autoOpenExpensesSheet) {
+      setIsExpensesSheetOpen(true)
+      onConsumeAutoOpenExpenses?.()
+    }
+  }, [autoOpenExpensesSheet, onConsumeAutoOpenExpenses])
 
 
   return (
