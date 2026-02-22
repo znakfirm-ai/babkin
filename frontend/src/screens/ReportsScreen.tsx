@@ -125,7 +125,10 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const legendGap = 6
   const legendTotalHeight = legendRowHeight * 5 + legendGap * 4
   const legendStartY = (graphHeight - legendTotalHeight) / 2 + legendRowHeight / 2
-  const lineStartX = donutSize + 140
+  const donutBoxWidth = donutSize + 20
+  const legendColumnGap = 14
+  const legendStartX = donutBoxWidth + legendColumnGap
+  const lineStartX = legendStartX + 2
   const lineKneeX = donutCx + outerR + 20
   const lineEndX = donutCx + outerR + 2
 
@@ -147,7 +150,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
         anchorY,
       }
     })
-  }, [chartSlices, legendGap, legendRowHeight, legendStartY, lineEndX, lineKneeX, lineStartX, outerR, donutCy])
+  }, [chartSlices, donutCy, legendGap, legendRowHeight, legendStartY, lineEndX, lineKneeX, lineStartX, outerR])
 
   return (
     <>
@@ -279,8 +282,9 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                   </div>
                   <div
                     style={{
+                      position: "relative",
                       display: "flex",
-                      gap: 14,
+                      gap: legendColumnGap,
                       alignItems: "center",
                       width: "100%",
                       minWidth: 0,
@@ -288,18 +292,35 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       height: graphHeight,
                     }}
                   >
+                    <svg
+                      width="100%"
+                      height={graphHeight}
+                      style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
+                    >
+                      {/* тестовая линия была для диагностики, удалена */}
+                      {legendLines.map((line) => (
+                        <path
+                          key={line.id}
+                          d={`M ${line.startX} ${line.startY} L ${line.kneeX} ${line.startY} L ${line.endX} ${line.anchorY}`}
+                          stroke={line.color}
+                          strokeWidth={2}
+                          fill="none"
+                          strokeLinecap="round"
+                        />
+                      ))}
+                    </svg>
                     {(() => {
                       const pills = chartSlices.slice(0, 5)
                       let cursor = -90
                       return (
                         <>
                           <svg
-                            width={donutSize + 20}
+                            width={donutBoxWidth}
                             height={graphHeight}
-                            viewBox={`0 0 ${donutSize + 20} ${graphHeight}`}
+                            viewBox={`0 0 ${donutBoxWidth} ${graphHeight}`}
                             role="img"
                             aria-label="Диаграмма расходов"
-                            style={{ flex: "0 0 auto" }}
+                            style={{ flex: "0 0 auto", position: "relative", zIndex: 2 }}
                           >
                             {pills.map((slice) => {
                               const sweep = slice.share * 360
