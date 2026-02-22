@@ -123,47 +123,8 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const innerR = 61
   const legendRowHeight = 32
   const legendGap = 6
-  const legendTotalHeight = legendRowHeight * 5 + legendGap * 4
-  const legendStartY = (graphHeight - legendTotalHeight) / 2 + legendRowHeight / 2
   const donutBoxWidth = donutSize + 20
   const legendColumnGap = 14
-  const legendMaxWidth = 170
-  const overlayWidth = donutBoxWidth + legendColumnGap + legendMaxWidth
-  const overlayHeight = graphHeight
-  const legendStartX = donutBoxWidth + legendColumnGap
-  const lineStartX = legendStartX + 2
-  const rMid = (outerR + innerR) / 2
-  const pad = 10
-  const donutLeft = donutCx - outerR - pad
-  const donutRight = donutCx + outerR + pad
-
-  const buildConnectorPath = (startX: number, startY: number, endX: number, endY: number) => {
-    const bypassX = endX >= donutCx ? donutRight + 10 : donutLeft - 10
-    const clampedStartX = Math.max(0, Math.min(overlayWidth, startX))
-    const clampedEndX = Math.max(0, Math.min(overlayWidth, endX))
-    const clampedBypassX = Math.max(0, Math.min(overlayWidth, bypassX))
-    return `M ${clampedStartX} ${startY} L ${clampedBypassX} ${startY} L ${clampedBypassX} ${endY} L ${clampedEndX} ${endY}`
-  }
-
-  const legendLines = useMemo(() => {
-    let cursor = -90
-    return chartSlices.slice(0, 5).map((slice, idx) => {
-      const sweep = slice.share * 360
-      const midAngle = cursor + sweep / 2
-      cursor += sweep
-      const cosA = Math.cos((midAngle * Math.PI) / 180)
-      const sinA = Math.sin((midAngle * Math.PI) / 180)
-      const endX = donutCx + cosA * rMid
-      const endY = donutCy + sinA * rMid
-      const startY = legendStartY + idx * (legendRowHeight + legendGap)
-      const path = buildConnectorPath(lineStartX, startY, endX, endY)
-      return {
-        id: slice.id,
-        color: slice.color,
-        path,
-      }
-    })
-  }, [buildConnectorPath, chartSlices, donutCx, donutCy, legendGap, legendRowHeight, legendStartY, lineStartX, rMid])
 
   return (
     <>
@@ -305,24 +266,6 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       height: graphHeight,
                     }}
                   >
-                          <svg
-                            width="100%"
-                            height={graphHeight}
-                            viewBox={`0 0 ${overlayWidth} ${overlayHeight}`}
-                            preserveAspectRatio="none"
-                            style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
-                          >
-                              {legendLines.map((line) => (
-                                <path
-                                  key={line.id}
-                                  d={line.path}
-                                  stroke={line.color}
-                                  strokeWidth={2}
-                                  fill="none"
-                                  strokeLinecap="round"
-                                />
-                              ))}
-                            </svg>
                     {(() => {
                       const pills = chartSlices.slice(0, 5)
                       let cursor = -90
@@ -373,16 +316,6 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                               height={graphHeight}
                               style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
                             >
-                              {legendLines.map((line) => (
-                                <path
-                                  key={line.id}
-                                  d={line.path}
-                                  stroke={line.color}
-                                  strokeWidth={2}
-                                  fill="none"
-                                  strokeLinecap="round"
-                                />
-                              ))}
                             </svg>
                             {chartSlices.slice(0, 5).map((slice) => {
                               return (
