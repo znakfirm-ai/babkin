@@ -205,12 +205,13 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
 
 const dominantMode = dominantInfo.dominantPercent >= 60
 
-const labeledSlices = useMemo(() => {
-  if (expenseData.total <= 0) return []
-  const gapForText = 12
-  const donutOuter = RING_RADIUS + RING_THICKNESS / 2
-  const safePadding = 12
-  const cx = 0
+  const labeledSlices = useMemo(() => {
+    if (expenseData.total <= 0) return []
+    const gapForTextRight = 12
+    const gapForTextLeft = 8
+    const donutOuter = RING_RADIUS + RING_THICKNESS / 2
+    const safePadding = 12
+    const cx = 0
   const safeLeft = cx - (donutOuter + safePadding)
   const safeRight = cx + (donutOuter + safePadding)
 
@@ -219,8 +220,8 @@ const labeledSlices = useMemo(() => {
     const n = others.length
     const startDeg = 240
     const endDeg = 120
-    const safeTextR = donutOuter + 28
-    const safeLeftX = cx - (donutOuter + 10)
+    const safeTextR = donutOuter + 18
+    const safeLeftX = cx - (donutOuter + 8)
 
     const positioned: LabelItem[] = others.map((s, idx) => {
       const t = n === 1 ? 0.5 : idx / Math.max(1, n - 1)
@@ -247,7 +248,7 @@ const labeledSlices = useMemo(() => {
   }
 
   const itemsBase: LabelItem[] = slicesWithAngles.map((s) => {
-    const textX = s.isRight ? s.mx + gapForText : s.mx - gapForText
+    const textX = s.isRight ? s.mx + gapForTextRight : s.mx - gapForTextLeft
     return {
       id: s.id,
       name: s.label,
@@ -265,10 +266,10 @@ const labeledSlices = useMemo(() => {
 
   const itemsPrepared = itemsBase.map((item) => {
     const clampX =
-      item.isRight && item.textX < cx + donutOuter + 18
-        ? cx + donutOuter + 18
-        : !item.isRight && item.textX > cx - donutOuter - 18
-        ? cx - donutOuter - 18
+      item.isRight && item.textX < cx + donutOuter + 10
+        ? cx + donutOuter + 10
+        : !item.isRight && item.textX > cx - donutOuter - 10
+        ? cx - donutOuter - 10
         : item.textX
     const withinSafe =
       clampX > safeLeft && clampX < safeRight && item.textY > -donutOuter && item.textY < donutOuter
