@@ -129,8 +129,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
   const legendColumnGap = 14
   const legendStartX = donutBoxWidth + legendColumnGap
   const lineStartX = legendStartX + 2
-  const lineKneeX = donutCx + outerR + 20
-  const lineEndX = donutCx + outerR + 2
+  const rMid = (outerR + innerR) / 2
 
   const legendLines = useMemo(() => {
     let cursor = -90
@@ -138,7 +137,12 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
       const sweep = slice.share * 360
       const midAngle = cursor + sweep / 2
       cursor += sweep
-      const anchorY = donutCy + Math.sin((midAngle * Math.PI) / 180) * outerR
+      let cosA = Math.cos((midAngle * Math.PI) / 180)
+      const sinA = Math.sin((midAngle * Math.PI) / 180)
+      if (cosA < 0) cosA = Math.abs(cosA)
+      const endX = donutCx + cosA * rMid
+      const endY = donutCy + sinA * rMid
+      const lineKneeX = endX + 14
       const startY = legendStartY + idx * (legendRowHeight + legendGap)
       return {
         id: slice.id,
@@ -146,11 +150,11 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
         startX: lineStartX,
         startY,
         kneeX: lineKneeX,
-        endX: lineEndX,
-        anchorY,
+        endX,
+        endY,
       }
     })
-  }, [chartSlices, donutCy, legendGap, legendRowHeight, legendStartY, lineEndX, lineKneeX, lineStartX, outerR])
+  }, [chartSlices, donutCx, donutCy, legendGap, legendRowHeight, legendStartY, lineStartX, rMid])
 
   return (
     <>
@@ -292,23 +296,23 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       height: graphHeight,
                     }}
                   >
-                    <svg
-                      width="100%"
-                      height={graphHeight}
-                      style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
-                    >
-                      {/* тестовая линия была для диагностики, удалена */}
-                      {legendLines.map((line) => (
-                        <path
-                          key={line.id}
-                          d={`M ${line.startX} ${line.startY} L ${line.kneeX} ${line.startY} L ${line.endX} ${line.anchorY}`}
-                          stroke={line.color}
-                          strokeWidth={2}
-                          fill="none"
-                          strokeLinecap="round"
-                        />
-                      ))}
-                    </svg>
+                          <svg
+                            width="100%"
+                            height={graphHeight}
+                            style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
+                          >
+                            {/* тестовая линия была для диагностики, удалена */}
+                              {legendLines.map((line) => (
+                                <path
+                                  key={line.id}
+                                  d={`M ${line.startX} ${line.startY} L ${line.kneeX} ${line.startY} L ${line.endX} ${line.endY}`}
+                                  stroke={line.color}
+                                  strokeWidth={2}
+                                  fill="none"
+                                  strokeLinecap="round"
+                                />
+                              ))}
+                          </svg>
                     {(() => {
                       const pills = chartSlices.slice(0, 5)
                       let cursor = -90
@@ -362,7 +366,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                               {legendLines.map((line) => (
                                 <path
                                   key={line.id}
-                                  d={`M ${line.startX} ${line.startY} L ${line.kneeX} ${line.startY} L ${line.endX} ${line.anchorY}`}
+                                  d={`M ${line.startX} ${line.startY} L ${line.kneeX} ${line.startY} L ${line.endX} ${line.endY}`}
                                   stroke={line.color}
                                   strokeWidth={2}
                                   fill="none"
