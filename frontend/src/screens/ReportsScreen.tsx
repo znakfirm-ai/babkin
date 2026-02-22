@@ -126,9 +126,9 @@ const ReportsScreen: React.FC<Props> = ({
     return { total, slices, sliceLabels, colors, list }
   }, [categories, currentRange.end, currentRange.start, transactions])
 
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
+  const handleGestureStart = (x: number, y: number) => {
+    touchStartX.current = x
+    touchStartY.current = y
   }
 
   const shiftPeriod = (direction: "prev" | "next") => {
@@ -188,10 +188,10 @@ const ReportsScreen: React.FC<Props> = ({
     }
   }
 
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleGestureEnd = (x: number, y: number) => {
     if (touchStartX.current == null || touchStartY.current == null) return
-    const dx = e.changedTouches[0].clientX - touchStartX.current
-    const dy = e.changedTouches[0].clientY - touchStartY.current
+    const dx = x - touchStartX.current
+    const dy = y - touchStartY.current
     touchStartX.current = null
     touchStartY.current = null
     if (Math.abs(dy) > Math.abs(dx)) return
@@ -201,6 +201,34 @@ const ReportsScreen: React.FC<Props> = ({
     } else if (dx > threshold) {
       shiftPeriod("next")
     }
+  }
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    handleGestureStart(e.touches[0].clientX, e.touches[0].clientY)
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    handleGestureEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)
+  }
+
+  const handleTouchCancel = () => {
+    touchStartX.current = null
+    touchStartY.current = null
+  }
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse") return
+    handleGestureStart(e.clientX, e.clientY)
+  }
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse") return
+    handleGestureEnd(e.clientX, e.clientY)
+  }
+
+  const handlePointerCancel = () => {
+    touchStartX.current = null
+    touchStartY.current = null
   }
 
   const chartSlices = useMemo(() => {
@@ -360,7 +388,19 @@ const ReportsScreen: React.FC<Props> = ({
                 <div
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
-                  style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, justifyContent: "space-between", position: "relative" }}
+                  onTouchCancel={handleTouchCancel}
+                  onPointerDown={handlePointerDown}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerCancel}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    minWidth: 0,
+                    justifyContent: "space-between",
+                    position: "relative",
+                    touchAction: "pan-y",
+                  }}
                 >
                   <button
                     type="button"
