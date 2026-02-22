@@ -153,6 +153,10 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     touchStartX.current = null
   }
 
+  const RING_RADIUS = 64
+  const RING_THICKNESS = 8
+  const MARKER_GAP = 5
+
   const slicesWithAngles = useMemo(() => {
     if (expenseData.total <= 0) return []
     const gapDeg = 1
@@ -169,8 +173,8 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
       const midRad = ((midDeg - 90) * Math.PI) / 180
       const startRad = ((adjStart - 90) * Math.PI) / 180
       const endRad = ((adjEnd - 90) * Math.PI) / 180
-      const outerEdge = 70 + 8 / 2
-      const markerR = outerEdge + 5
+      const outerEdge = RING_RADIUS + RING_THICKNESS / 2
+      const markerR = outerEdge + MARKER_GAP
       const mx = Math.cos(midRad) * markerR
       const my = Math.sin(midRad) * markerR
       const percentVal = Math.round((value / expenseData.total) * 100)
@@ -309,16 +313,16 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
             >
               <button
                 type="button"
-                onClick={() => setMonthOffset((prev) => prev - 1)}
                 style={{
                   padding: "8px 12px",
                   borderRadius: 10,
                   border: "1px solid #e5e7eb",
-                  background: "#f8fafc",
+                  background: "#fff",
+                  fontWeight: 600,
                   cursor: "pointer",
                 }}
               >
-                ←
+                Период
               </button>
               <div
                 style={{
@@ -330,30 +334,10 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  textAlign: "center",
                 }}
               >
                 {label}
               </div>
-              <button
-                type="button"
-                onClick={() => setMonthOffset((prev) => Math.min(0, prev + 1))}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  background: "#f8fafc",
-                  cursor: monthOffset === 0 ? "not-allowed" : "pointer",
-                  opacity: monthOffset === 0 ? 0.4 : 1,
-                }}
-                disabled={monthOffset === 0}
-              >
-                →
-              </button>
-            </div>
-
-            <div style={{ fontSize: 14, color: "#475569" }}>
-              Итог: {formatMoney(expenseData.total, currency ?? "RUB")}
             </div>
 
             <div style={{ display: "grid", gap: 10, overflow: "auto", minHeight: 0 }}>
@@ -368,8 +352,8 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                 style={{ overflow: "visible" }}
               >
                     {(() => {
-                      const r = 70
-                      const thickness = 8
+                      const r = RING_RADIUS
+                      const thickness = RING_THICKNESS
                       return slicesWithAngles.map((s) => {
                         const startDeg = (s.startRad * 180) / Math.PI + 90
                         const endDeg = (s.endRad * 180) / Math.PI + 90
@@ -386,6 +370,12 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                         )
                       })
                     })()}
+                    <text x={0} y={-4} textAnchor="middle" fontSize={11} fill="#475569">
+                      Итого
+                    </text>
+                    <text x={0} y={12} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
+                      {formatMoney(expenseData.total, currency ?? "RUB")}
+                    </text>
                     {labeledSlices.map((s) => {
                       const labelGap = 12
                       const textX = s.mx >= 0 ? s.mx + labelGap : s.mx - labelGap
