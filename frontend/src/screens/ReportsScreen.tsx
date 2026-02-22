@@ -148,15 +148,21 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
       }
     })
     const restShare = expenseData.total > 0 ? restSum / expenseData.total : 0
-    const restSlice = {
-      id: "rest",
-      label: "Остальное",
-      color: "#cbd5e1",
-      value: restSum,
-      share: restShare,
-      percentText: restShare > 0 && restShare * 100 < 1 ? "<1%" : `${Math.round(restShare * 100)}%`,
+    const restSlice =
+      restSum > 0
+        ? {
+            id: "rest",
+            label: "Остальное",
+            color: "#cbd5e1",
+            value: restSum,
+            share: restShare,
+            percentText: restShare > 0 && restShare * 100 < 1 ? "<1%" : `${Math.round(restShare * 100)}%`,
+          }
+        : null
+    if (base.length === 1 && !restSlice) {
+      return base
     }
-    return [...base, restSlice]
+    return restSlice ? [...base, restSlice] : base
   }, [expenseData.colors, expenseData.list, expenseData.total])
 
   const graphHeight = 200
@@ -186,6 +192,8 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
     const toText = formatDisplayDate(currentRange.end)
     return `${fromText} — ${toText}`
   }, [currentRange.end, currentRange.label, currentRange.start, periodMode])
+  const hasData = expenseData.total > 0
+  const isSingleCategory = expenseData.list.length === 1
 
   return (
     <>
@@ -417,7 +425,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                 ) : null}
 
                 <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
-                  {expenseData.total > 0 ? (
+                  {hasData ? (
                     <div style={{ display: "grid", gap: 10 }}>
                       <div
                         style={{
@@ -434,7 +442,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                         }}
                       >
                         {(() => {
-                          const pills = chartSlices.slice(0, 5)
+                          const pills = chartSlices.slice(0, isSingleCategory ? 1 : 5)
                           let cursor = -90
                           return (
                             <>
@@ -492,7 +500,7 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                                   style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
                                 >
                                 </svg>
-                                {chartSlices.slice(0, 5).map((slice) => {
+                                {(isSingleCategory ? chartSlices.slice(0, 1) : chartSlices.slice(0, 5)).map((slice) => {
                                   return (
                                     <div
                                       key={slice.id}
@@ -515,37 +523,75 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ color: "#6b7280", fontSize: 14 }}>Нет расходов за период</div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: 16,
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 12,
+                        background: "#f8fafc",
+                        color: "#6b7280",
+                        fontSize: 14,
+                        textAlign: "center",
+                        gap: 12,
+                        flexDirection: "column",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: donutSize,
+                          height: donutSize,
+                          borderRadius: "50%",
+                          border: "4px solid #e5e7eb",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#94a3b8",
+                          fontWeight: 600,
+                          fontSize: 14,
+                          background: "#fff",
+                        }}
+                      >
+                        Нет расходов
+                      </div>
+                      <div style={{ fontSize: 13, color: "#94a3b8" }}>за выбранный период</div>
+                    </div>
                   )}
                 </div>
 
                 <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
                   <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
-                    {expenseData.list.map((item) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          borderBottom: "1px solid #e5e7eb",
-                          paddingBottom: 8,
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                          <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
-                            {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
-                          </span>
-                          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
-                            {item.title}
-                          </span>
+                    {expenseData.list.length === 0 ? (
+                      <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций за период</div>
+                    ) : (
+                      expenseData.list.map((item) => (
+                        <div
+                          key={item.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            borderBottom: "1px solid #e5e7eb",
+                            paddingBottom: 8,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                            <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                              {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
+                            </span>
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
+                              {item.title}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
+                            <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
+                            <span style={{ color: "#6b7280" }}>{item.percentText}</span>
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
-                          <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
-                          <span style={{ color: "#6b7280" }}>{item.percentText}</span>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
