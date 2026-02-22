@@ -55,35 +55,35 @@ const layoutLabels = (slices: Slice[], total: number, radius: number, gap: numbe
       x: Math.cos(rad) * (radius + gap),
       y: Math.sin(rad) * (radius + gap),
     }
-    return { ...s, mid, anchor }
+    return { ...s, mid, anchor, desiredY: anchor.y }
   })
 
   const layoutSide = (items: typeof labels, isRight: boolean) => {
-    const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y)
+    const sorted = [...items].sort((a, b) => a.desiredY - b.desiredY)
     for (let i = 0; i < sorted.length; i++) {
       if (i === 0) {
-        sorted[i].anchor.y = Math.max(sorted[i].anchor.y, topBound)
-      } else if (sorted[i].anchor.y - sorted[i - 1].anchor.y < minGap) {
-        sorted[i].anchor.y = sorted[i - 1].anchor.y + minGap
+        sorted[i].desiredY = Math.max(sorted[i].desiredY, topBound)
+      } else if (sorted[i].desiredY - sorted[i - 1].desiredY < minGap) {
+        sorted[i].desiredY = sorted[i - 1].desiredY + minGap
       }
     }
     for (let i = sorted.length - 2; i >= 0; i--) {
-      if (sorted[i].anchor.y > bottomBound) sorted[i].anchor.y = bottomBound
-      if (sorted[i + 1].anchor.y - sorted[i].anchor.y < minGap) {
-        sorted[i].anchor.y = sorted[i + 1].anchor.y - minGap
+      if (sorted[i].desiredY > bottomBound) sorted[i].desiredY = bottomBound
+      if (sorted[i + 1].desiredY - sorted[i].desiredY < minGap) {
+        sorted[i].desiredY = sorted[i + 1].desiredY - minGap
       }
     }
     if (sorted.length > 0) {
-      if (sorted[sorted.length - 1].anchor.y > bottomBound) sorted[sorted.length - 1].anchor.y = bottomBound
+      if (sorted[sorted.length - 1].desiredY > bottomBound) sorted[sorted.length - 1].desiredY = bottomBound
       for (let i = sorted.length - 2; i >= 0; i--) {
-        if (sorted[i + 1].anchor.y - sorted[i].anchor.y < minGap) {
-          sorted[i].anchor.y = sorted[i + 1].anchor.y - minGap
+        if (sorted[i + 1].desiredY - sorted[i].desiredY < minGap) {
+          sorted[i].desiredY = sorted[i + 1].desiredY - minGap
         }
       }
     }
     return sorted.map((s) => ({
       ...s,
-      textX: isRight ? radius + gap + 8 : -(radius + gap + 8),
+      textY: s.desiredY,
       isRight,
     }))
   }
@@ -351,30 +351,21 @@ const ReportsScreen: React.FC<Props> = ({ onOpenSummary }) => {
                       })
                     })()}
                     {labeledSlices.map((s, idx) => {
-                      const rOuter = 78
                       const labelGap = 12
-                      const textX = s.isRight ? rOuter + labelGap : -(rOuter + labelGap)
-                      const textY = s.anchor.y
-                      const markerOffset = 6
-                      const markerX = s.isRight ? textX - markerOffset : textX + markerOffset
-                      const markerY = textY - 3
-                      const textAnchor = s.isRight ? "start" : "end"
+                      const anchorX = s.anchor.x
+                      const anchorY = s.anchor.y
+                      const textX = anchorX >= 0 ? anchorX + labelGap : anchorX - labelGap
+                      const textY = s.textY
+                      const markerX = anchorX
+                      const markerY = anchorY
+                      const textAnchor = anchorX >= 0 ? "start" : "end"
                       const truncatedLabel = s.label.length > 12 ? `${s.label.slice(0, 12)}…` : s.label
                       const percentVal = Math.round((s.value / expenseData.total) * 100)
                       const percentText = percentVal > 0 && percentVal < 1 ? "<1%" : `${percentVal}%`
                       const text = `${truncatedLabel} · ${percentText}`
                       return (
                         <g key={`label-${idx}`}>
-                          <rect
-                            x={markerX - 3}
-                            y={markerY}
-                            width={6}
-                            height={6}
-                            rx={2}
-                            ry={2}
-                            fill={s.color}
-                            opacity={0.9}
-                          />
+                          <circle cx={markerX} cy={markerY} r={3.5} fill={s.color} opacity={0.9} />
                           <text
                             x={textX}
                             y={textY + 4}
