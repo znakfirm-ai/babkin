@@ -493,9 +493,10 @@ const ReportsScreen: React.FC<Props> = ({
                                 minWidth: 0,
                                 display: "flex",
                                 flexDirection: "column",
-                                justifyContent: "space-between",
+                                justifyContent: "flex-start",
                                 marginLeft: -4,
-                                gap: 1,
+                                marginTop: -20,
+                                gap: 0,
                               }}
                             >
                               {legendItems.map((item) => (
