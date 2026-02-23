@@ -91,7 +91,7 @@ button {
   display: flex;
   justify-content: center;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .report-banner-dot {

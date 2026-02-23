@@ -524,11 +524,12 @@ const ReportsScreen: React.FC<Props> = ({
                         minWidth: 0,
                         border: "1px solid #e5e7eb",
                         borderRadius: 12,
-                        padding: "12px 28px 16px",
+                        padding: "14px 28px 14px",
                         overflow: "visible",
                         display: "flex",
                         flexDirection: "column",
                         gap: 12,
+                        justifyContent: "center",
                       }}
                     >
                       <button
@@ -559,7 +560,19 @@ const ReportsScreen: React.FC<Props> = ({
                         >
                           {[0, 1].map((idx) => (
                             <div className="report-banner-slide" key={idx}>
-                              <div className="report-banner-scaled" style={{ display: "flex", gap: legendColumnGap, alignItems: "center", width: "100%", minWidth: 0, overflow: "visible" }}>
+                              <div
+                                className="report-banner-scaled"
+                                style={{
+                                  display: "flex",
+                                  gap: legendColumnGap,
+                                  alignItems: "center",
+                                  width: "100%",
+                                  minWidth: 0,
+                                  overflow: "visible",
+                                  transform: "translateX(-12px) scale(0.9)",
+                                  transformOrigin: "center top",
+                                }}
+                              >
                                 {donutContent}
                               </div>
                             </div>
