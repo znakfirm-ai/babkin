@@ -44,6 +44,7 @@ const ReportsScreen: React.FC<Props> = ({
   const [singleDay, setSingleDay] = useState("")
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
+  const [selectedLegendIndex, setSelectedLegendIndex] = useState<number | null>(null)
   const todayDate = useMemo(() => format(new Date()), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
@@ -450,13 +451,13 @@ const ReportsScreen: React.FC<Props> = ({
                             {donutData.total > 0 && donutData.segments.length > 0 ? (
                               (() => {
                                 const radius = 60
-                                const strokeWidth = 12
                                 const center = 90
                                 const circumference = 2 * Math.PI * radius
                                 let offset = 0
                                 return donutData.segments.map((seg, idx) => {
                                   const share = seg.value / donutData.total
                                   const dash = Math.max(0, circumference * share)
+                                  const strokeWidth = selectedLegendIndex === idx ? 14 : 12
                                   const circle = (
                                     <circle
                                       key={idx}
@@ -495,17 +496,27 @@ const ReportsScreen: React.FC<Props> = ({
                                 flexDirection: "column",
                                 justifyContent: "center",
                                 marginLeft: -4,
-                                gap: 8,
+                                gap: 12,
                               }}
                             >
-                              {legendItems.map((item) => (
+                              {legendItems.map((item, idx) => {
+                                const isSelected = selectedLegendIndex === idx
+                                return (
                                 <div
                                   key={item.title}
+                                  onClick={() => {
+                                    if (donutData.total === 0) return
+                                    setSelectedLegendIndex((prev) => (prev === idx ? null : idx))
+                                  }}
                                   style={{
                                     display: "flex",
                                     alignItems: "center",
                                     gap: 8,
                                     minWidth: 0,
+                                    cursor: donutData.total > 0 ? "pointer" : "default",
+                                    background: isSelected ? "#f1f5f9" : "transparent",
+                                    borderRadius: 8,
+                                    padding: isSelected ? "4px 6px" : "0 0",
                                   }}
                                 >
                                   <span style={{ color: item.color, fontWeight: 600, fontSize: 12, flexShrink: 0 }}>{item.percentText}</span>
@@ -513,7 +524,7 @@ const ReportsScreen: React.FC<Props> = ({
                                     {item.title}
                                   </span>
                                 </div>
-                              ))}
+                              )})}
                             </div>
                           ) : null}
                         </div>
