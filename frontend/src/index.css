@@ -64,6 +64,11 @@ button {
   transform-origin: center top;
 }
 
+.report-banner-content {
+  transform: translateX(-14px) scale(0.9);
+  transform-origin: center top;
+}
+
 .report-banner-arrow {
   position: absolute;
   top: 50%;

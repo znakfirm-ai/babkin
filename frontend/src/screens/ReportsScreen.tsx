@@ -561,7 +561,7 @@ const ReportsScreen: React.FC<Props> = ({
                           {[0, 1].map((idx) => (
                             <div className="report-banner-slide" key={idx}>
                               <div
-                                className="report-banner-scaled"
+                                className="report-banner-scaled report-banner-content"
                                 style={{
                                   display: "flex",
                                   gap: legendColumnGap,
@@ -569,7 +569,7 @@ const ReportsScreen: React.FC<Props> = ({
                                   width: "100%",
                                   minWidth: 0,
                                   overflow: "visible",
-                                  transform: "translateX(-12px) scale(0.9)",
+                                  transform: "scale(0.9)",
                                   transformOrigin: "center top",
                                 }}
                               >
