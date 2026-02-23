@@ -50,11 +50,6 @@ button {
   overflow: hidden;
 }
 
-.report-banner-row {
-  position: relative;
-  width: 100%;
-}
-
 .report-banner-track {
   display: flex;
   width: 200%;

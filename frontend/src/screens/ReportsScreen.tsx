@@ -383,6 +383,7 @@ const ReportsScreen: React.FC<Props> = ({
                 <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
                   <div style={{ display: "grid", gap: 10 }}>
                     <div
+                      className="report-banner-card"
                       style={{
                         position: "relative",
                         width: "100%",
@@ -397,20 +398,18 @@ const ReportsScreen: React.FC<Props> = ({
                         justifyContent: "center",
                       }}
                     >
-                      <div className="report-banner-row">
-                        <button type="button" className="report-banner-btn report-banner-btn--left" aria-label="Влево">
-                          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="M9.5 3 4.5 8l5 5" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                          </svg>
-                        </button>
-                        <div className="report-banner-viewport">
-                          <div className="report-banner-empty" />
-                        </div>
-                        <button type="button" className="report-banner-btn report-banner-btn--right" aria-label="Вправо">
-                          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="m6.5 3 5 5-5 5" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                          </svg>
-                        </button>
+                      <button type="button" className="report-banner-btn report-banner-btn--left" aria-label="Влево">
+                        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                          <path d="M9.5 3 4.5 8l5 5" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        </svg>
+                      </button>
+                      <button type="button" className="report-banner-btn report-banner-btn--right" aria-label="Вправо">
+                        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                          <path d="m6.5 3 5 5-5 5" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        </svg>
+                      </button>
+                      <div className="report-banner-viewport">
+                        <div className="report-banner-empty" />
                       </div>
                     </div>
                   </div>
