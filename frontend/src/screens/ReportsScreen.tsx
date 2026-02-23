@@ -589,17 +589,8 @@ const ReportsScreen: React.FC<Props> = ({
                 <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
                   <div style={{ display: "grid", gap: 10 }}>
                     <div
-                      ref={donutCardRef}
-                      className="report-donut-drag"
-                      onPointerDown={handlePointerDown}
-                      onPointerMove={handlePointerMove}
-                      onPointerUp={handlePointerUp}
-                      onPointerCancel={handlePointerCancel}
                       style={{
                         position: "relative",
-                        display: "flex",
-                        gap: legendColumnGap,
-                        alignItems: "center",
                         width: "100%",
                         minWidth: 0,
                         overflow: "visible",
@@ -640,6 +631,22 @@ const ReportsScreen: React.FC<Props> = ({
                       >
                         ▶
                       </span>
+                      <div
+                        ref={donutCardRef}
+                        className="report-donut-drag"
+                        onPointerDown={handlePointerDown}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        onPointerCancel={handlePointerCancel}
+                        style={{
+                          display: "flex",
+                          gap: legendColumnGap,
+                          alignItems: "center",
+                          width: "100%",
+                          minWidth: 0,
+                          overflow: "visible",
+                        }}
+                      >
                       {(() => {
                         const pills = isSingleCategory ? chartSlices.slice(0, 1) : chartSlices.slice(0, 5)
                         let cursor = -90
@@ -730,6 +737,7 @@ const ReportsScreen: React.FC<Props> = ({
                           </>
                         )
                       })()}
+                      </div>
                     </div>
                   </div>
                 </div>
