@@ -420,30 +420,6 @@ const ReportsScreen: React.FC<Props> = ({
                     position: "relative",
                   }}
                 >
-                  <div
-                    onTouchStart={handleTouchStart}
-                    onTouchEnd={handleTouchEnd}
-                    onTouchCancel={handleTouchCancel}
-                    onTouchStartCapture={handleTouchStart}
-                    onTouchEndCapture={handleTouchEnd}
-                    onTouchCancelCapture={handleTouchCancel}
-                    onPointerDown={handlePointerDown}
-                    onPointerUp={handlePointerUp}
-                    onPointerCancel={handlePointerCancel}
-                    onPointerDownCapture={handlePointerDown}
-                    onPointerUpCapture={handlePointerUp}
-                    onPointerCancelCapture={handlePointerCancel}
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      pointerEvents: "auto",
-                      background: "transparent",
-                      zIndex: 6,
-                      touchAction: "pan-y",
-                      userSelect: "none",
-                      WebkitUserSelect: "none",
-                    }}
-                  />
                   <button
                     type="button"
                     style={{
@@ -605,6 +581,33 @@ const ReportsScreen: React.FC<Props> = ({
                         padding: "6px 10px",
                       }}
                     >
+                      <div
+                        onTouchStart={handleTouchStart}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchCancel={handleTouchCancel}
+                        onTouchStartCapture={handleTouchStart}
+                        onTouchEndCapture={handleTouchEnd}
+                        onTouchCancelCapture={handleTouchCancel}
+                        onPointerDown={handlePointerDown}
+                        onPointerUp={handlePointerUp}
+                        onPointerCancel={handlePointerCancel}
+                        onPointerDownCapture={handlePointerDown}
+                        onPointerUpCapture={handlePointerUp}
+                        onPointerCancelCapture={handlePointerCancel}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: donutBoxWidth,
+                          height: graphHeight,
+                          pointerEvents: "auto",
+                          background: "transparent",
+                          zIndex: 6,
+                          touchAction: "pan-y",
+                          userSelect: "none",
+                          WebkitUserSelect: "none",
+                        }}
+                      />
                       {(() => {
                         const pills = isSingleCategory ? chartSlices.slice(0, 1) : chartSlices.slice(0, 5)
                         let cursor = -90
