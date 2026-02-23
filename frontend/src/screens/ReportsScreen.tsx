@@ -422,7 +422,7 @@ const ReportsScreen: React.FC<Props> = ({
                           style={{
                             display: "flex",
                             justifyContent: "flex-start",
-                            paddingLeft: 48,
+                            paddingLeft: 30,
                           }}
                         >
                           <svg width={180} height={180} viewBox="0 0 180 180" role="img" aria-label="Диаграмма расходов">
