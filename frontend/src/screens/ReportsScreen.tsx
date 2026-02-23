@@ -441,7 +441,7 @@ const ReportsScreen: React.FC<Props> = ({
                           style={{
                             display: "flex",
                             justifyContent: "flex-start",
-                            paddingLeft: 20,
+                            paddingLeft: 17,
                             gap: 12,
                             alignItems: "center",
                           }}
