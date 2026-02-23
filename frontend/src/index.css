@@ -51,10 +51,8 @@ button {
 }
 
 .report-banner-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  position: relative;
+  width: 100%;
 }
 
 .report-banner-track {
@@ -117,14 +115,17 @@ button {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .report-banner-btn--left {
-  margin-left: -6px;
+  left: 15px;
 }
 
 .report-banner-btn--right {
-  margin-right: -6px;
+  right: 15px;
 }
 
 .report-banner-btn:disabled {
