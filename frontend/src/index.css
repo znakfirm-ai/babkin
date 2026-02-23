@@ -131,39 +131,6 @@ button {
   justify-content: center;
 }
 
-.report-banner-arrow--left {
-  margin-left: -9px;
-}
-
-.report-banner-arrow--right {
-}
-
-.report-banner-arrow:disabled {
-  cursor: default;
-}
-
-.report-banner-dots {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.report-banner-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #cbd5e1;
-  opacity: 0.6;
-}
-
-.report-banner-dot--active {
-  width: 8px;
-  height: 8px;
-  background: #0f172a;
-  opacity: 0.95;
-}
-
 .report-banner-empty {
   width: 100%;
   min-height: 220px;
