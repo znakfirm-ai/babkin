@@ -495,7 +495,7 @@ const ReportsScreen: React.FC<Props> = ({
                                 flexDirection: "column",
                                 justifyContent: "space-between",
                                 marginLeft: -4,
-                                gap: 8,
+                                gap: 1,
                               }}
                             >
                               {legendItems.map((item) => (
