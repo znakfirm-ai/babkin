@@ -457,7 +457,7 @@ const ReportsScreen: React.FC<Props> = ({
                                 return donutData.segments.map((seg, idx) => {
                                   const share = seg.value / donutData.total
                                   const dash = Math.max(0, circumference * share)
-                                  const strokeWidth = selectedLegendIndex === idx ? 14 : 12
+                                  const strokeWidth = selectedLegendIndex === idx ? 18 : 12
                                   const circle = (
                                     <circle
                                       key={idx}
