@@ -733,10 +733,10 @@ const ReportsScreen: React.FC<Props> = ({
                             style={{ display: "flex", gap: legendColumnGap, alignItems: "center", width: "100%", minWidth: 0, overflow: "visible", position: "relative" }}
                           >
                             {idx === 0 ? (
-                              <span style={{ position: "absolute", left: 4, top: 4, color: "#0f172a", opacity: 0.12, fontSize: 12, pointerEvents: "none" }}>‹</span>
+                              <span className="report-donut-slide-marker" style={{ left: 8 }}>‹</span>
                             ) : null}
                             {idx === 2 ? (
-                              <span style={{ position: "absolute", right: 4, top: 4, color: "#0f172a", opacity: 0.12, fontSize: 12, pointerEvents: "none" }}>›</span>
+                              <span className="report-donut-slide-marker" style={{ right: 8 }}>›</span>
                             ) : null}
                             {donutContent}
                           </div>
