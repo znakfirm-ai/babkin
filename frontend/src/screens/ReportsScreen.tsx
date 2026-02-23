@@ -531,19 +531,19 @@ const ReportsScreen: React.FC<Props> = ({
                         justifyContent: "center",
                       }}
                     >
-                      <div className="report-banner-inner">
-                        <button
-                          type="button"
-                          className="report-banner-arrow report-banner-arrow--left"
-                          onClick={() => setActiveBanner((prev) => Math.min(1, prev + 1))}
-                          style={{
-                            opacity: activeBanner === 0 ? 0.65 : 0.65,
-                          }}
-                        >
-                          ◀
-                        </button>
-                        <div className="report-banner-center">
-                          <div className="report-banner-viewport">
+                      <div className="report-banner-viewport">
+                        <div className="report-banner-layout">
+                          <button
+                            type="button"
+                            className="report-banner-arrow report-banner-arrow--left"
+                            onClick={() => setActiveBanner((prev) => Math.min(1, prev + 1))}
+                            style={{
+                              opacity: activeBanner === 0 ? 0.65 : 0.65,
+                            }}
+                          >
+                            ◀
+                          </button>
+                          <div className="report-banner-center">
                             <div
                               className="report-banner-track"
                               style={{ transform: `translateX(-${activeBanner * 100}%)` }}
@@ -556,26 +556,26 @@ const ReportsScreen: React.FC<Props> = ({
                                 </div>
                               ))}
                             </div>
+                            <div className="report-banner-dots">
+                              {[0, 1, 2].map((idx) => {
+                                const activeIndex = 2 - activeBanner
+                                const isActive = idx === activeIndex
+                                return <span key={idx} className={isActive ? "report-banner-dot report-banner-dot--active" : "report-banner-dot"} />
+                              })}
+                            </div>
                           </div>
+                          <button
+                            type="button"
+                            className="report-banner-arrow report-banner-arrow--right"
+                            onClick={() => setActiveBanner((prev) => Math.max(0, prev - 1))}
+                            disabled={activeBanner === 0}
+                            style={{
+                              opacity: activeBanner === 0 ? 0.25 : 0.65,
+                            }}
+                          >
+                            ▶
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          className="report-banner-arrow report-banner-arrow--right"
-                          onClick={() => setActiveBanner((prev) => Math.max(0, prev - 1))}
-                          disabled={activeBanner === 0}
-                          style={{
-                            opacity: activeBanner === 0 ? 0.25 : 0.65,
-                          }}
-                        >
-                          ▶
-                        </button>
-                      </div>
-                      <div className="report-banner-dots">
-                        {[0, 1, 2].map((idx) => {
-                          const activeIndex = 2 - activeBanner
-                          const isActive = idx === activeIndex
-                          return <span key={idx} className={isActive ? "report-banner-dot report-banner-dot--active" : "report-banner-dot"} />
-                        })}
                       </div>
                     </div>
                   </div>

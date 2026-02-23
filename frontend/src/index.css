@@ -47,12 +47,21 @@ button {
 
 .report-banner-viewport {
   overflow: hidden;
+  width: 100%;
 }
 
 .report-banner-track {
   display: flex;
   width: 200%;
   transition: transform 180ms ease-out;
+}
+
+.report-banner-layout {
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  column-gap: 12px;
+  align-items: center;
+  width: 100%;
 }
 
 .report-banner-slide {
@@ -69,6 +78,7 @@ button {
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   overflow: visible;
 }
@@ -76,6 +86,9 @@ button {
 .report-banner-center {
   display: flex;
   justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
 }
 
 .report-banner-arrow {
@@ -106,13 +119,6 @@ button {
   justify-content: center;
   gap: 6px;
   margin-top: 6px;
-}
-
-.report-banner-inner {
-  display: grid;
-  grid-template-columns: 36px 1fr 36px;
-  column-gap: 12px;
-  align-items: center;
 }
 
 .report-banner-dot {
