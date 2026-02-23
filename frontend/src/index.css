@@ -53,7 +53,8 @@ button {
 .report-banner-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .report-banner-track {
@@ -105,10 +106,9 @@ button {
   overflow: hidden;
 }
 
-.report-banner-left-btn {
-  margin-left: -9px;
-  width: 36px;
-  height: 36px;
+.report-banner-btn {
+  width: 32px;
+  height: 32px;
   border: none;
   background: transparent;
   padding: 0;
@@ -116,6 +116,14 @@ button {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.report-banner-btn--left {
+  margin-left: -6px;
+}
+
+.report-banner-btn--right {
+  margin-right: -6px;
 }
 
 .report-banner-arrow {
