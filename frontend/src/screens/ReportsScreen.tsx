@@ -397,8 +397,16 @@ const ReportsScreen: React.FC<Props> = ({
                         justifyContent: "center",
                       }}
                     >
-                      <div className="report-banner-viewport">
-                        <div className="report-banner-empty" />
+                      <div className="report-banner-row">
+                        <button type="button" className="report-banner-left-btn" aria-label="Предыдущий">
+                          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+                            <path d="M16 9a7 7 0 1 0-11.14 5.42L9 9z" fill="#1f2937" />
+                            <path d="M8.5 5v8L5 9z" fill="#fff" />
+                          </svg>
+                        </button>
+                        <div className="report-banner-viewport">
+                          <div className="report-banner-empty" />
+                        </div>
                       </div>
                     </div>
                   </div>

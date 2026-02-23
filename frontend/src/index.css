@@ -50,6 +50,12 @@ button {
   overflow: hidden;
 }
 
+.report-banner-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .report-banner-track {
   display: flex;
   width: 200%;
@@ -97,6 +103,19 @@ button {
 .report-banner-content-viewport {
   width: 100%;
   overflow: hidden;
+}
+
+.report-banner-left-btn {
+  margin-left: -9px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 .report-banner-arrow {
