@@ -389,7 +389,7 @@ const ReportsScreen: React.FC<Props> = ({
                         minWidth: 0,
                         border: "1px solid #e5e7eb",
                         borderRadius: 12,
-                        padding: "14px 10px 14px",
+                        padding: "14px 15px 14px",
                         overflow: "visible",
                         display: "flex",
                         flexDirection: "column",
