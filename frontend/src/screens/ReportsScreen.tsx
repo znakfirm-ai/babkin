@@ -167,7 +167,7 @@ const ReportsScreen: React.FC<Props> = ({
   const legendRowHeight = 32
   const legendGap = 6
   const donutBoxWidth = donutSize + 20
-  const legendColumnGap = 14
+  const legendColumnGap = 12
 
   const formatDisplayDate = (date: Date) =>
     new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric" }).format(date)
@@ -524,8 +524,11 @@ const ReportsScreen: React.FC<Props> = ({
                         minWidth: 0,
                         border: "1px solid #e5e7eb",
                         borderRadius: 12,
-                        padding: "6px 10px 14px",
+                        padding: "12px 28px 16px",
                         overflow: "visible",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 12,
                       }}
                     >
                       <button
@@ -564,9 +567,11 @@ const ReportsScreen: React.FC<Props> = ({
                         </div>
                       </div>
                       <div className="report-banner-dots">
-                        {[0, 1].map((idx) => (
-                          <span key={idx} className={activeBanner === idx ? "report-banner-dot report-banner-dot--active" : "report-banner-dot"} />
-                        ))}
+                        {[0, 1, 2].map((idx) => {
+                          const activeIndex = 2 - activeBanner
+                          const isActive = idx === activeIndex
+                          return <span key={idx} className={isActive ? "report-banner-dot report-banner-dot--active" : "report-banner-dot"} />
+                        })}
                       </div>
                     </div>
                   </div>
