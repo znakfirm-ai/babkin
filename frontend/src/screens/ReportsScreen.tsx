@@ -148,6 +148,25 @@ const ReportsScreen: React.FC<Props> = ({
     return { segments, total: expenseData.total }
   }, [expenseData.list, expenseData.total])
 
+  const legendItems = useMemo(() => {
+    const palette = ["#9CC3FF", "#B9E4C9", "#FFD6A5", "#D9C2FF"]
+    const top = expenseData.list.slice(0, 4)
+    const restSum = expenseData.list.slice(4).reduce((acc, i) => acc + i.sum, 0)
+    const items = top.map((item, idx) => ({
+      title: item.title,
+      value: item.sum,
+      color: palette[idx % palette.length],
+    }))
+    if (restSum > 0) {
+      items.push({ title: "Остальное", value: restSum, color: "#E5E7EB" })
+    }
+    return items.map((item) => {
+      const percent = donutData.total > 0 ? (item.value / donutData.total) * 100 : 0
+      const percentText = percent > 0 && percent < 1 ? "<1%" : `${Math.round(Math.min(100, percent))}%`
+      return { ...item, percentText }
+    })
+  }, [donutData.total, expenseData.list])
+
   useEffect(() => {
     if (autoOpenExpensesSheet) {
       setIsExpensesSheetOpen(true)
@@ -423,6 +442,8 @@ const ReportsScreen: React.FC<Props> = ({
                             display: "flex",
                             justifyContent: "flex-start",
                             paddingLeft: 23,
+                            gap: 12,
+                            alignItems: "center",
                           }}
                         >
                           <svg width={180} height={180} viewBox="0 0 180 180" role="img" aria-label="Диаграмма расходов">
@@ -465,6 +486,44 @@ const ReportsScreen: React.FC<Props> = ({
                               {donutData.total > 0 ? formatMoney(donutData.total, currency ?? "RUB") : ""}
                             </text>
                           </svg>
+                          {donutData.total > 0 && legendItems.length > 0 ? (
+                            <div
+                              style={{
+                                height: 180,
+                                minWidth: 0,
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "space-between",
+                                gap: 8,
+                              }}
+                            >
+                              {legendItems.map((item) => (
+                                <div
+                                  key={item.title}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      width: 8,
+                                      height: 8,
+                                      borderRadius: "50%",
+                                      background: item.color,
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                  <span style={{ color: item.color, fontWeight: 600, fontSize: 12, flexShrink: 0 }}>{item.percentText}</span>
+                                  <span style={{ fontSize: 12, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    {item.title}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>
