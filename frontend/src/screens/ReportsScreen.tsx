@@ -37,7 +37,7 @@ const ReportsScreen: React.FC<Props> = ({
 }) => {
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
-  const [weekOffset, setWeekOffset] = useState(0)
+  const [weekOffset] = useState(0)
   const [periodMode, setPeriodMode] = useState<"today" | "day" | "week" | "month" | "custom">("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
@@ -47,19 +47,14 @@ const ReportsScreen: React.FC<Props> = ({
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null)
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
-  const activePointerId = useRef<number | null>(null)
-  const [debugSwipeText, setDebugSwipeText] = useState("")
-  const [debugSwipeEnabled, setDebugSwipeEnabled] = useState(false)
+  const dragDx = useRef(0)
+  const dragPointerId = useRef<number | null>(null)
+  const dragLocked = useRef<"x" | "y" | null>(null)
+  const dragActive = useRef(false)
+  const dragRaf = useRef<number | null>(null)
+  const donutCardRef = useRef<HTMLDivElement | null>(null)
   const todayDate = useMemo(() => format(new Date()), [])
   const minDate = useMemo(() => new Date(2020, 0, 1, 0, 0, 0, 0), [])
-
-  useEffect(() => {
-    try {
-      setDebugSwipeEnabled(localStorage.getItem("debugSwipe") === "1")
-    } catch {
-      setDebugSwipeEnabled(false)
-    }
-  }, [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
 
@@ -137,11 +132,6 @@ const ReportsScreen: React.FC<Props> = ({
     return { total, slices, sliceLabels, colors, list }
   }, [categories, currentRange.end, currentRange.start, transactions])
 
-  const handleGestureStart = (x: number, y: number) => {
-    touchStartX.current = x
-    touchStartY.current = y
-  }
-
   const canShift = (direction: "prev" | "next") => {
     const delta = direction === "prev" ? -1 : 1
     const today = new Date()
@@ -195,100 +185,97 @@ const ReportsScreen: React.FC<Props> = ({
     return false
   }
 
-  const shiftPeriod = (direction: "prev" | "next") => {
-    if (!canShift(direction)) return
-    const delta = direction === "prev" ? -1 : 1
-    const today = new Date()
-    const dayMs = 24 * 60 * 60 * 1000
-
-    const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
-
-    if (periodMode === "month") {
-      const nextOffset = monthOffset + delta
-      setMonthOffset(nextOffset)
-      return
-    }
-
-    if (periodMode === "week") {
-      setWeekOffset((prev) => prev + delta)
-      return
-    }
-
-    if (periodMode === "today" || periodMode === "day") {
-      const base = periodMode === "today" ? today : singleDay ? new Date(singleDay) : today
-      const candidate = new Date(base.getTime() + delta * dayMs)
-      setSingleDay(format(candidate))
-      if (periodMode === "today") setPeriodMode("day")
-      return
-    }
-
-    if (periodMode === "custom") {
-      const fromDate = customFrom ? new Date(customFrom) : today
-      const toDate = customTo ? new Date(customTo) : today
-      const spanDays = Math.max(1, Math.round((dayStart(toDate).getTime() - dayStart(fromDate).getTime()) / dayMs) + 1)
-      const shiftMs = spanDays * dayMs * delta
-      const candidateFrom = new Date(fromDate.getTime() + shiftMs)
-      const candidateTo = new Date(toDate.getTime() + shiftMs)
-      setCustomFrom(format(candidateFrom))
-      setCustomTo(format(candidateTo))
+  const handleGestureStart = (x: number, y: number, pointerId: number | null) => {
+    touchStartX.current = x
+    touchStartY.current = y
+    dragPointerId.current = pointerId
+    dragLocked.current = null
+    dragActive.current = true
+    dragDx.current = 0
+    if (donutCardRef.current) {
+      donutCardRef.current.style.transition = "none"
     }
   }
 
-  const handleGestureEnd = (x: number, y: number) => {
+  const applyDrag = (dx: number) => {
+    if (dragRaf.current) cancelAnimationFrame(dragRaf.current)
+    dragRaf.current = requestAnimationFrame(() => {
+      if (donutCardRef.current) {
+        donutCardRef.current.style.transform = `translateX(${dx}px)`
+      }
+    })
+  }
+
+  const resetDrag = () => {
+    dragActive.current = false
+    dragPointerId.current = null
+    dragLocked.current = null
+    touchStartX.current = null
+    touchStartY.current = null
+    dragDx.current = 0
+    const el = donutCardRef.current
+    if (!el) return
+    const onEnd = () => {
+      el.removeEventListener("transitionend", onEnd)
+      if (donutCardRef.current) {
+        donutCardRef.current.style.transition = "none"
+        donutCardRef.current.style.transform = "translateX(0px)"
+      }
+    }
+    el.addEventListener("transitionend", onEnd)
+    el.style.transition = "transform 180ms ease-out"
+    el.style.transform = "translateX(0px)"
+  }
+
+  const handleGestureMove = (x: number, y: number, pointerId: number | null) => {
+    if (!dragActive.current) return
+    if (dragPointerId.current !== null && pointerId !== null && pointerId !== dragPointerId.current) return
     if (touchStartX.current == null || touchStartY.current == null) return
     const dx = x - touchStartX.current
     const dy = y - touchStartY.current
-    touchStartX.current = null
-    touchStartY.current = null
-    if (Math.abs(dy) > Math.abs(dx)) return
-    const threshold = 40
-    if (debugSwipeEnabled) {
-      setDebugSwipeText(`dx=${Math.round(dx)} dy=${Math.round(dy)}`)
+    if (!dragLocked.current) {
+      if (Math.abs(dx) > 5 && Math.abs(dx) > Math.abs(dy)) {
+        dragLocked.current = "x"
+      } else if (Math.abs(dy) > 5 && Math.abs(dy) > Math.abs(dx)) {
+        dragLocked.current = "y"
+      } else {
+        return
+      }
     }
-    if (dx < -threshold) {
-      shiftPeriod("next")
-    } else if (dx > threshold) {
-      shiftPeriod("prev")
-    }
+    if (dragLocked.current !== "x") return
+    const clamped = Math.max(-70, Math.min(70, dx))
+    dragDx.current = clamped
+    applyDrag(clamped)
   }
 
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    handleGestureStart(e.touches[0].clientX, e.touches[0].clientY)
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    handleGestureEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)
-  }
-
-  const handleTouchCancel = () => {
-    touchStartX.current = null
-    touchStartY.current = null
-    if (debugSwipeEnabled) setDebugSwipeText("cancel")
+  const handleGestureEnd = (pointerId: number | null) => {
+    if (!dragActive.current) return
+    if (dragPointerId.current !== null && pointerId !== null && pointerId !== dragPointerId.current) return
+    resetDrag()
   }
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return
-    activePointerId.current = e.pointerId
-    handleGestureStart(e.clientX, e.clientY)
+    handleGestureStart(e.clientX, e.clientY, e.pointerId)
     try {
       e.currentTarget.setPointerCapture(e.pointerId)
-    } catch (err) {
-      // ignore capture errors on unsupported platforms
+    } catch {
+      /* ignore */
     }
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse") return
+    handleGestureMove(e.clientX, e.clientY, e.pointerId)
   }
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return
-    if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return
-    handleGestureEnd(e.clientX, e.clientY)
-    activePointerId.current = null
+    handleGestureEnd(e.pointerId)
   }
 
   const handlePointerCancel = () => {
-    touchStartX.current = null
-    touchStartY.current = null
-    activePointerId.current = null
-    if (debugSwipeEnabled) setDebugSwipeText("cancel")
+    resetDrag()
   }
 
   const chartSlices = useMemo(() => {
@@ -488,10 +475,6 @@ const ReportsScreen: React.FC<Props> = ({
                   >
                     {periodDisplayText}
                   </div>
-                  {debugSwipeEnabled && debugSwipeText ? (
-                    <div style={{ position: "absolute", left: 6, top: -14, fontSize: 10, color: "#9ca3af", zIndex: 7 }}>{debugSwipeText}</div>
-                  ) : null}
-
                   {isPeriodMenuOpen ? (
                     <div
                       style={{
@@ -606,6 +589,12 @@ const ReportsScreen: React.FC<Props> = ({
                 <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
                   <div style={{ display: "grid", gap: 10 }}>
                     <div
+                      ref={donutCardRef}
+                      className="report-donut-drag"
+                      onPointerDown={handlePointerDown}
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={handlePointerUp}
+                      onPointerCancel={handlePointerCancel}
                       style={{
                         position: "relative",
                         display: "flex",
@@ -614,11 +603,11 @@ const ReportsScreen: React.FC<Props> = ({
                         width: "100%",
                         minWidth: 0,
                         overflow: "visible",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 12,
-                      padding: "6px 10px",
-                    }}
-                  >
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 12,
+                        padding: "6px 10px",
+                      }}
+                    >
                       <span
                         style={{
                           position: "absolute",
@@ -651,33 +640,6 @@ const ReportsScreen: React.FC<Props> = ({
                       >
                         ▶
                       </span>
-                      <div
-                        onTouchStart={handleTouchStart}
-                        onTouchEnd={handleTouchEnd}
-                        onTouchCancel={handleTouchCancel}
-                        onTouchStartCapture={handleTouchStart}
-                        onTouchEndCapture={handleTouchEnd}
-                        onTouchCancelCapture={handleTouchCancel}
-                        onPointerDown={handlePointerDown}
-                        onPointerUp={handlePointerUp}
-                        onPointerCancel={handlePointerCancel}
-                        onPointerDownCapture={handlePointerDown}
-                        onPointerUpCapture={handlePointerUp}
-                        onPointerCancelCapture={handlePointerCancel}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: donutBoxWidth,
-                          height: graphHeight,
-                          pointerEvents: "auto",
-                          background: "transparent",
-                          zIndex: 6,
-                          touchAction: "pan-y",
-                          userSelect: "none",
-                          WebkitUserSelect: "none",
-                        }}
-                      />
                       {(() => {
                         const pills = isSingleCategory ? chartSlices.slice(0, 1) : chartSlices.slice(0, 5)
                         let cursor = -90

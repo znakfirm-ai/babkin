@@ -44,3 +44,10 @@ textarea {
 button {
   font-family: inherit;
 }
+
+.report-donut-drag {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+}
