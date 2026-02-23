@@ -552,15 +552,8 @@ const ReportsScreen: React.FC<Props> = ({
                               {[0, 1].map((idx) => (
                                 <div className="report-banner-slide" key={idx}>
                                   <div
-                                    className="report-banner-scaled"
-                                    style={{
-                                      display: "flex",
-                                      gap: legendColumnGap,
-                                      alignItems: "center",
-                                      width: "100%",
-                                      minWidth: 0,
-                                      overflow: "visible",
-                                    }}
+                                    className="report-banner-scaled report-banner-content"
+                                    style={{ width: "100%", minWidth: 0, gap: legendColumnGap }}
                                   >
                                     {donutContent}
                                   </div>

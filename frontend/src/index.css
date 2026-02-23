@@ -66,6 +66,11 @@ button {
 
 .report-banner-content {
   min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: visible;
 }
 
 .report-banner-arrow {
