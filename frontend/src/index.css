@@ -65,8 +65,7 @@ button {
 }
 
 .report-banner-content {
-  transform: translateX(-14px) scale(0.9);
-  transform-origin: center top;
+  margin-left: calc(16px + 36px + 12px);
 }
 
 .report-banner-arrow {
@@ -78,10 +77,15 @@ button {
   border-radius: 10px;
   padding: 4px 8px;
   cursor: pointer;
+  width: 36px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .report-banner-arrow--left {
-  left: 8px;
+  left: 16px;
 }
 
 .report-banner-arrow--right {
