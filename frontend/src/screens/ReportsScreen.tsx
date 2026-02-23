@@ -429,7 +429,7 @@ const ReportsScreen: React.FC<Props> = ({
                             {donutData.total > 0 && donutData.segments.length > 0 ? (
                               (() => {
                                 const radius = 60
-                                const strokeWidth = 15
+                                const strokeWidth = 12
                                 const center = 90
                                 const circumference = 2 * Math.PI * radius
                                 let offset = 0
@@ -455,7 +455,7 @@ const ReportsScreen: React.FC<Props> = ({
                                 })
                               })()
                             ) : (
-            <circle cx={90} cy={90} r={60} fill="none" stroke="#E5E7EB" strokeWidth={15} />
+            <circle cx={90} cy={90} r={60} fill="none" stroke="#E5E7EB" strokeWidth={12} />
                             )}
                             <circle cx={90} cy={90} r={44} fill="#fff" />
                             <text x={90} y={84} textAnchor="middle" fontSize={11} fill="#475569">
