@@ -108,6 +108,7 @@ button {
 }
 
 .report-banner-arrow--left {
+  margin-left: -9px;
 }
 
 .report-banner-arrow--right {
