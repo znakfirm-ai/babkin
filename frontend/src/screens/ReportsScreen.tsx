@@ -544,17 +544,19 @@ const ReportsScreen: React.FC<Props> = ({
                             ◀
                           </button>
                           <div className="report-banner-center">
-                            <div
-                              className="report-banner-track"
-                              style={{ transform: `translateX(-${activeBanner * 100}%)` }}
-                            >
-                              {[0, 1].map((idx) => (
-                                <div className="report-banner-slide" key={idx}>
-                                  <div className="report-banner-content report-banner-scaled">
-                                    {donutContent}
+                            <div className="report-banner-content-viewport">
+                              <div
+                                className="report-banner-track"
+                                style={{ transform: `translateX(-${activeBanner * 100}%)` }}
+                              >
+                                {[0, 1].map((idx) => (
+                                  <div className="report-banner-slide" key={idx}>
+                                    <div className="report-banner-content report-banner-scaled">
+                                      {donutContent}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
                             <div className="report-banner-dots">
                               {[0, 1, 2].map((idx) => {
