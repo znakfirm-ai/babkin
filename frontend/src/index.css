@@ -61,7 +61,7 @@ button {
 
 .report-banner-scaled {
   transform: scale(0.9);
-  transform-origin: center top;
+  transform-origin: center center;
 }
 
 .report-banner-content {
@@ -71,6 +71,11 @@ button {
   align-items: center;
   gap: 12px;
   overflow: visible;
+}
+
+.report-banner-center {
+  display: flex;
+  justify-content: center;
 }
 
 .report-banner-arrow {

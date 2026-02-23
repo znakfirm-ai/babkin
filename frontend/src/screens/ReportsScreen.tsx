@@ -167,7 +167,6 @@ const ReportsScreen: React.FC<Props> = ({
   const legendRowHeight = 32
   const legendGap = 6
   const donutBoxWidth = donutSize + 20
-  const legendColumnGap = 12
 
   const formatDisplayDate = (date: Date) =>
     new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric" }).format(date)
@@ -543,7 +542,7 @@ const ReportsScreen: React.FC<Props> = ({
                         >
                           ◀
                         </button>
-                        <div className="report-banner-content">
+                        <div className="report-banner-center">
                           <div className="report-banner-viewport">
                             <div
                               className="report-banner-track"
@@ -551,10 +550,7 @@ const ReportsScreen: React.FC<Props> = ({
                             >
                               {[0, 1].map((idx) => (
                                 <div className="report-banner-slide" key={idx}>
-                                  <div
-                                    className="report-banner-scaled report-banner-content"
-                                    style={{ width: "100%", minWidth: 0, gap: legendColumnGap }}
-                                  >
+                                  <div className="report-banner-content report-banner-scaled">
                                     {donutContent}
                                   </div>
                                 </div>
