@@ -47,6 +47,7 @@ button {
 
 .report-banner-viewport {
   width: 100%;
+  overflow: hidden;
 }
 
 .report-banner-track {
@@ -142,4 +143,9 @@ button {
   height: 8px;
   background: #0f172a;
   opacity: 0.95;
+}
+
+.report-banner-empty {
+  width: 100%;
+  min-height: 220px;
 }
