@@ -139,6 +139,15 @@ const ReportsScreen: React.FC<Props> = ({
     return `${fromText} — ${toText}`
   }, [currentRange.end, currentRange.label, currentRange.start, periodMode])
 
+  const donutData = useMemo(() => {
+    const palette = ["#9CC3FF", "#B9E4C9", "#FFD6A5", "#D9C2FF"]
+    const top = expenseData.list.slice(0, 4)
+    const restSum = expenseData.list.slice(4).reduce((acc, i) => acc + i.sum, 0)
+    const segments = top.map((item, idx) => ({ color: palette[idx % palette.length], value: item.sum }))
+    if (restSum > 0) segments.push({ color: "#E5E7EB", value: restSum })
+    return { segments, total: expenseData.total }
+  }, [expenseData.list, expenseData.total])
+
   useEffect(() => {
     if (autoOpenExpensesSheet) {
       setIsExpensesSheetOpen(true)
@@ -409,7 +418,54 @@ const ReportsScreen: React.FC<Props> = ({
                         </svg>
                       </button>
                       <div className="report-banner-viewport">
-                        <div className="report-banner-empty" />
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "flex-start",
+                            paddingLeft: 48,
+                          }}
+                        >
+                          <svg width={180} height={180} viewBox="0 0 180 180" role="img" aria-label="Диаграмма расходов">
+                            {donutData.total > 0 && donutData.segments.length > 0 ? (
+                              (() => {
+                                const radius = 60
+                                const strokeWidth = 18
+                                const center = 90
+                                const circumference = 2 * Math.PI * radius
+                                let offset = 0
+                                return donutData.segments.map((seg, idx) => {
+                                  const share = seg.value / donutData.total
+                                  const dash = Math.max(0, circumference * share)
+                                  const circle = (
+                                    <circle
+                                      key={idx}
+                                      cx={center}
+                                      cy={center}
+                                      r={radius}
+                                      fill="none"
+                                      stroke={seg.color}
+                                      strokeWidth={strokeWidth}
+                                      strokeDasharray={`${dash} ${circumference - dash}`}
+                                      strokeDashoffset={-offset}
+                                      strokeLinecap="butt"
+                                    />
+                                  )
+                                  offset += dash
+                                  return circle
+                                })
+                              })()
+                            ) : (
+                              <circle cx={90} cy={90} r={60} fill="none" stroke="#E5E7EB" strokeWidth={18} />
+                            )}
+                            <circle cx={90} cy={90} r={44} fill="#fff" />
+                            <text x={90} y={84} textAnchor="middle" fontSize={11} fill="#475569">
+                              {donutData.total > 0 ? "Итого" : "Нет расходов"}
+                            </text>
+                            <text x={90} y={104} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
+                              {donutData.total > 0 ? formatMoney(donutData.total, currency ?? "RUB") : ""}
+                            </text>
+                          </svg>
+                        </div>
                       </div>
                     </div>
                   </div>
