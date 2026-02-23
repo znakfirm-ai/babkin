@@ -109,8 +109,9 @@ button {
 .report-banner-btn {
   width: 32px;
   height: 32px;
-  border: none;
-  background: transparent;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 10px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -124,6 +125,11 @@ button {
 
 .report-banner-btn--right {
   margin-right: -6px;
+}
+
+.report-banner-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .report-banner-arrow {
