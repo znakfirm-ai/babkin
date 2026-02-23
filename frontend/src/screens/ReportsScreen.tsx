@@ -53,6 +53,7 @@ const ReportsScreen: React.FC<Props> = ({
   const dragActive = useRef(false)
   const dragRaf = useRef<number | null>(null)
   const donutTrackRef = useRef<HTMLDivElement | null>(null)
+  const BASE_OFFSET_PERCENT = -100
   const todayDate = useMemo(() => format(new Date()), [])
   const minDate = useMemo(() => new Date(2020, 0, 1, 0, 0, 0, 0), [])
 
@@ -194,7 +195,7 @@ const ReportsScreen: React.FC<Props> = ({
     dragDx.current = 0
     if (donutTrackRef.current) {
       donutTrackRef.current.style.transition = "none"
-      donutTrackRef.current.style.transform = "translateX(-100%)"
+      donutTrackRef.current.style.transform = `translateX(${BASE_OFFSET_PERCENT}%)`
     }
   }
 
@@ -202,7 +203,7 @@ const ReportsScreen: React.FC<Props> = ({
     if (dragRaf.current) cancelAnimationFrame(dragRaf.current)
     dragRaf.current = requestAnimationFrame(() => {
       if (donutTrackRef.current) {
-        donutTrackRef.current.style.transform = `translateX(calc(-100% + ${dx}px))`
+        donutTrackRef.current.style.transform = `translateX(calc(${BASE_OFFSET_PERCENT}% + ${dx}px))`
       }
     })
   }
@@ -220,12 +221,12 @@ const ReportsScreen: React.FC<Props> = ({
       el.removeEventListener("transitionend", onEnd)
       if (donutTrackRef.current) {
         donutTrackRef.current.style.transition = "none"
-        donutTrackRef.current.style.transform = "translateX(-100%)"
+        donutTrackRef.current.style.transform = `translateX(${BASE_OFFSET_PERCENT}%)`
       }
     }
     el.addEventListener("transitionend", onEnd)
     el.style.transition = "transform 180ms ease-out"
-    el.style.transform = "translateX(-100%)"
+    el.style.transform = `translateX(${BASE_OFFSET_PERCENT}%)`
   }
 
   const handleGestureMove = (x: number, y: number, pointerId: number | null) => {

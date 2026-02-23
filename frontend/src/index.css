@@ -56,7 +56,6 @@ button {
 .report-donut-track {
   display: flex;
   width: 300%;
-  transform: translateX(-100%);
 }
 
 .report-donut-slide {
