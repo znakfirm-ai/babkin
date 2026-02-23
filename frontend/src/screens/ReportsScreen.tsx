@@ -532,52 +532,54 @@ const ReportsScreen: React.FC<Props> = ({
                         justifyContent: "center",
                       }}
                     >
-                      <button
-                        type="button"
-                        className="report-banner-arrow report-banner-arrow--left"
-                        onClick={() => setActiveBanner((prev) => Math.min(1, prev + 1))}
-                        style={{
-                          opacity: activeBanner === 0 ? 0.65 : 0.65,
-                        }}
-                      >
-                        ◀
-                      </button>
-                      <button
-                        type="button"
-                        className="report-banner-arrow report-banner-arrow--right"
-                        onClick={() => setActiveBanner((prev) => Math.max(0, prev - 1))}
-                        disabled={activeBanner === 0}
-                        style={{
-                          opacity: activeBanner === 0 ? 0.25 : 0.65,
-                        }}
-                      >
-                        ▶
-                      </button>
-                      <div className="report-banner-viewport">
-                        <div
-                          className="report-banner-track"
-                          style={{ transform: `translateX(-${activeBanner * 100}%)` }}
+                      <div className="report-banner-inner">
+                        <button
+                          type="button"
+                          className="report-banner-arrow report-banner-arrow--left"
+                          onClick={() => setActiveBanner((prev) => Math.min(1, prev + 1))}
+                          style={{
+                            opacity: activeBanner === 0 ? 0.65 : 0.65,
+                          }}
                         >
-                          {[0, 1].map((idx) => (
-                            <div className="report-banner-slide" key={idx}>
-                              <div
-                                className="report-banner-scaled report-banner-content"
-                                style={{
-                                  display: "flex",
-                                  gap: legendColumnGap,
-                                  alignItems: "center",
-                                  width: "100%",
-                                  minWidth: 0,
-                                  overflow: "visible",
-                                  transform: "scale(0.9)",
-                                  transformOrigin: "center top",
-                                }}
-                              >
-                                {donutContent}
-                              </div>
+                          ◀
+                        </button>
+                        <div className="report-banner-content">
+                          <div className="report-banner-viewport">
+                            <div
+                              className="report-banner-track"
+                              style={{ transform: `translateX(-${activeBanner * 100}%)` }}
+                            >
+                              {[0, 1].map((idx) => (
+                                <div className="report-banner-slide" key={idx}>
+                                  <div
+                                    className="report-banner-scaled"
+                                    style={{
+                                      display: "flex",
+                                      gap: legendColumnGap,
+                                      alignItems: "center",
+                                      width: "100%",
+                                      minWidth: 0,
+                                      overflow: "visible",
+                                    }}
+                                  >
+                                    {donutContent}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          </div>
                         </div>
+                        <button
+                          type="button"
+                          className="report-banner-arrow report-banner-arrow--right"
+                          onClick={() => setActiveBanner((prev) => Math.max(0, prev - 1))}
+                          disabled={activeBanner === 0}
+                          style={{
+                            opacity: activeBanner === 0 ? 0.25 : 0.65,
+                          }}
+                        >
+                          ▶
+                        </button>
                       </div>
                       <div className="report-banner-dots">
                         {[0, 1, 2].map((idx) => {

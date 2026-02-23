@@ -65,31 +65,26 @@ button {
 }
 
 .report-banner-content {
-  margin-left: calc(16px + 36px + 12px);
+  min-width: 0;
 }
 
 .report-banner-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
   border: 1px solid #e5e7eb;
   background: #fff;
   border-radius: 10px;
   padding: 4px 8px;
   cursor: pointer;
   width: 36px;
-  height: 28px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 .report-banner-arrow--left {
-  left: 16px;
 }
 
 .report-banner-arrow--right {
-  right: 8px;
 }
 
 .report-banner-arrow:disabled {
@@ -101,6 +96,13 @@ button {
   justify-content: center;
   gap: 6px;
   margin-top: 6px;
+}
+
+.report-banner-inner {
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  column-gap: 12px;
+  align-items: center;
 }
 
 .report-banner-dot {
