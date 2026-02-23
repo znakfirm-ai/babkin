@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react"
+import { useEffect, useMemo, useState } from "react"
 import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
@@ -45,17 +45,7 @@ const ReportsScreen: React.FC<Props> = ({
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null)
-  const touchStartX = useRef<number | null>(null)
-  const touchStartY = useRef<number | null>(null)
-  const dragDx = useRef(0)
-  const dragPointerId = useRef<number | null>(null)
-  const dragLocked = useRef<"x" | "y" | null>(null)
-  const dragActive = useRef(false)
-  const dragRaf = useRef<number | null>(null)
-  const donutTrackRef = useRef<HTMLDivElement | null>(null)
-  const BASE_OFFSET_PERCENT = -100
   const todayDate = useMemo(() => format(new Date()), [])
-  const minDate = useMemo(() => new Date(2020, 0, 1, 0, 0, 0, 0), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
 
@@ -133,153 +123,6 @@ const ReportsScreen: React.FC<Props> = ({
     return { total, slices, sliceLabels, colors, list }
   }, [categories, currentRange.end, currentRange.start, transactions])
 
-  const canShift = (direction: "prev" | "next") => {
-    const delta = direction === "prev" ? -1 : 1
-    const today = new Date()
-    const dayMs = 24 * 60 * 60 * 1000
-
-    const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
-    const dayEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
-
-    if (periodMode === "month") {
-      const nextOffset = monthOffset + delta
-      if (nextOffset > 0) return false
-      const candidate = getMonthRange(nextOffset)
-      if (candidate.start < minDate) return false
-      if (candidate.start > today) return false
-      return true
-    }
-
-    if (periodMode === "week") {
-      const baseStart = dayStart(currentRange.start)
-      const baseEnd = dayEnd(currentRange.end)
-      const candidateStart = new Date(baseStart.getTime() + delta * 7 * dayMs)
-      const candidateEnd = new Date(baseEnd.getTime() + delta * 7 * dayMs)
-      const todayEnd = dayEnd(today)
-      if (candidateStart < minDate) return false
-      if (candidateEnd > todayEnd) return false
-      return true
-    }
-
-    if (periodMode === "today" || periodMode === "day") {
-      const base = periodMode === "today" ? today : singleDay ? new Date(singleDay) : today
-      const candidate = new Date(base.getTime() + delta * dayMs)
-      const candidateStart = dayStart(candidate)
-      const todayStart = dayStart(today)
-      if (candidateStart < minDate) return false
-      if (candidateStart > todayStart) return false
-      return true
-    }
-
-    if (periodMode === "custom") {
-      const fromDate = customFrom ? new Date(customFrom) : today
-      const toDate = customTo ? new Date(customTo) : today
-      const spanDays = Math.max(1, Math.round((dayStart(toDate).getTime() - dayStart(fromDate).getTime()) / dayMs) + 1)
-      const shiftMs = spanDays * dayMs * delta
-      const candidateFrom = new Date(fromDate.getTime() + shiftMs)
-      const candidateTo = new Date(toDate.getTime() + shiftMs)
-      const todayEnd = dayEnd(today)
-      if (dayStart(candidateFrom) < minDate) return false
-      if (dayEnd(candidateTo) > todayEnd) return false
-      return true
-    }
-    return false
-  }
-
-  const handleGestureStart = (x: number, y: number, pointerId: number | null) => {
-    touchStartX.current = x
-    touchStartY.current = y
-    dragPointerId.current = pointerId
-    dragLocked.current = null
-    dragActive.current = true
-    dragDx.current = 0
-    if (donutTrackRef.current) {
-      donutTrackRef.current.style.transition = "none"
-      donutTrackRef.current.style.transform = `translateX(${BASE_OFFSET_PERCENT}%)`
-    }
-  }
-
-  const applyDrag = (dx: number) => {
-    if (dragRaf.current) cancelAnimationFrame(dragRaf.current)
-    dragRaf.current = requestAnimationFrame(() => {
-      if (donutTrackRef.current) {
-        donutTrackRef.current.style.transform = `translateX(calc(${BASE_OFFSET_PERCENT}% + ${dx}px))`
-      }
-    })
-  }
-
-  const resetDrag = () => {
-    dragActive.current = false
-    dragPointerId.current = null
-    dragLocked.current = null
-    touchStartX.current = null
-    touchStartY.current = null
-    dragDx.current = 0
-    const el = donutTrackRef.current
-    if (!el) return
-    const onEnd = () => {
-      el.removeEventListener("transitionend", onEnd)
-      if (donutTrackRef.current) {
-        donutTrackRef.current.style.transition = "none"
-        donutTrackRef.current.style.transform = `translateX(${BASE_OFFSET_PERCENT}%)`
-      }
-    }
-    el.addEventListener("transitionend", onEnd)
-    el.style.transition = "transform 180ms ease-out"
-    el.style.transform = `translateX(${BASE_OFFSET_PERCENT}%)`
-  }
-
-  const handleGestureMove = (x: number, y: number, pointerId: number | null) => {
-    if (!dragActive.current) return
-    if (dragPointerId.current !== null && pointerId !== null && pointerId !== dragPointerId.current) return
-    if (touchStartX.current == null || touchStartY.current == null) return
-    const dx = x - touchStartX.current
-    const dy = y - touchStartY.current
-    if (!dragLocked.current) {
-      if (Math.abs(dx) > 5 && Math.abs(dx) > Math.abs(dy)) {
-        dragLocked.current = "x"
-      } else if (Math.abs(dy) > 5 && Math.abs(dy) > Math.abs(dx)) {
-        dragLocked.current = "y"
-      } else {
-        return
-      }
-    }
-    if (dragLocked.current !== "x") return
-    const clamped = Math.max(-70, Math.min(70, dx))
-    dragDx.current = clamped
-    applyDrag(clamped)
-  }
-
-  const handleGestureEnd = (pointerId: number | null) => {
-    if (!dragActive.current) return
-    if (dragPointerId.current !== null && pointerId !== null && pointerId !== dragPointerId.current) return
-    resetDrag()
-  }
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse") return
-    handleGestureStart(e.clientX, e.clientY, e.pointerId)
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId)
-    } catch {
-      /* ignore */
-    }
-  }
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse") return
-    handleGestureMove(e.clientX, e.clientY, e.pointerId)
-  }
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse") return
-    handleGestureEnd(e.pointerId)
-  }
-
-  const handlePointerCancel = () => {
-    resetDrag()
-  }
-
   const chartSlices = useMemo(() => {
     if (expenseData.total <= 0) return []
     const palette = expenseData.colors
@@ -350,9 +193,6 @@ const ReportsScreen: React.FC<Props> = ({
       onConsumeAutoOpenExpenses?.()
     }
   }, [autoOpenExpensesSheet, onConsumeAutoOpenExpenses])
-
-  const canShiftPrev = canShift("prev")
-  const canShiftNext = canShift("next")
 
   const donutContent = (() => {
     const pills = isSingleCategory ? chartSlices.slice(0, 1) : chartSlices.slice(0, 5)
@@ -687,61 +527,8 @@ const ReportsScreen: React.FC<Props> = ({
                         padding: "6px 10px",
                       }}
                     >
-                      <span
-                        style={{
-                          position: "absolute",
-                          left: 8,
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          color: "#0f172a",
-                          opacity: canShiftNext ? 0.35 : 0.12,
-                          pointerEvents: "none",
-                          fontSize: 12,
-                          zIndex: 5,
-                          userSelect: "none",
-                        }}
-                      >
-                        ◀
-                      </span>
-                      <span
-                        style={{
-                          position: "absolute",
-                          right: 8,
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          color: "#0f172a",
-                          opacity: canShiftPrev ? 0.35 : 0.12,
-                          pointerEvents: "none",
-                          fontSize: 12,
-                          zIndex: 5,
-                          userSelect: "none",
-                        }}
-                      >
-                        ▶
-                      </span>
-                      <div
-                        ref={donutTrackRef}
-                        className="report-donut-track"
-                        onPointerDown={handlePointerDown}
-                        onPointerMove={handlePointerMove}
-                        onPointerUp={handlePointerUp}
-                        onPointerCancel={handlePointerCancel}
-                      >
-                        {[0, 1, 2].map((idx) => (
-                          <div
-                            className="report-donut-slide"
-                            key={idx}
-                            style={{ display: "flex", gap: legendColumnGap, alignItems: "center", width: "100%", minWidth: 0, overflow: "visible", position: "relative" }}
-                          >
-                            {idx === 0 ? (
-                              <span className="report-donut-slide-marker" style={{ left: 8 }}>‹</span>
-                            ) : null}
-                            {idx === 2 ? (
-                              <span className="report-donut-slide-marker" style={{ right: 8 }}>›</span>
-                            ) : null}
-                            {donutContent}
-                          </div>
-                        ))}
+                      <div style={{ display: "flex", gap: legendColumnGap, alignItems: "center", width: "100%", minWidth: 0, overflow: "visible" }}>
+                        {donutContent}
                       </div>
                     </div>
                   </div>

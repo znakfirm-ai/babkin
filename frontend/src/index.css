@@ -44,30 +44,3 @@ textarea {
 button {
   font-family: inherit;
 }
-
-.report-donut-drag {
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
-  will-change: transform;
-  overflow: hidden;
-}
-
-.report-donut-track {
-  display: flex;
-  width: 300%;
-}
-
-.report-donut-slide {
-  flex: 0 0 100%;
-  position: relative;
-}
-
-.report-donut-slide-marker {
-  position: absolute;
-  top: 8px;
-  font-size: 14px;
-  opacity: 0.25;
-  pointer-events: none;
-  user-select: none;
-}
