@@ -51,3 +51,13 @@ button {
   -webkit-user-select: none;
   will-change: transform;
 }
+
+.report-donut-track {
+  display: flex;
+  width: 300%;
+  transform: translateX(-100%);
+}
+
+.report-donut-slide {
+  flex: 0 0 100%;
+}

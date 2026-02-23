@@ -52,7 +52,7 @@ const ReportsScreen: React.FC<Props> = ({
   const dragLocked = useRef<"x" | "y" | null>(null)
   const dragActive = useRef(false)
   const dragRaf = useRef<number | null>(null)
-  const donutCardRef = useRef<HTMLDivElement | null>(null)
+  const donutTrackRef = useRef<HTMLDivElement | null>(null)
   const todayDate = useMemo(() => format(new Date()), [])
   const minDate = useMemo(() => new Date(2020, 0, 1, 0, 0, 0, 0), [])
 
@@ -192,16 +192,17 @@ const ReportsScreen: React.FC<Props> = ({
     dragLocked.current = null
     dragActive.current = true
     dragDx.current = 0
-    if (donutCardRef.current) {
-      donutCardRef.current.style.transition = "none"
+    if (donutTrackRef.current) {
+      donutTrackRef.current.style.transition = "none"
+      donutTrackRef.current.style.transform = "translateX(-100%)"
     }
   }
 
   const applyDrag = (dx: number) => {
     if (dragRaf.current) cancelAnimationFrame(dragRaf.current)
     dragRaf.current = requestAnimationFrame(() => {
-      if (donutCardRef.current) {
-        donutCardRef.current.style.transform = `translateX(${dx}px)`
+      if (donutTrackRef.current) {
+        donutTrackRef.current.style.transform = `translateX(calc(-100% + ${dx}px))`
       }
     })
   }
@@ -213,18 +214,18 @@ const ReportsScreen: React.FC<Props> = ({
     touchStartX.current = null
     touchStartY.current = null
     dragDx.current = 0
-    const el = donutCardRef.current
+    const el = donutTrackRef.current
     if (!el) return
     const onEnd = () => {
       el.removeEventListener("transitionend", onEnd)
-      if (donutCardRef.current) {
-        donutCardRef.current.style.transition = "none"
-        donutCardRef.current.style.transform = "translateX(0px)"
+      if (donutTrackRef.current) {
+        donutTrackRef.current.style.transition = "none"
+        donutTrackRef.current.style.transform = "translateX(-100%)"
       }
     }
     el.addEventListener("transitionend", onEnd)
     el.style.transition = "transform 180ms ease-out"
-    el.style.transform = "translateX(0px)"
+    el.style.transform = "translateX(-100%)"
   }
 
   const handleGestureMove = (x: number, y: number, pointerId: number | null) => {
@@ -351,6 +352,92 @@ const ReportsScreen: React.FC<Props> = ({
 
   const canShiftPrev = canShift("prev")
   const canShiftNext = canShift("next")
+
+  const donutContent = (() => {
+    const pills = isSingleCategory ? chartSlices.slice(0, 1) : chartSlices.slice(0, 5)
+    let cursor = -90
+    return (
+      <>
+        <svg
+          width={donutBoxWidth}
+          height={graphHeight}
+          viewBox={`0 0 ${donutBoxWidth} ${graphHeight}`}
+          role="img"
+          aria-label="Диаграмма расходов"
+          style={{ flex: "0 0 auto", position: "relative", zIndex: 2, pointerEvents: "none" }}
+        >
+          {hasData ? (
+            isSingleCategory ? (
+              <>
+                <circle cx={donutCx} cy={donutCy} r={outerR} fill={chartSlices[0].color} />
+                <circle cx={donutCx} cy={donutCy} r={innerR} fill="#fff" />
+              </>
+            ) : (
+              pills.map((slice) => {
+                const sweep = slice.share * 360
+                const start = cursor
+                const end = cursor + sweep
+                cursor += sweep
+                const startRad = (Math.PI / 180) * start
+                const endRad = (Math.PI / 180) * end
+                const largeArc = sweep > 180 ? 1 : 0
+                const midAngleRad = (Math.PI / 180) * ((start + end) / 2)
+                const isSelected = slice.id === selectedSliceId
+                const outer = isSelected ? outerR + 6 : outerR
+                const inner = innerR
+                const dx = isSelected ? Math.cos(midAngleRad) * 4 : 0
+                const dy = isSelected ? Math.sin(midAngleRad) * 4 : 0
+                const cx = donutCx + dx
+                const cy = donutCy + dy
+                const x1 = cx + Math.cos(startRad) * outer
+                const y1 = cy + Math.sin(startRad) * outer
+                const x2 = cx + Math.cos(endRad) * outer
+                const y2 = cy + Math.sin(endRad) * outer
+                const arcPath = `M ${x1} ${y1} A ${outer} ${outer} 0 ${largeArc} 1 ${x2} ${y2}`
+                const innerX1 = cx + Math.cos(endRad) * inner
+                const innerY1 = cy + Math.sin(endRad) * inner
+                const innerX2 = cx + Math.cos(startRad) * inner
+                const innerY2 = cy + Math.sin(startRad) * inner
+                const innerArcPath = `A ${inner} ${inner} 0 ${largeArc} 0 ${innerX2} ${innerY2}`
+                const path = `${arcPath} L ${innerX1} ${innerY1} ${innerArcPath} Z`
+
+                return <path key={slice.id} d={path} fill={slice.color} />
+              })
+            )
+          ) : (
+            <circle cx={donutCx} cy={donutCy} r={outerR} fill="none" stroke="#e5e7eb" strokeWidth={outerR - innerR} />
+          )}
+          <circle cx={donutCx} cy={donutCy} r={innerR} fill="#fff" />
+          <text x={donutCx} y={donutCy - 6} textAnchor="middle" fontSize={11} fill="#475569">
+            {hasData ? "Итого" : "Нет расходов"}
+          </text>
+          <text x={donutCx} y={donutCy + 12} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
+            {hasData ? formatMoney(expenseData.total, currency ?? "RUB") : "за период"}
+          </text>
+        </svg>
+
+        {hasData ? (
+          <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
+            <svg width="100%" height={graphHeight} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}></svg>
+            {(isSingleCategory ? chartSlices.slice(0, 1) : chartSlices.slice(0, 5)).map((slice) => (
+              <div
+                key={slice.id}
+                style={{ height: legendRowHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0, cursor: "pointer" }}
+                onClick={() => setSelectedSliceId((prev) => (prev === slice.id ? null : slice.id))}
+              >
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+                  <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
+                  <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {slice.label}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </>
+    )
+  })()
 
 
   return (
@@ -593,7 +680,7 @@ const ReportsScreen: React.FC<Props> = ({
                         position: "relative",
                         width: "100%",
                         minWidth: 0,
-                        overflow: "visible",
+                        overflow: "hidden",
                         border: "1px solid #e5e7eb",
                         borderRadius: 12,
                         padding: "6px 10px",
@@ -632,111 +719,18 @@ const ReportsScreen: React.FC<Props> = ({
                         ▶
                       </span>
                       <div
-                        ref={donutCardRef}
-                        className="report-donut-drag"
+                        ref={donutTrackRef}
+                        className="report-donut-track"
                         onPointerDown={handlePointerDown}
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerCancel}
-                        style={{
-                          display: "flex",
-                          gap: legendColumnGap,
-                          alignItems: "center",
-                          width: "100%",
-                          minWidth: 0,
-                          overflow: "visible",
-                        }}
                       >
-                      {(() => {
-                        const pills = isSingleCategory ? chartSlices.slice(0, 1) : chartSlices.slice(0, 5)
-                        let cursor = -90
-                        return (
-                          <>
-                            <svg
-                              width={donutBoxWidth}
-                              height={graphHeight}
-                              viewBox={`0 0 ${donutBoxWidth} ${graphHeight}`}
-                              role="img"
-                              aria-label="Диаграмма расходов"
-                              style={{ flex: "0 0 auto", position: "relative", zIndex: 2, pointerEvents: "none" }}
-                            >
-                              {hasData ? (
-                                isSingleCategory ? (
-                                  <>
-                                    <circle cx={donutCx} cy={donutCy} r={outerR} fill={chartSlices[0].color} />
-                                    <circle cx={donutCx} cy={donutCy} r={innerR} fill="#fff" />
-                                  </>
-                                ) : (
-                                  pills.map((slice) => {
-                                    const sweep = slice.share * 360
-                                    const start = cursor
-                                    const end = cursor + sweep
-                                    cursor += sweep
-                                    const startRad = (Math.PI / 180) * start
-                                    const endRad = (Math.PI / 180) * end
-                                    const largeArc = sweep > 180 ? 1 : 0
-                                    const midAngleRad = (Math.PI / 180) * ((start + end) / 2)
-                                    const isSelected = slice.id === selectedSliceId
-                                    const outer = isSelected ? outerR + 6 : outerR
-                                    const inner = innerR
-                                    const dx = isSelected ? Math.cos(midAngleRad) * 4 : 0
-                                    const dy = isSelected ? Math.sin(midAngleRad) * 4 : 0
-                                    const cx = donutCx + dx
-                                    const cy = donutCy + dy
-                                    const x1 = cx + Math.cos(startRad) * outer
-                                    const y1 = cy + Math.sin(startRad) * outer
-                                    const x2 = cx + Math.cos(endRad) * outer
-                                    const y2 = cy + Math.sin(endRad) * outer
-                                    const arcPath = `M ${x1} ${y1} A ${outer} ${outer} 0 ${largeArc} 1 ${x2} ${y2}`
-                                    const innerX1 = cx + Math.cos(endRad) * inner
-                                    const innerY1 = cy + Math.sin(endRad) * inner
-                                    const innerX2 = cx + Math.cos(startRad) * inner
-                                    const innerY2 = cy + Math.sin(startRad) * inner
-                                    const innerArcPath = `A ${inner} ${inner} 0 ${largeArc} 0 ${innerX2} ${innerY2}`
-                                    const path = `${arcPath} L ${innerX1} ${innerY1} ${innerArcPath} Z`
-
-                                    return <path key={slice.id} d={path} fill={slice.color} />
-                                  })
-                                )
-                              ) : (
-                                <circle cx={donutCx} cy={donutCy} r={outerR} fill="none" stroke="#e5e7eb" strokeWidth={outerR - innerR} />
-                              )}
-                              <circle cx={donutCx} cy={donutCy} r={innerR} fill="#fff" />
-                              <text x={donutCx} y={donutCy - 6} textAnchor="middle" fontSize={11} fill="#475569">
-                                {hasData ? "Итого" : "Нет расходов"}
-                              </text>
-                              <text x={donutCx} y={donutCy + 12} textAnchor="middle" fontSize={13} fontWeight={700} fill="#0f172a">
-                                {hasData ? formatMoney(expenseData.total, currency ?? "RUB") : "за период"}
-                              </text>
-                            </svg>
-
-                            {hasData ? (
-                              <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: legendGap }}>
-                                <svg
-                                  width="100%"
-                                  height={graphHeight}
-                                  style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", zIndex: 1 }}
-                                >
-                                </svg>
-                                {(isSingleCategory ? chartSlices.slice(0, 1) : chartSlices.slice(0, 5)).map((slice) => (
-                                  <div
-                                    key={slice.id}
-                                    style={{ height: legendRowHeight, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 0, margin: 0, cursor: "pointer" }}
-                                    onClick={() => setSelectedSliceId((prev) => (prev === slice.id ? null : slice.id))}
-                                  >
-                                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
-                                      <span style={{ color: slice.color, fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{slice.percentText}</span>
-                                      <span style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        {slice.label}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-                          </>
-                        )
-                      })()}
+                        {[0, 1, 2].map((idx) => (
+                          <div className="report-donut-slide" key={idx} style={{ display: "flex", gap: legendColumnGap, alignItems: "center", width: "100%", minWidth: 0, overflow: "visible" }}>
+                            {donutContent}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
