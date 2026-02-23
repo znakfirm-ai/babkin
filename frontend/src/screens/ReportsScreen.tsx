@@ -142,7 +142,7 @@ const ReportsScreen: React.FC<Props> = ({
     touchStartY.current = y
   }
 
-  const shiftPeriod = (direction: "prev" | "next") => {
+  const canShift = (direction: "prev" | "next") => {
     const delta = direction === "prev" ? -1 : 1
     const today = new Date()
     const dayMs = 24 * 60 * 60 * 1000
@@ -152,12 +152,11 @@ const ReportsScreen: React.FC<Props> = ({
 
     if (periodMode === "month") {
       const nextOffset = monthOffset + delta
-      if (nextOffset > 0) return
+      if (nextOffset > 0) return false
       const candidate = getMonthRange(nextOffset)
-      if (candidate.start < minDate) return
-      if (candidate.start > today) return
-      setMonthOffset(nextOffset)
-      return
+      if (candidate.start < minDate) return false
+      if (candidate.start > today) return false
+      return true
     }
 
     if (periodMode === "week") {
@@ -166,10 +165,9 @@ const ReportsScreen: React.FC<Props> = ({
       const candidateStart = new Date(baseStart.getTime() + delta * 7 * dayMs)
       const candidateEnd = new Date(baseEnd.getTime() + delta * 7 * dayMs)
       const todayEnd = dayEnd(today)
-      if (candidateStart < minDate) return
-      if (candidateEnd > todayEnd) return
-      setWeekOffset((prev) => prev + delta)
-      return
+      if (candidateStart < minDate) return false
+      if (candidateEnd > todayEnd) return false
+      return true
     }
 
     if (periodMode === "today" || periodMode === "day") {
@@ -177,8 +175,48 @@ const ReportsScreen: React.FC<Props> = ({
       const candidate = new Date(base.getTime() + delta * dayMs)
       const candidateStart = dayStart(candidate)
       const todayStart = dayStart(today)
-      if (candidateStart < minDate) return
-      if (candidateStart > todayStart) return
+      if (candidateStart < minDate) return false
+      if (candidateStart > todayStart) return false
+      return true
+    }
+
+    if (periodMode === "custom") {
+      const fromDate = customFrom ? new Date(customFrom) : today
+      const toDate = customTo ? new Date(customTo) : today
+      const spanDays = Math.max(1, Math.round((dayStart(toDate).getTime() - dayStart(fromDate).getTime()) / dayMs) + 1)
+      const shiftMs = spanDays * dayMs * delta
+      const candidateFrom = new Date(fromDate.getTime() + shiftMs)
+      const candidateTo = new Date(toDate.getTime() + shiftMs)
+      const todayEnd = dayEnd(today)
+      if (dayStart(candidateFrom) < minDate) return false
+      if (dayEnd(candidateTo) > todayEnd) return false
+      return true
+    }
+    return false
+  }
+
+  const shiftPeriod = (direction: "prev" | "next") => {
+    if (!canShift(direction)) return
+    const delta = direction === "prev" ? -1 : 1
+    const today = new Date()
+    const dayMs = 24 * 60 * 60 * 1000
+
+    const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
+
+    if (periodMode === "month") {
+      const nextOffset = monthOffset + delta
+      setMonthOffset(nextOffset)
+      return
+    }
+
+    if (periodMode === "week") {
+      setWeekOffset((prev) => prev + delta)
+      return
+    }
+
+    if (periodMode === "today" || periodMode === "day") {
+      const base = periodMode === "today" ? today : singleDay ? new Date(singleDay) : today
+      const candidate = new Date(base.getTime() + delta * dayMs)
       setSingleDay(format(candidate))
       if (periodMode === "today") setPeriodMode("day")
       return
@@ -191,9 +229,6 @@ const ReportsScreen: React.FC<Props> = ({
       const shiftMs = spanDays * dayMs * delta
       const candidateFrom = new Date(fromDate.getTime() + shiftMs)
       const candidateTo = new Date(toDate.getTime() + shiftMs)
-      const todayEnd = dayEnd(today)
-      if (dayStart(candidateFrom) < minDate) return
-      if (dayEnd(candidateTo) > todayEnd) return
       setCustomFrom(format(candidateFrom))
       setCustomTo(format(candidateTo))
     }
@@ -326,6 +361,9 @@ const ReportsScreen: React.FC<Props> = ({
       onConsumeAutoOpenExpenses?.()
     }
   }, [autoOpenExpensesSheet, onConsumeAutoOpenExpenses])
+
+  const canShiftPrev = canShift("prev")
+  const canShiftNext = canShift("next")
 
 
   return (
@@ -576,11 +614,43 @@ const ReportsScreen: React.FC<Props> = ({
                         width: "100%",
                         minWidth: 0,
                         overflow: "visible",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 12,
-                        padding: "6px 10px",
-                      }}
-                    >
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 12,
+                      padding: "6px 10px",
+                    }}
+                  >
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: 8,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "#0f172a",
+                          opacity: canShiftPrev ? 0.35 : 0.12,
+                          pointerEvents: "none",
+                          fontSize: 12,
+                          zIndex: 5,
+                          userSelect: "none",
+                        }}
+                      >
+                        ◀
+                      </span>
+                      <span
+                        style={{
+                          position: "absolute",
+                          right: 8,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "#0f172a",
+                          opacity: canShiftNext ? 0.35 : 0.12,
+                          pointerEvents: "none",
+                          fontSize: 12,
+                          zIndex: 5,
+                          userSelect: "none",
+                        }}
+                      >
+                        ▶
+                      </span>
                       <div
                         onTouchStart={handleTouchStart}
                         onTouchEnd={handleTouchEnd}
