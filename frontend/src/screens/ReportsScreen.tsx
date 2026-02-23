@@ -45,6 +45,7 @@ const ReportsScreen: React.FC<Props> = ({
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null)
+  const [activeBanner, setActiveBanner] = useState(0)
   const todayDate = useMemo(() => format(new Date()), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
@@ -521,14 +522,51 @@ const ReportsScreen: React.FC<Props> = ({
                         position: "relative",
                         width: "100%",
                         minWidth: 0,
-                        overflow: "hidden",
                         border: "1px solid #e5e7eb",
                         borderRadius: 12,
-                        padding: "6px 10px",
+                        padding: "6px 10px 14px",
+                        overflow: "visible",
                       }}
                     >
-                      <div style={{ display: "flex", gap: legendColumnGap, alignItems: "center", width: "100%", minWidth: 0, overflow: "visible" }}>
-                        {donutContent}
+                      <button
+                        type="button"
+                        className="report-banner-arrow report-banner-arrow--left"
+                        onClick={() => setActiveBanner((prev) => Math.min(1, prev + 1))}
+                        style={{
+                          opacity: activeBanner === 0 ? 0.65 : 0.65,
+                        }}
+                      >
+                        ◀
+                      </button>
+                      <button
+                        type="button"
+                        className="report-banner-arrow report-banner-arrow--right"
+                        onClick={() => setActiveBanner((prev) => Math.max(0, prev - 1))}
+                        disabled={activeBanner === 0}
+                        style={{
+                          opacity: activeBanner === 0 ? 0.25 : 0.65,
+                        }}
+                      >
+                        ▶
+                      </button>
+                      <div className="report-banner-viewport">
+                        <div
+                          className="report-banner-track"
+                          style={{ transform: `translateX(-${activeBanner * 100}%)` }}
+                        >
+                          {[0, 1].map((idx) => (
+                            <div className="report-banner-slide" key={idx}>
+                              <div className="report-banner-scaled" style={{ display: "flex", gap: legendColumnGap, alignItems: "center", width: "100%", minWidth: 0, overflow: "visible" }}>
+                                {donutContent}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="report-banner-dots">
+                        {[0, 1].map((idx) => (
+                          <span key={idx} className={activeBanner === idx ? "report-banner-dot report-banner-dot--active" : "report-banner-dot"} />
+                        ))}
                       </div>
                     </div>
                   </div>

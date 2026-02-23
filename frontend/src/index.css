@@ -44,3 +44,65 @@ textarea {
 button {
   font-family: inherit;
 }
+
+.report-banner-viewport {
+  overflow: hidden;
+}
+
+.report-banner-track {
+  display: flex;
+  width: 200%;
+  transition: transform 180ms ease-out;
+}
+
+.report-banner-slide {
+  flex: 0 0 100%;
+}
+
+.report-banner-scaled {
+  transform: scale(0.9);
+  transform-origin: center top;
+}
+
+.report-banner-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 10px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.report-banner-arrow--left {
+  left: 8px;
+}
+
+.report-banner-arrow--right {
+  right: 8px;
+}
+
+.report-banner-arrow:disabled {
+  cursor: default;
+}
+
+.report-banner-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.report-banner-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  opacity: 0.6;
+}
+
+.report-banner-dot--active {
+  background: #0f172a;
+  opacity: 0.9;
+}
