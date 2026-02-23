@@ -246,9 +246,9 @@ const ReportsScreen: React.FC<Props> = ({
       setDebugSwipeText(`dx=${Math.round(dx)} dy=${Math.round(dy)}`)
     }
     if (dx < -threshold) {
-      shiftPeriod("prev")
-    } else if (dx > threshold) {
       shiftPeriod("next")
+    } else if (dx > threshold) {
+      shiftPeriod("prev")
     }
   }
 
@@ -626,7 +626,7 @@ const ReportsScreen: React.FC<Props> = ({
                           top: "50%",
                           transform: "translateY(-50%)",
                           color: "#0f172a",
-                          opacity: canShiftPrev ? 0.35 : 0.12,
+                          opacity: canShiftNext ? 0.35 : 0.12,
                           pointerEvents: "none",
                           fontSize: 12,
                           zIndex: 5,
@@ -642,7 +642,7 @@ const ReportsScreen: React.FC<Props> = ({
                           top: "50%",
                           transform: "translateY(-50%)",
                           color: "#0f172a",
-                          opacity: canShiftNext ? 0.35 : 0.12,
+                          opacity: canShiftPrev ? 0.35 : 0.12,
                           pointerEvents: "none",
                           fontSize: 12,
                           zIndex: 5,
