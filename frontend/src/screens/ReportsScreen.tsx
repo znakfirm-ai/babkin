@@ -727,7 +727,17 @@ const ReportsScreen: React.FC<Props> = ({
                         onPointerCancel={handlePointerCancel}
                       >
                         {[0, 1, 2].map((idx) => (
-                          <div className="report-donut-slide" key={idx} style={{ display: "flex", gap: legendColumnGap, alignItems: "center", width: "100%", minWidth: 0, overflow: "visible" }}>
+                          <div
+                            className="report-donut-slide"
+                            key={idx}
+                            style={{ display: "flex", gap: legendColumnGap, alignItems: "center", width: "100%", minWidth: 0, overflow: "visible", position: "relative" }}
+                          >
+                            {idx === 0 ? (
+                              <span style={{ position: "absolute", left: 4, top: 4, color: "#0f172a", opacity: 0.12, fontSize: 12, pointerEvents: "none" }}>‹</span>
+                            ) : null}
+                            {idx === 2 ? (
+                              <span style={{ position: "absolute", right: 4, top: 4, color: "#0f172a", opacity: 0.12, fontSize: 12, pointerEvents: "none" }}>›</span>
+                            ) : null}
                             {donutContent}
                           </div>
                         ))}

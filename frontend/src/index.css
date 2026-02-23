@@ -50,6 +50,7 @@ button {
   user-select: none;
   -webkit-user-select: none;
   will-change: transform;
+  overflow: hidden;
 }
 
 .report-donut-track {
