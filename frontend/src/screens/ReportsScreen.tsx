@@ -1514,51 +1514,66 @@ const ReportsScreen: React.FC<Props> = ({
                             const chartTop = 10
                             const chartBottom = 130
                             const chartHeight = chartBottom - chartTop
-                            const toX = (m: number) => paddingX + (chartWidth / 11) * m
+                            const windowMonths = [leftCompareMonth, activeCompareMonth, rightCompareMonth].filter(
+                              (m) => m >= minCompareMonth && m <= maxCompareMonth,
+                            )
+                            const activeIdx = windowMonths.indexOf(activeCompareMonth)
                             const maxVal = chartMax > 0 ? chartMax : 1
+                            const toX = (pos: number) =>
+                              windowMonths.length > 1
+                                ? paddingX + (chartWidth / (windowMonths.length - 1)) * pos
+                                : paddingX + chartWidth / 2
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
-                            const buildPath = (arr: number[]) =>
-                              arr
-                                .map((v, idx) => `${idx === 0 ? "M" : "L"}${toX(idx)} ${toY(v)}`)
-                                .join(" ")
-                            const incomePath = buildPath(monthSeries.income)
-                            const expensePath = buildPath(monthSeries.expense)
-                            const activeIdx = activeCompareMonth % 12
-                            const incomeY = toY(monthSeries.income[activeIdx])
-                            const expenseY = toY(monthSeries.expense[activeIdx])
+
+                            const incomePoints = windowMonths.map((m, idx) => ({
+                              x: toX(idx),
+                              y: toY(monthSeries.income[m % 12]),
+                              val: monthSeries.income[m % 12],
+                              idx,
+                            }))
+                            const expensePoints = windowMonths.map((m, idx) => ({
+                              x: toX(idx),
+                              y: toY(monthSeries.expense[m % 12]),
+                              val: monthSeries.expense[m % 12],
+                              idx,
+                            }))
+                            const incomePath = incomePoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`).join(" ")
+                            const expensePath = expensePoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`).join(" ")
                             const incomeColor = "#9ddfc5"
                             const expenseColor = "#f7b2a4"
+                            const activeIncome = incomePoints[activeIdx]
+                            const activeExpense = expensePoints[activeIdx]
                             return (
                               <>
                                 <path d={incomePath} stroke={incomeColor} strokeWidth="4" fill="none" />
                                 <path d={expensePath} stroke={expenseColor} strokeWidth="3" fill="none" strokeDasharray="6 6" />
-                                {monthSeries.income.map((v, idx) => (
+                                {incomePoints.map((p) => (
                                   <circle
-                                    key={`i-${idx}`}
-                                    cx={toX(idx)}
-                                    cy={toY(v)}
-                                    r={idx === activeIdx ? 5 : 3}
+                                    key={`i-${p.idx}`}
+                                    cx={p.x}
+                                    cy={p.y}
+                                    r={p.idx === activeIdx ? 5 : 3}
                                     fill={incomeColor}
-                                    opacity={idx === activeIdx ? 0.9 : 0.7}
+                                    opacity={p.idx === activeIdx ? 0.9 : 0.7}
                                   />
                                 ))}
-                                {monthSeries.expense.map((v, idx) => (
+                                {expensePoints.map((p) => (
                                   <circle
-                                    key={`e-${idx}`}
-                                    cx={toX(idx)}
-                                    cy={toY(v)}
-                                    r={idx === activeIdx ? 5 : 3}
+                                    key={`e-${p.idx}`}
+                                    cx={p.x}
+                                    cy={p.y}
+                                    r={p.idx === activeIdx ? 5 : 3}
                                     fill={expenseColor}
-                                    opacity={idx === activeIdx ? 0.9 : 0.7}
+                                    opacity={p.idx === activeIdx ? 0.9 : 0.7}
                                   />
                                 ))}
-                                {chartMax > 0 ? (
+                                {chartMax > 0 && activeIncome && activeExpense ? (
                                   <>
-                                    <text x={toX(activeIdx)} y={incomeY - 10} textAnchor="middle" fontSize={11} fill={incomeColor} fontWeight={600}>
-                                      + {formatMoney(monthSeries.income[activeIdx], currency ?? "RUB")}
+                                    <text x={activeIncome.x} y={activeIncome.y - 10} textAnchor="middle" fontSize={11} fill={incomeColor} fontWeight={600}>
+                                      + {formatMoney(activeIncome.val, currency ?? "RUB")}
                                     </text>
-                                    <text x={toX(activeIdx)} y={expenseY + 18} textAnchor="middle" fontSize={11} fill={expenseColor} fontWeight={600}>
-                                      - {formatMoney(monthSeries.expense[activeIdx], currency ?? "RUB")}
+                                    <text x={activeExpense.x} y={activeExpense.y + 18} textAnchor="middle" fontSize={11} fill={expenseColor} fontWeight={600}>
+                                      - {formatMoney(activeExpense.val, currency ?? "RUB")}
                                     </text>
                                   </>
                                 ) : null}
