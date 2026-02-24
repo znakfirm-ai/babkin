@@ -1148,15 +1148,24 @@ const ReportsScreen: React.FC<Props> = ({
                                 gap: 12,
                               }}
                             >
-                              {incomeLegendItems.map((item) => (
+                              {incomeLegendItems.map((item, idx) => {
+                                const isSelected = selectedLegendIndex === idx
+                                return (
                                 <div
                                   key={item.title}
+                                  onClick={() => {
+                                    if (incomeData.total === 0) return
+                                    setSelectedLegendIndex((prev) => (prev === idx ? null : idx))
+                                  }}
                                   style={{
                                     display: "flex",
                                     alignItems: "center",
                                     gap: 8,
                                     minWidth: 0,
-                                    padding: "0 0",
+                                    padding: isSelected ? "4px 6px" : "0 0",
+                                    cursor: incomeData.total > 0 ? "pointer" : "default",
+                                    background: isSelected ? "#f1f5f9" : "transparent",
+                                    borderRadius: 8,
                                   }}
                                 >
                                   <span
@@ -1184,7 +1193,7 @@ const ReportsScreen: React.FC<Props> = ({
                                     {item.title}
                                   </span>
                                 </div>
-                              ))}
+                              )})}
                             </div>
                           ) : null}
                         </div>
