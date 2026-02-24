@@ -35,7 +35,7 @@ const ReportsScreen: React.FC<Props> = ({
   autoOpenExpensesSheet,
   onConsumeAutoOpenExpenses,
 }) => {
-  const { transactions, categories, currency } = useAppStore()
+  const { transactions, categories, incomeSources, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
   const [weekOffset] = useState(0)
   const [periodMode, setPeriodMode] = useState<"day" | "week" | "month" | "quarter" | "year" | "custom">("month")
@@ -278,8 +278,78 @@ const ReportsScreen: React.FC<Props> = ({
     }, {})
   }, [expenseData.list])
 
-  const incomeData = useMemo(() => ({ total: 0, segments: [] as { color: string; value: number }[], list: [] as any[] }), [])
-  const incomeLegendItems = useMemo(() => [] as { title: string; value: number; percentText: string; color: string }[], [])
+  const incomeData = useMemo(() => {
+    if (!effectiveRange.start || !effectiveRange.end) {
+      return { total: 0, segments: [], list: [] }
+    }
+    const totals = new Map<string, number>()
+    let total = 0
+    transactions.forEach((t) => {
+      const date = new Date(t.date)
+      if (date < effectiveRange.start || date > effectiveRange.end) return
+      const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
+      if (kind !== "income") return
+      const sourceId = (t as { incomeSourceId?: string | null }).incomeSourceId ?? null
+      const catId = (t as { categoryId?: string | null }).categoryId ?? null
+      const groupId = sourceId ?? catId ?? "uncategorized"
+      const amt = t.amount?.amount ?? 0
+      totals.set(groupId, (totals.get(groupId) ?? 0) + amt)
+      total += amt
+    })
+    const items = Array.from(totals.entries())
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([groupId, sum]) => {
+        const src = incomeSources.find((s) => s.id === groupId)
+        const cat = categories.find((c) => c.id === groupId)
+        const title = src?.name ?? cat?.name ?? "Без источника"
+        const iconKey = src?.icon ?? cat?.icon ?? null
+        return { id: groupId, title, iconKey, sum }
+      })
+
+    const top = items.slice(0, 6)
+    const restSum = items.slice(6).reduce((acc, i) => acc + i.sum, 0)
+    const slices = [...top.map((i) => i.sum), restSum > 0 ? restSum : 0].filter((v) => v > 0)
+    const sliceLabels = [...top.map((i) => i.title), restSum > 0 ? "Остальное" : null].filter(Boolean) as string[]
+    const colors = ["#9CC3FF", "#B9E4C9", "#FFD6A5", "#D9C2FF", "#E5E7EB"]
+
+    const list = items.map((i) => {
+      const percent = total > 0 ? (i.sum / total) * 100 : 0
+      const percentText = percent > 0 && percent < 1 ? "<1%" : `${Math.round(Math.min(100, percent))}%`
+      return { ...i, percentText }
+    })
+
+    const segments = slices.map((value, idx) => ({ color: colors[idx % colors.length], value }))
+
+    return { total, segments, list, sliceLabels }
+  }, [categories, effectiveRange.end, effectiveRange.start, incomeSources, transactions])
+
+  const incomeLegendItems = useMemo(() => {
+    const palette = ["#9CC3FF", "#B9E4C9", "#FFD6A5", "#D9C2FF"]
+    const top = incomeData.list.slice(0, 4)
+    const restSum = incomeData.list.slice(4).reduce((acc, i) => acc + i.sum, 0)
+    const items = top.map((item, idx) => ({
+      title: item.title,
+      value: item.sum,
+      color: palette[idx % palette.length],
+    }))
+    if (restSum > 0) {
+      items.push({ title: "Остальное", value: restSum, color: "#E5E7EB" })
+    }
+    return items.map((item) => {
+      const percent = incomeData.total > 0 ? (item.value / incomeData.total) * 100 : 0
+      const percentText = percent > 0 && percent < 1 ? "<1%" : `${Math.round(Math.min(100, percent))}%`
+      return { ...item, percentText }
+    })
+  }, [incomeData.list, incomeData.total])
+
+  const topIncomeLegendColorById = useMemo(() => {
+    const palette = ["#9CC3FF", "#B9E4C9", "#FFD6A5", "#D9C2FF"]
+    return incomeData.list.slice(0, 4).reduce<Record<string, string>>((acc, item, idx) => {
+      acc[item.id] = palette[idx % palette.length]
+      return acc
+    }, {})
+  }, [incomeData.list])
 
   useEffect(() => {
     if (autoOpenExpensesSheet) {
@@ -1138,7 +1208,34 @@ const ReportsScreen: React.FC<Props> = ({
                   <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
                     {incomeData.list.length === 0 ? (
                       <div style={{ color: "#6b7280", fontSize: 14 }}>Нет доходов за период</div>
-                    ) : null}
+                    ) : (
+                      incomeData.list.map((item) => (
+                        <div
+                          key={item.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            borderBottom: "1px solid #e5e7eb",
+                            paddingBottom: 8,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                            <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                              {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
+                            </span>
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
+                              {item.title}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
+                            <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
+                            <span style={{ color: topIncomeLegendColorById[item.id] ?? "#6b7280" }}>·</span>
+                            <span style={{ color: topIncomeLegendColorById[item.id] ?? "#6b7280" }}>{item.percentText}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
