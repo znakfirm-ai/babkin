@@ -38,7 +38,7 @@ const ReportsScreen: React.FC<Props> = ({
   const { transactions, categories, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
   const [weekOffset] = useState(0)
-  const [periodMode, setPeriodMode] = useState<"today" | "day" | "week" | "month" | "custom">("month")
+  const [periodMode, setPeriodMode] = useState<"day" | "week" | "month" | "quarter" | "year" | "custom">("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [singleDay, setSingleDay] = useState("")
@@ -56,10 +56,6 @@ const ReportsScreen: React.FC<Props> = ({
     const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
     const dayEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
 
-    if (periodMode === "today") {
-      const d = dayStart(now)
-      return { start: d, end: dayEnd(now), label: format(d) }
-    }
     if (periodMode === "day") {
       const picked = singleDay ? new Date(singleDay) : now
       return { start: dayStart(picked), end: dayEnd(picked), label: format(picked) }
@@ -74,6 +70,19 @@ const ReportsScreen: React.FC<Props> = ({
     if (periodMode === "month") {
       const { start, end, label } = monthRange
       return { start, end, label }
+    }
+    if (periodMode === "quarter") {
+      const month = now.getMonth()
+      const qStartMonth = Math.floor(month / 3) * 3
+      const start = new Date(now.getFullYear(), qStartMonth, 1, 0, 0, 0, 0)
+      const end = new Date(now.getFullYear(), qStartMonth + 3, 0, 23, 59, 59, 999)
+      const qNum = Math.floor(month / 3) + 1
+      return { start, end, label: `${qNum} кв. ${now.getFullYear()}` }
+    }
+    if (periodMode === "year") {
+      const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0)
+      const end = new Date(now.getFullYear(), 12, 0, 23, 59, 59, 999)
+      return { start, end, label: `${now.getFullYear()}` }
     }
     const fromDate = customFrom ? new Date(customFrom) : now
     const toDate = customTo ? new Date(customTo) : now
@@ -105,7 +114,7 @@ const ReportsScreen: React.FC<Props> = ({
         return { start, end, label: "" }
       }
 
-      if (periodMode === "day" || periodMode === "today") {
+      if (periodMode === "day") {
         const start = addDays(currentRange.start, offset)
         const end = addDays(currentRange.end, offset)
         return { start, end, label: "" }
@@ -116,6 +125,26 @@ const ReportsScreen: React.FC<Props> = ({
         const start = addDays(currentRange.start, offset * days)
         const end = addDays(currentRange.end, offset * days)
         return { start, end, label: "" }
+      }
+
+      if (periodMode === "quarter") {
+        const baseStart = currentRange.start
+        const qStartMonth = Math.floor(baseStart.getMonth() / 3) * 3
+        const base = new Date(baseStart.getFullYear(), qStartMonth, 1, 0, 0, 0, 0)
+        const shifted = new Date(base.getFullYear(), base.getMonth() + offset * 3, 1, 0, 0, 0, 0)
+        const start = shifted
+        const end = new Date(shifted.getFullYear(), shifted.getMonth() + 3, 0, 23, 59, 59, 999)
+        const qNum = Math.floor(shifted.getMonth() / 3) + 1
+        return { start, end, label: `${qNum} кв. ${shifted.getFullYear()}` }
+      }
+
+      if (periodMode === "year") {
+        const baseStart = currentRange.start
+        const base = new Date(baseStart.getFullYear(), 0, 1, 0, 0, 0, 0)
+        const shifted = new Date(base.getFullYear() + offset, 0, 1, 0, 0, 0, 0)
+        const start = shifted
+        const end = new Date(shifted.getFullYear(), 12, 0, 23, 59, 59, 999)
+        return { start, end, label: `${shifted.getFullYear()}` }
       }
 
       return currentRange
@@ -192,6 +221,12 @@ const ReportsScreen: React.FC<Props> = ({
     }
     if (periodMode === "month" && effectiveRange.label) {
       return effectiveRange.label.charAt(0).toUpperCase() + effectiveRange.label.slice(1)
+    }
+    if (periodMode === "quarter" && effectiveRange.label) {
+      return effectiveRange.label
+    }
+    if (periodMode === "year" && effectiveRange.label) {
+      return effectiveRange.label
     }
     const fromText = formatDisplayDate(effectiveRange.start)
     const toText = formatDisplayDate(effectiveRange.end)
@@ -387,10 +422,11 @@ const ReportsScreen: React.FC<Props> = ({
                       }}
                     >
                       {[
-                        { key: "today", label: "Сегодня" },
                         { key: "day", label: "День" },
                         { key: "week", label: "Неделя" },
                         { key: "month", label: "Месяц" },
+                        { key: "quarter", label: "Квартал" },
+                        { key: "year", label: "Год" },
                         { key: "custom", label: "Свой" },
                       ].map((opt) => (
                         <button
@@ -409,6 +445,7 @@ const ReportsScreen: React.FC<Props> = ({
                             if (opt.key === "month") {
                               setMonthOffset(0)
                             }
+                            setBannerOffset(0)
                           }}
                           style={{
                             width: "100%",
