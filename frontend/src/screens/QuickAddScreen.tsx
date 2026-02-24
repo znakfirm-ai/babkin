@@ -9,6 +9,7 @@ import { getAccountDisplay, getCategoryDisplay, getGoalDisplay, getIncomeSourceD
 import { GoalList } from "../components/GoalList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
+import { useSingleFlight } from "../hooks/useSingleFlight"
 
 const getTodayLocalDate = () => {
   const now = new Date()
@@ -117,9 +118,9 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   const [transferDate, setTransferDate] = useState(() => getTodayLocalDate())
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
   const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false)
   const goalsFetchInFlight = useRef(false)
+  const { run, isRunning } = useSingleFlight()
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
   const incomeSourcesList = useMemo(() => incomeSources, [incomeSources])
@@ -203,7 +204,8 @@ const incomeBySource = useMemo(() => {
     [incomeBySource, incomeSourcesById, incomeSourcesList],
   )
 
-  const submitExpense = useCallback(async () => {
+  const submitExpense = useCallback(() => {
+    return run(async () => {
     if (!token) {
       setError("Нет токена")
       return
@@ -217,7 +219,6 @@ const incomeBySource = useMemo(() => {
       setError("Введите сумму")
       return
     }
-    setLoading(true)
     setError(null)
     try {
       await createTransaction(token, {
@@ -259,12 +260,12 @@ const incomeBySource = useMemo(() => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось сохранить"
       setError(msg)
-    } finally {
-      setLoading(false)
     }
-  }, [amount, onClose, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
+    })
+  }, [amount, onClose, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
 
-  const submitIncome = useCallback(async () => {
+  const submitIncome = useCallback(() => {
+    return run(async () => {
     if (!token) {
       setError("Нет токена")
       return
@@ -278,7 +279,6 @@ const incomeBySource = useMemo(() => {
       setError("Введите сумму")
       return
     }
-    setLoading(true)
     setError(null)
     try {
       await createTransaction(token, {
@@ -323,10 +323,9 @@ const incomeBySource = useMemo(() => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось сохранить"
       setError(msg)
-    } finally {
-      setLoading(false)
     }
-  }, [amount, onClose, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
+    })
+  }, [amount, onClose, run, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
 
   const renderTile = (
     item: {
@@ -469,7 +468,8 @@ const incomeBySource = useMemo(() => {
     }
   }, [activeTab, ensureGoalsLoaded])
 
-  const submitTransfer = useCallback(async () => {
+  const submitTransfer = useCallback(() => {
+    return run(async () => {
     if (!token) {
       setError("Нет токена")
       return
@@ -503,7 +503,6 @@ const incomeBySource = useMemo(() => {
         return
       }
     }
-    setLoading(true)
     setError(null)
     try {
       if (transferTargetType === "account") {
@@ -559,12 +558,12 @@ const incomeBySource = useMemo(() => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось сохранить"
       setError(msg)
-    } finally {
-      setLoading(false)
     }
+    })
   }, [
     amount,
     ensureGoalsLoaded,
+    run,
     onClose,
     selectedGoalId,
     setAccounts,
@@ -595,7 +594,8 @@ const incomeBySource = useMemo(() => {
     goal: "Цель",
   }
 
-  const submitGoal = useCallback(async () => {
+  const submitGoal = useCallback(() => {
+    return run(async () => {
     if (!token) {
       setError("Нет токена")
       return
@@ -613,7 +613,6 @@ const incomeBySource = useMemo(() => {
       setError("Введите сумму")
       return
     }
-    setLoading(true)
     setError(null)
     try {
       await contributeGoal(token, selectedGoalId, {
@@ -653,10 +652,9 @@ const incomeBySource = useMemo(() => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось сохранить"
       setError(msg)
-    } finally {
-      setLoading(false)
     }
-  }, [amount, onClose, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
+    })
+  }, [amount, onClose, run, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
 
   return (
     <div
@@ -788,20 +786,20 @@ const incomeBySource = useMemo(() => {
               <div style={{ paddingTop: 8 }}>
                 <button
                   type="button"
-                  disabled={!expenseReady || loading}
+                  disabled={!expenseReady || isRunning}
                   onClick={() => void submitExpense()}
                   style={{
                     width: "100%",
                     padding: "14px 16px",
                     borderRadius: 12,
                     border: "none",
-                    background: expenseReady && !loading ? "#0f0f0f" : "rgba(15,15,15,0.3)",
-                    color: expenseReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
+                    background: expenseReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                    color: expenseReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
                     fontWeight: 700,
-                    cursor: expenseReady && !loading ? "pointer" : "not-allowed",
+                    cursor: expenseReady && !isRunning ? "pointer" : "not-allowed",
                   }}
                 >
-                  {loading ? "Сохранение..." : "Готово"}
+                  {isRunning ? "Сохранение..." : "Готово"}
                 </button>
               </div>
             </div>
@@ -856,20 +854,20 @@ const incomeBySource = useMemo(() => {
               <div style={{ paddingTop: 8 }}>
                 <button
                   type="button"
-                  disabled={!incomeReady || loading}
+                  disabled={!incomeReady || isRunning}
                   onClick={() => void submitIncome()}
                   style={{
                     width: "100%",
                     padding: "14px 16px",
                     borderRadius: 12,
                     border: "none",
-                    background: incomeReady && !loading ? "#0f0f0f" : "rgba(15,15,15,0.3)",
-                    color: incomeReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
+                    background: incomeReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                    color: incomeReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
                     fontWeight: 700,
-                    cursor: incomeReady && !loading ? "pointer" : "not-allowed",
+                    cursor: incomeReady && !isRunning ? "pointer" : "not-allowed",
                   }}
                 >
-                  {loading ? "Сохранение..." : "Готово"}
+                  {isRunning ? "Сохранение..." : "Готово"}
                 </button>
               </div>
             </div>
@@ -1000,20 +998,20 @@ const incomeBySource = useMemo(() => {
               <div style={{ paddingTop: 8 }}>
                 <button
                   type="button"
-                  disabled={!transferReady || loading}
+                  disabled={!transferReady || isRunning}
                   onClick={() => void submitTransfer()}
                   style={{
                     width: "100%",
                     padding: "14px 16px",
                     borderRadius: 12,
                     border: "none",
-                    background: transferReady && !loading ? "#0f0f0f" : "rgba(15,15,15,0.3)",
-                    color: transferReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
+                    background: transferReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                    color: transferReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
                     fontWeight: 700,
-                    cursor: transferReady && !loading ? "pointer" : "not-allowed",
+                    cursor: transferReady && !isRunning ? "pointer" : "not-allowed",
                   }}
                 >
-                  {loading ? "Сохранение..." : "Готово"}
+                  {isRunning ? "Сохранение..." : "Готово"}
                 </button>
               </div>
             </div>
@@ -1072,20 +1070,20 @@ const incomeBySource = useMemo(() => {
               <div style={{ paddingTop: 8 }}>
                 <button
                   type="button"
-                  disabled={!goalReady || loading}
+                  disabled={!goalReady || isRunning}
                   onClick={() => void submitGoal()}
                   style={{
                     width: "100%",
                     padding: "14px 16px",
                     borderRadius: 12,
                     border: "none",
-                    background: goalReady && !loading ? "#0f0f0f" : "rgba(15,15,15,0.3)",
-                    color: goalReady && !loading ? "#ffffff" : "rgba(255,255,255,0.7)",
+                    background: goalReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                    color: goalReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
                     fontWeight: 700,
-                    cursor: goalReady && !loading ? "pointer" : "not-allowed",
+                    cursor: goalReady && !isRunning ? "pointer" : "not-allowed",
                   }}
                 >
-                  {loading ? "Сохранение..." : "Готово"}
+                  {isRunning ? "Сохранение..." : "Готово"}
                 </button>
               </div>
             </div>

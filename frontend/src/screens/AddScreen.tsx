@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { createTransaction, getTransactions } from "../api/transactions"
 import { getAccounts } from "../api/accounts"
+import { useSingleFlight } from "../hooks/useSingleFlight"
 
 type TxKind = "expense" | "income" | "transfer"
 
@@ -47,6 +48,8 @@ function AddScreen() {
     const active = document.activeElement as HTMLElement | null
     active?.blur()
   }
+
+  const { run, isRunning } = useSingleFlight()
 
   return (
     <div style={{ padding: 20, minHeight: "100%", display: "flex", flexDirection: "column" }} onPointerDown={handleMaybeBlur}>
@@ -213,23 +216,24 @@ function AddScreen() {
         <button
           type="button"
           style={{ padding: 12 }}
-          onClick={async () => {
-            const num = Number(amount.replace(",", "."))
-            if (!Number.isFinite(num) || num <= 0) return
+          disabled={isRunning}
+          onClick={() =>
+            run(async () => {
+              const num = Number(amount.replace(",", "."))
+              if (!Number.isFinite(num) || num <= 0) return
 
-            const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-            if (!token) {
-              alert("Нет токена")
-              return
-            }
+              const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+              if (!token) {
+                alert("Нет токена")
+                return
+              }
 
-            const payloadBase = {
-              note: comment.trim() || undefined,
-              amount: num,
-              happenedAt: new Date().toISOString(),
-            }
+              const payloadBase = {
+                note: comment.trim() || undefined,
+                amount: num,
+                happenedAt: new Date().toISOString(),
+              }
 
-            try {
               if (type === "transfer") {
                 if (!effectiveFromAccountId || !effectiveToAccountId) return
                 if (effectiveFromAccountId === effectiveToAccountId) return
@@ -265,7 +269,8 @@ function AddScreen() {
                 })
               }
 
-              const [txRes, accRes] = await Promise.all([getTransactions(token), getAccounts(token)])
+              const txRes = await getTransactions(token)
+              const accRes = await getAccounts(token)
 
               const mappedTx = txRes.transactions.map((t) => ({
                 id: t.id,
@@ -289,14 +294,8 @@ function AddScreen() {
               setAmount("")
               setComment("")
               alert("Сохранено")
-            } catch (err) {
-              if (err instanceof Error) {
-                alert(err.message)
-              } else {
-                alert("Не удалось сохранить операцию")
-              }
-            }
-          }}
+            })
+          }
         >
           Сохранить
         </button>
