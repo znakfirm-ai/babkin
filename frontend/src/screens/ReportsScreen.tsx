@@ -200,14 +200,6 @@ const ReportsScreen: React.FC<Props> = ({
     }, {})
   }, [expenseData.list])
 
-  const bannersCount = 1
-  const activeBannerIndex = 0
-  const windowSize = Math.min(4, bannersCount)
-  const maxStart = Math.max(0, bannersCount - windowSize)
-  const dotsStartIndex = Math.min(Math.max(activeBannerIndex - 1, 0), maxStart)
-  const activeDotPos = activeBannerIndex - dotsStartIndex
-  const dotIndices = Array.from({ length: windowSize }, (_, i) => dotsStartIndex + i)
-
   useEffect(() => {
     if (autoOpenExpensesSheet) {
       setIsExpensesSheetOpen(true)
@@ -607,14 +599,23 @@ const ReportsScreen: React.FC<Props> = ({
                           ) : null}
                         </div>
                       </div>
-                      <div className="report-banner-dots">
-                        {dotIndices.map((idx, pos) => (
-                          <span
-                            key={idx}
-                            className={pos === activeDotPos ? "report-banner-dot report-banner-dot--active" : "report-banner-dot"}
-                          />
-                        ))}
-                      </div>
+                      {(() => {
+                        const indicatorSegments = 4
+                        const canGoPrev = canPrevBanner
+                        const canGoNext = canNextBanner
+                        let activePos = 2
+                        if (canGoPrev && canGoNext) activePos = 1
+                        else if (canGoPrev && !canGoNext) activePos = 2
+                        else if (!canGoPrev && canGoNext) activePos = 1
+                        else activePos = 2
+                        return (
+                          <div className="report-banner-dots">
+                            {Array.from({ length: indicatorSegments }, (_, i) => (
+                              <span key={i} className={i === activePos ? "report-banner-seg report-banner-seg--active" : "report-banner-seg"} />
+                            ))}
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>

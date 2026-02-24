@@ -139,17 +139,14 @@ button {
   z-index: 1;
 }
 
-.report-banner-dot {
-  width: 6px;
-  height: 6px;
+.report-banner-seg {
+  width: 10px;
+  height: 3px;
   border-radius: 999px;
   background: #e5e7eb;
 }
 
-.report-banner-dot--active {
-  width: 10px;
-  height: 4px;
-  border-radius: 999px;
+.report-banner-seg--active {
   background: #1f2937;
 }
 
