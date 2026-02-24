@@ -413,6 +413,7 @@ function OverviewScreen({
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
   const currentMonthTag = getCurrentMonthTag()
+  const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
   const { run: runDeleteTx, isRunning: isDeleteTxRunning } = useSingleFlight()
 
   const applyCustomRange = useCallback(() => {
@@ -1285,56 +1286,69 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
     return "sm" as const
   }
 
-  const handleSaveAccount = async () => {
-    const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-    if (!tokenLocal) return
-    if (!name.trim()) return
-    const parsed = Number(balance.trim().replace(",", "."))
-    if (!Number.isFinite(parsed)) return
-    const balanceNumber = Math.round(parsed * 100) / 100
-    try {
-      setAccountActionError(null)
-      const currentAccount = accounts.find((a) => a.id === editingAccountId)
-      const currentBalance = currentAccount?.balance.amount
-      const balanceChanged =
-        typeof currentBalance === "number" ? Math.round(currentBalance * 100) / 100 !== balanceNumber : false
-      const needUpdateAccount =
-        editingAccountId &&
-        (name.trim() !== currentAccount?.name ||
-          accountColor !== (currentAccount as { color?: string })?.color ||
-          accountIcon !== (currentAccount as { icon?: string | null })?.icon)
+  const handleSaveAccount = useCallback(() => {
+    return runAccountFlight(async () => {
+      const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+      if (!tokenLocal) return
+      if (!name.trim()) return
+      const parsed = Number(balance.trim().replace(",", "."))
+      if (!Number.isFinite(parsed)) return
+      const balanceNumber = Math.round(parsed * 100) / 100
+      try {
+        setAccountActionError(null)
+        const currentAccount = accounts.find((a) => a.id === editingAccountId)
+        const currentBalance = currentAccount?.balance.amount
+        const balanceChanged =
+          typeof currentBalance === "number" ? Math.round(currentBalance * 100) / 100 !== balanceNumber : false
+        const needUpdateAccount =
+          editingAccountId &&
+          (name.trim() !== currentAccount?.name ||
+            accountColor !== (currentAccount as { color?: string })?.color ||
+            accountIcon !== (currentAccount as { icon?: string | null })?.icon)
 
-      if (editingAccountId) {
-        if (needUpdateAccount) {
-          await updateAccount(tokenLocal, editingAccountId, {
+        if (editingAccountId) {
+          if (needUpdateAccount) {
+            await updateAccount(tokenLocal, editingAccountId, {
+              name: name.trim(),
+              type: type || "cash",
+              currency: baseCurrency,
+              color: accountColor,
+              icon: accountIcon ?? null,
+            })
+          }
+          if (balanceChanged) {
+            await adjustAccountBalance(tokenLocal, editingAccountId, balanceNumber)
+          }
+        } else {
+          await createAccount(tokenLocal, {
             name: name.trim(),
             type: type || "cash",
             currency: baseCurrency,
+            balance: balanceNumber,
             color: accountColor,
             icon: accountIcon ?? null,
           })
         }
-        if (balanceChanged) {
-          await adjustAccountBalance(tokenLocal, editingAccountId, balanceNumber)
-        }
-      } else {
-        await createAccount(tokenLocal, {
-          name: name.trim(),
-          type: type || "cash",
-          currency: baseCurrency,
-          balance: balanceNumber,
-          color: accountColor,
-          icon: accountIcon ?? null,
-        })
+        await refetchAccountsSeq()
+        closeAccountSheet()
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return
+        setAccountActionError(err instanceof Error ? err.message : "Не удалось сохранить счёт")
       }
-      await refetchAccountsSeq()
-      await refetchTransactions()
-      closeAccountSheet()
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return
-      setAccountActionError(err instanceof Error ? err.message : "Не удалось сохранить счёт")
-    }
-  }
+    })
+  }, [
+    accounts,
+    accountColor,
+    accountIcon,
+    baseCurrency,
+    balance,
+    closeAccountSheet,
+    editingAccountId,
+    name,
+    refetchAccountsSeq,
+    runAccountFlight,
+    type,
+  ])
 
   const maxExpenseAmount = Math.max(0, ...expenseItems.map((i) => i.amount))
   const sizedExpenseItems = expenseItems.map((i) => ({ ...i, size: i.size ?? computeSize(i.amount, maxExpenseAmount) }))
@@ -3699,19 +3713,20 @@ function TransactionsPanel({
                   <button
                     type="button"
                     onClick={handleSaveAccount}
+                    disabled={isAccountFlight}
                     style={{
                       width: "100%",
                       padding: "12px 14px",
                       borderRadius: 12,
                       border: "none",
-                      background: "#2563eb",
-                      color: "#fff",
+                      background: isAccountFlight ? "#93c5fd" : "#2563eb",
+                      color: isAccountFlight ? "rgba(255,255,255,0.8)" : "#fff",
                       fontSize: 14,
                       fontWeight: 600,
-                      cursor: "pointer",
+                      cursor: isAccountFlight ? "not-allowed" : "pointer",
                     }}
                   >
-                    Сохранить
+                    {isAccountFlight ? "Сохраняем…" : "Сохранить"}
                   </button>
                   {editingAccountId ? (
                     isConfirmingDelete ? (
@@ -3740,35 +3755,37 @@ function TransactionsPanel({
                           </button>
                           <button
                             type="button"
-                            onClick={async () => {
-                              const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-                              if (!tokenLocal || !editingAccountId) return
-                              try {
+                            onClick={() =>
+                              runAccountFlight(async () => {
+                                const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                                if (!tokenLocal || !editingAccountId) return
                                 setAccountActionError(null)
-                                await deleteAccount(tokenLocal, editingAccountId)
-                                await refetchAccountsSeq()
-                                await refetchTransactions()
-                                closeAccountSheet()
-                              } catch (err) {
-                                if (err instanceof DOMException && err.name === "AbortError") return
-                                setAccountActionError(err instanceof Error ? err.message : "Не удалось удалить счёт")
-                              } finally {
-                                setIsConfirmingDelete(false)
-                              }
-                            }}
+                                try {
+                                  await deleteAccount(tokenLocal, editingAccountId)
+                                  await refetchAccountsSeq()
+                                  closeAccountSheet()
+                                } catch (err) {
+                                  if (err instanceof DOMException && err.name === "AbortError") return
+                                  setAccountActionError(err instanceof Error ? err.message : "Не удалось удалить счёт")
+                                } finally {
+                                  setIsConfirmingDelete(false)
+                                }
+                              })
+                            }
+                            disabled={isAccountFlight}
                             style={{
                               padding: "10px 14px",
                               borderRadius: 10,
                               border: "1px solid #fee2e2",
                               background: "#fff",
-                              color: "#b91c1c",
+                              color: isAccountFlight ? "#fca5a5" : "#b91c1c",
                               fontSize: 13,
                               fontWeight: 700,
-                              cursor: "pointer",
+                              cursor: isAccountFlight ? "not-allowed" : "pointer",
                               whiteSpace: "nowrap",
                             }}
                           >
-                            Подтвердить
+                            {isAccountFlight ? "Удаляем…" : "Подтвердить"}
                           </button>
                         </div>
                       </div>
