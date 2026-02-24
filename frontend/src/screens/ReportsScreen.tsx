@@ -45,6 +45,7 @@ const ReportsScreen: React.FC<Props> = ({
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const [selectedLegendIndex, setSelectedLegendIndex] = useState<number | null>(null)
+  const [bannerOffset, setBannerOffset] = useState(0)
   const todayDate = useMemo(() => format(new Date()), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
@@ -79,15 +80,34 @@ const ReportsScreen: React.FC<Props> = ({
     return { start: dayStart(fromDate), end: dayEnd(toDate), label: "" }
   }, [customFrom, customTo, monthRange, periodMode, singleDay])
 
+  const baseMonthRange = monthRange
+  const minMonthDate = useMemo(() => new Date(2022, 1, 1), [])
+  const minBannerOffset = useMemo(() => {
+    const base = baseMonthRange.start
+    const diffMonths = (base.getFullYear() - minMonthDate.getFullYear()) * 12 + (base.getMonth() - minMonthDate.getMonth())
+    return -diffMonths
+  }, [baseMonthRange.start, minMonthDate])
+
+  const effectiveRange = useMemo(() => {
+    if (periodMode === "month") {
+      const safeOffset = Math.max(minBannerOffset, Math.min(0, bannerOffset))
+      return getMonthRange(monthOffset + safeOffset)
+    }
+    return currentRange
+  }, [bannerOffset, currentRange, minBannerOffset, monthOffset, periodMode])
+
+  const canPrevBanner = periodMode === "month" && bannerOffset > minBannerOffset
+  const canNextBanner = periodMode === "month" && bannerOffset < 0
+
   const expenseData = useMemo(() => {
-    if (!currentRange.start || !currentRange.end) {
+    if (!effectiveRange.start || !effectiveRange.end) {
       return { total: 0, slices: [], sliceLabels: [], colors: [], list: [] }
     }
     const totals = new Map<string, number>()
     let total = 0
     transactions.forEach((t) => {
       const date = new Date(t.date)
-      if (date < currentRange.start || date > currentRange.end) return
+      if (date < effectiveRange.start || date > effectiveRange.end) return
       const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
       if (kind !== "expense") return
       if ((t as { kind?: string }).kind === "adjustment") return
@@ -121,24 +141,28 @@ const ReportsScreen: React.FC<Props> = ({
       return { ...i, percentText }
     })
     return { total, slices, sliceLabels, colors, list }
-  }, [categories, currentRange.end, currentRange.start, transactions])
+  }, [categories, effectiveRange.end, effectiveRange.start, transactions])
 
   const formatDisplayDate = (date: Date) =>
     new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric" }).format(date)
 
   const periodDisplayText = useMemo(() => {
-    if (!currentRange.start || !currentRange.end) return ""
-    if (currentRange.start.getTime() === currentRange.end.getTime()) {
-      const text = formatDisplayDate(currentRange.start)
+    if (!effectiveRange.start || !effectiveRange.end) return ""
+    if (effectiveRange.start.getTime() === effectiveRange.end.getTime()) {
+      const text = formatDisplayDate(effectiveRange.start)
       return text.charAt(0).toUpperCase() + text.slice(1)
     }
-    if (periodMode === "month" && currentRange.label) {
-      return currentRange.label.charAt(0).toUpperCase() + currentRange.label.slice(1)
+    if (periodMode === "month" && effectiveRange.label) {
+      return effectiveRange.label.charAt(0).toUpperCase() + effectiveRange.label.slice(1)
     }
-    const fromText = formatDisplayDate(currentRange.start)
-    const toText = formatDisplayDate(currentRange.end)
+    const fromText = formatDisplayDate(effectiveRange.start)
+    const toText = formatDisplayDate(effectiveRange.end)
     return `${fromText} — ${toText}`
-  }, [currentRange.end, currentRange.label, currentRange.start, periodMode])
+  }, [effectiveRange.end, effectiveRange.label, effectiveRange.start, periodMode])
+
+  useEffect(() => {
+    setBannerOffset(0)
+  }, [periodMode, monthOffset])
 
   const donutData = useMemo(() => {
     const palette = ["#9CC3FF", "#B9E4C9", "#FFD6A5", "#D9C2FF"]
@@ -443,12 +467,30 @@ const ReportsScreen: React.FC<Props> = ({
                         justifyContent: "center",
                       }}
                     >
-                      <button type="button" className="report-banner-btn report-banner-btn--left" aria-label="Влево">
+                      <button
+                        type="button"
+                        className="report-banner-btn report-banner-btn--left"
+                        aria-label="Влево"
+                        onClick={() => {
+                          if (!canPrevBanner) return
+                          setBannerOffset((prev) => Math.max(minBannerOffset, prev - 1))
+                        }}
+                        disabled={!canPrevBanner}
+                      >
                         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
                           <path d="M9.5 3 4.5 8l5 5" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                         </svg>
                       </button>
-                      <button type="button" className="report-banner-btn report-banner-btn--right" aria-label="Вправо">
+                      <button
+                        type="button"
+                        className="report-banner-btn report-banner-btn--right"
+                        aria-label="Вправо"
+                        onClick={() => {
+                          if (!canNextBanner) return
+                          setBannerOffset((prev) => Math.min(0, prev + 1))
+                        }}
+                        disabled={!canNextBanner}
+                      >
                         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
                           <path d="m6.5 3 5 5-5 5" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                         </svg>
