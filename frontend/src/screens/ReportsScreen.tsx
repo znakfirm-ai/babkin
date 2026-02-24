@@ -50,7 +50,7 @@ const getMonthRange = (offset: number) => {
 }
 
 const ReportsScreen: React.FC<Props> = ({
-  onOpenSummary,
+  onOpenSummary: _onOpenSummary,
   onOpenExpensesByCategory: _onOpenExpensesByCategory,
   onOpenCategorySheet,
   autoOpenExpensesSheet,
@@ -70,8 +70,13 @@ const ReportsScreen: React.FC<Props> = ({
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const [isIncomeSheetOpen, setIsIncomeSheetOpen] = useState(false)
+  const [isCompareSheetOpen, setIsCompareSheetOpen] = useState(false)
   const [selectedLegendIndex, setSelectedLegendIndex] = useState<number | null>(null)
   const [bannerOffset, setBannerOffset] = useState(0)
+  const [activeCompareMonth, setActiveCompareMonth] = useState(() => {
+    const now = new Date()
+    return now.getFullYear() * 12 + now.getMonth()
+  })
   const todayDate = useMemo(() => format(new Date()), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
@@ -191,6 +196,24 @@ const ReportsScreen: React.FC<Props> = ({
   }, [bannerOffset, getShiftedRange, minDate])
 
   const canNextBanner = bannerOffset < 0
+
+  const minCompareMonth = 2022 * 12 + 1
+  const maxCompareMonth = useMemo(() => {
+    const now = new Date()
+    return now.getFullYear() * 12 + now.getMonth()
+  }, [])
+  const leftCompareMonth = activeCompareMonth - 1
+  const rightCompareMonth = activeCompareMonth + 1
+  const leftDisabled = leftCompareMonth < minCompareMonth
+  const rightDisabled = rightCompareMonth > maxCompareMonth
+  const monthLabel = (monthIndex: number) => {
+    const year = Math.floor(monthIndex / 12)
+    const month = monthIndex % 12
+    return `${MONTHS[month]} ${year}`
+  }
+  const showYearSeparator =
+    (!leftDisabled && leftCompareMonth % 12 === 11 && activeCompareMonth % 12 === 0) ||
+    (!rightDisabled && activeCompareMonth % 12 === 11 && rightCompareMonth % 12 === 0)
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
@@ -408,7 +431,7 @@ const ReportsScreen: React.FC<Props> = ({
 
         <button
           type="button"
-          onClick={onOpenSummary}
+          onClick={_onOpenSummary}
           style={{
             padding: 14,
             borderRadius: 12,
@@ -427,6 +450,7 @@ const ReportsScreen: React.FC<Props> = ({
           onClick={() => {
             setIsExpensesSheetOpen(true)
             setIsIncomeSheetOpen(false)
+            setIsCompareSheetOpen(false)
           }}
           style={{
             padding: 14,
@@ -446,6 +470,7 @@ const ReportsScreen: React.FC<Props> = ({
           onClick={() => {
             setIsIncomeSheetOpen(true)
             setIsExpensesSheetOpen(false)
+            setIsCompareSheetOpen(false)
           }}
           style={{
             padding: 14,
@@ -458,6 +483,26 @@ const ReportsScreen: React.FC<Props> = ({
           }}
         >
           Доходы по категориям
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setIsCompareSheetOpen(true)
+            setIsExpensesSheetOpen(false)
+            setIsIncomeSheetOpen(false)
+          }}
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            border: "1px solid #e5e7eb",
+            background: "#fff",
+            textAlign: "left",
+            fontSize: 15,
+            cursor: "pointer",
+          }}
+        >
+          Доходы vs Расходы
         </button>
       </div>
 
@@ -1304,6 +1349,223 @@ const ReportsScreen: React.FC<Props> = ({
                       ))
                     )}
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isCompareSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsCompareSheetOpen(false)}
+          className="tx-modal__backdrop"
+          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="tx-modal"
+            style={{
+              maxWidth: 640,
+              width: "100%",
+              padding: "16px",
+              margin: "0 auto",
+              borderRadius: "18px 18px 20px 20px",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
+              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
+            }}
+          >
+            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Доходы vs Расходы</div>
+                <button
+                  type="button"
+                  onClick={() => setIsCompareSheetOpen(false)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Закрыть
+                </button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    minWidth: 0,
+                    justifyContent: "space-between",
+                    position: "relative",
+                  }}
+                >
+                  <button
+                    type="button"
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Период
+                  </button>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontWeight: 500,
+                      fontSize: 14,
+                      color: "#6b7280",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      textAlign: "right",
+                    }}
+                  >
+                    {/* заглушка периода */}Период не выбран
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div
+                      className="report-banner-card"
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        minWidth: 0,
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 12,
+                        padding: "14px 15px 14px",
+                        overflow: "visible",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 12,
+                        justifyContent: "center",
+                      }}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <svg width="100%" height="140" viewBox="0 0 300 140" role="img" aria-label="Сводный график">
+                          <path d="M10 100 C60 60 90 80 150 50 C210 20 250 60 290 40" stroke="#9CC3FF" strokeWidth="4" fill="none" />
+                          <path d="M10 110 C60 90 90 90 150 80 C210 70 250 90 290 85" stroke="#FFD6A5" strokeWidth="3" fill="none" strokeDasharray="6 6" />
+                        </svg>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (leftDisabled) return
+                              setActiveCompareMonth(leftCompareMonth)
+                            }}
+                            disabled={leftDisabled}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              color: leftDisabled ? "#cbd5e1" : "#0f172a",
+                              cursor: leftDisabled ? "default" : "pointer",
+                              fontWeight: leftDisabled ? 500 : 700,
+                            }}
+                          >
+                            {monthLabel(leftCompareMonth)}
+                          </button>
+                          <div style={{ fontWeight: 800, color: "#0f172a" }}>{monthLabel(activeCompareMonth)}</div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (rightDisabled) return
+                              setActiveCompareMonth(rightCompareMonth)
+                            }}
+                            disabled={rightDisabled}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              color: rightDisabled ? "#cbd5e1" : "#0f172a",
+                              cursor: rightDisabled ? "default" : "pointer",
+                              fontWeight: rightDisabled ? 500 : 700,
+                            }}
+                          >
+                            {monthLabel(rightCompareMonth)}
+                          </button>
+                          {showYearSeparator ? (
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: "50%",
+                                top: 4,
+                                bottom: 4,
+                                width: 1,
+                                background: "#e5e7eb",
+                                transform: "translateX(-50%)",
+                              }}
+                            />
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button
+                    type="button"
+                    style={{
+                      flex: 1,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Доход
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      flex: 1,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      color: "#0f172a",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Расход
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    flex: 1,
+                    minHeight: 0,
+                    border: "1px dashed #e5e7eb",
+                    borderRadius: 12,
+                    padding: 12,
+                    color: "#94a3b8",
+                    fontSize: 14,
+                  }}
+                >
+                  Список появится позже
                 </div>
               </div>
             </div>
