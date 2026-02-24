@@ -203,19 +203,15 @@ const ReportsScreen: React.FC<Props> = ({
     return now.getFullYear() * 12 + now.getMonth()
   }, [])
   const activeCompareYear = useMemo(() => Math.floor(activeCompareMonth / 12), [activeCompareMonth])
-  const leftCompareMonth = activeCompareMonth - 1
-  const rightCompareMonth = activeCompareMonth + 1
-  const leftDisabled = leftCompareMonth < minCompareMonth
-  const rightDisabled = rightCompareMonth > maxCompareMonth
+  const compareOffsets = [-2, -1, 0, 1, 2] as const
+  const windowMonths = compareOffsets.map((o) => activeCompareMonth + o)
   const monthLabel = (monthIndex: number) => {
-    const year = Math.floor(monthIndex / 12)
     const month = monthIndex % 12
     const name = MONTHS[month]
-    return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`
+    return `${name.charAt(0).toUpperCase()}${name.slice(1)}`
   }
   const showYearSeparator =
-    (!leftDisabled && leftCompareMonth % 12 === 11 && activeCompareMonth % 12 === 0) ||
-    (!rightDisabled && activeCompareMonth % 12 === 11 && rightCompareMonth % 12 === 0)
+    windowMonths.some((m, idx) => idx < windowMonths.length - 1 && m % 12 === 11 && windowMonths[idx + 1] % 12 === 0)
 
   const monthSeries = useMemo(() => {
     const income = Array.from({ length: 12 }, () => 0)
@@ -238,9 +234,11 @@ const ReportsScreen: React.FC<Props> = ({
   }, [activeCompareYear, transactions])
 
   const chartMax = useMemo(() => {
-    const all = [...monthSeries.income, ...monthSeries.expense]
-    return Math.max(...all, 0)
-  }, [monthSeries.expense, monthSeries.income])
+    const relevant = windowMonths
+      .filter((m) => m >= minCompareMonth && m <= maxCompareMonth)
+      .flatMap((m) => [monthSeries.income[m % 12], monthSeries.expense[m % 12]])
+    return Math.max(...(relevant.length ? relevant : [0]), 0)
+  }, [maxCompareMonth, minCompareMonth, monthSeries.expense, monthSeries.income, windowMonths])
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
@@ -1506,33 +1504,31 @@ const ReportsScreen: React.FC<Props> = ({
                           />
                         ) : null}
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                        <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                          <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
                           {(() => {
                             const paddingX = 12
                             const chartWidth = 300 - paddingX * 2
                             const chartTop = 10
                             const chartBottom = 130
                             const chartHeight = chartBottom - chartTop
-                            const xLeft = paddingX
-                            const xCenter = paddingX + chartWidth / 2
-                            const xRight = paddingX + chartWidth
-                            const activeIdx = 1
+                            const spacing = chartWidth / 4
+                            const xPositions = [0, 1, 2, 3, 4].map((i) => paddingX + spacing * i)
+                            const activeIdx = 2
                             const maxVal = chartMax > 0 ? chartMax : 1
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
-                            const leftMonthIdx = leftCompareMonth
-                            const centerMonthIdx = activeCompareMonth
-                            const rightMonthIdx = rightCompareMonth
-                            const incomePoints = [
-                              { x: xLeft, y: toY(monthSeries.income[leftMonthIdx % 12]), val: monthSeries.income[leftMonthIdx % 12], idx: 0 },
-                              { x: xCenter, y: toY(monthSeries.income[centerMonthIdx % 12]), val: monthSeries.income[centerMonthIdx % 12], idx: 1 },
-                              { x: xRight, y: toY(monthSeries.income[rightMonthIdx % 12]), val: monthSeries.income[rightMonthIdx % 12], idx: 2 },
-                            ]
-                            const expensePoints = [
-                              { x: xLeft, y: toY(monthSeries.expense[leftMonthIdx % 12]), val: monthSeries.expense[leftMonthIdx % 12], idx: 0 },
-                              { x: xCenter, y: toY(monthSeries.expense[centerMonthIdx % 12]), val: monthSeries.expense[centerMonthIdx % 12], idx: 1 },
-                              { x: xRight, y: toY(monthSeries.expense[rightMonthIdx % 12]), val: monthSeries.expense[rightMonthIdx % 12], idx: 2 },
-                            ]
+                            const incomePoints = windowMonths.map((m, idx) => ({
+                              x: xPositions[idx],
+                              y: toY(m >= minCompareMonth && m <= maxCompareMonth ? monthSeries.income[m % 12] : 0),
+                              val: m >= minCompareMonth && m <= maxCompareMonth ? monthSeries.income[m % 12] : 0,
+                              idx,
+                            }))
+                            const expensePoints = windowMonths.map((m, idx) => ({
+                              x: xPositions[idx],
+                              y: toY(m >= minCompareMonth && m <= maxCompareMonth ? monthSeries.expense[m % 12] : 0),
+                              val: m >= minCompareMonth && m <= maxCompareMonth ? monthSeries.expense[m % 12] : 0,
+                              idx,
+                            }))
                             const toSmoothPath = (pts: { x: number; y: number }[]) => {
                               if (pts.length < 2) return ""
                               const tension = 0.5
@@ -1600,46 +1596,46 @@ const ReportsScreen: React.FC<Props> = ({
                             )
                           })()}
                         </svg>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", gap: 8 }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (leftDisabled) return
-                              setActiveCompareMonth(leftCompareMonth)
-                            }}
-                            disabled={leftDisabled}
+                        <div style={{ position: "relative", overflow: "hidden", padding: "2px 4px 0" }}>
+                          <div
                             style={{
-                              background: "none",
-                              border: "none",
-                              padding: 0,
-                              color: leftDisabled ? "#cbd5e1" : "#475569",
-                              cursor: leftDisabled ? "default" : "pointer",
-                              fontWeight: leftDisabled ? 500 : 600,
-                              fontSize: 13,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 10,
+                              width: "120%",
+                              marginLeft: "-10%",
                             }}
                           >
-                            {monthLabel(leftCompareMonth)}
-                          </button>
-                          <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>{monthLabel(activeCompareMonth)}</div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (rightDisabled) return
-                              setActiveCompareMonth(rightCompareMonth)
-                            }}
-                            disabled={rightDisabled}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 0,
-                              color: rightDisabled ? "#cbd5e1" : "#475569",
-                              cursor: rightDisabled ? "default" : "pointer",
-                              fontWeight: rightDisabled ? 500 : 600,
-                              fontSize: 13,
-                            }}
-                          >
-                            {monthLabel(rightCompareMonth)}
-                          </button>
+                            {windowMonths.map((m, idx) => {
+                              const disabled = m < minCompareMonth || m > maxCompareMonth
+                              const isActive = idx === 2
+                              return (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => {
+                                    if (disabled) return
+                                    setActiveCompareMonth(m)
+                                  }}
+                                  disabled={disabled}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    padding: 0,
+                                    color: disabled ? "#cbd5e1" : isActive ? "#0f172a" : "#475569",
+                                    cursor: disabled ? "default" : "pointer",
+                                    fontWeight: isActive ? 700 : 500,
+                                    fontSize: 12,
+                                    minWidth: 0,
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {monthLabel(m)}
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
