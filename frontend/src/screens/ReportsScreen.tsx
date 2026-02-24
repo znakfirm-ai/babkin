@@ -80,24 +80,62 @@ const ReportsScreen: React.FC<Props> = ({
     return { start: dayStart(fromDate), end: dayEnd(toDate), label: "" }
   }, [customFrom, customTo, monthRange, periodMode, singleDay])
 
+  const minDate = useMemo(() => new Date(2022, 1, 1, 0, 0, 0, 0), [])
   const baseMonthRange = monthRange
-  const minMonthDate = useMemo(() => new Date(2022, 1, 1), [])
   const minBannerOffset = useMemo(() => {
     const base = baseMonthRange.start
-    const diffMonths = (base.getFullYear() - minMonthDate.getFullYear()) * 12 + (base.getMonth() - minMonthDate.getMonth())
+    const diffMonths = (base.getFullYear() - minDate.getFullYear()) * 12 + (base.getMonth() - minDate.getMonth())
     return -diffMonths
-  }, [baseMonthRange.start, minMonthDate])
+  }, [baseMonthRange.start, minDate])
+
+  const getShiftedRange = useMemo(() => {
+    const dayMs = 24 * 60 * 60 * 1000
+    const addDays = (date: Date, days: number) => new Date(date.getTime() + days * dayMs)
+    const diffDaysInclusive = (start: Date, end: Date) => Math.floor((end.getTime() - start.getTime()) / dayMs) + 1
+
+    return (offset: number) => {
+      if (periodMode === "month") {
+        return getMonthRange(monthOffset + offset)
+      }
+      if (!currentRange.start || !currentRange.end) return currentRange
+
+      if (periodMode === "week") {
+        const start = addDays(currentRange.start, offset * 7)
+        const end = addDays(start, 6)
+        return { start, end, label: "" }
+      }
+
+      if (periodMode === "day" || periodMode === "today") {
+        const start = addDays(currentRange.start, offset)
+        const end = addDays(currentRange.end, offset)
+        return { start, end, label: "" }
+      }
+
+      if (periodMode === "custom") {
+        const days = diffDaysInclusive(currentRange.start, currentRange.end)
+        const start = addDays(currentRange.start, offset * days)
+        const end = addDays(currentRange.end, offset * days)
+        return { start, end, label: "" }
+      }
+
+      return currentRange
+    }
+  }, [currentRange, monthOffset, periodMode])
 
   const effectiveRange = useMemo(() => {
     if (periodMode === "month") {
       const safeOffset = Math.max(minBannerOffset, Math.min(0, bannerOffset))
-      return getMonthRange(monthOffset + safeOffset)
+      return getShiftedRange(safeOffset)
     }
-    return currentRange
-  }, [bannerOffset, currentRange, minBannerOffset, monthOffset, periodMode])
+    return getShiftedRange(bannerOffset)
+  }, [bannerOffset, getShiftedRange, minBannerOffset, periodMode])
 
-  const canPrevBanner = periodMode === "month" && bannerOffset > minBannerOffset
-  const canNextBanner = periodMode === "month" && bannerOffset < 0
+  const canPrevBanner = useMemo(() => {
+    const prevRange = getShiftedRange(bannerOffset - 1)
+    return prevRange.start ? prevRange.start >= minDate : false
+  }, [bannerOffset, getShiftedRange, minDate])
+
+  const canNextBanner = bannerOffset < 0
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
