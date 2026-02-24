@@ -135,7 +135,7 @@ button {
   transform: translateX(-50%);
   bottom: 8px;
   display: flex;
-  gap: 8px;
+  gap: 5px;
   z-index: 1;
 }
 
