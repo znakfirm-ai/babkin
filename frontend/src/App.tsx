@@ -116,6 +116,17 @@ function App() {
   const [pendingCategoryOpenId, setPendingCategoryOpenId] = useState<string | null>(null)
   const [pendingReturnToReport, setPendingReturnToReport] = useState(false)
   const [autoOpenExpensesSheet, setAutoOpenExpensesSheet] = useState(false)
+  const [pendingIncomeSourceOpenId, setPendingIncomeSourceOpenId] = useState<string | null>(null)
+  const [pendingReturnToIncomeReport, setPendingReturnToIncomeReport] = useState(false)
+  const [autoOpenIncomeSheet, setAutoOpenIncomeSheet] = useState(false)
+  const [savedIncomeReportState, setSavedIncomeReportState] = useState<{
+    periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
+    monthOffset: number
+    bannerOffset: number
+    customFrom: string
+    customTo: string
+    singleDay: string
+  } | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions } = useAppStore()
 
   interface TelegramWebApp {
@@ -371,6 +382,15 @@ function App() {
               setActiveScreen("reports")
               setAutoOpenExpensesSheet(true)
             }}
+            externalIncomeSourceId={pendingIncomeSourceOpenId}
+            onConsumeExternalIncomeSource={() => setPendingIncomeSourceOpenId(null)}
+            returnToIncomeReport={pendingReturnToIncomeReport}
+            onReturnToIncomeReport={() => {
+              setPendingReturnToIncomeReport(false)
+              setActiveNav("reports")
+              setActiveScreen("reports")
+              setAutoOpenIncomeSheet(true)
+            }}
           />
         )
       case "add":
@@ -391,6 +411,16 @@ function App() {
             }}
             autoOpenExpensesSheet={autoOpenExpensesSheet}
             onConsumeAutoOpenExpenses={() => setAutoOpenExpensesSheet(false)}
+            onOpenIncomeSourceSheet={(id, state) => {
+              setPendingIncomeSourceOpenId(id)
+              setSavedIncomeReportState(state)
+              setActiveNav("overview")
+              setActiveScreen("overview")
+              setPendingReturnToIncomeReport(true)
+            }}
+            autoOpenIncomeSheet={autoOpenIncomeSheet}
+            onConsumeAutoOpenIncome={() => setAutoOpenIncomeSheet(false)}
+            incomeReportState={savedIncomeReportState}
           />
         )
       case "settings":

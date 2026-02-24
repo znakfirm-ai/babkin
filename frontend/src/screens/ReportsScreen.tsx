@@ -11,6 +11,27 @@ type Props = {
   onOpenCategorySheet?: (id: string, title: string) => void
   autoOpenExpensesSheet?: boolean
   onConsumeAutoOpenExpenses?: () => void
+  onOpenIncomeSourceSheet?: (
+    id: string,
+    state: {
+      periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
+      monthOffset: number
+      bannerOffset: number
+      customFrom: string
+      customTo: string
+      singleDay: string
+    },
+  ) => void
+  autoOpenIncomeSheet?: boolean
+  onConsumeAutoOpenIncome?: () => void
+  incomeReportState?: {
+    periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
+    monthOffset: number
+    bannerOffset: number
+    customFrom: string
+    customTo: string
+    singleDay: string
+  } | null
 }
 
 const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
@@ -34,6 +55,10 @@ const ReportsScreen: React.FC<Props> = ({
   onOpenCategorySheet,
   autoOpenExpensesSheet,
   onConsumeAutoOpenExpenses,
+  onOpenIncomeSourceSheet,
+  autoOpenIncomeSheet,
+  onConsumeAutoOpenIncome,
+  incomeReportState,
 }) => {
   const { transactions, categories, incomeSources, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
@@ -358,6 +383,22 @@ const ReportsScreen: React.FC<Props> = ({
       onConsumeAutoOpenExpenses?.()
     }
   }, [autoOpenExpensesSheet, onConsumeAutoOpenExpenses])
+
+  useEffect(() => {
+    if (autoOpenIncomeSheet) {
+      if (incomeReportState) {
+        setPeriodMode(incomeReportState.periodMode)
+        setMonthOffset(incomeReportState.monthOffset)
+        setBannerOffset(incomeReportState.bannerOffset)
+        setCustomFrom(incomeReportState.customFrom)
+        setCustomTo(incomeReportState.customTo)
+        setSingleDay(incomeReportState.singleDay)
+      }
+      setIsIncomeSheetOpen(true)
+      setIsExpensesSheetOpen(false)
+      onConsumeAutoOpenIncome?.()
+    }
+  }, [autoOpenIncomeSheet, incomeReportState, onConsumeAutoOpenIncome])
 
 
   return (
@@ -1226,8 +1267,15 @@ const ReportsScreen: React.FC<Props> = ({
                               key={item.id}
                               onClick={() => {
                                 if (incomeData.total === 0) return
-                                const idx = incomeData.list.findIndex((i) => i.id === item.id)
-                                setSelectedLegendIndex((prev) => (prev === idx ? null : idx))
+                                onOpenIncomeSourceSheet?.(item.id, {
+                                  periodMode,
+                                  monthOffset,
+                                  bannerOffset,
+                                  customFrom,
+                                  customTo,
+                                  singleDay,
+                                })
+                                setIsIncomeSheetOpen(false)
                               }}
                               style={{
                                 display: "flex",

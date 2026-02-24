@@ -311,6 +311,10 @@ type OverviewScreenProps = {
   onConsumeExternalCategory?: () => void
   returnToReport?: boolean
   onReturnToReport?: () => void
+  externalIncomeSourceId?: string | null
+  onConsumeExternalIncomeSource?: () => void
+  returnToIncomeReport?: boolean
+  onReturnToIncomeReport?: () => void
 }
 
 function OverviewScreen({
@@ -320,6 +324,10 @@ function OverviewScreen({
   onConsumeExternalCategory,
   returnToReport,
   onReturnToReport,
+  externalIncomeSourceId,
+  onConsumeExternalIncomeSource,
+  returnToIncomeReport,
+  onReturnToIncomeReport,
 }: OverviewScreenProps) {
   const {
     accounts,
@@ -675,6 +683,15 @@ function OverviewScreen({
   }, [categories, externalCategoryId, onConsumeExternalCategory])
 
   useEffect(() => {
+    if (externalIncomeSourceId) {
+      const src = incomeSources.find((s) => s.id === externalIncomeSourceId)
+      setDetailIncomeSourceId(externalIncomeSourceId)
+      setDetailTitle(src?.name ?? "Источник дохода")
+      onConsumeExternalIncomeSource?.()
+    }
+  }, [externalIncomeSourceId, incomeSources, onConsumeExternalIncomeSource])
+
+  useEffect(() => {
     if (!isAccountSheetOpen && accountSheetIntent === "openAccountIconPicker") {
       setIsAccountIconPickerOpen(true)
       setAccountSheetIntent(null)
@@ -848,7 +865,10 @@ function OverviewScreen({
     if (returnToReport) {
       onReturnToReport?.()
     }
-  }, [closeTxSheet, onReturnToReport, returnToReport])
+    if (returnToIncomeReport) {
+      onReturnToIncomeReport?.()
+    }
+  }, [closeTxSheet, onReturnToIncomeReport, onReturnToReport, returnToIncomeReport, returnToReport])
 
   const openEditAccountFromDetails = useCallback(
     (accountId: string) => {
