@@ -527,8 +527,28 @@ const ReportsScreen: React.FC<Props> = ({
                                     padding: isSelected ? "4px 6px" : "0 0",
                                   }}
                                 >
-                                  <span style={{ color: item.color, fontWeight: 600, fontSize: 12, flexShrink: 0 }}>{item.percentText}</span>
-                                  <span style={{ fontSize: 12, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  <span
+                                    style={{
+                                      color: item.color,
+                                      fontWeight: 600,
+                                      fontSize: 12,
+                                      width: 38,
+                                      textAlign: "right",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {item.percentText}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: 12,
+                                      color: "#0f172a",
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      flex: 1,
+                                    }}
+                                  >
                                     {item.title}
                                   </span>
                                 </div>
