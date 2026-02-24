@@ -1221,17 +1221,23 @@ const ReportsScreen: React.FC<Props> = ({
                     {incomeData.list.length === 0 ? (
                       <div style={{ color: "#6b7280", fontSize: 14 }}>Нет доходов за период</div>
                     ) : (
-                      incomeData.list.map((item) => (
-                        <div
-                          key={item.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            borderBottom: "1px solid #e5e7eb",
-                            paddingBottom: 8,
-                          }}
-                        >
+                          incomeData.list.map((item) => (
+                            <div
+                              key={item.id}
+                              onClick={() => {
+                                if (incomeData.total === 0) return
+                                const idx = incomeData.list.findIndex((i) => i.id === item.id)
+                                setSelectedLegendIndex((prev) => (prev === idx ? null : idx))
+                              }}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                borderBottom: "1px solid #e5e7eb",
+                                paddingBottom: 8,
+                                cursor: incomeData.total > 0 ? "pointer" : "default",
+                              }}
+                            >
                           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
                             <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
                               {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
