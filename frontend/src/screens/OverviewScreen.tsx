@@ -416,6 +416,8 @@ function OverviewScreen({
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
   const { run: runCategorySave, isRunning: isCategorySaveRunning } = useSingleFlight()
   const { run: runCategoryDelete, isRunning: isCategoryDeleteRunning } = useSingleFlight()
+  const { run: runIncomeSave, isRunning: isIncomeSaveRunning } = useSingleFlight()
+  const { run: runIncomeDelete, isRunning: isIncomeDeleteRunning } = useSingleFlight()
   const { run: runDeleteTx, isRunning: isDeleteTxRunning } = useSingleFlight()
 
   const applyCustomRange = useCallback(() => {
@@ -1070,32 +1072,34 @@ function OverviewScreen({
     token,
   ])
 
-  const handleSaveIncomeSource = useCallback(async () => {
-    if (!token) {
-      setIncomeSourceError("Нет токена")
-      return
-    }
-    const trimmed = incomeSourceName.trim()
-    if (!trimmed) {
-      setIncomeSourceError("Введите название источника")
-      return
-    }
-    setIsSavingIncomeSource(true)
-    setIncomeSourceError(null)
-    try {
-      if (incomeSourceSheetMode === "create") {
-        await createIncomeSource(token, trimmed, incomeSourceIcon ?? undefined)
-      } else if (incomeSourceSheetMode === "edit" && editingIncomeSourceId) {
-        await renameIncomeSource(token, editingIncomeSourceId, trimmed, incomeSourceIcon ?? undefined)
+  const handleSaveIncomeSource = useCallback(() => {
+    return runIncomeSave(async () => {
+      if (!token) {
+        setIncomeSourceError("Нет токена")
+        return
       }
-      await refetchIncomeSources()
-      closeIncomeSourceSheet()
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Ошибка"
-      setIncomeSourceError(msg.includes("INCOME_SOURCE_NAME_EXISTS") ? "Источник с таким названием уже есть" : msg)
-    } finally {
-      setIsSavingIncomeSource(false)
-    }
+      const trimmed = incomeSourceName.trim()
+      if (!trimmed) {
+        setIncomeSourceError("Введите название источника")
+        return
+      }
+      setIsSavingIncomeSource(true)
+      setIncomeSourceError(null)
+      try {
+        if (incomeSourceSheetMode === "create") {
+          await createIncomeSource(token, trimmed, incomeSourceIcon ?? undefined)
+        } else if (incomeSourceSheetMode === "edit" && editingIncomeSourceId) {
+          await renameIncomeSource(token, editingIncomeSourceId, trimmed, incomeSourceIcon ?? undefined)
+        }
+        await refetchIncomeSources()
+        closeIncomeSourceSheet()
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Ошибка"
+        setIncomeSourceError(msg.includes("INCOME_SOURCE_NAME_EXISTS") ? "Источник с таким названием уже есть" : msg)
+      } finally {
+        setIsSavingIncomeSource(false)
+      }
+    })
   }, [
     closeIncomeSourceSheet,
     editingIncomeSourceId,
@@ -1103,6 +1107,7 @@ function OverviewScreen({
     incomeSourceSheetMode,
     incomeSourceIcon,
     refetchIncomeSources,
+    runIncomeSave,
     token,
   ])
 
@@ -1189,7 +1194,8 @@ function OverviewScreen({
   )
 
   const handleDeleteIncomeSource = useCallback(
-    async (id: string) => {
+    (id: string) =>
+      runIncomeDelete(async () => {
       if (!token) {
         alert("Нет токена")
         return
@@ -1211,8 +1217,8 @@ function OverviewScreen({
       } finally {
         setDeletingIncomeSourceId(null)
       }
-    },
-    [closeIncomeSourceSheet, refetchIncomeSources, token]
+      }),
+    [closeIncomeSourceSheet, refetchIncomeSources, runIncomeDelete, token]
   )
 
   const accountItems: CardItem[] = accounts.map((account, idx) => {
@@ -4317,21 +4323,23 @@ function TransactionsPanel({
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
                     <button
-                      type="button"
-                      onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
-                      disabled={deletingIncomeSourceId === editingIncomeSourceId}
-                      style={{
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                        border: "1px solid #fee2e2",
-                        background: deletingIncomeSourceId === editingIncomeSourceId ? "#fecdd3" : "#fff",
-                        color: "#b91c1c",
-                        cursor: deletingIncomeSourceId === editingIncomeSourceId ? "not-allowed" : "pointer",
-                        width: "100%",
-                      }}
-                    >
-                      {deletingIncomeSourceId === editingIncomeSourceId ? "Удаляем…" : "Удалить"}
-                    </button>
+                  type="button"
+                  onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
+                  disabled={deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #fee2e2",
+                    background:
+                      deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "#fecdd3" : "#fff",
+                    color: "#b91c1c",
+                    cursor:
+                      deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "not-allowed" : "pointer",
+                    width: "100%",
+                  }}
+                >
+                  {deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "Удаляем…" : "Удалить"}
+                </button>
                 ) : (
                   <div />
                 )}
@@ -4352,18 +4360,18 @@ function TransactionsPanel({
                 <button
                   type="button"
                   onClick={handleSaveIncomeSource}
-                  disabled={isSavingIncomeSource}
+                  disabled={isSavingIncomeSource || isIncomeSaveRunning}
                   style={{
                     padding: "10px 14px",
                     borderRadius: 10,
                     border: "1px solid #e5e7eb",
-                    background: isSavingIncomeSource ? "#e5e7eb" : "#0f172a",
-                    color: isSavingIncomeSource ? "#6b7280" : "#fff",
-                    cursor: isSavingIncomeSource ? "not-allowed" : "pointer",
+                    background: isSavingIncomeSource || isIncomeSaveRunning ? "#e5e7eb" : "#0f172a",
+                    color: isSavingIncomeSource || isIncomeSaveRunning ? "#6b7280" : "#fff",
+                    cursor: isSavingIncomeSource || isIncomeSaveRunning ? "not-allowed" : "pointer",
                     width: "100%",
                   }}
                 >
-                  {isSavingIncomeSource ? "Сохраняем…" : "Сохранить"}
+                  {isSavingIncomeSource || isIncomeSaveRunning ? "Сохраняем…" : "Сохранить"}
                 </button>
               </div>
             </div>
