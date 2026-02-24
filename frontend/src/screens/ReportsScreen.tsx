@@ -1533,8 +1533,31 @@ const ReportsScreen: React.FC<Props> = ({
                               { x: xCenter, y: toY(monthSeries.expense[centerMonthIdx % 12]), val: monthSeries.expense[centerMonthIdx % 12], idx: 1 },
                               { x: xRight, y: toY(monthSeries.expense[rightMonthIdx % 12]), val: monthSeries.expense[rightMonthIdx % 12], idx: 2 },
                             ]
-                            const incomePath = incomePoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`).join(" ")
-                            const expensePath = expensePoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`).join(" ")
+                            const toSmoothPath = (pts: { x: number; y: number }[]) => {
+                              if (pts.length < 2) return ""
+                              const tension = 0.5
+                              const crToBezier = (p0: { x: number; y: number }, p1: { x: number; y: number }, p2: { x: number; y: number }, p3: { x: number; y: number }) => {
+                                const t = tension
+                                const bp1 = { x: p1.x + ((p2.x - p0.x) / 6) * t, y: p1.y + ((p2.y - p0.y) / 6) * t }
+                                const bp2 = { x: p2.x - ((p3.x - p1.x) / 6) * t, y: p2.y - ((p3.y - p1.y) / 6) * t }
+                                return { bp1, bp2 }
+                              }
+                              const p = [
+                                pts[0],
+                                pts[0],
+                                ...pts.slice(1, -1),
+                                pts[pts.length - 1],
+                                pts[pts.length - 1],
+                              ]
+                              let d = `M${pts[0].x} ${pts[0].y}`
+                              for (let i = 1; i < p.length - 2; i += 1) {
+                                const { bp1, bp2 } = crToBezier(p[i - 1], p[i], p[i + 1], p[i + 2])
+                                d += ` C${bp1.x} ${bp1.y} ${bp2.x} ${bp2.y} ${p[i + 1].x} ${p[i + 1].y}`
+                              }
+                              return d
+                            }
+                            const incomePath = toSmoothPath(incomePoints)
+                            const expensePath = toSmoothPath(expensePoints)
                             const incomeColor = "#9ddfc5"
                             const expenseColor = "#f7b2a4"
                             const activeIncome = incomePoints[activeIdx]
