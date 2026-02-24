@@ -1267,6 +1267,7 @@ const ReportsScreen: React.FC<Props> = ({
                               key={item.id}
                               onClick={() => {
                                 if (incomeData.total === 0) return
+                                if (!item.id || item.id === "uncategorized") return
                                 onOpenIncomeSourceSheet?.(item.id, {
                                   periodMode,
                                   monthOffset,
