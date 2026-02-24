@@ -147,8 +147,8 @@ button {
 }
 
 .report-banner-dot--active {
-  width: 14px;
-  height: 6px;
+  width: 10px;
+  height: 4px;
   border-radius: 999px;
   background: #1f2937;
 }
