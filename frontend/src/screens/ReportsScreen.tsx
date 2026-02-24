@@ -223,7 +223,11 @@ const ReportsScreen: React.FC<Props> = ({
       return effectiveRange.label.charAt(0).toUpperCase() + effectiveRange.label.slice(1)
     }
     if (periodMode === "quarter" && effectiveRange.label) {
-      return effectiveRange.label
+      const fmt = new Intl.DateTimeFormat("ru-RU", { month: "long" })
+      const startName = fmt.format(effectiveRange.start).toLowerCase()
+      const endName = fmt.format(effectiveRange.end).toLowerCase()
+      const year = effectiveRange.start.getFullYear()
+      return `${startName}–${endName} ${year}`
     }
     if (periodMode === "year" && effectiveRange.label) {
       return effectiveRange.label
