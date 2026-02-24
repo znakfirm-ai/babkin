@@ -503,7 +503,7 @@ const ReportsScreen: React.FC<Props> = ({
                                 display: "flex",
                                 flexDirection: "column",
                                 justifyContent: "center",
-                                marginLeft: -9,
+                                marginLeft: -14,
                                 gap: 12,
                               }}
                             >
