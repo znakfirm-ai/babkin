@@ -601,7 +601,10 @@ const ReportsScreen: React.FC<Props> = ({
                       </div>
                       {(() => {
                         const indicatorSegments = 4
-                        const activePos = Math.max(0, Math.min(3, 3 + bannerOffset))
+                        const atMin = !canPrevBanner
+                        const rawPos = 3 + bannerOffset
+                        const minPos = atMin ? 0 : 1
+                        const activePos = Math.max(minPos, Math.min(3, rawPos))
                         return (
                           <div className="report-banner-dots">
                             {Array.from({ length: indicatorSegments }, (_, i) => (
