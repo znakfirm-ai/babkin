@@ -202,6 +202,7 @@ const ReportsScreen: React.FC<Props> = ({
     const now = new Date()
     return now.getFullYear() * 12 + now.getMonth()
   }, [])
+  const activeCompareYear = useMemo(() => Math.floor(activeCompareMonth / 12), [activeCompareMonth])
   const leftCompareMonth = activeCompareMonth - 1
   const rightCompareMonth = activeCompareMonth + 1
   const leftDisabled = leftCompareMonth < minCompareMonth
@@ -215,6 +216,31 @@ const ReportsScreen: React.FC<Props> = ({
   const showYearSeparator =
     (!leftDisabled && leftCompareMonth % 12 === 11 && activeCompareMonth % 12 === 0) ||
     (!rightDisabled && activeCompareMonth % 12 === 11 && rightCompareMonth % 12 === 0)
+
+  const monthSeries = useMemo(() => {
+    const income = Array.from({ length: 12 }, () => 0)
+    const expense = Array.from({ length: 12 }, () => 0)
+    transactions.forEach((t) => {
+      const date = new Date(t.date)
+      if (date.getFullYear() !== activeCompareYear) return
+      const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
+      const amt = t.amount?.amount ?? 0
+      const m = date.getMonth()
+      if (kind === "income") {
+        income[m] += amt
+      }
+      if (kind === "expense") {
+        if ((t as { kind?: string }).kind === "adjustment") return
+        expense[m] += amt
+      }
+    })
+    return { income, expense }
+  }, [activeCompareYear, transactions])
+
+  const chartMax = useMemo(() => {
+    const all = [...monthSeries.income, ...monthSeries.expense]
+    return Math.max(...all, 0)
+  }, [monthSeries.expense, monthSeries.income])
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
@@ -1482,8 +1508,63 @@ const ReportsScreen: React.FC<Props> = ({
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
-                          <path d="M10 110 C60 70 90 90 150 60 C210 35 250 75 290 55" stroke="#9ddfc5" strokeWidth="4" fill="none" />
-                          <path d="M10 125 C60 100 90 100 150 90 C210 80 250 100 290 95" stroke="#f7b2a4" strokeWidth="3" fill="none" strokeDasharray="6 6" />
+                          {(() => {
+                            const paddingX = 12
+                            const chartWidth = 300 - paddingX * 2
+                            const chartTop = 10
+                            const chartBottom = 130
+                            const chartHeight = chartBottom - chartTop
+                            const toX = (m: number) => paddingX + (chartWidth / 11) * m
+                            const maxVal = chartMax > 0 ? chartMax : 1
+                            const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
+                            const buildPath = (arr: number[]) =>
+                              arr
+                                .map((v, idx) => `${idx === 0 ? "M" : "L"}${toX(idx)} ${toY(v)}`)
+                                .join(" ")
+                            const incomePath = buildPath(monthSeries.income)
+                            const expensePath = buildPath(monthSeries.expense)
+                            const activeIdx = activeCompareMonth % 12
+                            const incomeY = toY(monthSeries.income[activeIdx])
+                            const expenseY = toY(monthSeries.expense[activeIdx])
+                            const incomeColor = "#9ddfc5"
+                            const expenseColor = "#f7b2a4"
+                            return (
+                              <>
+                                <path d={incomePath} stroke={incomeColor} strokeWidth="4" fill="none" />
+                                <path d={expensePath} stroke={expenseColor} strokeWidth="3" fill="none" strokeDasharray="6 6" />
+                                {monthSeries.income.map((v, idx) => (
+                                  <circle
+                                    key={`i-${idx}`}
+                                    cx={toX(idx)}
+                                    cy={toY(v)}
+                                    r={idx === activeIdx ? 5 : 3}
+                                    fill={incomeColor}
+                                    opacity={idx === activeIdx ? 0.9 : 0.7}
+                                  />
+                                ))}
+                                {monthSeries.expense.map((v, idx) => (
+                                  <circle
+                                    key={`e-${idx}`}
+                                    cx={toX(idx)}
+                                    cy={toY(v)}
+                                    r={idx === activeIdx ? 5 : 3}
+                                    fill={expenseColor}
+                                    opacity={idx === activeIdx ? 0.9 : 0.7}
+                                  />
+                                ))}
+                                {chartMax > 0 ? (
+                                  <>
+                                    <text x={toX(activeIdx)} y={incomeY - 10} textAnchor="middle" fontSize={11} fill={incomeColor} fontWeight={600}>
+                                      + {formatMoney(monthSeries.income[activeIdx], currency ?? "RUB")}
+                                    </text>
+                                    <text x={toX(activeIdx)} y={expenseY + 18} textAnchor="middle" fontSize={11} fill={expenseColor} fontWeight={600}>
+                                      - {formatMoney(monthSeries.expense[activeIdx], currency ?? "RUB")}
+                                    </text>
+                                  </>
+                                ) : null}
+                              </>
+                            )
+                          })()}
                         </svg>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", gap: 8 }}>
                           <button
