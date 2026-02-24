@@ -209,7 +209,8 @@ const ReportsScreen: React.FC<Props> = ({
   const monthLabel = (monthIndex: number) => {
     const year = Math.floor(monthIndex / 12)
     const month = monthIndex % 12
-    return `${MONTHS[month]} ${year}`
+    const name = MONTHS[month]
+    return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`
   }
   const showYearSeparator =
     (!leftDisabled && leftCompareMonth % 12 === 11 && activeCompareMonth % 12 === 0) ||
@@ -1451,20 +1452,40 @@ const ReportsScreen: React.FC<Props> = ({
                         minWidth: 0,
                         border: "1px solid #e5e7eb",
                         borderRadius: 12,
-                        padding: "14px 15px 14px",
+                        padding: "20px 15px 18px",
                         overflow: "visible",
                         display: "flex",
                         flexDirection: "column",
                         gap: 12,
                         justifyContent: "center",
+                        minHeight: 240,
                       }}
                     >
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <svg width="100%" height="140" viewBox="0 0 300 140" role="img" aria-label="Сводный график">
-                          <path d="M10 100 C60 60 90 80 150 50 C210 20 250 60 290 40" stroke="#9CC3FF" strokeWidth="4" fill="none" />
-                          <path d="M10 110 C60 90 90 90 150 80 C210 70 250 90 290 85" stroke="#FFD6A5" strokeWidth="3" fill="none" strokeDasharray="6 6" />
+                      <div style={{ position: "absolute", left: 0, right: 0, top: 20, bottom: 60, pointerEvents: "none" }}>
+                        <div style={{ position: "absolute", left: "0%", top: 0, bottom: 0, width: 1, background: "rgba(148,163,184,0.25)" }} />
+                        <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(148,163,184,0.25)" }} />
+                        <div style={{ position: "absolute", left: "100%", top: 0, bottom: 0, width: 1, background: "rgba(148,163,184,0.25)" }} />
+                        {showYearSeparator ? (
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: "50%",
+                              top: 0,
+                              bottom: 0,
+                              width: 1,
+                              background: "#e5e7eb",
+                              transform: "translateX(-50%)",
+                              opacity: 0.8,
+                            }}
+                          />
+                        ) : null}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
+                          <path d="M10 110 C60 70 90 90 150 60 C210 35 250 75 290 55" stroke="#9ddfc5" strokeWidth="4" fill="none" />
+                          <path d="M10 125 C60 100 90 100 150 90 C210 80 250 100 290 95" stroke="#f7b2a4" strokeWidth="3" fill="none" strokeDasharray="6 6" />
                         </svg>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", gap: 8 }}>
                           <button
                             type="button"
                             onClick={() => {
@@ -1476,14 +1497,15 @@ const ReportsScreen: React.FC<Props> = ({
                               background: "none",
                               border: "none",
                               padding: 0,
-                              color: leftDisabled ? "#cbd5e1" : "#0f172a",
+                              color: leftDisabled ? "#cbd5e1" : "#475569",
                               cursor: leftDisabled ? "default" : "pointer",
-                              fontWeight: leftDisabled ? 500 : 700,
+                              fontWeight: leftDisabled ? 500 : 600,
+                              fontSize: 13,
                             }}
                           >
                             {monthLabel(leftCompareMonth)}
                           </button>
-                          <div style={{ fontWeight: 800, color: "#0f172a" }}>{monthLabel(activeCompareMonth)}</div>
+                          <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>{monthLabel(activeCompareMonth)}</div>
                           <button
                             type="button"
                             onClick={() => {
@@ -1495,26 +1517,14 @@ const ReportsScreen: React.FC<Props> = ({
                               background: "none",
                               border: "none",
                               padding: 0,
-                              color: rightDisabled ? "#cbd5e1" : "#0f172a",
+                              color: rightDisabled ? "#cbd5e1" : "#475569",
                               cursor: rightDisabled ? "default" : "pointer",
-                              fontWeight: rightDisabled ? 500 : 700,
+                              fontWeight: rightDisabled ? 500 : 600,
+                              fontSize: 13,
                             }}
                           >
                             {monthLabel(rightCompareMonth)}
                           </button>
-                          {showYearSeparator ? (
-                            <div
-                              style={{
-                                position: "absolute",
-                                left: "50%",
-                                top: 4,
-                                bottom: 4,
-                                width: 1,
-                                background: "#e5e7eb",
-                                transform: "translateX(-50%)",
-                              }}
-                            />
-                          ) : null}
                         </div>
                       </div>
                     </div>
