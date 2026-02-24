@@ -414,6 +414,8 @@ function OverviewScreen({
   const [editNote, setEditNote] = useState("")
   const currentMonthTag = getCurrentMonthTag()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
+  const { run: runCategorySave, isRunning: isCategorySaveRunning } = useSingleFlight()
+  const { run: runCategoryDelete, isRunning: isCategoryDeleteRunning } = useSingleFlight()
   const { run: runDeleteTx, isRunning: isDeleteTxRunning } = useSingleFlight()
 
   const applyCustomRange = useCallback(() => {
@@ -1005,7 +1007,8 @@ function OverviewScreen({
     txActionId,
   ])
 
-  const handleSaveCategory = useCallback(async () => {
+  const handleSaveCategory = useCallback(() => {
+    return runCategorySave(async () => {
     if (!token) {
       return
     }
@@ -1053,6 +1056,7 @@ function OverviewScreen({
     } finally {
       setIsSavingCategory(false)
     }
+    })
   }, [
     categories,
     categoryBudget,
@@ -1062,6 +1066,7 @@ function OverviewScreen({
     closeCategorySheet,
     editingCategoryId,
     refetchCategories,
+    runCategorySave,
     token,
   ])
 
@@ -1156,7 +1161,8 @@ function OverviewScreen({
   }, [goalIcon, goalName, goalTarget, refetchGoals, token])
 
   const handleDeleteCategory = useCallback(
-    async (id: string) => {
+    (id: string) =>
+      runCategoryDelete(async () => {
       if (!token) {
         alert("Нет токена")
         return
@@ -1178,8 +1184,8 @@ function OverviewScreen({
       } finally {
         setDeletingCategoryId(null)
       }
-    },
-    [closeCategorySheet, refetchCategories, token]
+      }),
+    [closeCategorySheet, refetchCategories, runCategoryDelete, token]
   )
 
   const handleDeleteIncomeSource = useCallback(
@@ -4074,22 +4080,22 @@ function TransactionsPanel({
                 <button
                   type="button"
                   onClick={() => handleDeleteCategory(editingCategoryId)}
-                    disabled={deletingCategoryId === editingCategoryId}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: "1px solid #fee2e2",
-                      background: deletingCategoryId === editingCategoryId ? "#fecdd3" : "#fff",
-                      color: "#b91c1c",
-                      cursor: deletingCategoryId === editingCategoryId ? "not-allowed" : "pointer",
-                      width: "100%",
-                    }}
-                  >
-                    {deletingCategoryId === editingCategoryId ? "Удаляем…" : "Удалить"}
-                  </button>
-                ) : (
-                  <div />
-                )}
+                  disabled={deletingCategoryId === editingCategoryId || isCategoryDeleteRunning}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #fee2e2",
+                    background: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "#fecdd3" : "#fff",
+                    color: "#b91c1c",
+                    cursor: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "not-allowed" : "pointer",
+                    width: "100%",
+                  }}
+                >
+                  {deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "Удаляем…" : "Удалить"}
+                </button>
+              ) : (
+                <div />
+              )}
                 <button
                   type="button"
                   onClick={() => closeCategorySheet()}
@@ -4107,19 +4113,19 @@ function TransactionsPanel({
                 <button
                   type="button"
                   onClick={handleSaveCategory}
-                  disabled={isSavingCategory}
+                  disabled={isSavingCategory || isCategorySaveRunning}
                   style={{
                     padding: "10px 14px",
                     borderRadius: 10,
                     border: "1px solid #e5e7eb",
-                    background: isSavingCategory ? "#e5e7eb" : "#0f172a",
-                    color: isSavingCategory ? "#6b7280" : "#fff",
+                    background: isSavingCategory || isCategorySaveRunning ? "#e5e7eb" : "#0f172a",
+                    color: isSavingCategory || isCategorySaveRunning ? "#6b7280" : "#fff",
                     fontWeight: 600,
-                    cursor: isSavingCategory ? "not-allowed" : "pointer",
+                    cursor: isSavingCategory || isCategorySaveRunning ? "not-allowed" : "pointer",
                     width: "100%",
                   }}
                 >
-                  {isSavingCategory ? "Сохраняем…" : "Сохранить"}
+                  {isSavingCategory || isCategorySaveRunning ? "Сохраняем…" : "Сохранить"}
                 </button>
               </div>
             </div>
