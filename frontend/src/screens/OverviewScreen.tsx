@@ -10,6 +10,7 @@ import { createCategory, deleteCategory, getCategories, renameCategory } from ".
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { createGoal, getGoals, updateGoal } from "../api/goals"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
+import { useSingleFlight } from "../hooks/useSingleFlight"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
 
@@ -412,6 +413,7 @@ function OverviewScreen({
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
   const currentMonthTag = getCurrentMonthTag()
+  const { run: runDeleteTx, isRunning: isDeleteTxRunning } = useSingleFlight()
 
   const applyCustomRange = useCallback(() => {
     if (!customFromDraft || !customToDraft) return
@@ -851,30 +853,31 @@ function OverviewScreen({
     [closeDetails, openEditAccountSheet],
   )
 
-  const handleDeleteTx = useCallback(async () => {
+  const handleDeleteTx = useCallback(() => {
+    return runDeleteTx(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
     if (!token) {
       setTxError("Нет токена")
       return
     }
     if (!txActionId) return
-    setTxLoading(true)
     setTxError(null)
     try {
+      setTxLoading(true)
       await deleteTransaction(token, txActionId)
       await refetchAccountsSeq()
       await refetchTransactions()
       closeTxSheet()
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        setTxLoading(false)
         return
       }
       setTxError("Не удалось удалить операцию")
     } finally {
       setTxLoading(false)
     }
-  }, [closeTxSheet, refetchAccountsSeq, refetchTransactions, txActionId])
+    })
+  }, [closeTxSheet, refetchAccountsSeq, refetchTransactions, runDeleteTx, txActionId])
 
   const handleSaveEdit = useCallback(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
@@ -2740,18 +2743,18 @@ function TransactionsPanel({
                   <button
                     type="button"
                     onClick={handleDeleteTx}
-                    disabled={txLoading}
+                    disabled={txLoading || isDeleteTxRunning}
                     style={{
                       padding: 12,
                       borderRadius: 12,
                       border: "1px solid #fee2e2",
-                      background: txLoading ? "#fecdd3" : "#b91c1c",
+                      background: txLoading || isDeleteTxRunning ? "#fecdd3" : "#b91c1c",
                       color: "#fff",
                       flex: 1,
-                      cursor: txLoading ? "not-allowed" : "pointer",
+                      cursor: txLoading || isDeleteTxRunning ? "not-allowed" : "pointer",
                     }}
                   >
-                    {txLoading ? "Удаляем…" : "Удалить"}
+                    {txLoading || isDeleteTxRunning ? "Удаляем…" : "Удалить"}
                   </button>
                 </div>
               </div>
