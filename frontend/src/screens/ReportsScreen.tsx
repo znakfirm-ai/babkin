@@ -168,6 +168,14 @@ const ReportsScreen: React.FC<Props> = ({
     })
   }, [donutData.total, expenseData.list])
 
+  const bannersCount = 1
+  const activeBannerIndex = 0
+  const windowSize = Math.min(4, bannersCount)
+  const maxStart = Math.max(0, bannersCount - windowSize)
+  const dotsStartIndex = Math.min(Math.max(activeBannerIndex - 1, 0), maxStart)
+  const activeDotPos = activeBannerIndex - dotsStartIndex
+  const dotIndices = Array.from({ length: windowSize }, (_, i) => dotsStartIndex + i)
+
   useEffect(() => {
     if (autoOpenExpensesSheet) {
       setIsExpensesSheetOpen(true)
@@ -528,6 +536,14 @@ const ReportsScreen: React.FC<Props> = ({
                             </div>
                           ) : null}
                         </div>
+                      </div>
+                      <div className="report-banner-dots">
+                        {dotIndices.map((idx, pos) => (
+                          <span
+                            key={idx}
+                            className={pos === activeDotPos ? "report-banner-dot report-banner-dot--active" : "report-banner-dot"}
+                          />
+                        ))}
                       </div>
                     </div>
                   </div>
