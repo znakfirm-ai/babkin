@@ -604,10 +604,10 @@ const ReportsScreen: React.FC<Props> = ({
                         const canGoPrev = canPrevBanner
                         const canGoNext = canNextBanner
                         let activePos = 2
-                        if (canGoPrev && canGoNext) activePos = 1
-                        else if (canGoPrev && !canGoNext) activePos = 2
-                        else if (!canGoPrev && canGoNext) activePos = 1
-                        else activePos = 2
+                        if (canGoPrev && !canGoNext) activePos = 3
+                        else if (!canGoPrev && canGoNext) activePos = 0
+                        else if (canGoPrev && canGoNext) activePos = 1
+                        else if (!canGoPrev && !canGoNext) activePos = 3
                         return (
                           <div className="report-banner-dots">
                             {Array.from({ length: indicatorSegments }, (_, i) => (

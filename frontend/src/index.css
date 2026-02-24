@@ -140,13 +140,15 @@ button {
 }
 
 .report-banner-seg {
-  width: 10px;
+  width: 7px;
   height: 3px;
   border-radius: 999px;
   background: #e5e7eb;
 }
 
 .report-banner-seg--active {
+  width: 12px;
+  height: 4px;
   background: #1f2937;
 }
 
