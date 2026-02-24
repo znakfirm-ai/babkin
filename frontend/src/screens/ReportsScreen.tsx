@@ -1514,29 +1514,25 @@ const ReportsScreen: React.FC<Props> = ({
                             const chartTop = 10
                             const chartBottom = 130
                             const chartHeight = chartBottom - chartTop
-                            const windowMonths = [leftCompareMonth, activeCompareMonth, rightCompareMonth].filter(
-                              (m) => m >= minCompareMonth && m <= maxCompareMonth,
-                            )
-                            const activeIdx = windowMonths.indexOf(activeCompareMonth)
+                            const xLeft = paddingX
+                            const xCenter = paddingX + chartWidth / 2
+                            const xRight = paddingX + chartWidth
+                            const activeIdx = 1
                             const maxVal = chartMax > 0 ? chartMax : 1
-                            const toX = (pos: number) =>
-                              windowMonths.length > 1
-                                ? paddingX + (chartWidth / (windowMonths.length - 1)) * pos
-                                : paddingX + chartWidth / 2
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
-
-                            const incomePoints = windowMonths.map((m, idx) => ({
-                              x: toX(idx),
-                              y: toY(monthSeries.income[m % 12]),
-                              val: monthSeries.income[m % 12],
-                              idx,
-                            }))
-                            const expensePoints = windowMonths.map((m, idx) => ({
-                              x: toX(idx),
-                              y: toY(monthSeries.expense[m % 12]),
-                              val: monthSeries.expense[m % 12],
-                              idx,
-                            }))
+                            const leftMonthIdx = leftCompareMonth
+                            const centerMonthIdx = activeCompareMonth
+                            const rightMonthIdx = rightCompareMonth
+                            const incomePoints = [
+                              { x: xLeft, y: toY(monthSeries.income[leftMonthIdx % 12]), val: monthSeries.income[leftMonthIdx % 12], idx: 0 },
+                              { x: xCenter, y: toY(monthSeries.income[centerMonthIdx % 12]), val: monthSeries.income[centerMonthIdx % 12], idx: 1 },
+                              { x: xRight, y: toY(monthSeries.income[rightMonthIdx % 12]), val: monthSeries.income[rightMonthIdx % 12], idx: 2 },
+                            ]
+                            const expensePoints = [
+                              { x: xLeft, y: toY(monthSeries.expense[leftMonthIdx % 12]), val: monthSeries.expense[leftMonthIdx % 12], idx: 0 },
+                              { x: xCenter, y: toY(monthSeries.expense[centerMonthIdx % 12]), val: monthSeries.expense[centerMonthIdx % 12], idx: 1 },
+                              { x: xRight, y: toY(monthSeries.expense[rightMonthIdx % 12]), val: monthSeries.expense[rightMonthIdx % 12], idx: 2 },
+                            ]
                             const incomePath = incomePoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`).join(" ")
                             const expensePath = expensePoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`).join(" ")
                             const incomeColor = "#9ddfc5"
