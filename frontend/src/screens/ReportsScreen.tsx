@@ -44,6 +44,7 @@ const ReportsScreen: React.FC<Props> = ({
   const [singleDay, setSingleDay] = useState("")
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
+  const [isIncomeSheetOpen, setIsIncomeSheetOpen] = useState(false)
   const [selectedLegendIndex, setSelectedLegendIndex] = useState<number | null>(null)
   const [bannerOffset, setBannerOffset] = useState(0)
   const todayDate = useMemo(() => format(new Date()), [])
@@ -277,9 +278,13 @@ const ReportsScreen: React.FC<Props> = ({
     }, {})
   }, [expenseData.list])
 
+  const incomeData = useMemo(() => ({ total: 0, segments: [] as { color: string; value: number }[], list: [] as any[] }), [])
+  const incomeLegendItems = useMemo(() => [] as { title: string; value: number; percentText: string; color: string }[], [])
+
   useEffect(() => {
     if (autoOpenExpensesSheet) {
       setIsExpensesSheetOpen(true)
+      setIsIncomeSheetOpen(false)
       onConsumeAutoOpenExpenses?.()
     }
   }, [autoOpenExpensesSheet, onConsumeAutoOpenExpenses])
@@ -320,6 +325,25 @@ const ReportsScreen: React.FC<Props> = ({
           }}
         >
           Расходы по категориям
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setIsIncomeSheetOpen(true)
+            setIsExpensesSheetOpen(false)
+          }}
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            border: "1px solid #e5e7eb",
+            background: "#fff",
+            textAlign: "left",
+            fontSize: 15,
+            cursor: "pointer",
+          }}
+        >
+          Доходы по категориям
         </button>
       </div>
 
@@ -738,6 +762,383 @@ const ReportsScreen: React.FC<Props> = ({
                         </div>
                       ))
                     )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isIncomeSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsIncomeSheetOpen(false)}
+          className="tx-modal__backdrop"
+          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="tx-modal"
+            style={{
+              maxWidth: 640,
+              width: "100%",
+              padding: "16px",
+              margin: "0 auto",
+              borderRadius: "18px 18px 20px 20px",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
+              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
+            }}
+          >
+            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Доходы по категориям</div>
+                <button
+                  type="button"
+                  onClick={() => setIsIncomeSheetOpen(false)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Закрыть
+                </button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    minWidth: 0,
+                    justifyContent: "space-between",
+                    position: "relative",
+                  }}
+                >
+                  <button
+                    type="button"
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => setIsPeriodMenuOpen((prev) => !prev)}
+                  >
+                    Период
+                  </button>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontWeight: 500,
+                      fontSize: 14,
+                      color: "#6b7280",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      textAlign: "right",
+                    }}
+                  >
+                    {periodDisplayText}
+                  </div>
+                  {isPeriodMenuOpen ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        marginTop: 6,
+                        background: "#fff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                        zIndex: 5,
+                        width: 200,
+                        display: "grid",
+                        gap: 4,
+                        padding: 8,
+                      }}
+                    >
+                      {[
+                        { key: "day", label: "День" },
+                        { key: "week", label: "Неделя" },
+                        { key: "month", label: "Месяц" },
+                        { key: "quarter", label: "Квартал" },
+                        { key: "year", label: "Год" },
+                        { key: "custom", label: "Свой" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => {
+                            setPeriodMode(opt.key as typeof periodMode)
+                            setIsPeriodMenuOpen(false)
+                            if (opt.key === "day") {
+                              setSingleDay(todayDate)
+                            }
+                            if (opt.key === "custom") {
+                              setCustomFrom(customFrom || todayDate)
+                              setCustomTo(customTo || todayDate)
+                            }
+                            if (opt.key === "month") {
+                              setMonthOffset(0)
+                            }
+                            setBannerOffset(0)
+                          }}
+                          style={{
+                            width: "100%",
+                            textAlign: "left",
+                            padding: "8px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #e5e7eb",
+                            background: periodMode === opt.key ? "#f1f5f9" : "#fff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                {periodMode === "day" ? (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <input
+                      type="date"
+                      value={singleDay || todayDate}
+                      onChange={(e) => setSingleDay(e.target.value)}
+                      style={{
+                        flex: "0 0 auto",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        padding: "8px 10px",
+                        fontSize: 14,
+                      }}
+                    />
+                  </div>
+                ) : null}
+
+                {periodMode === "custom" ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>с</span>
+                      <input
+                        type="date"
+                        value={customFrom || todayDate}
+                        onChange={(e) => setCustomFrom(e.target.value)}
+                        style={{
+                          width: "100%",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          padding: "8px 10px",
+                          fontSize: 14,
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>по</span>
+                      <input
+                        type="date"
+                        value={customTo || todayDate}
+                        onChange={(e) => setCustomTo(e.target.value)}
+                        style={{
+                          width: "100%",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          padding: "8px 10px",
+                          fontSize: 14,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div
+                      className="report-banner-card"
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        minWidth: 0,
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 12,
+                        padding: "14px 15px 14px",
+                        overflow: "visible",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 12,
+                        justifyContent: "center",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="report-banner-btn report-banner-btn--left"
+                        aria-label="Влево"
+                        onClick={() => {
+                          if (!canPrevBanner) return
+                          setBannerOffset((prev) => Math.max(minBannerOffset, prev - 1))
+                        }}
+                        disabled={!canPrevBanner}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                          <path d="M9.5 3 4.5 8l5 5" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="report-banner-btn report-banner-btn--right"
+                        aria-label="Вправо"
+                        onClick={() => {
+                          if (!canNextBanner) return
+                          setBannerOffset((prev) => Math.min(0, prev + 1))
+                        }}
+                        disabled={!canNextBanner}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                          <path d="m6.5 3 5 5-5 5" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        </svg>
+                      </button>
+                      <div className="report-banner-viewport">
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "flex-start",
+                            paddingLeft: 17,
+                            gap: 0,
+                            alignItems: "center",
+                          }}
+                        >
+                          <svg width={180} height={180} viewBox="0 0 180 180" role="img" aria-label="Диаграмма доходов">
+                            {incomeData.total > 0 && incomeData.segments.length > 0 ? (
+                              (() => {
+                                const radius = 60
+                                const center = 90
+                                const circumference = 2 * Math.PI * radius
+                                let offset = 0
+                                return incomeData.segments.map((seg, idx) => {
+                                  const share = seg.value / incomeData.total
+                                  const dash = Math.max(0, circumference * share)
+                                  const strokeWidth = selectedLegendIndex === idx ? 18 : 12
+                                  const circle = (
+                                    <circle
+                                      key={idx}
+                                      cx={center}
+                                      cy={center}
+                                      r={radius}
+                                      fill="none"
+                                      stroke={seg.color}
+                                      strokeWidth={strokeWidth}
+                                      strokeDasharray={`${dash} ${circumference - dash}`}
+                                      strokeDashoffset={-offset}
+                                      strokeLinecap="butt"
+                                    />
+                                  )
+                                  offset += dash
+                                  return circle
+                                })
+                              })()
+                            ) : (
+            <circle cx={90} cy={90} r={60} fill="none" stroke="#E5E7EB" strokeWidth={12} />
+                            )}
+                            <circle cx={90} cy={90} r={44} fill="#fff" />
+                            <text x={90} y={84} textAnchor="middle" fontSize={11} fill="#475569">
+                              {incomeData.total > 0 ? "Итого" : "Нет доходов"}
+                            </text>
+                            <text x={90} y={104} textAnchor="middle" fontSize={11} fontWeight={600} fill="#0f172a">
+                              {incomeData.total > 0 ? formatMoney(incomeData.total, currency ?? "RUB") : ""}
+                            </text>
+                          </svg>
+                          {incomeData.total > 0 && incomeLegendItems.length > 0 ? (
+                            <div
+                              style={{
+                                height: 180,
+                                minWidth: 0,
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "center",
+                                marginLeft: -14,
+                                gap: 12,
+                              }}
+                            >
+                              {incomeLegendItems.map((item) => (
+                                <div
+                                  key={item.title}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    minWidth: 0,
+                                    padding: "0 0",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      color: item.color,
+                                      fontWeight: 600,
+                                      fontSize: 12,
+                                      width: 38,
+                                      textAlign: "right",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {item.percentText}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: 12,
+                                      color: "#0f172a",
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      flex: 1,
+                                    }}
+                                  >
+                                    {item.title}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      {(() => {
+                        const indicatorSegments = 4
+                        const atMin = !canPrevBanner
+                        const rawPos = 3 + bannerOffset
+                        const minPos = atMin ? 0 : 1
+                        const activePos = Math.max(minPos, Math.min(3, rawPos))
+                        return (
+                          <div className="report-banner-dots">
+                            {Array.from({ length: indicatorSegments }, (_, i) => (
+                              <span key={i} className={i === activePos ? "report-banner-seg report-banner-seg--active" : "report-banner-seg"} />
+                            ))}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                  <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
+                    {incomeData.list.length === 0 ? (
+                      <div style={{ color: "#6b7280", fontSize: 14 }}>Нет доходов за период</div>
+                    ) : null}
                   </div>
                 </div>
               </div>
