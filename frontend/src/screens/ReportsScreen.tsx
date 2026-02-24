@@ -168,6 +168,14 @@ const ReportsScreen: React.FC<Props> = ({
     })
   }, [donutData.total, expenseData.list])
 
+  const topLegendColorById = useMemo(() => {
+    const palette = ["#9CC3FF", "#B9E4C9", "#FFD6A5", "#D9C2FF"]
+    return expenseData.list.slice(0, 4).reduce<Record<string, string>>((acc, item, idx) => {
+      acc[item.id] = palette[idx % palette.length]
+      return acc
+    }, {})
+  }, [expenseData.list])
+
   const bannersCount = 1
   const activeBannerIndex = 0
   const windowSize = Math.min(4, bannersCount)
@@ -598,10 +606,16 @@ const ReportsScreen: React.FC<Props> = ({
                               {item.title}
                             </span>
                           </div>
-                          <div style={{ display: "flex", gap: 8, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
-                            <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
-                            <span style={{ color: "#6b7280" }}>{item.percentText}</span>
-                          </div>
+                          {(() => {
+                            const percentColor = topLegendColorById[item.id] ?? "#6b7280"
+                            return (
+                              <div style={{ display: "flex", gap: 6, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
+                                <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
+                                <span style={{ color: percentColor }}>·</span>
+                                <span style={{ color: percentColor }}>{item.percentText}</span>
+                              </div>
+                            )
+                          })()}
                         </div>
                       ))
                     )}
