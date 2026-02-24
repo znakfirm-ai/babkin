@@ -383,7 +383,10 @@ const ReportsScreen: React.FC<Props> = ({
 
         <button
           type="button"
-          onClick={() => setIsExpensesSheetOpen(true)}
+          onClick={() => {
+            setIsExpensesSheetOpen(true)
+            setIsIncomeSheetOpen(false)
+          }}
           style={{
             padding: 14,
             borderRadius: 12,
