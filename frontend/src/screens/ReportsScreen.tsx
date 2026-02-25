@@ -1519,7 +1519,8 @@ const ReportsScreen: React.FC<Props> = ({
                             const chartHeight = chartBottom - chartTop
                             const spacing = chartWidth / 4
                             const xPositions = [0, 1, 2, 3, 4].map((i) => paddingX + spacing * i)
-                            const activeIdx = windowMonths.findIndex((m) => m === activeCompareMonth)
+                            const activeIdxRaw = windowMonths.findIndex((m) => m === activeCompareMonth)
+                            const activeIdx = activeIdxRaw >= 0 ? activeIdxRaw : 2
                             const maxVal = chartMax > 0 ? chartMax : 1
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
                             const guideLines = xPositions.map((xPos, idx) => ({
@@ -1631,9 +1632,9 @@ const ReportsScreen: React.FC<Props> = ({
                               marginLeft: "-10%",
                             }}
                           >
-                            {windowMonths.map((m, idx) => {
+                            {windowMonths.map((m) => {
                               const disabled = m < minCompareMonth || m > maxCompareMonth
-                              const isActive = idx === 2
+                              const isActive = m === activeCompareMonth
                               return (
                                 <button
                                   key={m}
