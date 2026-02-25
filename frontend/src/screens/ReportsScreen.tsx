@@ -1486,9 +1486,30 @@ const ReportsScreen: React.FC<Props> = ({
                       }}
                     >
                       <div style={{ position: "absolute", left: 0, right: 0, top: 20, bottom: 60, pointerEvents: "none" }}>
-                        <div style={{ position: "absolute", left: "0%", top: 0, bottom: 0, width: 1, background: "rgba(148,163,184,0.25)" }} />
-                        <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(148,163,184,0.25)" }} />
-                        <div style={{ position: "absolute", left: "100%", top: 0, bottom: 0, width: 1, background: "rgba(148,163,184,0.25)" }} />
+                        {[
+                          { pos: 0, opacity: 0.25 },
+                          { pos: 1, opacity: 0.25 },
+                          { pos: 2, opacity: 0.35 },
+                          { pos: 3, opacity: 0.25 },
+                          { pos: 4, opacity: 0.25 },
+                        ].map((line, idx) => {
+                          const leftPercent = ((12 + ((300 - 24) / 4) * line.pos) / 300) * 100
+                          return (
+                            <div
+                              key={idx}
+                              style={{
+                                position: "absolute",
+                                left: `${leftPercent}%`,
+                                top: 0,
+                                bottom: 0,
+                                width: 1,
+                                background: "rgba(148,163,184,1)",
+                                opacity: line.opacity,
+                                transform: "translateX(-50%)",
+                              }}
+                            />
+                          )
+                        })}
                         {showYearSeparator ? (
                           <div
                             style={{
