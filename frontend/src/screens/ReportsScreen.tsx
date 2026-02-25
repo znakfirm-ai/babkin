@@ -1627,7 +1627,7 @@ const ReportsScreen: React.FC<Props> = ({
                               alignItems: "center",
                               justifyContent: "space-between",
                               gap: 10,
-                              width: "120%",
+                              width: "110%",
                               marginLeft: "-10%",
                             }}
                           >
