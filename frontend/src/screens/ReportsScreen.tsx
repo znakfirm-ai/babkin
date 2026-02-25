@@ -1492,35 +1492,8 @@ const ReportsScreen: React.FC<Props> = ({
                       <div style={{ position: "absolute", right: 20, top: 12, fontSize: 11, color: "#94a3b8" }}>
                         {Math.floor(activeCompareMonth / 12)}
                       </div>
-                      {(() => {
-                        const paddingX = 12
-                        const chartWidth = 300 - paddingX * 2
-                        const spacing = chartWidth / 4
-                        const xPositionsLocal = [0, 1, 2, 3, 4].map((i) => paddingX + spacing * i)
-                        return (
-                          <div style={{ position: "absolute", left: 0, right: 0, top: 20, bottom: 60, pointerEvents: "none" }}>
-                            <svg width="100%" height="100%" viewBox="0 0 300 140" preserveAspectRatio="none">
-                              {xPositionsLocal.map((xPos, idx) => (
-                                <line
-                                  key={idx}
-                                  x1={xPos}
-                                  y1={0}
-                                  x2={xPos}
-                                  y2={140}
-                                  stroke="rgba(148,163,184,1)"
-                                  strokeWidth={1}
-                                  opacity={idx === 2 ? 0.35 : 0.25}
-                                />
-                              ))}
-                              {showYearSeparator ? (
-                                <line x1={150} y1={0} x2={150} y2={140} stroke="#e5e7eb" strokeWidth={1} opacity={0.8} />
-                              ) : null}
-                            </svg>
-                          </div>
-                        )
-                      })()}
-                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                          <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
                           {(() => {
                             const paddingX = 12
                             const chartWidth = 300 - paddingX * 2
@@ -1532,6 +1505,10 @@ const ReportsScreen: React.FC<Props> = ({
                             const activeIdx = 2
                             const maxVal = chartMax > 0 ? chartMax : 1
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
+                            const guideLines = xPositions.map((xPos, idx) => ({
+                              x: xPos,
+                              opacity: idx === 2 ? 0.35 : 0.25,
+                            }))
                             const incomePoints = windowMonths.map((m, idx) => ({
                               x: xPositions[idx],
                               y: toY(m >= minCompareMonth && m <= maxCompareMonth ? getMonthValue(m).income : 0),
@@ -1575,6 +1552,21 @@ const ReportsScreen: React.FC<Props> = ({
                             const activeExpense = expensePoints[activeIdx]
                             return (
                               <>
+                                {guideLines.map((line) => (
+                                  <line
+                                    key={line.x}
+                                    x1={line.x}
+                                    y1={chartTop - 10}
+                                    x2={line.x}
+                                    y2={chartBottom + 10}
+                                    stroke="rgba(148,163,184,1)"
+                                    strokeWidth={1}
+                                    opacity={line.opacity}
+                                  />
+                                ))}
+                                {showYearSeparator ? (
+                                  <line x1={150} y1={chartTop - 10} x2={150} y2={chartBottom + 10} stroke="#e5e7eb" strokeWidth={1} opacity={0.8} />
+                                ) : null}
                                 <path d={incomePath} stroke={incomeColor} strokeWidth="4" fill="none" />
                                 <path d={expensePath} stroke={expenseColor} strokeWidth="3" fill="none" strokeDasharray="6 6" />
                                 {incomePoints.map((p) => (
