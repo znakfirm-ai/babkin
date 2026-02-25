@@ -251,10 +251,15 @@ const ReportsScreen: React.FC<Props> = ({
     [monthAggregates],
   )
 
+  const todayAbsMonth = useMemo(() => {
+    const now = new Date()
+    return now.getFullYear() * 12 + now.getMonth()
+  }, [])
+
   const rollingMonths = useMemo(() => {
-    const start = activeCompareMonth - 11
+    const start = todayAbsMonth - 11
     return Array.from({ length: 12 }, (_, i) => start + i)
-  }, [activeCompareMonth])
+  }, [todayAbsMonth])
 
   const chartMax = useMemo(() => {
     const relevant = rollingMonths.flatMap((m) => {
