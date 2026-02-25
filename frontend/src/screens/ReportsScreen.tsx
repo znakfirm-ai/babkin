@@ -1485,6 +1485,9 @@ const ReportsScreen: React.FC<Props> = ({
                         minHeight: 240,
                       }}
                     >
+                      <div style={{ position: "absolute", right: 12, top: 12, fontSize: 11, color: "#94a3b8" }}>
+                        {Math.floor(activeCompareMonth / 12)}
+                      </div>
                       <div style={{ position: "absolute", left: 0, right: 0, top: 20, bottom: 60, pointerEvents: "none" }}>
                         {[
                           { pos: 0, opacity: 0.25 },
