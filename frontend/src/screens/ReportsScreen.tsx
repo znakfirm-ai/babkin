@@ -1492,51 +1492,33 @@ const ReportsScreen: React.FC<Props> = ({
                       <div style={{ position: "absolute", right: 20, top: 12, fontSize: 11, color: "#94a3b8" }}>
                         {Math.floor(activeCompareMonth / 12)}
                       </div>
-                      <div style={{ position: "absolute", left: 0, right: 0, top: 20, bottom: 60, pointerEvents: "none" }}>
-                        {(() => {
-                          const paddingX = 12
-                          const spacing = (300 - paddingX * 2) / 4
-                          const xPositions = [0, 1, 2, 3, 4].map((i) => paddingX + spacing * i)
-                          return [
-                            { pos: 0, opacity: 0.25 },
-                            { pos: 1, opacity: 0.25 },
-                            { pos: 2, opacity: 0.35 },
-                            { pos: 3, opacity: 0.25 },
-                            { pos: 4, opacity: 0.25 },
-                          ].map((line, idx) => {
-                            const leftPercent = (xPositions[line.pos] / 300) * 100
-                            return (
-                              <div
-                                key={idx}
-                                style={{
-                                  position: "absolute",
-                                  left: `${leftPercent}%`,
-                                  top: 0,
-                                  bottom: 0,
-                                  width: 1,
-                                  background: "rgba(148,163,184,1)",
-                                  opacity: line.opacity,
-                                  transform: "translateX(-50%)",
-                                }}
-                              />
-                            )
-                          })
-                        })()}
-                        {showYearSeparator ? (
-                          <div
-                            style={{
-                              position: "absolute",
-                              left: "50%",
-                              top: 0,
-                              bottom: 0,
-                              width: 1,
-                              background: "#e5e7eb",
-                              transform: "translateX(-50%)",
-                              opacity: 0.8,
-                            }}
-                          />
-                        ) : null}
-                      </div>
+                      {(() => {
+                        const paddingX = 12
+                        const chartWidth = 300 - paddingX * 2
+                        const spacing = chartWidth / 4
+                        const xPositionsLocal = [0, 1, 2, 3, 4].map((i) => paddingX + spacing * i)
+                        return (
+                          <div style={{ position: "absolute", left: 0, right: 0, top: 20, bottom: 60, pointerEvents: "none" }}>
+                            <svg width="100%" height="100%" viewBox="0 0 300 140" preserveAspectRatio="none">
+                              {xPositionsLocal.map((xPos, idx) => (
+                                <line
+                                  key={idx}
+                                  x1={xPos}
+                                  y1={0}
+                                  x2={xPos}
+                                  y2={140}
+                                  stroke="rgba(148,163,184,1)"
+                                  strokeWidth={1}
+                                  opacity={idx === 2 ? 0.35 : 0.25}
+                                />
+                              ))}
+                              {showYearSeparator ? (
+                                <line x1={150} y1={0} x2={150} y2={140} stroke="#e5e7eb" strokeWidth={1} opacity={0.8} />
+                              ) : null}
+                            </svg>
+                          </div>
+                        )
+                      })()}
                         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                           <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
                           {(() => {
