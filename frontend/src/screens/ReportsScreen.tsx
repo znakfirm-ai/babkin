@@ -202,8 +202,25 @@ const ReportsScreen: React.FC<Props> = ({
     const now = new Date()
     return now.getFullYear() * 12 + now.getMonth()
   }, [])
-  const compareOffsets = [-2, -1, 0, 1, 2] as const
-  const windowMonths = compareOffsets.map((o) => activeCompareMonth + o)
+  const windowMonths = useMemo(() => {
+    const todayAbs = maxCompareMonth
+    if (activeCompareMonth < todayAbs) {
+      return [
+        activeCompareMonth - 3,
+        activeCompareMonth - 2,
+        activeCompareMonth - 1,
+        activeCompareMonth,
+        Math.min(activeCompareMonth + 1, todayAbs),
+      ]
+    }
+    return [
+      todayAbs - 4,
+      todayAbs - 3,
+      todayAbs - 2,
+      todayAbs - 1,
+      todayAbs,
+    ]
+  }, [activeCompareMonth, maxCompareMonth])
   const monthLabel = (monthIndex: number) => {
     const month = monthIndex % 12
     const name = MONTHS[month]
@@ -1502,12 +1519,12 @@ const ReportsScreen: React.FC<Props> = ({
                             const chartHeight = chartBottom - chartTop
                             const spacing = chartWidth / 4
                             const xPositions = [0, 1, 2, 3, 4].map((i) => paddingX + spacing * i)
-                            const activeIdx = 2
+                            const activeIdx = windowMonths.findIndex((m) => m === activeCompareMonth)
                             const maxVal = chartMax > 0 ? chartMax : 1
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
                             const guideLines = xPositions.map((xPos, idx) => ({
                               x: xPos,
-                              opacity: idx === 2 ? 0.35 : 0.25,
+                              opacity: idx === activeIdx ? 0.35 : 0.25,
                             }))
                             const incomePoints = windowMonths.map((m, idx) => ({
                               x: xPositions[idx],
