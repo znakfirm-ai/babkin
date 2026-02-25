@@ -251,15 +251,18 @@ const ReportsScreen: React.FC<Props> = ({
     [monthAggregates],
   )
 
+  const rollingMonths = useMemo(() => {
+    const start = activeCompareMonth - 11
+    return Array.from({ length: 12 }, (_, i) => start + i)
+  }, [activeCompareMonth])
+
   const chartMax = useMemo(() => {
-    const relevant = windowMonths
-      .filter((m) => m >= minCompareMonth && m <= maxCompareMonth)
-      .flatMap((m) => {
-        const v = getMonthValue(m)
-        return [v.income, v.expense]
-      })
+    const relevant = rollingMonths.flatMap((m) => {
+      const v = getMonthValue(m)
+      return [v.income, v.expense]
+    })
     return Math.max(...(relevant.length ? relevant : [0]), 0)
-  }, [getMonthValue, maxCompareMonth, minCompareMonth, windowMonths])
+  }, [getMonthValue, rollingMonths])
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
