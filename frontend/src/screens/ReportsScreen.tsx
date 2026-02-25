@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
@@ -202,7 +202,6 @@ const ReportsScreen: React.FC<Props> = ({
     const now = new Date()
     return now.getFullYear() * 12 + now.getMonth()
   }, [])
-  const activeCompareYear = useMemo(() => Math.floor(activeCompareMonth / 12), [activeCompareMonth])
   const compareOffsets = [-2, -1, 0, 1, 2] as const
   const windowMonths = compareOffsets.map((o) => activeCompareMonth + o)
   const monthLabel = (monthIndex: number) => {
@@ -213,32 +212,37 @@ const ReportsScreen: React.FC<Props> = ({
   const showYearSeparator =
     windowMonths.some((m, idx) => idx < windowMonths.length - 1 && m % 12 === 11 && windowMonths[idx + 1] % 12 === 0)
 
-  const monthSeries = useMemo(() => {
-    const income = Array.from({ length: 12 }, () => 0)
-    const expense = Array.from({ length: 12 }, () => 0)
+  const monthAggregates = useMemo(() => {
+    const buckets = new Map<number, { income: number; expense: number }>()
     transactions.forEach((t) => {
       const date = new Date(t.date)
-      if (date.getFullYear() !== activeCompareYear) return
+      const absMonth = date.getFullYear() * 12 + date.getMonth()
       const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
+      if (kind !== "income" && kind !== "expense") return
+      if (kind === "expense" && (t as { kind?: string }).kind === "adjustment") return
       const amt = t.amount?.amount ?? 0
-      const m = date.getMonth()
-      if (kind === "income") {
-        income[m] += amt
-      }
-      if (kind === "expense") {
-        if ((t as { kind?: string }).kind === "adjustment") return
-        expense[m] += amt
-      }
+      const entry = buckets.get(absMonth) ?? { income: 0, expense: 0 }
+      if (kind === "income") entry.income += amt
+      else entry.expense += amt
+      buckets.set(absMonth, entry)
     })
-    return { income, expense }
-  }, [activeCompareYear, transactions])
+    return buckets
+  }, [transactions])
+
+  const getMonthValue = useCallback(
+    (absMonth: number) => monthAggregates.get(absMonth) ?? { income: 0, expense: 0 },
+    [monthAggregates],
+  )
 
   const chartMax = useMemo(() => {
     const relevant = windowMonths
       .filter((m) => m >= minCompareMonth && m <= maxCompareMonth)
-      .flatMap((m) => [monthSeries.income[m % 12], monthSeries.expense[m % 12]])
+      .flatMap((m) => {
+        const v = getMonthValue(m)
+        return [v.income, v.expense]
+      })
     return Math.max(...(relevant.length ? relevant : [0]), 0)
-  }, [maxCompareMonth, minCompareMonth, monthSeries.expense, monthSeries.income, windowMonths])
+  }, [getMonthValue, maxCompareMonth, minCompareMonth, windowMonths])
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
@@ -1543,14 +1547,14 @@ const ReportsScreen: React.FC<Props> = ({
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
                             const incomePoints = windowMonths.map((m, idx) => ({
                               x: xPositions[idx],
-                              y: toY(m >= minCompareMonth && m <= maxCompareMonth ? monthSeries.income[m % 12] : 0),
-                              val: m >= minCompareMonth && m <= maxCompareMonth ? monthSeries.income[m % 12] : 0,
+                              y: toY(m >= minCompareMonth && m <= maxCompareMonth ? getMonthValue(m).income : 0),
+                              val: m >= minCompareMonth && m <= maxCompareMonth ? getMonthValue(m).income : 0,
                               idx,
                             }))
                             const expensePoints = windowMonths.map((m, idx) => ({
                               x: xPositions[idx],
-                              y: toY(m >= minCompareMonth && m <= maxCompareMonth ? monthSeries.expense[m % 12] : 0),
-                              val: m >= minCompareMonth && m <= maxCompareMonth ? monthSeries.expense[m % 12] : 0,
+                              y: toY(m >= minCompareMonth && m <= maxCompareMonth ? getMonthValue(m).expense : 0),
+                              val: m >= minCompareMonth && m <= maxCompareMonth ? getMonthValue(m).expense : 0,
                               idx,
                             }))
                             const toSmoothPath = (pts: { x: number; y: number }[]) => {
