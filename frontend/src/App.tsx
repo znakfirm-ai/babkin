@@ -14,13 +14,14 @@ import IconPreviewScreen from "./screens/IconPreviewScreen"
 import ReportsScreen from "./screens/ReportsScreen"
 import SummaryReportScreen from "./screens/SummaryReportScreen"
 import ExpensesByCategoryScreen from "./screens/ExpensesByCategoryScreen"
+import ReceivablesScreen from "./screens/ReceivablesScreen"
 import BottomNav from "./BottomNav"
 import type { NavItem } from "./BottomNav"
 import "./BottomNav.css"
 import "./App.css"
 
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
-type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add" | "icons-preview"
+type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add" | "icons-preview" | "receivables"
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
 type ErrorBoundaryState = { hasError: boolean; error: Error | null }
@@ -418,8 +419,14 @@ function App() {
               setActiveScreen("reports")
               setAutoOpenIncomeSheet(true)
             }}
+            onOpenReceivables={() => {
+              setActiveNav("overview")
+              setActiveScreen("receivables")
+            }}
           />
         )
+      case "receivables":
+        return <ReceivablesScreen onBack={() => setActiveScreen("overview")} />
       case "add":
         prevScreen.current = "overview"
         return <AddScreen />

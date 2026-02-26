@@ -343,6 +343,7 @@ type OverviewScreenProps = {
   onConsumeExternalIncomeSource?: () => void
   returnToIncomeReport?: boolean
   onReturnToIncomeReport?: () => void
+  onOpenReceivables?: () => void
 }
 
 function OverviewScreen({
@@ -356,6 +357,7 @@ function OverviewScreen({
   onConsumeExternalIncomeSource,
   returnToIncomeReport,
   onReturnToIncomeReport,
+  onOpenReceivables,
 }: OverviewScreenProps) {
   const {
     accounts,
@@ -1839,8 +1841,7 @@ function TransactionsPanel({
         rowScroll
         baseCurrency={baseCurrency}
         onDebtReceivableClick={() => {
-          setDetailGoalId(null)
-          void openGoalsList()
+          onOpenReceivables?.()
         }}
       />
 
