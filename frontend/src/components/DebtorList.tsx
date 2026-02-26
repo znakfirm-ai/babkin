@@ -6,9 +6,10 @@ type DebtorListProps = {
   debtors: Debtor[]
   emptyText?: string
   currency: string
+  onSelectDebtor?: (debtor: Debtor) => void
 }
 
-export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "Пока нет должников", currency }) => {
+export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "Пока нет должников", currency, onSelectDebtor }) => {
   if (debtors.length === 0) {
     return (
       <div style={{ padding: "12px 4px", fontSize: 14, color: "#6b7280" }}>
@@ -40,8 +41,10 @@ export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "П
         })()
 
         return (
-          <div
+          <button
             key={debtor.id}
+            type="button"
+            onClick={() => onSelectDebtor?.(debtor)}
             style={{
               display: "grid",
               gap: 8,
@@ -52,6 +55,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "П
               background: "transparent",
               width: "100%",
               borderBottom: isLast ? "none" : "1px solid #e5e7eb",
+              cursor: onSelectDebtor ? "pointer" : "default",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
@@ -59,7 +63,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "П
                 <span style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
                   {debtor.icon && isFinanceIconKey(debtor.icon) ? <FinanceIcon iconKey={debtor.icon} size="md" /> : null}
                 </span>
-                <span style={{ fontWeight: 600, color: "#0f172a" }}>{debtor.name}</span>
+                <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{debtor.name}</span>
               </span>
               <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap" }}>{dueDateLabel}</span>
             </div>
@@ -76,7 +80,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "П
               <span>{`${formattedPaid} (${percent === null ? "—" : `${percent}%`})`}</span>
               <span>{formattedPayoff}</span>
             </div>
-          </div>
+          </button>
         )
       })}
     </>

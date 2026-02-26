@@ -10,7 +10,7 @@ import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccount
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { createGoal, getGoals, updateGoal } from "../api/goals"
-import { createDebtor, getDebtors } from "../api/debtors"
+import { createDebtor, deleteDebtor, getDebtors, updateDebtor } from "../api/debtors"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
 import { useSingleFlight } from "../hooks/useSingleFlight"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
@@ -429,12 +429,16 @@ function OverviewScreen({
   const [isGoalsListOpen, setIsGoalsListOpen] = useState(false)
   const [goalTab, setGoalTab] = useState<"active" | "completed">("active")
   const [detailGoalId, setDetailGoalId] = useState<string | null>(null)
+  const [detailDebtorId, setDetailDebtorId] = useState<string | null>(null)
   const [goalSearch, setGoalSearch] = useState("")
+  const [debtorSearch, setDebtorSearch] = useState("")
   const [isGoalSheetOpen, setIsGoalSheetOpen] = useState(false)
   const [goalName, setGoalName] = useState("")
   const [goalTarget, setGoalTarget] = useState("")
   const [goalIcon, setGoalIcon] = useState<string | null>(null)
   const [isDebtorSheetOpen, setIsDebtorSheetOpen] = useState(false)
+  const [debtorSheetMode, setDebtorSheetMode] = useState<"create" | "edit">("create")
+  const [editingDebtorId, setEditingDebtorId] = useState<string | null>(null)
   const [debtorName, setDebtorName] = useState("")
   const [debtorIcon, setDebtorIcon] = useState<string | null>(null)
   const [debtorIssuedDate, setDebtorIssuedDate] = useState(() => getTodayLocalDate())
@@ -489,6 +493,7 @@ function OverviewScreen({
   const { run: runIncomeDelete, isRunning: isIncomeDeleteRunning } = useSingleFlight()
   const { run: runDeleteTx, isRunning: isDeleteTxRunning } = useSingleFlight()
   const { run: runDebtorSave, isRunning: isDebtorSaveRunning } = useSingleFlight()
+  const { run: runDebtorDelete, isRunning: isDebtorDeleteRunning } = useSingleFlight()
 
   const applyCustomRange = useCallback(() => {
     if (!customFromDraft || !customToDraft) return
@@ -570,6 +575,7 @@ function OverviewScreen({
     return debtors.filter((d) => d.status === goalTab)
   }, [debtors, goalTab, isDebtsReceivableMode])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
+  const detailDebtor = useMemo(() => debtors.find((d) => d.id === detailDebtorId) ?? null, [debtors, detailDebtorId])
   const incomeIconKeys = useMemo(() => {
     const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "income")
     return section ? section.keys : []
@@ -804,6 +810,7 @@ function OverviewScreen({
     }
     setIsGoalsListOpen(true)
     setDetailGoalId(null)
+    setDetailDebtorId(null)
   }, [isDebtsReceivableMode, refetchDebtors, refetchGoals])
 
   useEffect(() => {
@@ -1026,11 +1033,13 @@ function OverviewScreen({
     setDetailCategoryId(null)
     setDetailIncomeSourceId(null)
     setDetailGoalId(null)
+    setDetailDebtorId(null)
     setDetailTitle("")
     setAccountSearch("")
     setCategorySearch("")
     setIncomeSourceSearch("")
     setGoalSearch("")
+    setDebtorSearch("")
     setSearchFocused(false)
     closeTxSheet()
     if (returnToReport) {
@@ -1048,6 +1057,36 @@ function OverviewScreen({
     },
     [closeDetails, openEditAccountSheet],
   )
+
+  const openEditDebtorFromDetails = useCallback(
+    (debtor: Debtor) => {
+      closeDetails()
+      queueMicrotask(() => {
+        setIsGoalsListOpen(false)
+        setDebtorSheetMode("edit")
+        setEditingDebtorId(debtor.id)
+        setDebtorError(null)
+        setDebtorName(debtor.name)
+        setDebtorIcon(debtor.icon ?? null)
+        setDebtorIssuedDate(debtor.issuedDate || getTodayLocalDate())
+        setDebtorLoanAmount(String(debtor.loanAmount))
+        setDebtorReturnDate(debtor.dueDate || "")
+        setDebtorReturnAmount(debtor.returnAmount > 0 ? String(debtor.returnAmount) : "")
+        setIsDebtorSheetOpen(true)
+      })
+    },
+    [closeDetails],
+  )
+
+  const handleDeleteDebtorFromDetails = useCallback(() => {
+    return runDebtorDelete(async () => {
+      if (!token || !detailDebtorId) return
+      await deleteDebtor(token, detailDebtorId)
+      await refetchDebtors()
+      closeDetails()
+      setPendingOpenGoalsList(true)
+    })
+  }, [closeDetails, detailDebtorId, refetchDebtors, runDebtorDelete, token])
 
   const handleDeleteTx = useCallback(() => {
     return runDeleteTx(async () => {
@@ -1317,6 +1356,8 @@ function OverviewScreen({
 
   const closeDebtorSheet = useCallback(() => {
     setIsDebtorSheetOpen(false)
+    setDebtorSheetMode("create")
+    setEditingDebtorId(null)
     setIsDebtorIconPickerOpen(false)
     setDebtorDateField(null)
     setDebtorDatePart(null)
@@ -1331,6 +1372,8 @@ function OverviewScreen({
 
   const openCreateDebtor = useCallback(() => {
     setIsGoalsListOpen(false)
+    setDebtorSheetMode("create")
+    setEditingDebtorId(null)
     setIsDebtorIconPickerOpen(false)
     setDebtorDateField(null)
     setDebtorDatePart(null)
@@ -1362,15 +1405,27 @@ function OverviewScreen({
       }
       const returnAmount = Number(debtorReturnAmount.trim().replace(",", "."))
       setDebtorError(null)
-      await createDebtor(token, {
-        name: trimmedName,
-        icon: debtorIcon ?? null,
-        issuedAt: debtorIssuedDate || getTodayLocalDate(),
-        principalAmount: Math.round(loan * 100) / 100,
-        dueAt: debtorReturnDate || null,
-        payoffAmount: Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null,
-        status: "active",
-      })
+      if (debtorSheetMode === "edit" && editingDebtorId) {
+        await updateDebtor(token, editingDebtorId, {
+          name: trimmedName,
+          icon: debtorIcon ?? null,
+          issuedAt: debtorIssuedDate || getTodayLocalDate(),
+          principalAmount: Math.round(loan * 100) / 100,
+          dueAt: debtorReturnDate || null,
+          payoffAmount: Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null,
+          status: "active",
+        })
+      } else {
+        await createDebtor(token, {
+          name: trimmedName,
+          icon: debtorIcon ?? null,
+          issuedAt: debtorIssuedDate || getTodayLocalDate(),
+          principalAmount: Math.round(loan * 100) / 100,
+          dueAt: debtorReturnDate || null,
+          payoffAmount: Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null,
+          status: "active",
+        })
+      }
       await refetchDebtors()
       closeDebtorSheet()
       setIsGoalsListOpen(true)
@@ -1383,6 +1438,8 @@ function OverviewScreen({
     debtorName,
     debtorReturnAmount,
     debtorReturnDate,
+    debtorSheetMode,
+    editingDebtorId,
     refetchDebtors,
     runDebtorSave,
     token,
@@ -1949,6 +2006,15 @@ function TransactionsPanel({
     return displayTransactions.filter((t) => t.type !== "adjustment" && t.goalId === detailGoalId)
   }, [detailGoalId, displayTransactions])
 
+  const debtorTx = useMemo(() => {
+    if (!detailDebtorId) return []
+    return displayTransactions.filter((tx) => {
+      if (tx.type === "adjustment") return false
+      const debtorId = (tx as unknown as { debtorId?: string | null }).debtorId
+      return debtorId === detailDebtorId
+    })
+  }, [detailDebtorId, displayTransactions])
+
   const filteredGoalTx = useMemo(() => {
     if (!detailGoalId) return []
     const { start, end } = accountPeriod
@@ -1979,6 +2045,37 @@ function TransactionsPanel({
         items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
       }))
   }, [filteredGoalTx])
+
+  const filteredDebtorTx = useMemo(() => {
+    if (!detailDebtorId) return []
+    const { start, end } = accountPeriod
+    const filtered = debtorTx.filter((tx) => {
+      const d = new Date(tx.date)
+      return d >= start && d < end
+    })
+    const query = debtorSearch.trim().toLowerCase()
+    if (!query) return filtered
+    return filtered.filter((tx) => {
+      const name = tx.accountName ?? "Операция"
+      const amountText = String(Math.abs(tx.amount.amount))
+      return name.toLowerCase().includes(query) || amountText.includes(query)
+    })
+  }, [accountPeriod, debtorSearch, debtorTx, detailDebtorId])
+
+  const groupedDebtorTx = useMemo(() => {
+    const groups = new Map<string, Transaction[]>()
+    filteredDebtorTx.forEach((tx) => {
+      const key = tx.date.slice(0, 10)
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(tx)
+    })
+    return Array.from(groups.entries())
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([date, items]) => ({
+        dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
+        items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
+      }))
+  }, [filteredDebtorTx])
 
   return (
     <div className="overview">
@@ -2074,7 +2171,7 @@ function TransactionsPanel({
         }}
       />
 
-      {(detailAccountId || detailCategoryId || detailIncomeSourceId || detailGoalId) && (
+      {(detailAccountId || detailCategoryId || detailIncomeSourceId || detailGoalId || detailDebtorId) && (
         <div
           role="dialog"
           aria-modal="true"
@@ -2115,7 +2212,7 @@ function TransactionsPanel({
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
-                {detailTitle || detailGoal?.name || "Детали"}
+                {detailTitle || detailGoal?.name || detailDebtor?.name || "Детали"}
               </div>
               <button
                 type="button"
@@ -2499,6 +2596,141 @@ function TransactionsPanel({
                   >
                     Редактировать источник
                   </button>
+                </div>
+              ) : detailDebtor ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
+                  <input
+                    value={debtorSearch}
+                    onChange={(e) => setDebtorSearch(e.target.value)}
+                    placeholder="Поиск по операциям"
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 15,
+                      outline: "none",
+                      boxShadow: "none",
+                      WebkitAppearance: "none",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPeriodMenuOpen(true)}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#f8fafc",
+                        fontWeight: 600,
+                        color: "#0f172a",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        width: "fit-content",
+                      }}
+                    >
+                      Период
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
+                    </button>
+
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: "#6b7280",
+                        maxWidth: "100%",
+                        flex: 1,
+                        textAlign: "right",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "clip",
+                      }}
+                    >
+                      {accountPeriod.label}
+                    </div>
+                  </div>
+
+                  <TransactionsPanel
+                    groups={groupedDebtorTx}
+                    emptyText="Нет операций"
+                    renderDayTotal={(items) => (
+                      <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                        {formatMoney(items.reduce((sum, tx) => sum + Math.abs(tx.amount.amount), 0), baseCurrency)}
+                      </div>
+                    )}
+                    renderRow={(tx, idx) => {
+                      const displayName = tx.accountName ?? "Операция"
+                      const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
+                      return (
+                        <div
+                          key={tx.id}
+                          style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
+                          onClick={() => openTxActions(tx.id)}
+                        >
+                          <div style={{ display: "grid", gap: 2 }}>
+                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openTxActions(tx.id)
+                              }}
+                              style={{
+                                padding: "4px 6px",
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                lineHeight: 1,
+                              }}
+                            >
+                              ✎
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }}
+                  />
+
+                  <div style={{ display: "flex", gap: 10, marginTop: 4, justifyContent: "space-between" }}>
+                    <button
+                      type="button"
+                      onClick={() => openEditDebtorFromDetails(detailDebtor)}
+                      style={{
+                        flex: 1,
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        color: "#0f172a",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDebtorDeleteRunning}
+                      onClick={() => void handleDeleteDebtorFromDetails()}
+                      style={{
+                        flex: 1,
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #0f172a",
+                        background: isDebtorDeleteRunning ? "#e5e7eb" : "#0f172a",
+                        color: isDebtorDeleteRunning ? "#6b7280" : "#fff",
+                        fontWeight: 700,
+                        cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {isDebtorDeleteRunning ? "Удаляем…" : "Удалить"}
+                    </button>
+                  </div>
                 </div>
               ) : detailGoal ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
@@ -3460,6 +3692,12 @@ function TransactionsPanel({
                     debtors={filteredDebtors}
                     emptyText="Пока нет должников"
                     currency={baseCurrency}
+                    onSelectDebtor={(debtor) => {
+                      setDetailDebtorId(debtor.id)
+                      setDetailTitle(debtor.name)
+                      setIsGoalsListOpen(false)
+                      setDebtorSearch("")
+                    }}
                   />
                 ) : (
                   <GoalList
