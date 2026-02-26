@@ -58,7 +58,12 @@ const isDebtor = (value: unknown): value is Debtor =>
 const isTransaction = (value: unknown): value is Transaction => {
   if (!isRecord(value)) return false
 
-  const validType = value.type === "income" || value.type === "expense" || value.type === "transfer" || value.type === "debt"
+  const validType =
+    value.type === "income" ||
+    value.type === "expense" ||
+    value.type === "transfer" ||
+    value.type === "debt" ||
+    value.type === "adjustment"
 
   const hasBaseFields =
     typeof value.id === "string" &&
@@ -73,7 +78,7 @@ const isTransaction = (value: unknown): value is Transaction => {
   }
 
   if (value.type === "income") {
-    return typeof value.incomeSourceId === "string"
+    return value.incomeSourceId === undefined || value.incomeSourceId === null || typeof value.incomeSourceId === "string"
   }
 
   return true
