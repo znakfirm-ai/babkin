@@ -76,7 +76,7 @@ function mapTx(tx: any): TransactionResponse {
     happenedAt: tx.happened_at.toISOString(),
     note: tx.note ?? null,
     accountId: tx.account_id ?? null,
-    accountName: tx.account?.name ?? null,
+    accountName: tx.account?.name ?? tx.from_account?.name ?? null,
     categoryId: tx.category_id ?? null,
     fromAccountId: tx.from_account_id ?? null,
     fromAccountName: tx.from_account?.name ?? null,
@@ -135,6 +135,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
       happenedAt?: string
       note?: string
       incomeSourceId?: string
+      goalId?: string | null
     }
 
     if (!body?.kind || (body.kind !== "income" && body.kind !== "expense" && body.kind !== "transfer")) {
@@ -217,16 +218,59 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
     }
 
     // transfer
-    if (!body.fromAccountId || !body.toAccountId || body.fromAccountId === body.toAccountId) {
+    const isGoalTransfer = Boolean(body.goalId) && !body.toAccountId
+    if (!body.fromAccountId) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_transfer_accounts" })
     }
 
-    const [from, to] = await Promise.all([
-      prisma.accounts.findFirst({ where: { id: body.fromAccountId, workspace_id: workspaceId } }),
-      prisma.accounts.findFirst({ where: { id: body.toAccountId, workspace_id: workspaceId } }),
-    ])
+    const from = await prisma.accounts.findFirst({ where: { id: body.fromAccountId, workspace_id: workspaceId } })
+    if (!from) {
+      return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" })
+    }
 
-    if (!from || !to) {
+    if (isGoalTransfer) {
+      const goal = await prisma.goals.findFirst({ where: { id: body.goalId ?? "", workspace_id: workspaceId } })
+      if (!goal) {
+        return reply.status(403).send({ error: "Forbidden", reason: "goal_not_in_workspace" })
+      }
+
+      const tx = await prisma.$transaction(async (trx) => {
+        await trx.accounts.update({
+          where: { id: from.id },
+          data: { balance: { decrement: amount } },
+        })
+
+        await trx.goals.update({
+          where: { id: goal.id },
+          data: { current_amount: { increment: amount } },
+        })
+
+        const created = await trx.transactions.create({
+          data: {
+            workspace_id: workspaceId,
+            kind,
+            amount,
+            happened_at: happenedAt,
+            note: body.note ?? null,
+            account_id: null,
+            from_account_id: from.id,
+            to_account_id: null,
+            goal_id: goal.id,
+          },
+        })
+
+        return created
+      })
+
+      return reply.send({ transaction: mapTx(tx) })
+    }
+
+    if (!body.toAccountId || body.fromAccountId === body.toAccountId) {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_transfer_accounts" })
+    }
+
+    const to = await prisma.accounts.findFirst({ where: { id: body.toAccountId, workspace_id: workspaceId } })
+    if (!to) {
       return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" })
     }
 
@@ -291,17 +335,32 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
           data: { balance: { increment: delta } },
         })
       } else if (kind === "transfer") {
-        if (!existing.from_account_id || !existing.to_account_id) {
-          throw new Error("Transaction missing transfer accounts")
+        if (existing.goal_id) {
+          const sourceAccountId = existing.from_account_id ?? existing.account_id
+          if (!sourceAccountId) {
+            throw new Error("Transaction missing goal transfer account")
+          }
+          await trx.accounts.update({
+            where: { id: sourceAccountId },
+            data: { balance: { increment: amount } },
+          })
+          await trx.goals.update({
+            where: { id: existing.goal_id },
+            data: { current_amount: { decrement: amount } },
+          })
+        } else {
+          if (!existing.from_account_id || !existing.to_account_id) {
+            throw new Error("Transaction missing transfer accounts")
+          }
+          await trx.accounts.update({
+            where: { id: existing.from_account_id },
+            data: { balance: { increment: amount } },
+          })
+          await trx.accounts.update({
+            where: { id: existing.to_account_id },
+            data: { balance: { decrement: amount } },
+          })
         }
-        await trx.accounts.update({
-          where: { id: existing.from_account_id },
-          data: { balance: { increment: amount } },
-        })
-        await trx.accounts.update({
-          where: { id: existing.to_account_id },
-          data: { balance: { decrement: amount } },
-        })
       }
 
       await trx.transactions.delete({ where: { id: existing.id } })

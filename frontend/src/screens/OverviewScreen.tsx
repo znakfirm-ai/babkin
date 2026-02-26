@@ -1740,7 +1740,12 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
     isAdd: true,
   })
 
-  const summaryBalance = accounts.reduce((sum, acc) => sum + acc.balance.amount, 0)
+  const summaryBalance = useMemo(
+    () =>
+      accounts.reduce((sum, acc) => sum + acc.balance.amount, 0) +
+      goals.reduce((sum, goal) => sum + goal.currentAmount, 0),
+    [accounts, goals],
+  )
 const accountNameById = useMemo(() => {
   const map = new Map<string, string>()
     accounts.forEach((a) => map.set(a.id, a.name))

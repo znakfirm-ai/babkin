@@ -216,10 +216,10 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
 
     const workspaceId = user.active_workspace_id
 
-    const [goal, account] = await Promise.all([
-      prisma.goals.findFirst({ where: { id: goalId, workspace_id: workspaceId } }),
-      prisma.accounts.findFirst({ where: { id: body.accountId, workspace_id: workspaceId, is_archived: false, archived_at: null } }),
-    ])
+    const goal = await prisma.goals.findFirst({ where: { id: goalId, workspace_id: workspaceId } })
+    const account = await prisma.accounts.findFirst({
+      where: { id: body.accountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
+    })
     if (!goal) {
       return reply.status(404).send({ error: "Not Found", reason: "goal_not_found" })
     }
@@ -246,7 +246,8 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
           kind: "transfer",
           amount: amountDec,
           happened_at: happenedAt,
-          account_id: account.id,
+          account_id: null,
+          from_account_id: account.id,
           to_account_id: null,
           category_id: null,
           income_source_id: null,

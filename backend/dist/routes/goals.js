@@ -175,10 +175,10 @@ async function goalsRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_date" });
         }
         const workspaceId = user.active_workspace_id;
-        const [goal, account] = await Promise.all([
-            prisma_1.prisma.goals.findFirst({ where: { id: goalId, workspace_id: workspaceId } }),
-            prisma_1.prisma.accounts.findFirst({ where: { id: body.accountId, workspace_id: workspaceId, is_archived: false, archived_at: null } }),
-        ]);
+        const goal = await prisma_1.prisma.goals.findFirst({ where: { id: goalId, workspace_id: workspaceId } });
+        const account = await prisma_1.prisma.accounts.findFirst({
+            where: { id: body.accountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
+        });
         if (!goal) {
             return reply.status(404).send({ error: "Not Found", reason: "goal_not_found" });
         }
@@ -201,7 +201,8 @@ async function goalsRoutes(fastify, _opts) {
                     kind: "transfer",
                     amount: amountDec,
                     happened_at: happenedAt,
-                    account_id: account.id,
+                    account_id: null,
+                    from_account_id: account.id,
                     to_account_id: null,
                     category_id: null,
                     income_source_id: null,
