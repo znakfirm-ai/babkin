@@ -125,6 +125,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
   const incomeSourcesList = useMemo(() => incomeSources, [incomeSources])
+  const activeGoals = useMemo(() => goals.filter((goal) => goal.status === "active"), [goals])
   const currentMonthPoint = getLocalMonthPoint()
   const monthlyMetrics = useMemo(
     () => buildMonthlyTransactionMetrics(transactions, currentMonthPoint),
@@ -136,7 +137,15 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
   const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts])
   const categoriesById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
   const incomeSourcesById = useMemo(() => Object.fromEntries(incomeSources.map((s) => [s.id, s])), [incomeSources])
-  const goalsById = useMemo(() => Object.fromEntries(goals.map((g) => [g.id, g])), [goals])
+  const activeGoalsById = useMemo(() => Object.fromEntries(activeGoals.map((g) => [g.id, g])), [activeGoals])
+
+  useEffect(() => {
+    if (!selectedGoalId) return
+    const existsInActive = activeGoals.some((goal) => goal.id === selectedGoalId)
+    if (!existsInActive) {
+      setSelectedGoalId(null)
+    }
+  }, [activeGoals, selectedGoalId])
 
   const accountTiles = useMemo(
     () =>
@@ -962,11 +971,11 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                     }}
                   >
                     <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      {selectedGoalId && isFinanceIconKey(getGoalDisplay(selectedGoalId, goalsById).iconKey ?? "") ? (
-                        <FinanceIcon iconKey={getGoalDisplay(selectedGoalId, goalsById).iconKey ?? ""} size={16} />
+                      {selectedGoalId && isFinanceIconKey(getGoalDisplay(selectedGoalId, activeGoalsById).iconKey ?? "") ? (
+                        <FinanceIcon iconKey={getGoalDisplay(selectedGoalId, activeGoalsById).iconKey ?? ""} size={16} />
                       ) : null}
                       <span style={{ fontSize: 15 }}>
-                        {selectedGoalId ? getGoalDisplay(selectedGoalId, goalsById).title : "Выбрать цель"}
+                        {selectedGoalId ? getGoalDisplay(selectedGoalId, activeGoalsById).title : "Выбрать цель"}
                       </span>
                     </span>
                     <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
@@ -1029,12 +1038,12 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
               <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
-                {goals.map((goal) =>
+                {activeGoals.map((goal) =>
                   renderTile(
                     {
                       id: goal.id,
-                      title: getGoalDisplay(goal.id, goalsById).title,
-                      iconKey: getGoalDisplay(goal.id, goalsById).iconKey ?? null,
+                      title: getGoalDisplay(goal.id, activeGoalsById).title,
+                      iconKey: getGoalDisplay(goal.id, activeGoalsById).iconKey ?? null,
                       amount: goal.currentAmount,
                       budget: goal.targetAmount,
                     },
@@ -1130,7 +1139,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
                 }}
               >
                 <GoalList
-                  goals={goals}
+                  goals={activeGoals}
                   selectedGoalId={selectedGoalId}
                   onSelectGoal={(goal) => {
                     setSelectedGoalId(goal.id)
