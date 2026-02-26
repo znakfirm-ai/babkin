@@ -63,7 +63,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "П
                 <span style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
                   {debtor.icon && isFinanceIconKey(debtor.icon) ? <FinanceIcon iconKey={debtor.icon} size="md" /> : null}
                 </span>
-                <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{debtor.name}</span>
+                <span style={{ fontWeight: 600, color: "#0f172a" }}>{debtor.name}</span>
               </span>
               <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap" }}>{dueDateLabel}</span>
             </div>
