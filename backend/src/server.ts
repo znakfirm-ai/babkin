@@ -11,6 +11,7 @@ import { transactionsRoutes } from "./routes/transactions"
 import { incomeSourcesRoutes } from "./routes/incomeSources"
 import { analyticsRoutes } from "./routes/analytics"
 import { goalsRoutes } from "./routes/goals"
+import { debtorsRoutes } from "./routes/debtors"
 
 const fastify = Fastify({
   logger: true,
@@ -25,6 +26,7 @@ fastify.register(accountsRoutes, { prefix: "/api/v1" })
 fastify.register(categoriesRoutes, { prefix: "/api/v1" })
 fastify.register(incomeSourcesRoutes, { prefix: "/api/v1" })
 fastify.register(goalsRoutes, { prefix: "/api/v1" })
+fastify.register(debtorsRoutes, { prefix: "/api/v1" })
 fastify.register(transactionsRoutes, { prefix: "/api/v1" })
 fastify.register(analyticsRoutes, { prefix: "/api/v1" })
 

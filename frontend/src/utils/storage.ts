@@ -135,7 +135,7 @@ export function loadFromStorage(defaultState: AppState): AppState {
     if (isAppState(parsed)) {
       const normalized = {
         ...parsed,
-        debtors: Array.isArray(parsed.debtors) ? parsed.debtors : [],
+        debtors: [],
         currency: normalizeCurrency(parsed.currency),
       }
       return cloneState(normalized)
@@ -156,7 +156,8 @@ export function saveToStorage(state: AppState) {
   if (!storage) return
 
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(state))
+    const { debtors: _ignoredDebtors, ...persistableState } = state
+    storage.setItem(STORAGE_KEY, JSON.stringify(persistableState))
   } catch {
     console.warn("Failed to save data to localStorage")
   }

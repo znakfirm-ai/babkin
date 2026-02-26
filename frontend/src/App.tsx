@@ -5,6 +5,7 @@ import { getCategories } from "./api/categories"
 import { getIncomeSources } from "./api/incomeSources"
 import { getTransactions } from "./api/transactions"
 import { getGoals } from "./api/goals"
+import { getDebtors } from "./api/debtors"
 import HomeScreen from "./screens/HomeScreen"
 import OverviewScreen from "./screens/OverviewScreen"
 import AddScreen from "./screens/AddScreen"
@@ -131,7 +132,7 @@ function App() {
     customTo: string
     singleDay: string
   } | null>(null)
-  const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals } = useAppStore()
+  const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
 
   interface TelegramWebApp {
     ready(): void
@@ -283,6 +284,20 @@ function App() {
         }))
       )
 
+      const debtorsData = await getDebtors(token)
+      setDebtors(
+        debtorsData.debtors.map((d) => ({
+          id: d.id,
+          name: d.name,
+          icon: d.icon,
+          issuedDate: d.issuedAt.slice(0, 10),
+          loanAmount: Number(d.principalAmount),
+          dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
+          returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
+          status: d.status,
+        })),
+      )
+
       const txData = await getTransactions(token)
       setTransactions(
         txData.transactions.map((t) => ({
@@ -319,7 +334,7 @@ function App() {
       setAppInitError(err instanceof Error ? err.message : "Init error")
       setAppLoading(false)
     }
-  }, [setAccounts, setCategories, setIncomeSources, setTransactions])
+  }, [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setTransactions])
 
   useEffect(() => {
     if (!initDone.current) {
@@ -362,6 +377,20 @@ function App() {
         }))
       )
 
+      const debtorsData = await getDebtors(appToken)
+      setDebtors(
+        debtorsData.debtors.map((d) => ({
+          id: d.id,
+          name: d.name,
+          icon: d.icon,
+          issuedDate: d.issuedAt.slice(0, 10),
+          loanAmount: Number(d.principalAmount),
+          dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
+          returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
+          status: d.status,
+        })),
+      )
+
       const txData = await getTransactions(appToken)
       setTransactions(
         txData.transactions.map((t) => ({
@@ -388,7 +417,7 @@ function App() {
       if (err instanceof DOMException && err.name === "AbortError") return
       setOverviewError("Ошибка загрузки данных")
     }
-  }, [appToken, setAccounts, setCategories, setIncomeSources, setTransactions])
+  }, [appToken, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setTransactions])
 
   const prevScreen = useRef<ScreenKey>("overview")
 

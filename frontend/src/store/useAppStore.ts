@@ -129,9 +129,8 @@ export function useAppStore() {
     forceUpdate((x) => x + 1)
   }
 
-  function addDebtor(input: Debtor) {
-    state.debtors = [input, ...state.debtors]
-    saveToStorage(state)
+  function setDebtors(next: Debtor[]) {
+    state.debtors = next.map((d) => ({ ...d }))
     forceUpdate((x) => x + 1)
   }
 
@@ -156,7 +155,7 @@ export function useAppStore() {
     setCategories,
     setIncomeSources,
     setGoals,
-    addDebtor,
+    setDebtors,
     setCurrency,
   }
 }

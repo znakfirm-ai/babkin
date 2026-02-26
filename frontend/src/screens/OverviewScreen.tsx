@@ -9,6 +9,7 @@ import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccount
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { createGoal, getGoals, updateGoal } from "../api/goals"
+import { createDebtor, getDebtors } from "../api/debtors"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
 import { useSingleFlight } from "../hooks/useSingleFlight"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
@@ -384,7 +385,7 @@ function OverviewScreen({
     setCategories,
     setIncomeSources,
     setGoals,
-    addDebtor,
+    setDebtors,
     setTransactions,
     currency,
   } = useAppStore()
@@ -724,6 +725,22 @@ function OverviewScreen({
     setGoals(mapped)
   }, [setGoals, token])
 
+  const refetchDebtors = useCallback(async () => {
+    if (!token) return
+    const data = await getDebtors(token)
+    const mapped: Debtor[] = data.debtors.map((d) => ({
+      id: d.id,
+      name: d.name,
+      icon: d.icon,
+      issuedDate: d.issuedAt.slice(0, 10),
+      loanAmount: Number(d.principalAmount),
+      dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
+      returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
+      status: d.status,
+    }))
+    setDebtors(mapped)
+  }, [setDebtors, token])
+
   const refetchAccountsSeq = useCallback(async () => {
     if (!token) return
     const data = await getAccounts(token)
@@ -776,10 +793,17 @@ function OverviewScreen({
         const msg = err instanceof Error ? err.message : "Не удалось загрузить цели"
         setGoalError(msg)
       }
+    } else {
+      try {
+        await refetchDebtors()
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Не удалось загрузить должников"
+        setGoalError(msg)
+      }
     }
     setIsGoalsListOpen(true)
     setDetailGoalId(null)
-  }, [isDebtsReceivableMode, refetchGoals])
+  }, [isDebtsReceivableMode, refetchDebtors, refetchGoals])
 
   useEffect(() => {
     if (!isGoalsListOpen && pendingGoalCreate) {
@@ -1321,6 +1345,10 @@ function OverviewScreen({
 
   const handleSaveDebtor = useCallback(() => {
     return runDebtorSave(async () => {
+      if (!token) {
+        setDebtorError("Нет токена")
+        return
+      }
       const trimmedName = debtorName.trim()
       if (!trimmedName) {
         setDebtorError("Введите имя должника")
@@ -1332,22 +1360,21 @@ function OverviewScreen({
         return
       }
       const returnAmount = Number(debtorReturnAmount.trim().replace(",", "."))
-      const debtor: Debtor = {
-        id: `debtor-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      setDebtorError(null)
+      await createDebtor(token, {
         name: trimmedName,
         icon: debtorIcon ?? null,
-        issuedDate: debtorIssuedDate || getTodayLocalDate(),
-        loanAmount: Math.round(loan * 100) / 100,
-        dueDate: debtorReturnDate || getTodayLocalDate(),
-        returnAmount: Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : 0,
+        issuedAt: debtorIssuedDate || getTodayLocalDate(),
+        principalAmount: Math.round(loan * 100) / 100,
+        dueAt: debtorReturnDate || null,
+        payoffAmount: Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null,
         status: "active",
-      }
-      addDebtor(debtor)
+      })
+      await refetchDebtors()
       closeDebtorSheet()
       setIsGoalsListOpen(true)
     })
   }, [
-    addDebtor,
     closeDebtorSheet,
     debtorIcon,
     debtorIssuedDate,
@@ -1355,7 +1382,9 @@ function OverviewScreen({
     debtorName,
     debtorReturnAmount,
     debtorReturnDate,
+    refetchDebtors,
     runDebtorSave,
+    token,
   ])
 
   const openCreateGoal = useCallback(() => {
@@ -3449,7 +3478,9 @@ function TransactionsPanel({
                                 {debtor.name}
                               </div>
                             </div>
-                            <div style={{ fontSize: 12, color: "#64748b" }}>до {debtor.dueDate}</div>
+                            <div style={{ fontSize: 12, color: "#64748b" }}>
+                              {debtor.dueDate ? `до ${debtor.dueDate}` : "без даты возврата"}
+                            </div>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#475569" }}>
                             <span>{formatMoney(debtor.loanAmount, baseCurrency)}</span>
