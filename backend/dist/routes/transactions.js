@@ -66,6 +66,7 @@ function mapTx(tx) {
         toAccountName: tx.to_account?.name ?? null,
         incomeSourceId: tx.income_source_id ?? null,
         goalId: tx.goal_id ?? null,
+        goalName: tx.goal?.name ?? null,
     };
 }
 async function transactionsRoutes(fastify, _opts) {
@@ -88,6 +89,7 @@ async function transactionsRoutes(fastify, _opts) {
                 account: { select: { id: true, name: true } },
                 from_account: { select: { id: true, name: true } },
                 to_account: { select: { id: true, name: true } },
+                goal: { select: { id: true, name: true } },
             },
         });
         const payload = { transactions: txs.map(mapTx) };

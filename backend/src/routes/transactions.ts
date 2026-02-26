@@ -20,6 +20,7 @@ type TransactionResponse = {
   toAccountName?: string | null
   incomeSourceId: string | null
   goalId: string | null
+  goalName?: string | null
 }
 
 async function resolveUserId(request: any, reply: any): Promise<string | null> {
@@ -84,6 +85,7 @@ function mapTx(tx: any): TransactionResponse {
     toAccountName: tx.to_account?.name ?? null,
     incomeSourceId: tx.income_source_id ?? null,
     goalId: tx.goal_id ?? null,
+    goalName: tx.goal?.name ?? null,
   }
 }
 
@@ -109,6 +111,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
         account: { select: { id: true, name: true } },
         from_account: { select: { id: true, name: true } },
         to_account: { select: { id: true, name: true } },
+        goal: { select: { id: true, name: true } },
       },
     })
 

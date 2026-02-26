@@ -318,6 +318,7 @@ function App() {
             toAccountId: t.toAccountId ?? undefined,
             toAccountName: t.toAccountName ?? null,
             goalId: t.goalId ?? undefined,
+            goalName: t.goalName ?? null,
           }))
         )
         setOverviewError(null)
@@ -411,6 +412,7 @@ function App() {
           toAccountId: t.toAccountId ?? undefined,
           toAccountName: t.toAccountName ?? null,
           goalId: t.goalId ?? undefined,
+          goalName: t.goalName ?? null,
         }))
       )
       setOverviewError(null)

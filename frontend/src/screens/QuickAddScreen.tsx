@@ -253,6 +253,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           toAccountId: t.toAccountId ?? undefined,
           toAccountName: t.toAccountName ?? null,
           goalId: (t as { goalId?: string | null }).goalId ?? undefined,
+          goalName: (t as { goalName?: string | null }).goalName ?? null,
         })),
       )
       onClose()
@@ -313,6 +314,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           toAccountId: t.toAccountId ?? undefined,
           toAccountName: t.toAccountName ?? null,
           goalId: (t as { goalId?: string | null }).goalId ?? undefined,
+          goalName: (t as { goalName?: string | null }).goalName ?? null,
         })),
       )
       setSelectedIncomeSourceId(null)
@@ -548,6 +550,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           toAccountId: t.toAccountId ?? undefined,
           toAccountName: t.toAccountName ?? null,
           goalId: (t as { goalId?: string | null }).goalId ?? undefined,
+          goalName: (t as { goalName?: string | null }).goalName ?? null,
         })),
       )
       if (transferTargetType === "goal") {
@@ -645,6 +648,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           toAccountId: t.toAccountId ?? undefined,
           toAccountName: t.toAccountName ?? null,
           goalId: (t as { goalId?: string | null }).goalId ?? undefined,
+          goalName: (t as { goalName?: string | null }).goalName ?? null,
         })),
       )
       await ensureGoalsLoaded()

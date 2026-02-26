@@ -13,6 +13,7 @@ export type TransactionDto = {
   toAccountName?: string | null
   incomeSourceId?: string | null
   goalId?: string | null
+  goalName?: string | null
 }
 
 export type GetTransactionsResponse = {

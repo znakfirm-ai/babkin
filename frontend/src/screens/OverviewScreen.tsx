@@ -794,6 +794,7 @@ function OverviewScreen({
       toAccountId: t.toAccountId ?? undefined,
       toAccountName: t.toAccountName ?? null,
       goalId: t.goalId ?? undefined,
+      goalName: t.goalName ?? null,
     }))
     setTransactions(mapped)
   }, [setTransactions, token])
@@ -1906,6 +1907,30 @@ function TransactionsPanel({
     incomeSources.forEach((s) => map.set(s.id, s.name))
     return map
   }, [incomeSources])
+  const goalNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    goals.forEach((goal) => map.set(goal.id, goal.name))
+    return map
+  }, [goals])
+
+  const getGoalTransferTitle = useCallback(
+    (tx: Transaction) => {
+      const goalName = tx.goalName ?? (tx.goalId ? goalNameById.get(tx.goalId) : null)
+      return goalName ? `Цель: ${goalName}` : "Цель"
+    },
+    [goalNameById],
+  )
+  const getGoalTransferSourceLabel = useCallback(
+    (tx: Transaction) => {
+      const sourceAccountId = tx.fromAccountId ?? tx.accountId
+      const sourceAccountName =
+        tx.fromAccountName ??
+        tx.accountName ??
+        (sourceAccountId ? accountNameById.get(sourceAccountId) ?? null : null)
+      return sourceAccountName ? `Со счёта ${sourceAccountName}` : "Со счёта"
+    },
+    [accountNameById],
+  )
 
   const displayTransactions = useMemo(() => transactions.filter((t) => t.type !== "adjustment"), [transactions])
 
@@ -1986,10 +2011,12 @@ function TransactionsPanel({
           ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
           : tx.type === "expense"
           ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
+          : tx.goalId
+          ? getGoalTransferTitle(tx)
           : "Перевод"
       return title.toLowerCase().includes(query) || amountText.includes(query)
     })
-  }, [accountPeriod, accountSearch, accountTx, categoryNameById, detailAccountId, incomeSourceNameById])
+  }, [accountPeriod, accountSearch, accountTx, categoryNameById, detailAccountId, getGoalTransferTitle, incomeSourceNameById])
 
   const filteredCategoryTx = useMemo(() => {
     if (!detailCategoryId) return []
@@ -2094,11 +2121,11 @@ function TransactionsPanel({
     const query = goalSearch.trim().toLowerCase()
     if (!query) return filtered
     return filtered.filter((tx) => {
-      const name = tx.accountName ?? "Операция"
+      const name = getGoalTransferSourceLabel(tx)
       const amountText = String(Math.abs(tx.amount.amount))
       return name.toLowerCase().includes(query) || amountText.includes(query)
     })
-  }, [accountPeriod, detailGoalId, goalSearch, goalTx])
+  }, [accountPeriod, detailGoalId, getGoalTransferSourceLabel, goalSearch, goalTx])
 
   const groupedGoalTx = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
@@ -2388,6 +2415,8 @@ function TransactionsPanel({
                               ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
                               : tx.type === "expense"
                               ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
+                              : tx.goalId
+                              ? getGoalTransferTitle(tx)
                               : "Перевод"}
                           </div>
                         </div>
@@ -2729,7 +2758,7 @@ function TransactionsPanel({
                       </div>
                     )}
                     renderRow={(tx, idx) => {
-                      const displayName = tx.accountName ?? "Операция"
+                      const displayName = getGoalTransferSourceLabel(tx)
                       const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
                       return (
                         <div
