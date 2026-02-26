@@ -1415,7 +1415,7 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
 
   const expenseToRender = [...sizedExpenseItems]
 
-  const activeGoals = useMemo(() => goals.filter((g) => g.status === "active"), [goals])
+  const activeGoals = useMemo(() => goals.filter((g) => g.status !== "completed"), [goals])
   const goalsTotals = useMemo(() => {
     const current = activeGoals.reduce((sum, g) => sum + Number(g.currentAmount ?? 0), 0)
     const target = activeGoals.reduce((sum, g) => sum + Number(g.targetAmount ?? 0), 0)
