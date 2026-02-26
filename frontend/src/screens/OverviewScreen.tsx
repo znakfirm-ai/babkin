@@ -13,6 +13,7 @@ import { createTransaction, deleteTransaction, getTransactions } from "../api/tr
 import { useSingleFlight } from "../hooks/useSingleFlight"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
+import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint } from "../utils/monthlyTransactionMetrics"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -154,11 +155,6 @@ const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRi
   )
 }
 
-const isCurrentMonth = (tx: Transaction, year: number, monthIndex: number) => {
-  const date = new Date(tx.date)
-  if (Number.isNaN(date.getTime())) return false
-  return date.getFullYear() === year && date.getMonth() === monthIndex
-}
 const isGoalContributionTx = (tx: Transaction) => tx.type === "transfer" && Boolean(tx.goalId) && Boolean(tx.fromAccountId ?? tx.accountId) && !tx.toAccountId
 
 const Section: React.FC<{
@@ -448,9 +444,7 @@ function OverviewScreen({
   const [editIncomeSourceId, setEditIncomeSourceId] = useState("")
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
-  const currentDate = new Date()
-  const currentMonthYear = currentDate.getFullYear()
-  const currentMonthIndex = currentDate.getMonth()
+  const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
   const { run: runCategorySave, isRunning: isCategorySaveRunning } = useSingleFlight()
   const { run: runCategoryDelete, isRunning: isCategoryDeleteRunning } = useSingleFlight()
@@ -502,54 +496,24 @@ function OverviewScreen({
     setAccountIcon(null)
   }, [])
 
-  const { incomeBySource, expenseByCategory } = useMemo(() => {
-    const incomeMap = new Map<string, number>()
-    const expenseMap = new Map<string, number>()
-
-    transactions.forEach((tx) => {
-      if (!isCurrentMonth(tx, currentMonthYear, currentMonthIndex)) return
-      if (tx.type === "transfer") return
-
-      if (tx.type === "income") {
-        const key = tx.incomeSourceId ?? "uncategorized"
-        incomeMap.set(key, (incomeMap.get(key) ?? 0) + tx.amount.amount)
-      }
-
-      if (tx.type === "expense") {
-        const key = tx.categoryId ?? "uncategorized"
-        expenseMap.set(key, (expenseMap.get(key) ?? 0) + tx.amount.amount)
-      }
-    })
-
-    return {
-      incomeBySource: incomeMap,
-      expenseByCategory: expenseMap,
-    }
-  }, [transactions, currentMonthIndex, currentMonthYear])
-
-  const { monthlyIncomeSum, monthlyExpenseSum } = useMemo(() => {
-    let monthlyIncome = 0
-    let monthlyExpense = 0
-
-    transactions.forEach((tx) => {
-      if (!isCurrentMonth(tx, currentMonthYear, currentMonthIndex)) return
-      if (tx.goalId) return
-      if (tx.type === "income") monthlyIncome += tx.amount.amount
-      if (tx.type === "expense") monthlyExpense += tx.amount.amount
-    })
-
-    return { monthlyIncomeSum: monthlyIncome, monthlyExpenseSum: monthlyExpense }
-  }, [transactions, currentMonthIndex, currentMonthYear])
+  const monthlyMetrics = useMemo(
+    () => buildMonthlyTransactionMetrics(transactions, currentMonthPoint),
+    [currentMonthPoint.monthIndex, currentMonthPoint.year, transactions],
+  )
+  const incomeBySource = monthlyMetrics.incomeBySource
+  const expenseByCategory = monthlyMetrics.expenseByCategory
+  const monthlyIncomeSum = monthlyMetrics.incomeTotal
+  const monthlyExpenseSum = monthlyMetrics.expenseTotal
 
   const monthlyGoalInflow = useMemo(
     () =>
       transactions.reduce((sum, tx) => {
-        if (!isCurrentMonth(tx, currentMonthYear, currentMonthIndex)) return sum
+        if (!isDateInMonthPoint(tx.date, currentMonthPoint)) return sum
         if (!isGoalContributionTx(tx)) return sum
         const amount = Number(tx.amount.amount ?? 0)
         return Number.isFinite(amount) ? sum + Math.abs(amount) : sum
       }, 0),
-    [transactions, currentMonthIndex, currentMonthYear],
+    [currentMonthPoint.monthIndex, currentMonthPoint.year, transactions],
   )
 
   const monthLabel = useMemo(() => {

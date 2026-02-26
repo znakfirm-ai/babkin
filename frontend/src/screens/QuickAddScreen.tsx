@@ -10,6 +10,7 @@ import { GoalList } from "../components/GoalList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
 import { useSingleFlight } from "../hooks/useSingleFlight"
+import { buildMonthlyTransactionMetrics, getLocalMonthPoint } from "../utils/monthlyTransactionMetrics"
 
 const getTodayLocalDate = () => {
   const now = new Date()
@@ -124,25 +125,13 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
   const incomeSourcesList = useMemo(() => incomeSources, [incomeSources])
-  const spendByCategory = useMemo(() => {
-    const map = new Map<string, number>()
-    transactions.forEach((t) => {
-      if (t.type !== "expense") return
-      if (!t.categoryId) return
-      map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + t.amount.amount)
-    })
-    return map
-  }, [transactions])
-
-const incomeBySource = useMemo(() => {
-  const map = new Map<string, number>()
-  transactions.forEach((t) => {
-    if (t.type !== "income") return
-    if (!t.incomeSourceId) return
-    map.set(t.incomeSourceId, (map.get(t.incomeSourceId) ?? 0) + t.amount.amount)
-  })
-  return map
-}, [transactions])
+  const currentMonthPoint = getLocalMonthPoint()
+  const monthlyMetrics = useMemo(
+    () => buildMonthlyTransactionMetrics(transactions, currentMonthPoint),
+    [currentMonthPoint.monthIndex, currentMonthPoint.year, transactions],
+  )
+  const spendByCategory = monthlyMetrics.expenseByCategory
+  const incomeBySource = monthlyMetrics.incomeBySource
 
   const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts])
   const categoriesById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
