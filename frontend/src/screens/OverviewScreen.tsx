@@ -73,6 +73,10 @@ const MONTH_NAMES = [
 ]
 const daysInMonth = (year: number, monthIndex: number) => new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
 const pad2 = (n: number) => String(n).padStart(2, "0")
+const getTodayLocalDate = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
+}
 
 type OpenPicker =
   | {
@@ -424,6 +428,9 @@ function OverviewScreen({
   const [goalName, setGoalName] = useState("")
   const [goalTarget, setGoalTarget] = useState("")
   const [goalIcon, setGoalIcon] = useState<string | null>(null)
+  const [debtIssuedDate, setDebtIssuedDate] = useState(() => getTodayLocalDate())
+  const [debtReturnDate, setDebtReturnDate] = useState(() => getTodayLocalDate())
+  const [debtReturnAmount, setDebtReturnAmount] = useState("")
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
   const [goalSheetMode, setGoalSheetMode] = useState<"create" | "edit">("create")
@@ -554,9 +561,9 @@ function OverviewScreen({
     return section ? section.keys : []
   }, [])
   const goalIconKeys = useMemo(() => {
-    const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "goals")
+    const section = FINANCE_ICON_SECTIONS.find((s) => s.id === (isDebtsReceivableMode ? "debts" : "goals"))
     return section ? section.keys : []
-  }, [])
+  }, [isDebtsReceivableMode])
 
   if (overviewError) {
     return (
@@ -1188,6 +1195,9 @@ function OverviewScreen({
     setGoalName("")
     setGoalTarget("")
     setGoalIcon(null)
+    setDebtIssuedDate(getTodayLocalDate())
+    setDebtReturnDate(getTodayLocalDate())
+    setDebtReturnAmount("")
     setEditingGoalId(null)
     setGoalSheetMode("create")
     setPendingGoalCreate(true)
@@ -2516,7 +2526,9 @@ function TransactionsPanel({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>Создать цель</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
+                {isDebtsReceivableMode ? "Добавить должника" : "Создать цель"}
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -2537,6 +2549,25 @@ function TransactionsPanel({
 
             {goalError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{goalError}</div> : null}
 
+            {isDebtsReceivableMode ? (
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
+                <input
+                  type="date"
+                  value={debtIssuedDate}
+                  onChange={(e) => setDebtIssuedDate(e.target.value)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+              </label>
+            ) : null}
+
             <label style={{ display: "grid", gap: 6 }}>
               <span style={{ fontSize: 13, color: "#475569" }}>Название</span>
               <input
@@ -2555,7 +2586,7 @@ function TransactionsPanel({
             </label>
 
             <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Сумма</span>
+              <span style={{ fontSize: 13, color: "#475569" }}>{isDebtsReceivableMode ? "Сумма займа" : "Сумма"}</span>
               <input
                 value={goalTarget}
                 onChange={(e) => setGoalTarget(e.target.value)}
@@ -2571,6 +2602,25 @@ function TransactionsPanel({
                 }}
               />
             </label>
+
+            {isDebtsReceivableMode ? (
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
+                <input
+                  type="date"
+                  value={debtReturnDate}
+                  onChange={(e) => setDebtReturnDate(e.target.value)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+              </label>
+            ) : null}
 
             <div style={{ display: "grid", gap: 6 }}>
               <span style={{ fontSize: 13, color: "#475569" }}>Иконка</span>
@@ -2599,6 +2649,26 @@ function TransactionsPanel({
                 <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
               </button>
             </div>
+
+            {isDebtsReceivableMode ? (
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>Сумма возврата</span>
+                <input
+                  value={debtReturnAmount}
+                  onChange={(e) => setDebtReturnAmount(e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 15,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+              </label>
+            ) : null}
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
@@ -2727,7 +2797,7 @@ function TransactionsPanel({
                   cursor: "pointer",
                 }}
               >
-                Активные цели
+                {isDebtsReceivableMode ? "Текущие должники" : "Активные цели"}
               </button>
               <button
                 type="button"
@@ -2742,7 +2812,7 @@ function TransactionsPanel({
                   cursor: "pointer",
                 }}
               >
-                Завершенные цели
+                {isDebtsReceivableMode ? "Выплачено" : "Завершенные цели"}
               </button>
             </div>
 
