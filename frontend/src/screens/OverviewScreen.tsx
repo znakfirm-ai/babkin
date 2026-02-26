@@ -22,6 +22,7 @@ type CardItem = {
   id: string
   title: string
   amount: number
+  goalCurrent?: number
   icon?: string | null
   financeIconKey?: string | null
   color: string
@@ -160,6 +161,7 @@ const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRi
 }
 
 const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag
+const isGoalContributionTx = (tx: Transaction) => tx.type === "transfer" && Boolean(tx.goalId) && Boolean(tx.fromAccountId ?? tx.accountId) && !tx.toAccountId
 
 const Section: React.FC<{
   title: string
@@ -301,7 +303,7 @@ const Section: React.FC<{
                   {item.type === "goal" ? (
                     <>
                       <div style={{ marginTop: 4, fontSize: 9, color: "#475569", fontWeight: 600 }}>
-                        {formatMoney(item.amount, baseCurrency)} / {formatMoney(item.amountTarget ?? 0, baseCurrency)}
+                        {formatMoney(item.goalCurrent ?? item.amount, baseCurrency)} / {formatMoney(item.amountTarget ?? 0, baseCurrency)}
                       </div>
                       <div
                         style={{
@@ -530,6 +532,17 @@ function OverviewScreen({
       expenseByCategory: expenseMap,
     }
   }, [transactions, currentMonthTag])
+
+  const monthlyGoalInflow = useMemo(
+    () =>
+      transactions.reduce((sum, tx) => {
+        if (!isCurrentMonth(tx, currentMonthTag)) return sum
+        if (!isGoalContributionTx(tx)) return sum
+        const amount = Number(tx.amount.amount ?? 0)
+        return Number.isFinite(amount) ? sum + Math.abs(amount) : sum
+      }, 0),
+    [transactions, currentMonthTag],
+  )
 
   const monthLabel = useMemo(() => {
     const now = new Date()
@@ -914,12 +927,17 @@ function OverviewScreen({
       return
     }
     if (!txActionId) return
+    const txAction = transactions.find((t) => t.id === txActionId)
+    const needsGoalsRefresh = Boolean(txAction?.goalId)
     setTxError(null)
     try {
       setTxLoading(true)
       await deleteTransaction(token, txActionId)
       await refetchAccountsSeq()
       await refetchTransactions()
+      if (needsGoalsRefresh) {
+        await refetchGoals()
+      }
       closeTxSheet()
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -930,7 +948,7 @@ function OverviewScreen({
       setTxLoading(false)
     }
     })
-  }, [closeTxSheet, refetchAccountsSeq, refetchTransactions, runDeleteTx, txActionId])
+  }, [closeTxSheet, refetchAccountsSeq, refetchGoals, refetchTransactions, runDeleteTx, transactions, txActionId])
 
   const handleSaveEdit = useCallback(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
@@ -996,6 +1014,9 @@ function OverviewScreen({
 
       await refetchAccountsSeq()
       await refetchTransactions()
+      if (original?.goalId) {
+        await refetchGoals()
+      }
       closeTxSheet()
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -1052,6 +1073,7 @@ function OverviewScreen({
     editNote,
     editToAccountId,
     refetchAccountsSeq,
+    refetchGoals,
     refetchTransactions,
     transactions,
     txActionId,
@@ -1433,7 +1455,8 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
     {
       id: "goals-entry",
       title: "Мои цели",
-      amount: goalsTotals.current,
+      amount: monthlyGoalInflow,
+      goalCurrent: goalsTotals.current,
       amountTarget: goalsTotals.target,
       progress: goalsTotals.progress,
       icon: "goal",

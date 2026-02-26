@@ -298,6 +298,7 @@ function App() {
             incomeSourceId: t.incomeSourceId ?? undefined,
             toAccountId: t.toAccountId ?? undefined,
             toAccountName: t.toAccountName ?? null,
+            goalId: t.goalId ?? undefined,
           }))
         )
         setOverviewError(null)
@@ -376,6 +377,7 @@ function App() {
           incomeSourceId: t.incomeSourceId ?? undefined,
           toAccountId: t.toAccountId ?? undefined,
           toAccountName: t.toAccountName ?? null,
+          goalId: t.goalId ?? undefined,
         }))
       )
       setOverviewError(null)
