@@ -22,7 +22,7 @@ import "./App.css"
 
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add" | "icons-preview" | "receivables"
-type GoalsListMode = "goals" | "debtsReceivable"
+type GoalsListMode = "goals" | "debtsReceivable" | "debtsPayable"
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
 type ErrorBoundaryState = { hasError: boolean; error: Error | null }
@@ -465,6 +465,12 @@ function App() {
               setActiveNav("overview")
               setActiveScreen("receivables")
             }}
+            onOpenPayables={() => {
+              setGoalsListMode("debtsPayable")
+              setAutoOpenGoalsList(true)
+              setActiveNav("overview")
+              setActiveScreen("receivables")
+            }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => setAutoOpenGoalsList(false)}
             autoOpenGoalCreate={autoOpenGoalCreate}
@@ -504,6 +510,12 @@ function App() {
             }}
             onOpenReceivables={() => {
               setGoalsListMode("debtsReceivable")
+              setAutoOpenGoalsList(true)
+              setActiveNav("overview")
+              setActiveScreen("receivables")
+            }}
+            onOpenPayables={() => {
+              setGoalsListMode("debtsPayable")
               setAutoOpenGoalsList(true)
               setActiveNav("overview")
               setActiveScreen("receivables")

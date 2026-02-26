@@ -178,6 +178,7 @@ const Section: React.FC<{
   onIncomeSourceClick?: (id: string, title: string) => void
   onGoalClick?: (id: string, title: string) => void
   onDebtReceivableClick?: () => void
+  onDebtPayableClick?: () => void
   baseCurrency: string
 }> = ({
   title,
@@ -192,6 +193,7 @@ const Section: React.FC<{
   onIncomeSourceClick,
   onGoalClick,
   onDebtReceivableClick,
+  onDebtPayableClick,
   baseCurrency,
 }) => {
   const listClass = rowScroll
@@ -251,6 +253,7 @@ const Section: React.FC<{
                 if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "goal") onGoalClick?.(item.id, item.title)
                 if (!item.isAdd && (item.id === "debt-bank" || item.title === "Мне должны")) onDebtReceivableClick?.()
+                if (!item.isAdd && (item.id === "debt-friend" || item.title === "Я должен")) onDebtPayableClick?.()
               }}
               onKeyDown={(e) => {
                 if (e.key !== "Enter" && e.key !== " ") return
@@ -262,6 +265,7 @@ const Section: React.FC<{
                 if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "goal") onGoalClick?.(item.id, item.title)
                 if (!item.isAdd && (item.id === "debt-bank" || item.title === "Мне должны")) onDebtReceivableClick?.()
+                if (!item.isAdd && (item.id === "debt-friend" || item.title === "Я должен")) onDebtPayableClick?.()
               }}
             >
               <div
@@ -353,11 +357,12 @@ type OverviewScreenProps = {
   onReturnToIncomeReport?: () => void
   onOpenGoalsList?: () => void
   onOpenReceivables?: () => void
+  onOpenPayables?: () => void
   autoOpenGoalsList?: boolean
   onConsumeAutoOpenGoalsList?: () => void
   autoOpenGoalCreate?: boolean
   onConsumeAutoOpenGoalCreate?: () => void
-  goalsListMode?: "goals" | "debtsReceivable"
+  goalsListMode?: "goals" | "debtsReceivable" | "debtsPayable"
 }
 
 function OverviewScreen({
@@ -373,6 +378,7 @@ function OverviewScreen({
   onReturnToIncomeReport,
   onOpenGoalsList,
   onOpenReceivables,
+  onOpenPayables,
   autoOpenGoalsList = false,
   onConsumeAutoOpenGoalsList,
   autoOpenGoalCreate = false,
@@ -491,8 +497,10 @@ function OverviewScreen({
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
   const isDebtsReceivableMode = goalsListMode === "debtsReceivable"
+  const isDebtsPayableMode = goalsListMode === "debtsPayable"
+  const isDebtsMode = isDebtsReceivableMode || isDebtsPayableMode
   const isGoalsMode = goalsListMode === "goals"
-  const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : "Список целей"
+  const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : isDebtsPayableMode ? "Я должен" : "Список целей"
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
   const { run: runCategorySave, isRunning: isCategorySaveRunning } = useSingleFlight()
@@ -576,13 +584,13 @@ function OverviewScreen({
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
   const filteredGoals = useMemo(() => {
-    if (isDebtsReceivableMode) return []
+    if (isDebtsMode) return []
     return goals.filter((g) => g.status === goalTab)
-  }, [goalTab, goals, isDebtsReceivableMode])
+  }, [goalTab, goals, isDebtsMode])
   const filteredDebtors = useMemo(() => {
-    if (!isDebtsReceivableMode) return []
+    if (!isDebtsMode) return []
     return debtors.filter((d) => d.status === goalTab)
-  }, [debtors, goalTab, isDebtsReceivableMode])
+  }, [debtors, goalTab, isDebtsMode])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
   const goalCompleteAccount = useMemo(
     () => accounts.find((account) => account.id === goalCompleteAccountId) ?? null,
@@ -602,9 +610,9 @@ function OverviewScreen({
     return section ? section.keys : []
   }, [])
   const goalIconKeys = useMemo(() => {
-    const section = FINANCE_ICON_SECTIONS.find((s) => s.id === (isDebtsReceivableMode ? "debts" : "goals"))
+    const section = FINANCE_ICON_SECTIONS.find((s) => s.id === (isDebtsMode ? "debts" : "goals"))
     return section ? section.keys : []
-  }, [isDebtsReceivableMode])
+  }, [isDebtsMode])
   const debtorIconKeys = useMemo(() => {
     const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "debts")
     return section ? section.keys : []
@@ -807,7 +815,7 @@ function OverviewScreen({
   }, [])
 
   const openGoalsList = useCallback(async () => {
-    if (!isDebtsReceivableMode) {
+    if (!isDebtsMode) {
       try {
         await refetchGoals()
       } catch (err) {
@@ -825,7 +833,7 @@ function OverviewScreen({
     setIsGoalsListOpen(true)
     setDetailGoalId(null)
     setDetailDebtorId(null)
-  }, [isDebtsReceivableMode, refetchDebtors, refetchGoals])
+  }, [isDebtsMode, refetchDebtors, refetchGoals])
 
   useEffect(() => {
     if (!isGoalsListOpen && pendingGoalCreate) {
@@ -869,7 +877,7 @@ function OverviewScreen({
   useEffect(() => {
     if (!autoOpenGoalCreate || autoOpenGoalCreateInFlightRef.current) return
     autoOpenGoalCreateInFlightRef.current = true
-    if (!isDebtsReceivableMode) {
+    if (!isDebtsMode) {
       setGoalError(null)
       setGoalName("")
       setGoalTarget("")
@@ -881,7 +889,7 @@ function OverviewScreen({
     }
     onConsumeAutoOpenGoalCreate?.()
     autoOpenGoalCreateInFlightRef.current = false
-  }, [autoOpenGoalCreate, isDebtsReceivableMode, onConsumeAutoOpenGoalCreate])
+  }, [autoOpenGoalCreate, isDebtsMode, onConsumeAutoOpenGoalCreate])
 
   useEffect(() => {
     if (externalCategoryId) {
@@ -2265,6 +2273,9 @@ function TransactionsPanel({
         onDebtReceivableClick={() => {
           onOpenReceivables?.()
         }}
+        onDebtPayableClick={() => {
+          onOpenPayables?.()
+        }}
       />
 
       {(detailAccountId || detailCategoryId || detailIncomeSourceId || detailGoalId || detailDebtorId) && (
@@ -3005,7 +3016,7 @@ function TransactionsPanel({
         </div>
       )}
 
-      {isGoalCompleteSheetOpen && detailGoal && !isDebtsReceivableMode ? (
+      {isGoalCompleteSheetOpen && detailGoal && isGoalsMode ? (
         <div
           role="dialog"
           aria-modal="true"
@@ -3102,7 +3113,7 @@ function TransactionsPanel({
         </div>
       ) : null}
 
-      {isGoalCompleteAccountPickerOpen && isGoalCompleteSheetOpen && detailGoal && !isDebtsReceivableMode ? (
+      {isGoalCompleteAccountPickerOpen && isGoalCompleteSheetOpen && detailGoal && isGoalsMode ? (
         <div
           role="dialog"
           aria-modal="true"
@@ -3182,7 +3193,7 @@ function TransactionsPanel({
         </div>
       ) : null}
 
-      {isDebtsReceivableMode && isDebtorSheetOpen ? (
+      {isDebtsMode && isDebtorSheetOpen ? (
         <div
           role="dialog"
           aria-modal="true"
@@ -3402,7 +3413,7 @@ function TransactionsPanel({
         </div>
       ) : null}
 
-      {isDebtsReceivableMode && isDebtorIconPickerOpen ? (
+      {isDebtsMode && isDebtorIconPickerOpen ? (
         <div
           role="dialog"
           aria-modal="true"
@@ -3490,7 +3501,7 @@ function TransactionsPanel({
         </div>
       ) : null}
 
-      {isDebtsReceivableMode && debtorDateField ? (
+      {isDebtsMode && debtorDateField ? (
         <div
           role="dialog"
           aria-modal="true"
@@ -3624,7 +3635,7 @@ function TransactionsPanel({
         </div>
       ) : null}
 
-      {!isDebtsReceivableMode && isGoalSheetOpen && (
+      {isGoalsMode && isGoalSheetOpen && (
         <div
           role="dialog"
           aria-modal="true"
@@ -3661,7 +3672,7 @@ function TransactionsPanel({
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
-                {isDebtsReceivableMode ? "Добавить должника" : "Создать цель"}
+                {isDebtsMode ? "Добавить должника" : "Создать цель"}
               </div>
               <button
                 type="button"
@@ -3683,7 +3694,7 @@ function TransactionsPanel({
 
             {goalError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{goalError}</div> : null}
 
-            {isDebtsReceivableMode ? (
+            {isDebtsMode ? (
               <label style={{ display: "grid", gap: 6 }}>
                 <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
                 <input
@@ -3720,7 +3731,7 @@ function TransactionsPanel({
             </label>
 
             <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>{isDebtsReceivableMode ? "Сумма займа" : "Сумма"}</span>
+              <span style={{ fontSize: 13, color: "#475569" }}>{isDebtsMode ? "Сумма займа" : "Сумма"}</span>
               <input
                 value={goalTarget}
                 onChange={(e) => setGoalTarget(e.target.value)}
@@ -3737,7 +3748,7 @@ function TransactionsPanel({
               />
             </label>
 
-            {isDebtsReceivableMode ? (
+            {isDebtsMode ? (
               <label style={{ display: "grid", gap: 6 }}>
                 <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
                 <input
@@ -3784,7 +3795,7 @@ function TransactionsPanel({
               </button>
             </div>
 
-            {isDebtsReceivableMode ? (
+            {isDebtsMode ? (
               <label style={{ display: "grid", gap: 6 }}>
                 <span style={{ fontSize: 13, color: "#475569" }}>Сумма возврата</span>
                 <input
@@ -3887,7 +3898,7 @@ function TransactionsPanel({
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   type="button"
-                  onClick={isDebtsReceivableMode ? openCreateDebtor : openCreateGoal}
+                  onClick={isDebtsMode ? openCreateDebtor : openCreateGoal}
                   style={{
                     padding: "8px 12px",
                     borderRadius: 10,
@@ -3954,7 +3965,7 @@ function TransactionsPanel({
 
             <div style={txListContainerStyle}>
               <div style={txScrollableStyle}>
-                {isDebtsReceivableMode ? (
+                {isDebtsMode ? (
                   <DebtorList
                     debtors={filteredDebtors}
                     emptyText="Пока нет должников"
