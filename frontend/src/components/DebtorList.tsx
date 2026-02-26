@@ -6,10 +6,37 @@ type DebtorListProps = {
   debtors: Debtor[]
   emptyText?: string
   currency: string
+  direction?: "receivable" | "payable"
   onSelectDebtor?: (debtor: Debtor) => void
 }
 
-export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "Пока нет должников", currency, onSelectDebtor }) => {
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
+
+const toFiniteNumber = (value: unknown): number | null => {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const pickReceivableTotal = (debtor: Debtor): number => {
+  const payoffAmount = toFiniteNumber(debtor.payoffAmount)
+  if (payoffAmount !== null && payoffAmount > 0) return payoffAmount
+  const fallbackCandidates = [
+    toFiniteNumber(debtor.amountToReturn),
+    toFiniteNumber(debtor.returnAmount),
+    toFiniteNumber(debtor.amount),
+    toFiniteNumber(debtor.loanAmount),
+  ]
+  const fallback = fallbackCandidates.find((value) => value !== null && value > 0)
+  return fallback ?? 0
+}
+
+export const DebtorList: React.FC<DebtorListProps> = ({
+  debtors,
+  emptyText = "Пока нет должников",
+  currency,
+  direction = "receivable",
+  onSelectDebtor,
+}) => {
   if (debtors.length === 0) {
     return (
       <div style={{ padding: "12px 4px", fontSize: 14, color: "#6b7280" }}>
@@ -21,13 +48,20 @@ export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "П
   return (
     <>
       {debtors.map((debtor, idx) => {
-        const paidAmount = 0
-        const hasPayoff = debtor.returnAmount > 0
-        const percent = hasPayoff ? Math.round((paidAmount / debtor.returnAmount) * 100) : null
-        const progress = hasPayoff ? Math.min(100, Math.max(0, (paidAmount / debtor.returnAmount) * 100)) : 0
+        const isReceivable = direction === "receivable"
+        const paidAmount = isReceivable ? Math.max(0, toFiniteNumber(debtor.paidAmount) ?? 0) : 0
+        const totalAmount = isReceivable ? pickReceivableTotal(debtor) : Math.max(0, debtor.returnAmount)
+        const percentValue = totalAmount > 0 ? clamp01(paidAmount / totalAmount) : 0
+        const percent = Math.round(percentValue * 100)
+        const progress = clamp01(percentValue) * 100
         const isLast = idx === debtors.length - 1
         const formattedPaid = formatMoneyIntl(paidAmount, currency)
-        const formattedPayoff = hasPayoff ? formatMoneyIntl(debtor.returnAmount, currency) : "—"
+        const percentLabel = isReceivable ? `${percent}%` : totalAmount > 0 ? `${percent}%` : "—"
+        const formattedPayoff = isReceivable
+          ? formatMoneyIntl(totalAmount, currency)
+          : totalAmount > 0
+            ? formatMoneyIntl(totalAmount, currency)
+            : "—"
         const dueDateLabel = (() => {
           if (!debtor.dueDate) return "До —"
           const parsed = new Date(`${debtor.dueDate}T00:00:00`)
@@ -77,7 +111,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "П
               />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#475569" }}>
-              <span>{`${formattedPaid} (${percent === null ? "—" : `${percent}%`})`}</span>
+              <span>{`${formattedPaid} (${percentLabel})`}</span>
               <span>{formattedPayoff}</span>
             </div>
           </button>

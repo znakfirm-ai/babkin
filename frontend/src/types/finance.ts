@@ -42,6 +42,10 @@ export type Debtor = {
   loanAmount: number
   dueDate: string
   returnAmount: number
+  payoffAmount?: number | null
+  amountToReturn?: number | null
+  amount?: number | null
+  paidAmount?: number | null
   status: "active" | "completed"
   direction: "receivable" | "payable"
 }

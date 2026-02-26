@@ -581,10 +581,31 @@ function OverviewScreen({
     if (isDebtsMode) return []
     return goals.filter((g) => g.status === goalTab)
   }, [goalTab, goals, isDebtsMode])
+  const receivablePaidByDebtorId = useMemo(() => {
+    const paidById: Record<string, number> = {}
+    transactions.forEach((tx) => {
+      if (!tx.debtorId) return
+      const isReceivableReturn = tx.type === "transfer" && Boolean(tx.toAccountId) && !tx.fromAccountId
+      if (!isReceivableReturn) return
+      const amount = Number(tx.amount.amount ?? 0)
+      if (!Number.isFinite(amount)) return
+      paidById[tx.debtorId] = (paidById[tx.debtorId] ?? 0) + Math.abs(amount)
+    })
+    return paidById
+  }, [transactions])
   const filteredDebtors = useMemo(() => {
     if (!isDebtsMode) return []
-    return debtors.filter((d) => d.direction === currentDebtorDirection && d.status === goalTab)
-  }, [currentDebtorDirection, debtors, goalTab, isDebtsMode])
+    return debtors
+      .filter((d) => d.direction === currentDebtorDirection && d.status === goalTab)
+      .map((debtor) =>
+        currentDebtorDirection === "receivable"
+          ? {
+              ...debtor,
+              paidAmount: receivablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0,
+            }
+          : debtor,
+      )
+  }, [currentDebtorDirection, debtors, goalTab, isDebtsMode, receivablePaidByDebtorId])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
   const goalCompleteAccount = useMemo(
     () => accounts.find((account) => account.id === goalCompleteAccountId) ?? null,
@@ -758,6 +779,7 @@ function OverviewScreen({
       loanAmount: Number(d.principalAmount),
       dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
       returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
+      payoffAmount: d.payoffAmount === null ? null : Number(d.payoffAmount),
       status: d.status,
       direction: d.direction ?? currentDebtorDirection,
     }))
@@ -4056,6 +4078,7 @@ function TransactionsPanel({
                     debtors={filteredDebtors}
                     emptyText="Пока нет должников"
                     currency={baseCurrency}
+                    direction={currentDebtorDirection}
                     onSelectDebtor={(debtor) => {
                       setDetailDebtorId(debtor.id)
                       setDetailTitle(debtor.name)
