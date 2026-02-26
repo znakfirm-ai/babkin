@@ -1821,6 +1821,7 @@ function TransactionsPanel({
         title="Цели"
         items={goalsItems}
         rowScroll
+        rowClass="overview-goals-row"
         baseCurrency={baseCurrency}
         onGoalClick={() => {
           setDetailGoalId(null)

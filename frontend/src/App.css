@@ -167,6 +167,11 @@
   padding: var(--tile-pad-y) var(--tile-pad-x);
 }
 
+.overview-goals-row .tile-card--goal {
+  flex: 0 0 calc(var(--tile-w) * 2 + 10px);
+  max-width: calc(var(--tile-w) * 2 + 10px);
+}
+
 .overview-expenses-row {
   display: grid;
   grid-auto-flow: column;
