@@ -805,6 +805,8 @@ function OverviewScreen({
       toAccountName: t.toAccountName ?? null,
       goalId: t.goalId ?? undefined,
       goalName: t.goalName ?? null,
+      debtorId: t.debtorId ?? undefined,
+      debtorName: t.debtorName ?? null,
     }))
     setTransactions(mapped)
   }, [setTransactions, token])
@@ -1181,6 +1183,7 @@ function OverviewScreen({
     if (!txActionId) return
     const txAction = transactions.find((t) => t.id === txActionId)
     const needsGoalsRefresh = Boolean(txAction?.goalId)
+    const needsDebtorsRefresh = Boolean(txAction?.debtorId)
     setTxError(null)
     try {
       setTxLoading(true)
@@ -1189,6 +1192,9 @@ function OverviewScreen({
       await refetchTransactions()
       if (needsGoalsRefresh) {
         await refetchGoals()
+      }
+      if (needsDebtorsRefresh) {
+        await refetchDebtors()
       }
       closeTxSheet()
     } catch (err) {
@@ -1200,7 +1206,7 @@ function OverviewScreen({
       setTxLoading(false)
     }
     })
-  }, [closeTxSheet, refetchAccountsSeq, refetchGoals, refetchTransactions, runDeleteTx, transactions, txActionId])
+  }, [closeTxSheet, refetchAccountsSeq, refetchDebtors, refetchGoals, refetchTransactions, runDeleteTx, transactions, txActionId])
 
   const handleSaveEdit = useCallback(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
@@ -1952,6 +1958,40 @@ function TransactionsPanel({
     },
     [accountNameById],
   )
+  const getDebtTxDebtorName = useCallback((tx: Transaction) => tx.debtorName ?? "Должник", [])
+  const getDebtTxAccountTitle = useCallback(
+    (tx: Transaction) => {
+      if (!tx.debtorId) return null
+      const debtorName = getDebtTxDebtorName(tx)
+      if (tx.type === "transfer") {
+        return `Возврат долга от ${debtorName}`
+      }
+      if (tx.type === "expense") {
+        return `Погашение долга: ${debtorName}`
+      }
+      return null
+    },
+    [getDebtTxDebtorName],
+  )
+  const getDebtTxDebtorLabel = useCallback(
+    (tx: Transaction) => {
+      if (!tx.debtorId) return null
+      if (tx.type === "transfer") {
+        const accountName =
+          tx.toAccountName ??
+          (tx.toAccountId ? accountNameById.get(tx.toAccountId) ?? null : null) ??
+          tx.accountName
+        return accountName ? `На счёт: ${accountName}` : "На счёт"
+      }
+      const sourceAccountId = tx.accountId || tx.fromAccountId
+      const sourceAccountName =
+        tx.accountName ??
+        tx.fromAccountName ??
+        (sourceAccountId ? accountNameById.get(sourceAccountId) ?? null : null)
+      return sourceAccountName ? `Со счёта: ${sourceAccountName}` : "Со счёта"
+    },
+    [accountNameById],
+  )
 
   const displayTransactions = useMemo(() => transactions.filter((t) => t.type !== "adjustment"), [transactions])
 
@@ -2030,6 +2070,8 @@ function TransactionsPanel({
       const title =
         tx.type === "income"
           ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
+          : tx.debtorId
+          ? getDebtTxAccountTitle(tx) ?? "Долг"
           : tx.type === "expense"
           ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
           : tx.goalId
@@ -2037,7 +2079,7 @@ function TransactionsPanel({
           : "Перевод"
       return title.toLowerCase().includes(query) || amountText.includes(query)
     })
-  }, [accountPeriod, accountSearch, accountTx, categoryNameById, detailAccountId, getGoalTransferTitle, incomeSourceNameById])
+  }, [accountPeriod, accountSearch, accountTx, categoryNameById, detailAccountId, getDebtTxAccountTitle, getGoalTransferTitle, incomeSourceNameById])
 
   const filteredCategoryTx = useMemo(() => {
     if (!detailCategoryId) return []
@@ -2127,8 +2169,7 @@ function TransactionsPanel({
     if (!detailDebtorId) return []
     return displayTransactions.filter((tx) => {
       if (tx.type === "adjustment") return false
-      const debtorId = (tx as unknown as { debtorId?: string | null }).debtorId
-      return debtorId === detailDebtorId
+      return tx.debtorId === detailDebtorId
     })
   }, [detailDebtorId, displayTransactions])
 
@@ -2173,11 +2214,11 @@ function TransactionsPanel({
     const query = debtorSearch.trim().toLowerCase()
     if (!query) return filtered
     return filtered.filter((tx) => {
-      const name = tx.accountName ?? "Операция"
+      const name = getDebtTxDebtorLabel(tx) ?? "Операция"
       const amountText = String(Math.abs(tx.amount.amount))
       return name.toLowerCase().includes(query) || amountText.includes(query)
     })
-  }, [accountPeriod, debtorSearch, debtorTx, detailDebtorId])
+  }, [accountPeriod, debtorSearch, debtorTx, detailDebtorId, getDebtTxDebtorLabel])
 
   const groupedDebtorTx = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
@@ -2422,7 +2463,9 @@ function TransactionsPanel({
                     ) : null
                   }}
                   renderRow={(tx, idx) => {
-                    const isIncome = tx.type === "income"
+                    const debtTitle = getDebtTxAccountTitle(tx)
+                    const isDebtIncome = Boolean(tx.debtorId && tx.type === "transfer")
+                    const isIncome = tx.type === "income" || isDebtIncome
                     const isExpense = tx.type === "expense"
                     const sign = isIncome ? "+" : isExpense ? "-" : ""
                     const color = isIncome ? "#16a34a" : "#0f172a"
@@ -2435,7 +2478,9 @@ function TransactionsPanel({
                       >
                         <div style={{ display: "grid", gap: 2 }}>
                           <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>
-                            {tx.type === "income"
+                            {debtTitle
+                              ? debtTitle
+                              : tx.type === "income"
                               ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
                               : tx.type === "expense"
                               ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
@@ -2782,7 +2827,7 @@ function TransactionsPanel({
                       </div>
                     )}
                     renderRow={(tx, idx) => {
-                      const displayName = getGoalTransferSourceLabel(tx)
+                      const displayName = getDebtTxDebtorLabel(tx) ?? "Операция"
                       const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
                       return (
                         <div

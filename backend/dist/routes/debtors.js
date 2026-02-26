@@ -253,6 +253,9 @@ async function debtorsRoutes(fastify, _opts) {
             }
             data.status = body.status;
         }
+        if (direction) {
+            data.direction = direction;
+        }
         const updated = await debtorsModel.update({
             where: { id: debtorId },
             data,

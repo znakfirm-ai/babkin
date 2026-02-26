@@ -21,6 +21,8 @@ type TransactionResponse = {
   incomeSourceId: string | null
   goalId: string | null
   goalName?: string | null
+  debtorId: string | null
+  debtorName?: string | null
 }
 
 async function resolveUserId(request: any, reply: any): Promise<string | null> {
@@ -86,6 +88,8 @@ function mapTx(tx: any): TransactionResponse {
     incomeSourceId: tx.income_source_id ?? null,
     goalId: tx.goal_id ?? null,
     goalName: tx.goal?.name ?? null,
+    debtorId: tx.debtor_id ?? null,
+    debtorName: tx.debtor?.name ?? null,
   }
 }
 
@@ -112,6 +116,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
         from_account: { select: { id: true, name: true } },
         to_account: { select: { id: true, name: true } },
         goal: { select: { id: true, name: true } },
+        debtor: { select: { id: true, name: true } },
       },
     })
 
@@ -139,6 +144,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
       note?: string
       incomeSourceId?: string
       goalId?: string | null
+      debtorId?: string | null
     }
 
     if (!body?.kind || (body.kind !== "income" && body.kind !== "expense" && body.kind !== "transfer")) {
@@ -158,6 +164,13 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
     }
 
     const workspaceId = user.active_workspace_id
+    const debtor = body.debtorId
+      ? await prisma.debtors.findFirst({ where: { id: body.debtorId, workspace_id: workspaceId } })
+      : null
+
+    if (body.debtorId && !debtor) {
+      return reply.status(403).send({ error: "Forbidden", reason: "debtor_not_in_workspace" })
+    }
 
     if (kind === "income" || kind === "expense") {
       if (!body.accountId) {
@@ -178,6 +191,12 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
 
       if (body.incomeSourceId && kind !== "income") {
         return reply.status(400).send({ error: "Bad Request", reason: "income_source_only_for_income" })
+      }
+      if (kind === "income" && body.debtorId) {
+        return reply.status(400).send({ error: "Bad Request", reason: "debtor_income_not_allowed" })
+      }
+      if (kind === "expense" && body.debtorId && debtor?.direction !== "PAYABLE") {
+        return reply.status(400).send({ error: "Bad Request", reason: "invalid_debtor_direction" })
       }
 
       let incomeSourceId: string | null = null
@@ -211,6 +230,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
             account_id: account.id,
             category_id: body.categoryId ?? null,
             income_source_id: incomeSourceId,
+            debtor_id: debtor?.id ?? null,
           },
         })
 
@@ -222,6 +242,44 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
 
     // transfer
     const isGoalTransfer = Boolean(body.goalId) && !body.toAccountId
+    const isDebtorRepayment = Boolean(body.debtorId) && !body.fromAccountId && Boolean(body.toAccountId)
+
+    if (isDebtorRepayment) {
+      if (debtor?.direction !== "RECEIVABLE") {
+        return reply.status(400).send({ error: "Bad Request", reason: "invalid_debtor_direction" })
+      }
+      const to = await prisma.accounts.findFirst({ where: { id: body.toAccountId ?? "", workspace_id: workspaceId } })
+      if (!to) {
+        return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" })
+      }
+
+      const tx = await prisma.$transaction(async (trx) => {
+        await trx.accounts.update({
+          where: { id: to.id },
+          data: { balance: { increment: amount } },
+        })
+
+        const created = await trx.transactions.create({
+          data: {
+            workspace_id: workspaceId,
+            kind,
+            amount,
+            happened_at: happenedAt,
+            note: body.note ?? null,
+            account_id: null,
+            from_account_id: null,
+            to_account_id: to.id,
+            goal_id: null,
+            debtor_id: debtor.id,
+          },
+        })
+
+        return created
+      })
+
+      return reply.send({ transaction: mapTx(tx) })
+    }
+
     if (!body.fromAccountId) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_transfer_accounts" })
     }
@@ -259,6 +317,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
             from_account_id: from.id,
             to_account_id: null,
             goal_id: goal.id,
+            debtor_id: null,
           },
         })
 
@@ -297,6 +356,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
           note: body.note ?? null,
           from_account_id: from.id,
           to_account_id: to.id,
+          debtor_id: null,
         },
       })
 
@@ -350,6 +410,14 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
           await trx.goals.update({
             where: { id: existing.goal_id },
             data: { current_amount: { decrement: amount } },
+          })
+        } else if (existing.debtor_id) {
+          if (!existing.to_account_id) {
+            throw new Error("Transaction missing debtor transfer destination account")
+          }
+          await trx.accounts.update({
+            where: { id: existing.to_account_id },
+            data: { balance: { decrement: amount } },
           })
         } else {
           if (!existing.from_account_id || !existing.to_account_id) {

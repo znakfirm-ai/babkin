@@ -331,6 +331,9 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       }
       data.status = body.status
     }
+    if (direction) {
+      data.direction = direction
+    }
 
     const updated = await debtorsModel.update({
       where: { id: debtorId },
