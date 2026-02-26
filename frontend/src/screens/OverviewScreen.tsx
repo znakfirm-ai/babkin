@@ -1439,8 +1439,8 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
   ]
 
   const debtsItems: CardItem[] = [
-    { id: "debt-bank", title: "Банк", amount: 0, icon: "bank", color: "#ea580c" },
-    { id: "debt-friend", title: "Друзья", amount: 0, icon: "repeat", color: "#1e293b" },
+    { id: "debt-bank", title: "Мне должны", amount: 0, icon: "bank", color: "#ea580c" },
+    { id: "debt-friend", title: "Я должен", amount: 0, icon: "repeat", color: "#1e293b" },
   ]
 
   const addCard = (suffix: string): CardItem => ({
