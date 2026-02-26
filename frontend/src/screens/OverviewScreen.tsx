@@ -343,8 +343,10 @@ type OverviewScreenProps = {
   onConsumeExternalIncomeSource?: () => void
   returnToIncomeReport?: boolean
   onReturnToIncomeReport?: () => void
+  onOpenGoalsList?: () => void
   onOpenReceivables?: () => void
   autoOpenGoalsList?: boolean
+  onConsumeAutoOpenGoalsList?: () => void
   goalsListMode?: "goals" | "debtsReceivable"
 }
 
@@ -359,8 +361,10 @@ function OverviewScreen({
   onConsumeExternalIncomeSource,
   returnToIncomeReport,
   onReturnToIncomeReport,
+  onOpenGoalsList,
   onOpenReceivables,
   autoOpenGoalsList = false,
+  onConsumeAutoOpenGoalsList,
   goalsListMode = "goals",
 }: OverviewScreenProps) {
   const {
@@ -698,12 +702,15 @@ function OverviewScreen({
     }
   }, [goalSheetIntent, isGoalIconPickerOpen])
 
-  const didAutoOpenGoalsListRef = useRef(false)
+  const autoOpenGoalsListInFlightRef = useRef(false)
   useEffect(() => {
-    if (!autoOpenGoalsList || didAutoOpenGoalsListRef.current) return
-    didAutoOpenGoalsListRef.current = true
-    void openGoalsList()
-  }, [autoOpenGoalsList, openGoalsList])
+    if (!autoOpenGoalsList || autoOpenGoalsListInFlightRef.current) return
+    autoOpenGoalsListInFlightRef.current = true
+    void openGoalsList().finally(() => {
+      autoOpenGoalsListInFlightRef.current = false
+      onConsumeAutoOpenGoalsList?.()
+    })
+  }, [autoOpenGoalsList, onConsumeAutoOpenGoalsList, openGoalsList])
 
   useEffect(() => {
     if (externalCategoryId) {
@@ -1844,6 +1851,10 @@ function TransactionsPanel({
         rowClass="overview-goals-row"
         baseCurrency={baseCurrency}
         onGoalClick={() => {
+          if (onOpenGoalsList) {
+            onOpenGoalsList()
+            return
+          }
           setDetailGoalId(null)
           void openGoalsList()
         }}

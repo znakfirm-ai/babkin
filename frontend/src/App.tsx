@@ -21,6 +21,7 @@ import "./App.css"
 
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add" | "icons-preview" | "receivables"
+type GoalsListMode = "goals" | "debtsReceivable"
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
 type ErrorBoundaryState = { hasError: boolean; error: Error | null }
@@ -120,6 +121,8 @@ function App() {
   const [pendingIncomeSourceOpenId, setPendingIncomeSourceOpenId] = useState<string | null>(null)
   const [pendingReturnToIncomeReport, setPendingReturnToIncomeReport] = useState(false)
   const [autoOpenIncomeSheet, setAutoOpenIncomeSheet] = useState(false)
+  const [goalsListMode, setGoalsListMode] = useState<GoalsListMode>("goals")
+  const [autoOpenGoalsList, setAutoOpenGoalsList] = useState(false)
   const [savedIncomeReportState, setSavedIncomeReportState] = useState<{
     periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
     monthOffset: number
@@ -418,10 +421,22 @@ function App() {
               setActiveScreen("reports")
               setAutoOpenIncomeSheet(true)
             }}
+            onOpenGoalsList={() => {
+              setGoalsListMode("goals")
+              setAutoOpenGoalsList(true)
+              setActiveNav("overview")
+              setActiveScreen("overview")
+            }}
             onOpenReceivables={() => {
+              setGoalsListMode("debtsReceivable")
+              setAutoOpenGoalsList(true)
               setActiveNav("overview")
               setActiveScreen("receivables")
             }}
+            autoOpenGoalsList={autoOpenGoalsList}
+            onConsumeAutoOpenGoalsList={() => setAutoOpenGoalsList(false)}
+            goalsListMode={goalsListMode}
+            key={`goals-list-${goalsListMode}`}
           />
         )
       case "receivables":
@@ -447,12 +462,22 @@ function App() {
               setActiveScreen("reports")
               setAutoOpenIncomeSheet(true)
             }}
+            onOpenGoalsList={() => {
+              setGoalsListMode("goals")
+              setAutoOpenGoalsList(true)
+              setActiveNav("overview")
+              setActiveScreen("overview")
+            }}
             onOpenReceivables={() => {
+              setGoalsListMode("debtsReceivable")
+              setAutoOpenGoalsList(true)
               setActiveNav("overview")
               setActiveScreen("receivables")
             }}
-            autoOpenGoalsList
-            goalsListMode="debtsReceivable"
+            autoOpenGoalsList={autoOpenGoalsList}
+            onConsumeAutoOpenGoalsList={() => setAutoOpenGoalsList(false)}
+            goalsListMode={goalsListMode}
+            key={`goals-list-${goalsListMode}`}
           />
         )
       case "add":
@@ -542,6 +567,9 @@ function App() {
               prevScreen.current = activeScreen
               setActiveScreen("quick-add")
             } else {
+              if (key === "overview") {
+                setGoalsListMode("goals")
+              }
               setActiveScreen(key)
             }
           }}
