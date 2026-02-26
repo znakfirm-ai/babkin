@@ -124,6 +124,7 @@ function App() {
   const [autoOpenIncomeSheet, setAutoOpenIncomeSheet] = useState(false)
   const [goalsListMode, setGoalsListMode] = useState<GoalsListMode>("goals")
   const [autoOpenGoalsList, setAutoOpenGoalsList] = useState(false)
+  const [autoOpenGoalCreate, setAutoOpenGoalCreate] = useState(false)
   const [savedIncomeReportState, setSavedIncomeReportState] = useState<{
     periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
     monthOffset: number
@@ -464,6 +465,8 @@ function App() {
             }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => setAutoOpenGoalsList(false)}
+            autoOpenGoalCreate={autoOpenGoalCreate}
+            onConsumeAutoOpenGoalCreate={() => setAutoOpenGoalCreate(false)}
             goalsListMode={goalsListMode}
             key={`goals-list-${goalsListMode}`}
           />
@@ -505,6 +508,8 @@ function App() {
             }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => setAutoOpenGoalsList(false)}
+            autoOpenGoalCreate={autoOpenGoalCreate}
+            onConsumeAutoOpenGoalCreate={() => setAutoOpenGoalCreate(false)}
             goalsListMode={goalsListMode}
             key={`goals-list-${goalsListMode}`}
           />
@@ -513,7 +518,17 @@ function App() {
         prevScreen.current = "overview"
         return <AddScreen />
       case "quick-add":
-        return <QuickAddScreen onClose={() => setActiveScreen(prevScreen.current ?? "overview")} />
+        return (
+          <QuickAddScreen
+            onClose={() => setActiveScreen(prevScreen.current ?? "overview")}
+            onOpenCreateGoal={() => {
+              setGoalsListMode("goals")
+              setAutoOpenGoalCreate(true)
+              setActiveNav("overview")
+              setActiveScreen("overview")
+            }}
+          />
+        )
       case "reports":
         return (
           <ReportsScreen

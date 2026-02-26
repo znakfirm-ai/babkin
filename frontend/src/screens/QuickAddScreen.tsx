@@ -101,9 +101,10 @@ type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 
 type Props = {
   onClose: () => void
+  onOpenCreateGoal?: () => void
 }
 
-export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
+export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) => {
   const { accounts, categories, incomeSources, goals, transactions, setAccounts, setTransactions, setGoals, currency } = useAppStore()
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
   const baseCurrency = normalizeCurrency(currency || "RUB")
@@ -1037,25 +1038,52 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose }) => {
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
-              <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
-                {activeGoals.map((goal) =>
-                  renderTile(
-                    {
-                      id: goal.id,
-                      title: getGoalDisplay(goal.id, activeGoalsById).title,
-                      iconKey: getGoalDisplay(goal.id, activeGoalsById).iconKey ?? null,
-                      amount: goal.currentAmount,
-                      budget: goal.targetAmount,
-                    },
-                    selectedGoalId === goal.id,
-                    "goal",
-                    (id) => {
-                      setSelectedGoalId(id)
-                      setError(null)
-                    },
-                  ),
-                )}
-              </div>
+              {activeGoals.length > 0 ? (
+                <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+                  {activeGoals.map((goal) =>
+                    renderTile(
+                      {
+                        id: goal.id,
+                        title: getGoalDisplay(goal.id, activeGoalsById).title,
+                        iconKey: getGoalDisplay(goal.id, activeGoalsById).iconKey ?? null,
+                        amount: goal.currentAmount,
+                        budget: goal.targetAmount,
+                      },
+                      selectedGoalId === goal.id,
+                      "goal",
+                      (id) => {
+                        setSelectedGoalId(id)
+                        setError(null)
+                      },
+                    ),
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: "grid", justifyItems: "center", gap: 10, padding: "16px 8px" }}>
+                  <div style={{ fontSize: 14, color: "#64748b", textAlign: "center" }}>Нет актуальных целей</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenCreateGoal) {
+                        onOpenCreateGoal()
+                      } else {
+                        onClose()
+                      }
+                    }}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    + Создать цель
+                  </button>
+                </div>
+              )}
             </div>
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>

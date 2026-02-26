@@ -355,6 +355,8 @@ type OverviewScreenProps = {
   onOpenReceivables?: () => void
   autoOpenGoalsList?: boolean
   onConsumeAutoOpenGoalsList?: () => void
+  autoOpenGoalCreate?: boolean
+  onConsumeAutoOpenGoalCreate?: () => void
   goalsListMode?: "goals" | "debtsReceivable"
 }
 
@@ -373,6 +375,8 @@ function OverviewScreen({
   onOpenReceivables,
   autoOpenGoalsList = false,
   onConsumeAutoOpenGoalsList,
+  autoOpenGoalCreate = false,
+  onConsumeAutoOpenGoalCreate,
   goalsListMode = "goals",
 }: OverviewScreenProps) {
   const {
@@ -858,6 +862,24 @@ function OverviewScreen({
       onConsumeAutoOpenGoalsList?.()
     })
   }, [autoOpenGoalsList, onConsumeAutoOpenGoalsList, openGoalsList])
+
+  const autoOpenGoalCreateInFlightRef = useRef(false)
+  useEffect(() => {
+    if (!autoOpenGoalCreate || autoOpenGoalCreateInFlightRef.current) return
+    autoOpenGoalCreateInFlightRef.current = true
+    if (!isDebtsReceivableMode) {
+      setGoalError(null)
+      setGoalName("")
+      setGoalTarget("")
+      setGoalIcon(null)
+      setEditingGoalId(null)
+      setGoalSheetMode("create")
+      setPendingGoalCreate(true)
+      setIsGoalsListOpen(false)
+    }
+    onConsumeAutoOpenGoalCreate?.()
+    autoOpenGoalCreateInFlightRef.current = false
+  }, [autoOpenGoalCreate, isDebtsReceivableMode, onConsumeAutoOpenGoalCreate])
 
   useEffect(() => {
     if (externalCategoryId) {
