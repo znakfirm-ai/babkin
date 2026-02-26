@@ -1,4 +1,4 @@
-import type { Account, Category, Goal, IncomeSource, Transaction } from "../types/finance"
+import type { Account, Category, Debtor, Goal, IncomeSource, Transaction } from "../types/finance"
 import { normalizeCurrency } from "./formatMoney"
 
 const STORAGE_KEY = "finance_app_v1"
@@ -9,6 +9,7 @@ type AppState = {
   incomeSources: IncomeSource[]
   transactions: Transaction[]
   goals: Goal[]
+  debtors: Debtor[]
   currency: string
 }
 
@@ -43,6 +44,17 @@ const isGoal = (value: unknown): value is Goal =>
   typeof value.currentAmount === "number" &&
   (value.status === "active" || value.status === "completed")
 
+const isDebtor = (value: unknown): value is Debtor =>
+  isRecord(value) &&
+  typeof value.id === "string" &&
+  typeof value.name === "string" &&
+  (value.icon === undefined || value.icon === null || typeof value.icon === "string") &&
+  typeof value.issuedDate === "string" &&
+  typeof value.loanAmount === "number" &&
+  typeof value.dueDate === "string" &&
+  typeof value.returnAmount === "number" &&
+  (value.status === "active" || value.status === "completed")
+
 const isTransaction = (value: unknown): value is Transaction => {
   if (!isRecord(value)) return false
 
@@ -69,15 +81,10 @@ const isTransaction = (value: unknown): value is Transaction => {
 
 const isAppState = (value: unknown): value is AppState => {
   if (!isRecord(value)) return false
-  if (
-    !Array.isArray(value.accounts) ||
-    !Array.isArray(value.categories) ||
-    !Array.isArray(value.transactions) ||
-    !Array.isArray(value.incomeSources) ||
-    !Array.isArray(value.goals) ||
-    typeof value.currency !== "string"
-  )
+  if (!Array.isArray(value.accounts) || !Array.isArray(value.categories) || !Array.isArray(value.transactions) || !Array.isArray(value.incomeSources) || !Array.isArray(value.goals) || typeof value.currency !== "string")
     return false
+  const debtorsValid = value.debtors === undefined || (Array.isArray(value.debtors) && value.debtors.every(isDebtor))
+  if (!debtorsValid) return false
 
   return (
     value.accounts.every(isAccount) &&
@@ -94,6 +101,7 @@ const cloneState = (state: AppState): AppState => ({
   incomeSources: state.incomeSources.map((s) => ({ ...s })),
   transactions: state.transactions.map((t) => ({ ...t, amount: { ...t.amount } })),
   goals: state.goals.map((g) => ({ ...g })),
+  debtors: state.debtors.map((d) => ({ ...d })),
   currency: state.currency,
 })
 
@@ -120,7 +128,11 @@ export function loadFromStorage(defaultState: AppState): AppState {
   try {
     const parsed = JSON.parse(raw) as unknown
     if (isAppState(parsed)) {
-      const normalized = { ...parsed, currency: normalizeCurrency(parsed.currency) }
+      const normalized = {
+        ...parsed,
+        debtors: Array.isArray(parsed.debtors) ? parsed.debtors : [],
+        currency: normalizeCurrency(parsed.currency),
+      }
       return cloneState(normalized)
     }
 

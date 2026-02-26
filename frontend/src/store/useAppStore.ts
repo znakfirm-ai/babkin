@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { Account, Category, Goal, IncomeSource, Transaction } from "../types/finance"
+import type { Account, Category, Debtor, Goal, IncomeSource, Transaction } from "../types/finance"
 import { loadFromStorage, saveToStorage } from "../utils/storage"
 import { normalizeCurrency } from "../utils/formatMoney"
 
@@ -12,6 +12,7 @@ type AppState = {
   categories: Category[]
   incomeSources: IncomeSource[]
   goals: Goal[]
+  debtors: Debtor[]
   transactions: Transaction[]
   currency: string
 }
@@ -24,6 +25,7 @@ const defaultState: AppState = {
     { id: "src_business", name: "Бизнес" },
   ],
   goals: [],
+  debtors: [],
   transactions: [],
   currency: "RUB",
 }
@@ -33,6 +35,7 @@ const createDefaultState = (): AppState => ({
   categories: defaultState.categories.map((c) => ({ ...c })),
   incomeSources: defaultState.incomeSources.map((s) => ({ ...s })),
   goals: defaultState.goals.map((g) => ({ ...g })),
+  debtors: defaultState.debtors.map((d) => ({ ...d })),
   transactions: [],
   currency: defaultState.currency,
 })
@@ -126,6 +129,12 @@ export function useAppStore() {
     forceUpdate((x) => x + 1)
   }
 
+  function addDebtor(input: Debtor) {
+    state.debtors = [input, ...state.debtors]
+    saveToStorage(state)
+    forceUpdate((x) => x + 1)
+  }
+
   function setCurrency(currency: string) {
     state.currency = normalizeCurrency(currency)
     saveToStorage(state)
@@ -137,6 +146,7 @@ export function useAppStore() {
     categories: state.categories,
     incomeSources: state.incomeSources,
     goals: state.goals,
+    debtors: state.debtors,
     transactions: state.transactions,
     currency: state.currency,
     addTransaction,
@@ -146,6 +156,7 @@ export function useAppStore() {
     setCategories,
     setIncomeSources,
     setGoals,
+    addDebtor,
     setCurrency,
   }
 }

@@ -34,6 +34,17 @@ export type Goal = {
   status: "active" | "completed"
 }
 
+export type Debtor = {
+  id: string
+  name: string
+  icon?: string | null
+  issuedDate: string
+  loanAmount: number
+  dueDate: string
+  returnAmount: number
+  status: "active" | "completed"
+}
+
 export type TransactionType = "income" | "expense" | "transfer" | "debt" | "adjustment"
 
 export type Transaction = {
