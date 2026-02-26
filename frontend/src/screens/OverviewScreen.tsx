@@ -32,6 +32,8 @@ type CardItem = {
   size?: TileSize
   budget?: number | null
   budgetTone?: "normal" | "warn" | "alert"
+  amountTarget?: number
+  progress?: number
 }
 
 const cardColors = ["#111827", "#166534", "#92400e", "#2563eb", "#b91c1c", "#0f172a"]
@@ -221,6 +223,8 @@ const Section: React.FC<{
                 }
               : item.type === "category" && categoryHighlight
               ? categoryHighlight
+              : item.type === "goal" && !item.isAdd
+              ? { padding: "16px 14px", minHeight: 120 }
               : undefined
 
           return (
@@ -293,6 +297,30 @@ const Section: React.FC<{
                   {formatMoney(item.amount, baseCurrency)}
                   {item.type === "category" && item.budget != null ? (
                     <div style={{ marginTop: 2, fontSize: 9, color: "#6b7280" }}>{formatMoney(item.budget, baseCurrency)}</div>
+                  ) : null}
+                  {item.type === "goal" ? (
+                    <>
+                      <div style={{ marginTop: 4, fontSize: 12, color: "#475569", fontWeight: 600 }}>
+                        {formatMoney(item.amount, baseCurrency)} / {formatMoney(item.amountTarget ?? 0, baseCurrency)}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 8,
+                          height: 6,
+                          borderRadius: 999,
+                          background: "#e5e7eb",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${Math.min(100, Math.max(0, (item.progress ?? 0) * 100))}%`,
+                            height: "100%",
+                            background: "#0f172a",
+                          }}
+                        />
+                      </div>
+                    </>
                   ) : null}
                 </div>
               )}
@@ -1387,7 +1415,27 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
 
   const expenseToRender = [...sizedExpenseItems]
 
-  const goalsItems: CardItem[] = [{ id: "goals-entry", title: "Мои цели", amount: 0, icon: "goal", color: "#0f172a", type: "goal" }]
+  const activeGoals = useMemo(() => goals.filter((g) => g.status === "active"), [goals])
+  const goalsTotals = useMemo(() => {
+    const current = activeGoals.reduce((sum, g) => sum + Number(g.currentAmount ?? 0), 0)
+    const target = activeGoals.reduce((sum, g) => sum + Number(g.targetAmount ?? 0), 0)
+    const progress = target > 0 ? Math.min(1, Math.max(0, current / target)) : 0
+    return { current, target, progress }
+  }, [activeGoals])
+
+  const goalsItems: CardItem[] = [
+    {
+      id: "goals-entry",
+      title: "Мои цели",
+      amount: goalsTotals.current,
+      amountTarget: goalsTotals.target,
+      progress: goalsTotals.progress,
+      icon: "goal",
+      color: "#0f172a",
+      type: "goal",
+      size: "lg",
+    },
+  ]
 
   const debtsItems: CardItem[] = [
     { id: "debt-bank", title: "Банк", amount: 0, icon: "bank", color: "#ea580c" },
