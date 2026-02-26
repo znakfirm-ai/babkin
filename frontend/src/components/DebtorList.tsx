@@ -20,12 +20,24 @@ export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "П
   return (
     <>
       {debtors.map((debtor, idx) => {
+        const paidAmount = 0
         const hasPayoff = debtor.returnAmount > 0
-        const percent = hasPayoff ? Math.min(100, Math.max(0, (debtor.loanAmount / debtor.returnAmount) * 100)) : 0
-        const percentText = !hasPayoff ? "—" : percent > 0 && percent < 1 ? "<1%" : `${Math.round(percent)}%`
+        const percent = hasPayoff ? Math.round((paidAmount / debtor.returnAmount) * 100) : null
+        const progress = hasPayoff ? Math.min(100, Math.max(0, (paidAmount / debtor.returnAmount) * 100)) : 0
         const isLast = idx === debtors.length - 1
-        const formattedPrincipal = formatMoneyIntl(debtor.loanAmount, currency)
+        const formattedPaid = formatMoneyIntl(paidAmount, currency)
         const formattedPayoff = hasPayoff ? formatMoneyIntl(debtor.returnAmount, currency) : "—"
+        const dueDateLabel = (() => {
+          if (!debtor.dueDate) return "До —"
+          const parsed = new Date(`${debtor.dueDate}T00:00:00`)
+          if (Number.isNaN(parsed.getTime())) return "До —"
+          const formatted = new Intl.DateTimeFormat("ru-RU", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }).format(parsed)
+          return `До ${formatted}`
+        })()
 
         return (
           <div
@@ -49,19 +61,19 @@ export const DebtorList: React.FC<DebtorListProps> = ({ debtors, emptyText = "П
                 </span>
                 <span style={{ fontWeight: 600, color: "#0f172a" }}>{debtor.name}</span>
               </span>
-              <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap" }}>{`Выполнено: ${percentText}`}</span>
+              <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap" }}>{dueDateLabel}</span>
             </div>
             <div style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
               <div
                 style={{
                   height: "100%",
-                  width: `${percent}%`,
+                  width: `${progress}%`,
                   background: "#0f172a",
                 }}
               />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#475569" }}>
-              <span>{formattedPrincipal}</span>
+              <span>{`${formattedPaid} (${percent === null ? "—" : `${percent}%`})`}</span>
               <span>{formattedPayoff}</span>
             </div>
           </div>
