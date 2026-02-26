@@ -1415,10 +1415,16 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
 
   const expenseToRender = [...sizedExpenseItems]
 
-  const activeGoals = useMemo(() => goals.filter((g) => g.status !== "completed"), [goals])
+  const activeGoals = useMemo(() => goals.filter((g) => g.status === "active"), [goals])
   const goalsTotals = useMemo(() => {
-    const current = activeGoals.reduce((sum, g) => sum + Number(g.currentAmount ?? 0), 0)
-    const target = activeGoals.reduce((sum, g) => sum + Number(g.targetAmount ?? 0), 0)
+    const current = activeGoals.reduce((sum, g) => {
+      const val = Number(g.currentAmount ?? 0)
+      return Number.isFinite(val) ? sum + val : sum
+    }, 0)
+    const target = activeGoals.reduce((sum, g) => {
+      const val = Number(g.targetAmount ?? 0)
+      return Number.isFinite(val) ? sum + val : sum
+    }, 0)
     const progress = target > 0 ? Math.min(1, Math.max(0, current / target)) : 0
     return { current, target, progress }
   }, [activeGoals])
