@@ -546,7 +546,10 @@ function OverviewScreen({
 
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
-  const filteredGoals = useMemo(() => goals.filter((g) => g.status === goalTab), [goalTab, goals])
+  const filteredGoals = useMemo(() => {
+    if (isDebtsReceivableMode) return []
+    return goals.filter((g) => g.status === goalTab)
+  }, [goalTab, goals, isDebtsReceivableMode])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
   const incomeIconKeys = useMemo(() => {
     const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "income")
@@ -671,15 +674,17 @@ function OverviewScreen({
   }, [])
 
   const openGoalsList = useCallback(async () => {
-    try {
-      await refetchGoals()
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Не удалось загрузить цели"
-      setGoalError(msg)
+    if (!isDebtsReceivableMode) {
+      try {
+        await refetchGoals()
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Не удалось загрузить цели"
+        setGoalError(msg)
+      }
     }
     setIsGoalsListOpen(true)
     setDetailGoalId(null)
-  }, [refetchGoals])
+  }, [isDebtsReceivableMode, refetchGoals])
 
   useEffect(() => {
     if (!isGoalsListOpen && pendingGoalCreate) {
@@ -2490,7 +2495,7 @@ function TransactionsPanel({
         </div>
       )}
 
-      {isGoalSheetOpen && (
+      {!isDebtsReceivableMode && isGoalSheetOpen && (
         <div
           role="dialog"
           aria-modal="true"
@@ -2753,7 +2758,8 @@ function TransactionsPanel({
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   type="button"
-                  onClick={openCreateGoal}
+                  onClick={isDebtsReceivableMode ? undefined : openCreateGoal}
+                  disabled={isDebtsReceivableMode}
                   style={{
                     padding: "8px 12px",
                     borderRadius: 10,
@@ -2761,7 +2767,8 @@ function TransactionsPanel({
                     background: "#f8fafc",
                     fontWeight: 600,
                     color: "#0f172a",
-                    cursor: "pointer",
+                    cursor: isDebtsReceivableMode ? "not-allowed" : "pointer",
+                    opacity: isDebtsReceivableMode ? 0.55 : 1,
                   }}
                 >
                   + Создать
@@ -2818,16 +2825,18 @@ function TransactionsPanel({
 
             <div style={txListContainerStyle}>
               <div style={txScrollableStyle}>
-                <GoalList
-                  goals={filteredGoals}
-                  onSelectGoal={(goal) => {
-                    setDetailGoalId(goal.id)
-                    setIsGoalsListOpen(false)
-                    setGoalSearch("")
-                  }}
-                  emptyText="Пока нет целей"
-                  currency={baseCurrency}
-                />
+                {isDebtsReceivableMode ? <div style={{ minHeight: "100%" }} /> : (
+                  <GoalList
+                    goals={filteredGoals}
+                    onSelectGoal={(goal) => {
+                      setDetailGoalId(goal.id)
+                      setIsGoalsListOpen(false)
+                      setGoalSearch("")
+                    }}
+                    emptyText="Пока нет целей"
+                    currency={baseCurrency}
+                  />
+                )}
               </div>
             </div>
           </div>
