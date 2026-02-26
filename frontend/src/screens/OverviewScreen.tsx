@@ -502,9 +502,7 @@ function OverviewScreen({
     setAccountIcon(null)
   }, [])
 
-  const { incomeSum, expenseSum, incomeBySource, expenseByCategory } = useMemo(() => {
-    let income = 0
-    let expense = 0
+  const { incomeBySource, expenseByCategory } = useMemo(() => {
     const incomeMap = new Map<string, number>()
     const expenseMap = new Map<string, number>()
 
@@ -513,24 +511,34 @@ function OverviewScreen({
       if (tx.type === "transfer") return
 
       if (tx.type === "income") {
-        income += tx.amount.amount
         const key = tx.incomeSourceId ?? "uncategorized"
         incomeMap.set(key, (incomeMap.get(key) ?? 0) + tx.amount.amount)
       }
 
       if (tx.type === "expense") {
-        expense += tx.amount.amount
         const key = tx.categoryId ?? "uncategorized"
         expenseMap.set(key, (expenseMap.get(key) ?? 0) + tx.amount.amount)
       }
     })
 
     return {
-      incomeSum: income,
-      expenseSum: expense,
       incomeBySource: incomeMap,
       expenseByCategory: expenseMap,
     }
+  }, [transactions, currentMonthIndex, currentMonthYear])
+
+  const { monthlyIncomeSum, monthlyExpenseSum } = useMemo(() => {
+    let monthlyIncome = 0
+    let monthlyExpense = 0
+
+    transactions.forEach((tx) => {
+      if (!isCurrentMonth(tx, currentMonthYear, currentMonthIndex)) return
+      if (tx.goalId) return
+      if (tx.type === "income") monthlyIncome += tx.amount.amount
+      if (tx.type === "expense") monthlyExpense += tx.amount.amount
+    })
+
+    return { monthlyIncomeSum: monthlyIncome, monthlyExpenseSum: monthlyExpense }
   }, [transactions, currentMonthIndex, currentMonthYear])
 
   const monthlyGoalInflow = useMemo(
@@ -1792,7 +1800,7 @@ function TransactionsPanel({
         <div className="summary__pill">
           <div className="summary__col">
             <div className="summary__label">РАСХОДЫ</div>
-            <div className="summary__value summary__value--negative">{formatMoney(expenseSum, baseCurrency)}</div>
+            <div className="summary__value summary__value--negative">{formatMoney(monthlyExpenseSum, baseCurrency)}</div>
           </div>
           <div className="summary__col">
             <div className="summary__label">БАЛАНС</div>
@@ -1800,7 +1808,7 @@ function TransactionsPanel({
           </div>
           <div className="summary__col">
             <div className="summary__label">ДОХОДЫ</div>
-            <div className="summary__value summary__value--positive">{formatMoney(incomeSum, baseCurrency)}</div>
+            <div className="summary__value summary__value--positive">{formatMoney(monthlyIncomeSum, baseCurrency)}</div>
           </div>
         </div>
       </section>
