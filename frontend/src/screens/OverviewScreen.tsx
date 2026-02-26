@@ -578,7 +578,7 @@ function OverviewScreen({
     () =>
       transactions.reduce((sum, tx) => {
         const isReceivableRepayment =
-          tx.type === "transfer" && Boolean(tx.debtorId) && Boolean(tx.toAccountId) && !tx.fromAccountId && !tx.goalId
+          tx.type === "transfer" && Boolean(tx.toAccountId) && !tx.fromAccountId && !tx.goalId
         if (!isReceivableRepayment) return sum
         if (!tx.date) return sum
         const timestamp = new Date(tx.date).getTime()
