@@ -11,7 +11,7 @@ import { createCategory, deleteCategory, getCategories, renameCategory } from ".
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { completeGoal, createGoal, getGoals, updateGoal } from "../api/goals"
 import { createDebtor, deleteDebtor, getDebtors, updateDebtor } from "../api/debtors"
-import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
+import { createTransaction, deleteTransaction, getTransactions, type CreateTransactionBody } from "../api/transactions"
 import { useSingleFlight } from "../hooks/useSingleFlight"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
@@ -19,8 +19,6 @@ import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint 
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
-type TxKind = "income" | "expense" | "transfer"
-
 type CardItem = {
   id: string
   title: string
@@ -488,14 +486,8 @@ function OverviewScreen({
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
   const [txLoading, setTxLoading] = useState(false)
-  const [editKind, setEditKind] = useState<TxKind>("expense")
   const [editAmount, setEditAmount] = useState("")
-  const [editAccountId, setEditAccountId] = useState("")
-  const [editToAccountId, setEditToAccountId] = useState("")
-  const [editCategoryId, setEditCategoryId] = useState("")
-  const [editIncomeSourceId, setEditIncomeSourceId] = useState("")
   const [editDate, setEditDate] = useState("")
-  const [editNote, setEditNote] = useState("")
   const isDebtsReceivableMode = goalsListMode === "debtsReceivable"
   const isDebtsPayableMode = goalsListMode === "debtsPayable"
   const isDebtsMode = isDebtsReceivableMode || isDebtsPayableMode
@@ -509,6 +501,7 @@ function OverviewScreen({
   const { run: runIncomeSave, isRunning: isIncomeSaveRunning } = useSingleFlight()
   const { run: runIncomeDelete, isRunning: isIncomeDeleteRunning } = useSingleFlight()
   const { run: runDeleteTx, isRunning: isDeleteTxRunning } = useSingleFlight()
+  const { run: runEditTx, isRunning: isEditTxRunning } = useSingleFlight()
   const { run: runDebtorSave, isRunning: isDebtorSaveRunning } = useSingleFlight()
   const { run: runDebtorDelete, isRunning: isDebtorDeleteRunning } = useSingleFlight()
   const { run: runGoalComplete, isRunning: isGoalCompleteRunning } = useSingleFlight()
@@ -1060,14 +1053,8 @@ function OverviewScreen({
       setTxMode("actions")
       const tx = transactions.find((t) => t.id === id)
       if (tx) {
-        setEditKind((tx.type as TxKind) ?? "expense")
         setEditAmount(String(tx.amount.amount))
-        setEditAccountId(tx.accountId)
-        setEditToAccountId(tx.toAccountId ?? "")
-        setEditCategoryId(tx.categoryId ?? "")
-        setEditIncomeSourceId(tx.incomeSourceId ?? "")
-        setEditDate(tx.date.slice(0, 10))
-        setEditNote(tx.comment ?? "")
+        setEditDate(tx.date.slice(0, 10) || getTodayLocalDate())
       }
     },
     [transactions]
@@ -1208,131 +1195,165 @@ function OverviewScreen({
     })
   }, [closeTxSheet, refetchAccountsSeq, refetchDebtors, refetchGoals, refetchTransactions, runDeleteTx, transactions, txActionId])
 
-  const handleSaveEdit = useCallback(async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-    if (!token) {
-      setTxError("Нет токена")
-      return
-    }
-    if (!txActionId) return
-    const original = transactions.find((t) => t.id === txActionId)
-    const num = Number(editAmount.replace(",", "."))
-    if (!Number.isFinite(num) || num <= 0) {
-      setTxError("Некорректная сумма")
-      return
-    }
-    setTxLoading(true)
-    setTxError(null)
-    try {
-      await deleteTransaction(token, txActionId)
+  const buildEditTransactionPayload = useCallback(
+    (original: Transaction, amount: number, date: string): { payload?: CreateTransactionBody; error?: string } => {
+      const happenedAt = date ? `${date}T00:00:00.000Z` : original.date
+      const note = original.comment ?? null
 
-      if (editKind === "transfer") {
-        if (!editAccountId || !editToAccountId || editAccountId === editToAccountId) {
-          setTxError("Укажите разные счета")
-          setTxLoading(false)
-          return
+      if (original.type === "transfer") {
+        if (original.goalId) {
+          const fromAccountId = original.fromAccountId ?? original.accountId
+          if (!fromAccountId) {
+            return { error: "Не удалось определить счёт источника" }
+          }
+          return {
+            payload: {
+              kind: "transfer",
+              amount,
+              fromAccountId,
+              goalId: original.goalId ?? null,
+              happenedAt,
+              note,
+            },
+          }
         }
-        await createTransaction(token, {
-          kind: "transfer",
-          amount: num,
-          fromAccountId: editAccountId,
-          toAccountId: editToAccountId,
-          happenedAt: editDate || undefined,
-          note: editNote || null,
-        })
-      } else if (editKind === "income") {
-        if (!editAccountId) {
-          setTxError("Укажите счет")
-          setTxLoading(false)
-          return
+
+        if (original.debtorId) {
+          const toAccountId = original.toAccountId ?? original.accountId
+          if (!toAccountId) {
+            return { error: "Не удалось определить счёт зачисления" }
+          }
+          return {
+            payload: {
+              kind: "transfer",
+              amount,
+              toAccountId,
+              debtorId: original.debtorId ?? null,
+              happenedAt,
+              note,
+            },
+          }
         }
-        await createTransaction(token, {
-          kind: "income",
-          amount: num,
-          accountId: editAccountId,
-          incomeSourceId: editIncomeSourceId || null,
-          happenedAt: editDate || undefined,
-          note: editNote || null,
-        })
-      } else {
-        if (!editAccountId) {
-          setTxError("Укажите счет")
-          setTxLoading(false)
-          return
+
+        const fromAccountId = original.fromAccountId ?? original.accountId
+        if (!fromAccountId || !original.toAccountId || fromAccountId === original.toAccountId) {
+          return { error: "Не удалось определить счета перевода" }
         }
-        await createTransaction(token, {
+        return {
+          payload: {
+            kind: "transfer",
+            amount,
+            fromAccountId,
+            toAccountId: original.toAccountId,
+            happenedAt,
+            note,
+          },
+        }
+      }
+
+      if (original.type === "income") {
+        if (!original.accountId) {
+          return { error: "Не удалось определить счёт" }
+        }
+        return {
+          payload: {
+            kind: "income",
+            amount,
+            accountId: original.accountId,
+            incomeSourceId: original.incomeSourceId ?? null,
+            happenedAt,
+            note,
+          },
+        }
+      }
+
+      if (!original.accountId) {
+        return { error: "Не удалось определить счёт" }
+      }
+      return {
+        payload: {
           kind: "expense",
-          amount: num,
-          accountId: editAccountId,
-          categoryId: editCategoryId || null,
-          happenedAt: editDate || undefined,
-          note: editNote || null,
-        })
+          amount,
+          accountId: original.accountId,
+          categoryId: original.categoryId ?? null,
+          debtorId: original.debtorId ?? null,
+          happenedAt,
+          note,
+        },
       }
+    },
+    [],
+  )
 
-      await refetchAccountsSeq()
-      await refetchTransactions()
-      if (original?.goalId) {
-        await refetchGoals()
-      }
-      closeTxSheet()
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        setTxLoading(false)
+  const handleSaveEdit = useCallback(() => {
+    return runEditTx(async () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+      if (!token) {
+        setTxError("Нет токена")
         return
       }
-      const message = err instanceof Error ? err.message : "Не удалось сохранить"
-      if (original && /5\d\d/.test(message)) {
-        try {
-          if (original.type === "transfer") {
-            await createTransaction(token, {
-              kind: "transfer",
-              amount: original.amount.amount,
-              fromAccountId: original.accountId,
-              toAccountId: original.toAccountId ?? "",
-              happenedAt: original.date,
-              note: original.comment ?? null,
-            })
-          } else if (original.type === "income") {
-            await createTransaction(token, {
-              kind: "income",
-              amount: original.amount.amount,
-              accountId: original.accountId,
-              incomeSourceId: original.incomeSourceId ?? null,
-              happenedAt: original.date,
-              note: original.comment ?? null,
-            })
-          } else {
-            await createTransaction(token, {
-              kind: "expense",
-              amount: original.amount.amount,
-              accountId: original.accountId,
-              categoryId: original.categoryId ?? null,
-              happenedAt: original.date,
-              note: original.comment ?? null,
-            })
-          }
-        } catch {
-          // best-effort restore
-        }
+      if (!txActionId) return
+      const original = transactions.find((t) => t.id === txActionId)
+      if (!original) {
+        setTxError("Операция не найдена")
+        return
       }
-      setTxError(message)
-    } finally {
-      setTxLoading(false)
-    }
+      const num = Number(editAmount.replace(",", "."))
+      if (!Number.isFinite(num) || num <= 0) {
+        setTxError("Некорректная сумма")
+        return
+      }
+      const normalizedAmount = Math.round(num * 100) / 100
+      const { payload, error } = buildEditTransactionPayload(original, normalizedAmount, editDate)
+      if (!payload) {
+        setTxError(error ?? "Не удалось подготовить операцию")
+        return
+      }
+
+      setTxLoading(true)
+      setTxError(null)
+      try {
+        await deleteTransaction(token, txActionId)
+        await createTransaction(token, payload)
+        await refetchAccountsSeq()
+        await refetchTransactions()
+        if (original.goalId) {
+          await refetchGoals()
+        }
+        if (original.debtorId) {
+          await refetchDebtors()
+        }
+        closeTxSheet()
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return
+        }
+        const message = err instanceof Error ? err.message : "Не удалось сохранить"
+        if (/5\d\d/.test(message)) {
+          const restore = buildEditTransactionPayload(original, original.amount.amount, original.date.slice(0, 10))
+          if (restore.payload) {
+            try {
+              await createTransaction(token, restore.payload)
+            } catch {
+              // best-effort restore
+            }
+          }
+        }
+        setTxError(message)
+      } finally {
+        setTxLoading(false)
+      }
+    })
   }, [
+    buildEditTransactionPayload,
     closeTxSheet,
-    editAccountId,
     editAmount,
-    editCategoryId,
     editDate,
-    editIncomeSourceId,
-    editKind,
-    editNote,
-    editToAccountId,
     refetchAccountsSeq,
+    refetchDebtors,
     refetchGoals,
     refetchTransactions,
+    runEditTx,
     transactions,
     txActionId,
   ])
@@ -4195,25 +4216,12 @@ function TransactionsPanel({
                 <div style={{ fontSize: 16, fontWeight: 600 }}>Редактировать операцию</div>
                 {txError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{txError}</div> : null}
                 <label style={{ display: "grid", gap: 4 }}>
-                  <span style={{ fontSize: 13, color: "#4b5563" }}>Тип</span>
-                  <select
-                    value={editKind}
-                    onChange={(e) => setEditKind(e.target.value as TxKind)}
-                    style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                    disabled={txLoading}
-                  >
-                    <option value="expense">Расход</option>
-                    <option value="income">Доход</option>
-                    <option value="transfer">Перевод</option>
-                  </select>
-                </label>
-                <label style={{ display: "grid", gap: 4 }}>
                   <span style={{ fontSize: 13, color: "#4b5563" }}>Сумма</span>
                   <input
                     value={editAmount}
                     onChange={(e) => setEditAmount(e.target.value)}
                     inputMode="decimal"
-                    disabled={txLoading}
+                    disabled={txLoading || isEditTxRunning}
                     style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
                   />
                 </label>
@@ -4223,110 +4231,7 @@ function TransactionsPanel({
                     type="date"
                     value={editDate}
                     onChange={(e) => setEditDate(e.target.value)}
-                    disabled={txLoading}
-                    style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                  />
-                </label>
-
-                {editKind === "transfer" ? (
-                  <>
-                    <label style={{ display: "grid", gap: 4 }}>
-                      <span style={{ fontSize: 13, color: "#4b5563" }}>Со счёта</span>
-                      <select
-                        value={editAccountId}
-                        onChange={(e) => setEditAccountId(e.target.value)}
-                        disabled={txLoading || accounts.length < 1}
-                        style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                      >
-                        {accounts.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label style={{ display: "grid", gap: 4 }}>
-                      <span style={{ fontSize: 13, color: "#4b5563" }}>На счёт</span>
-                      <select
-                        value={editToAccountId}
-                        onChange={(e) => setEditToAccountId(e.target.value)}
-                        disabled={txLoading || accounts.length < 2}
-                        style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                      >
-                        {accounts
-                          .filter((a) => a.id !== editAccountId)
-                          .map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.name}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                  </>
-                ) : (
-                  <label style={{ display: "grid", gap: 4 }}>
-                    <span style={{ fontSize: 13, color: "#4b5563" }}>Счёт</span>
-                    <select
-                      value={editAccountId}
-                      onChange={(e) => setEditAccountId(e.target.value)}
-                      disabled={txLoading || accounts.length === 0}
-                      style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                    >
-                      {accounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-
-                {editKind === "expense" ? (
-                  <label style={{ display: "grid", gap: 4 }}>
-                    <span style={{ fontSize: 13, color: "#4b5563" }}>Категория</span>
-                    <select
-                      value={editCategoryId}
-                      onChange={(e) => setEditCategoryId(e.target.value)}
-                      disabled={txLoading}
-                      style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                    >
-                      <option value="">Без категории</option>
-                      {categories
-                        .filter((c) => c.type === "expense")
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                ) : null}
-
-                {editKind === "income" ? (
-                  <label style={{ display: "grid", gap: 4 }}>
-                    <span style={{ fontSize: 13, color: "#4b5563" }}>Источник дохода</span>
-                    <select
-                      value={editIncomeSourceId}
-                      onChange={(e) => setEditIncomeSourceId(e.target.value)}
-                      disabled={txLoading}
-                      style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                    >
-                      <option value="">Без источника</option>
-                      {incomeSources.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
-                <label style={{ display: "grid", gap: 4 }}>
-                  <span style={{ fontSize: 13, color: "#4b5563" }}>Комментарий</span>
-                  <input
-                    value={editNote}
-                    onChange={(e) => setEditNote(e.target.value)}
-                    disabled={txLoading}
+                    disabled={txLoading || isEditTxRunning}
                     style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
                   />
                 </label>
@@ -4335,12 +4240,14 @@ function TransactionsPanel({
                   <button
                     type="button"
                     onClick={closeTxSheet}
+                    disabled={txLoading || isEditTxRunning}
                     style={{
                       padding: 12,
                       borderRadius: 12,
                       border: "1px solid #e5e7eb",
                       background: "#fff",
                       flex: 1,
+                      cursor: txLoading || isEditTxRunning ? "not-allowed" : "pointer",
                     }}
                   >
                     Отмена
@@ -4348,18 +4255,18 @@ function TransactionsPanel({
                   <button
                     type="button"
                     onClick={handleSaveEdit}
-                    disabled={txLoading}
+                    disabled={txLoading || isEditTxRunning}
                     style={{
                       padding: 12,
                       borderRadius: 12,
                       border: "1px solid #0f172a",
-                      background: txLoading ? "#e5e7eb" : "#0f172a",
-                      color: txLoading ? "#6b7280" : "#fff",
+                      background: txLoading || isEditTxRunning ? "#e5e7eb" : "#0f172a",
+                      color: txLoading || isEditTxRunning ? "#6b7280" : "#fff",
                       flex: 1,
-                      cursor: txLoading ? "not-allowed" : "pointer",
+                      cursor: txLoading || isEditTxRunning ? "not-allowed" : "pointer",
                     }}
                   >
-                    {txLoading ? "Сохраняем…" : "Сохранить"}
+                    {txLoading || isEditTxRunning ? "Сохраняем…" : "Сохранить"}
                   </button>
                 </div>
               </div>
