@@ -150,6 +150,66 @@ async function goalsRoutes(fastify, _opts) {
         });
         return reply.send({ goal: mapGoal(updated) });
     });
+    fastify.post("/goals/:id/complete", async (request, reply) => {
+        const userId = await resolveUserId(request, reply);
+        if (!userId)
+            return;
+        const user = await prisma_1.prisma.users.findUnique({ where: { id: userId }, select: { active_workspace_id: true } });
+        if (!user?.active_workspace_id) {
+            return reply.status(400).send({ error: "No active workspace" });
+        }
+        const goalId = request.params.id;
+        if (!goalId) {
+            return reply.status(400).send({ error: "Bad Request", reason: "missing_goal_id" });
+        }
+        const body = request.body;
+        if (!body.destinationAccountId) {
+            return reply.status(400).send({ error: "Bad Request", reason: "missing_destination_account_id" });
+        }
+        const workspaceId = user.active_workspace_id;
+        const goal = await prisma_1.prisma.goals.findFirst({ where: { id: goalId, workspace_id: workspaceId } });
+        if (!goal) {
+            return reply.status(404).send({ error: "Not Found", reason: "goal_not_found" });
+        }
+        const destinationAccount = await prisma_1.prisma.accounts.findFirst({
+            where: { id: body.destinationAccountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
+        });
+        if (!destinationAccount) {
+            return reply.status(404).send({ error: "Not Found", reason: "account_not_found" });
+        }
+        const amountDec = new client_1.Prisma.Decimal(goal.current_amount);
+        const updatedGoal = await prisma_1.prisma.$transaction(async (tx) => {
+            if (amountDec.greaterThan(0)) {
+                await tx.accounts.update({
+                    where: { id: destinationAccount.id },
+                    data: { balance: { increment: amountDec } },
+                });
+                await tx.transactions.create({
+                    data: {
+                        workspace_id: workspaceId,
+                        kind: "transfer",
+                        amount: amountDec,
+                        happened_at: new Date(),
+                        account_id: null,
+                        from_account_id: null,
+                        to_account_id: destinationAccount.id,
+                        category_id: null,
+                        income_source_id: null,
+                        goal_id: goal.id,
+                        note: null,
+                    },
+                });
+            }
+            return tx.goals.update({
+                where: { id: goal.id },
+                data: {
+                    status: "completed",
+                    completed_at: new Date(),
+                },
+            });
+        });
+        return reply.send({ goal: mapGoal(updatedGoal) });
+    });
     fastify.post("/goals/:id/contribute", async (request, reply) => {
         const userId = await resolveUserId(request, reply);
         if (!userId)

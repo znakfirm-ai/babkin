@@ -9,7 +9,7 @@ import { DebtorList } from "../components/DebtorList"
 import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccountBalance } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
-import { createGoal, getGoals, updateGoal } from "../api/goals"
+import { completeGoal, createGoal, getGoals, updateGoal } from "../api/goals"
 import { createDebtor, deleteDebtor, getDebtors, updateDebtor } from "../api/debtors"
 import { createTransaction, deleteTransaction, getTransactions } from "../api/transactions"
 import { useSingleFlight } from "../hooks/useSingleFlight"
@@ -431,6 +431,9 @@ function OverviewScreen({
   const [detailGoalId, setDetailGoalId] = useState<string | null>(null)
   const [detailDebtorId, setDetailDebtorId] = useState<string | null>(null)
   const [goalSearch, setGoalSearch] = useState("")
+  const [isGoalCompleteSheetOpen, setIsGoalCompleteSheetOpen] = useState(false)
+  const [isGoalCompleteAccountPickerOpen, setIsGoalCompleteAccountPickerOpen] = useState(false)
+  const [goalCompleteAccountId, setGoalCompleteAccountId] = useState<string | null>(null)
   const [debtorSearch, setDebtorSearch] = useState("")
   const [isGoalSheetOpen, setIsGoalSheetOpen] = useState(false)
   const [goalName, setGoalName] = useState("")
@@ -494,6 +497,7 @@ function OverviewScreen({
   const { run: runDeleteTx, isRunning: isDeleteTxRunning } = useSingleFlight()
   const { run: runDebtorSave, isRunning: isDebtorSaveRunning } = useSingleFlight()
   const { run: runDebtorDelete, isRunning: isDebtorDeleteRunning } = useSingleFlight()
+  const { run: runGoalComplete, isRunning: isGoalCompleteRunning } = useSingleFlight()
 
   const applyCustomRange = useCallback(() => {
     if (!customFromDraft || !customToDraft) return
@@ -575,6 +579,10 @@ function OverviewScreen({
     return debtors.filter((d) => d.status === goalTab)
   }, [debtors, goalTab, isDebtsReceivableMode])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
+  const goalCompleteAccount = useMemo(
+    () => accounts.find((account) => account.id === goalCompleteAccountId) ?? null,
+    [accounts, goalCompleteAccountId],
+  )
   const detailDebtor = useMemo(() => debtors.find((d) => d.id === detailDebtorId) ?? null, [debtors, detailDebtorId])
   const incomeIconKeys = useMemo(() => {
     const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "income")
@@ -1029,6 +1037,9 @@ function OverviewScreen({
   }, [])
 
   const closeDetails = useCallback(() => {
+    setIsGoalCompleteSheetOpen(false)
+    setIsGoalCompleteAccountPickerOpen(false)
+    setGoalCompleteAccountId(null)
     setDetailAccountId(null)
     setDetailCategoryId(null)
     setDetailIncomeSourceId(null)
@@ -1087,6 +1098,36 @@ function OverviewScreen({
       setPendingOpenGoalsList(true)
     })
   }, [closeDetails, detailDebtorId, refetchDebtors, runDebtorDelete, token])
+
+  const handleCompleteGoalWithAccount = useCallback(() => {
+    return runGoalComplete(async () => {
+      if (!token || !detailGoalId || !goalCompleteAccountId) return
+      try {
+        setGoalError(null)
+        await completeGoal(token, detailGoalId, goalCompleteAccountId)
+        await refetchAccountsSeq()
+        await refetchTransactions()
+        await refetchGoals()
+        closeDetails()
+        setPendingOpenGoalsList(true)
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return
+        }
+        const msg = err instanceof Error ? err.message : "Не удалось завершить цель"
+        setGoalError(msg)
+      }
+    })
+  }, [
+    closeDetails,
+    detailGoalId,
+    goalCompleteAccountId,
+    refetchAccountsSeq,
+    refetchGoals,
+    refetchTransactions,
+    runGoalComplete,
+    token,
+  ])
 
   const handleDeleteTx = useCallback(() => {
     return runDeleteTx(async () => {
@@ -1743,7 +1784,7 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
   const summaryBalance = useMemo(
     () =>
       accounts.reduce((sum, acc) => sum + acc.balance.amount, 0) +
-      goals.reduce((sum, goal) => sum + goal.currentAmount, 0),
+      goals.reduce((sum, goal) => sum + (goal.status === "active" ? goal.currentAmount : 0), 0),
     [accounts, goals],
   )
 const accountNameById = useMemo(() => {
@@ -2863,20 +2904,10 @@ function TransactionsPanel({
                     </button>
                     <button
                       type="button"
-                      onClick={async () => {
-                        if (!token || !detailGoalId) return
-                        setIsSavingGoal(true)
-                        try {
-                          await updateGoal(token, detailGoalId, { status: "completed" })
-                          await refetchGoals()
-                          closeDetails()
-                          setPendingOpenGoalsList(true)
-                        } catch (err) {
-                          const msg = err instanceof Error ? err.message : "Не удалось завершить цель"
-                          setGoalError(msg)
-                        } finally {
-                          setIsSavingGoal(false)
-                        }
+                      onClick={() => {
+                        setGoalCompleteAccountId(null)
+                        setIsGoalCompleteAccountPickerOpen(false)
+                        setIsGoalCompleteSheetOpen(true)
                       }}
                       style={{
                         flex: 1,
@@ -2921,6 +2952,183 @@ function TransactionsPanel({
           </div>
         </div>
       )}
+
+      {isGoalCompleteSheetOpen && detailGoal && !isDebtsReceivableMode ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => {
+            setIsGoalCompleteSheetOpen(false)
+            setIsGoalCompleteAccountPickerOpen(false)
+            setGoalCompleteAccountId(null)
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 59,
+            padding: "12px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 520,
+              width: "100%",
+              margin: "0 auto",
+              background: "#fff",
+              borderRadius: 18,
+              padding: 16,
+              boxShadow: "none",
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>На какой счёт перевести накопления?</div>
+            <button
+              type="button"
+              onClick={() => setIsGoalCompleteAccountPickerOpen(true)}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                color: "#0f172a",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <span style={{ fontSize: 15 }}>
+                {goalCompleteAccount ? goalCompleteAccount.name : "Выберите счёт"}
+              </span>
+              <span style={{ fontSize: 14, color: "#6b7280" }}>▾</span>
+            </button>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsGoalCompleteSheetOpen(false)
+                  setIsGoalCompleteAccountPickerOpen(false)
+                  setGoalCompleteAccountId(null)
+                }}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  color: "#0f172a",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                disabled={isGoalCompleteRunning || !goalCompleteAccountId}
+                onClick={() => void handleCompleteGoalWithAccount()}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: isGoalCompleteRunning || !goalCompleteAccountId ? "#e5e7eb" : "#0f172a",
+                  color: isGoalCompleteRunning || !goalCompleteAccountId ? "#6b7280" : "#fff",
+                  fontWeight: 700,
+                  cursor: isGoalCompleteRunning || !goalCompleteAccountId ? "not-allowed" : "pointer",
+                }}
+              >
+                {isGoalCompleteRunning ? "Переводим…" : "Перевести и завершить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isGoalCompleteAccountPickerOpen && isGoalCompleteSheetOpen && detailGoal && !isDebtsReceivableMode ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 60,
+            padding: "0 12px 12px",
+          }}
+          onClick={() => setIsGoalCompleteAccountPickerOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              margin: "0 auto",
+              background: "#fff",
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: 16,
+              boxShadow: "none",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выберите счёт</div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {accounts.map((acc) => (
+                <button
+                  key={acc.id}
+                  type="button"
+                  onClick={() => {
+                    setGoalCompleteAccountId(acc.id)
+                    setIsGoalCompleteAccountPickerOpen(false)
+                  }}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: goalCompleteAccountId === acc.id ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                    background: "#fff",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {acc.name}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsGoalCompleteAccountPickerOpen(false)}
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              Назад
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {isDebtsReceivableMode && isDebtorSheetOpen ? (
         <div
