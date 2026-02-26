@@ -455,7 +455,7 @@ function OverviewScreen({
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
   const isDebtsReceivableMode = goalsListMode === "debtsReceivable"
-  const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : "Мои цели"
+  const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : "Список целей"
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
   const { run: runCategorySave, isRunning: isCategorySaveRunning } = useSingleFlight()
