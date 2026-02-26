@@ -68,6 +68,16 @@ const parseAmount = (value) => {
         return null;
     return parsed;
 };
+const parseDirection = (value) => {
+    if (!value)
+        return null;
+    const normalized = value.trim().toUpperCase();
+    if (normalized === "RECEIVABLE")
+        return "RECEIVABLE";
+    if (normalized === "PAYABLE")
+        return "PAYABLE";
+    return null;
+};
 const mapDebtor = (d) => ({
     id: d.id,
     name: d.name,
@@ -77,6 +87,7 @@ const mapDebtor = (d) => ({
     dueAt: d.due_at ? d.due_at.toISOString() : null,
     payoffAmount: d.payoff_amount ? d.payoff_amount.toString() : null,
     status: d.status,
+    direction: d.direction === "PAYABLE" ? "payable" : "receivable",
     createdAt: d.created_at.toISOString(),
     updatedAt: d.updated_at.toISOString(),
 });
@@ -93,11 +104,17 @@ async function debtorsRoutes(fastify, _opts) {
         if (!user?.active_workspace_id) {
             return reply.status(400).send({ error: "No active workspace" });
         }
-        const status = request.query.status;
+        const query = request.query;
+        const status = query.status;
+        const direction = parseDirection(query.direction);
+        if (query.direction !== undefined && !direction) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" });
+        }
         const debtors = await debtorsModel.findMany({
             where: {
                 workspace_id: user.active_workspace_id,
                 ...(status === "active" || status === "completed" ? { status } : {}),
+                ...(direction ? { direction } : {}),
             },
             orderBy: { created_at: "desc" },
         });
@@ -135,6 +152,10 @@ async function debtorsRoutes(fastify, _opts) {
         if (payoffAmount !== null && payoffAmount < 0) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_payoff_amount" });
         }
+        const direction = parseDirection(body.direction ?? "RECEIVABLE");
+        if (!direction) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" });
+        }
         const created = await debtorsModel.create({
             data: {
                 workspace_id: user.active_workspace_id,
@@ -145,6 +166,7 @@ async function debtorsRoutes(fastify, _opts) {
                 due_at: dueAt,
                 payoff_amount: payoffAmount === null ? null : new client_1.Prisma.Decimal(payoffAmount),
                 status: body.status === "completed" ? "completed" : "active",
+                direction,
             },
         });
         return reply.send({ debtor: mapDebtor(created) });
@@ -161,13 +183,21 @@ async function debtorsRoutes(fastify, _opts) {
         if (!debtorId) {
             return reply.status(400).send({ error: "Bad Request", reason: "missing_id" });
         }
+        const body = request.body;
+        const direction = body.direction ? parseDirection(body.direction) : null;
+        if (body.direction !== undefined && !direction) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" });
+        }
         const existing = await debtorsModel.findFirst({
-            where: { id: debtorId, workspace_id: user.active_workspace_id },
+            where: {
+                id: debtorId,
+                workspace_id: user.active_workspace_id,
+                ...(direction ? { direction } : {}),
+            },
         });
         if (!existing) {
             return reply.status(404).send({ error: "Not Found" });
         }
-        const body = request.body;
         const data = {};
         if (body.name !== undefined) {
             const name = body.name.trim();
@@ -241,8 +271,17 @@ async function debtorsRoutes(fastify, _opts) {
         if (!debtorId) {
             return reply.status(400).send({ error: "Bad Request", reason: "missing_id" });
         }
+        const query = request.query;
+        const direction = parseDirection(query.direction);
+        if (query.direction !== undefined && !direction) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" });
+        }
         const existing = await debtorsModel.findFirst({
-            where: { id: debtorId, workspace_id: user.active_workspace_id },
+            where: {
+                id: debtorId,
+                workspace_id: user.active_workspace_id,
+                ...(direction ? { direction } : {}),
+            },
             select: { id: true },
         });
         if (!existing) {

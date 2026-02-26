@@ -14,6 +14,7 @@ type DebtorResponse = {
   dueAt: string | null
   payoffAmount: string | null
   status: "active" | "completed"
+  direction: "receivable" | "payable"
   createdAt: string
   updatedAt: string
 }
@@ -27,6 +28,7 @@ type DebtorRecord = {
   due_at: Date | null
   payoff_amount: Prisma.Decimal | null
   status: "active" | "completed"
+  direction: "RECEIVABLE" | "PAYABLE"
   created_at: Date
   updated_at: Date
 }
@@ -103,6 +105,14 @@ const parseAmount = (value: string | number | null | undefined): number | null =
   return parsed
 }
 
+const parseDirection = (value: string | undefined | null): "RECEIVABLE" | "PAYABLE" | null => {
+  if (!value) return null
+  const normalized = value.trim().toUpperCase()
+  if (normalized === "RECEIVABLE") return "RECEIVABLE"
+  if (normalized === "PAYABLE") return "PAYABLE"
+  return null
+}
+
 const mapDebtor = (d: DebtorRecord): DebtorResponse => ({
   id: d.id,
   name: d.name,
@@ -112,6 +122,7 @@ const mapDebtor = (d: DebtorRecord): DebtorResponse => ({
   dueAt: d.due_at ? d.due_at.toISOString() : null,
   payoffAmount: d.payoff_amount ? d.payoff_amount.toString() : null,
   status: d.status,
+  direction: d.direction === "PAYABLE" ? "payable" : "receivable",
   createdAt: d.created_at.toISOString(),
   updatedAt: d.updated_at.toISOString(),
 })
@@ -131,11 +142,17 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       return reply.status(400).send({ error: "No active workspace" })
     }
 
-    const status = (request.query as { status?: string }).status
+    const query = request.query as { status?: string; direction?: string }
+    const status = query.status
+    const direction = parseDirection(query.direction)
+    if (query.direction !== undefined && !direction) {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" })
+    }
     const debtors = await debtorsModel.findMany({
       where: {
         workspace_id: user.active_workspace_id,
         ...(status === "active" || status === "completed" ? { status } : {}),
+        ...(direction ? { direction } : {}),
       },
       orderBy: { created_at: "desc" },
     })
@@ -160,6 +177,7 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       dueAt?: string | null
       payoffAmount?: string | number | null
       status?: "active" | "completed"
+      direction?: "receivable" | "payable" | "RECEIVABLE" | "PAYABLE"
     }
 
     const name = body?.name?.trim()
@@ -190,6 +208,11 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_payoff_amount" })
     }
 
+    const direction = parseDirection(body.direction ?? "RECEIVABLE")
+    if (!direction) {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" })
+    }
+
     const created = await debtorsModel.create({
       data: {
         workspace_id: user.active_workspace_id,
@@ -200,6 +223,7 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
         due_at: dueAt,
         payoff_amount: payoffAmount === null ? null : new Prisma.Decimal(payoffAmount),
         status: body.status === "completed" ? "completed" : "active",
+        direction,
       },
     })
 
@@ -220,13 +244,6 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       return reply.status(400).send({ error: "Bad Request", reason: "missing_id" })
     }
 
-    const existing = await debtorsModel.findFirst({
-      where: { id: debtorId, workspace_id: user.active_workspace_id },
-    })
-    if (!existing) {
-      return reply.status(404).send({ error: "Not Found" })
-    }
-
     const body = request.body as {
       name?: string
       icon?: string | null
@@ -235,6 +252,23 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       dueAt?: string | null
       payoffAmount?: string | number | null
       status?: "active" | "completed"
+      direction?: "receivable" | "payable" | "RECEIVABLE" | "PAYABLE"
+    }
+
+    const direction = body.direction ? parseDirection(body.direction) : null
+    if (body.direction !== undefined && !direction) {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" })
+    }
+
+    const existing = await debtorsModel.findFirst({
+      where: {
+        id: debtorId,
+        workspace_id: user.active_workspace_id,
+        ...(direction ? { direction } : {}),
+      },
+    })
+    if (!existing) {
+      return reply.status(404).send({ error: "Not Found" })
     }
 
     const data: Record<string, unknown> = {}
@@ -320,8 +354,18 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       return reply.status(400).send({ error: "Bad Request", reason: "missing_id" })
     }
 
+    const query = request.query as { direction?: string }
+    const direction = parseDirection(query.direction)
+    if (query.direction !== undefined && !direction) {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" })
+    }
+
     const existing = await debtorsModel.findFirst({
-      where: { id: debtorId, workspace_id: user.active_workspace_id },
+      where: {
+        id: debtorId,
+        workspace_id: user.active_workspace_id,
+        ...(direction ? { direction } : {}),
+      },
       select: { id: true },
     })
     if (!existing) {

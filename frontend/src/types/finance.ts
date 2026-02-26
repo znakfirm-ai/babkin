@@ -43,6 +43,7 @@ export type Debtor = {
   dueDate: string
   returnAmount: number
   status: "active" | "completed"
+  direction: "receivable" | "payable"
 }
 
 export type TransactionType = "income" | "expense" | "transfer" | "debt" | "adjustment"

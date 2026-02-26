@@ -7,6 +7,7 @@ export type DebtorDto = {
   dueAt: string | null
   payoffAmount: string | null
   status: "active" | "completed"
+  direction: "receivable" | "payable"
   createdAt: string
   updatedAt: string
 }
@@ -15,8 +16,14 @@ export type GetDebtorsResponse = {
   debtors: DebtorDto[]
 }
 
-export async function getDebtors(token: string, status?: "active" | "completed"): Promise<GetDebtorsResponse> {
-  const query = status ? `?status=${status}` : ""
+export async function getDebtors(
+  token: string,
+  params?: { status?: "active" | "completed"; direction?: "receivable" | "payable" },
+): Promise<GetDebtorsResponse> {
+  const search = new URLSearchParams()
+  if (params?.status) search.set("status", params.status)
+  if (params?.direction) search.set("direction", params.direction)
+  const query = search.toString() ? `?${search.toString()}` : ""
   const res = await fetch(`https://babkin.onrender.com/api/v1/debtors${query}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -39,6 +46,7 @@ export async function createDebtor(
     dueAt?: string | null
     payoffAmount?: number | null
     status?: "active" | "completed"
+    direction: "receivable" | "payable"
   },
 ) {
   const res = await fetch("https://babkin.onrender.com/api/v1/debtors", {
@@ -55,6 +63,7 @@ export async function createDebtor(
       dueAt: input.dueAt ?? null,
       payoffAmount: input.payoffAmount ?? null,
       status: input.status ?? "active",
+      direction: input.direction,
     }),
   })
   if (!res.ok) {
@@ -75,6 +84,7 @@ export async function updateDebtor(
     dueAt?: string | null
     payoffAmount?: number | null
     status?: "active" | "completed"
+    direction?: "receivable" | "payable"
   },
 ) {
   const res = await fetch(`https://babkin.onrender.com/api/v1/debtors/${id}`, {
@@ -92,8 +102,9 @@ export async function updateDebtor(
   return (await res.json()) as { debtor: DebtorDto }
 }
 
-export async function deleteDebtor(token: string, id: string) {
-  const res = await fetch(`https://babkin.onrender.com/api/v1/debtors/${id}`, {
+export async function deleteDebtor(token: string, id: string, direction?: "receivable" | "payable") {
+  const query = direction ? `?direction=${direction}` : ""
+  const res = await fetch(`https://babkin.onrender.com/api/v1/debtors/${id}${query}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,

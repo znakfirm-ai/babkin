@@ -296,6 +296,7 @@ function App() {
           dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
           returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
           status: d.status,
+          direction: d.direction ?? "receivable",
         })),
       )
 
@@ -390,6 +391,7 @@ function App() {
           dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
           returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
           status: d.status,
+          direction: d.direction ?? "receivable",
         })),
       )
 

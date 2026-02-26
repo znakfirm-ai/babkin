@@ -500,6 +500,7 @@ function OverviewScreen({
   const isDebtsPayableMode = goalsListMode === "debtsPayable"
   const isDebtsMode = isDebtsReceivableMode || isDebtsPayableMode
   const isGoalsMode = goalsListMode === "goals"
+  const currentDebtorDirection: "receivable" | "payable" = isDebtsPayableMode ? "payable" : "receivable"
   const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : isDebtsPayableMode ? "Я должен" : "Список целей"
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
@@ -589,8 +590,8 @@ function OverviewScreen({
   }, [goalTab, goals, isDebtsMode])
   const filteredDebtors = useMemo(() => {
     if (!isDebtsMode) return []
-    return debtors.filter((d) => d.status === goalTab)
-  }, [debtors, goalTab, isDebtsMode])
+    return debtors.filter((d) => d.direction === currentDebtorDirection && d.status === goalTab)
+  }, [currentDebtorDirection, debtors, goalTab, isDebtsMode])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
   const goalCompleteAccount = useMemo(
     () => accounts.find((account) => account.id === goalCompleteAccountId) ?? null,
@@ -755,7 +756,7 @@ function OverviewScreen({
 
   const refetchDebtors = useCallback(async () => {
     if (!token) return
-    const data = await getDebtors(token)
+    const data = await getDebtors(token, { direction: currentDebtorDirection })
     const mapped: Debtor[] = data.debtors.map((d) => ({
       id: d.id,
       name: d.name,
@@ -765,9 +766,10 @@ function OverviewScreen({
       dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
       returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
       status: d.status,
+      direction: d.direction ?? currentDebtorDirection,
     }))
     setDebtors(mapped)
-  }, [setDebtors, token])
+  }, [currentDebtorDirection, setDebtors, token])
 
   const refetchAccountsSeq = useCallback(async () => {
     if (!token) return
@@ -1132,12 +1134,12 @@ function OverviewScreen({
   const handleDeleteDebtorFromDetails = useCallback(() => {
     return runDebtorDelete(async () => {
       if (!token || !detailDebtorId) return
-      await deleteDebtor(token, detailDebtorId)
+      await deleteDebtor(token, detailDebtorId, currentDebtorDirection)
       await refetchDebtors()
       closeDetails()
       setPendingOpenGoalsList(true)
     })
-  }, [closeDetails, detailDebtorId, refetchDebtors, runDebtorDelete, token])
+  }, [closeDetails, currentDebtorDirection, detailDebtorId, refetchDebtors, runDebtorDelete, token])
 
   const handleCompleteGoalWithAccount = useCallback(() => {
     return runGoalComplete(async () => {
@@ -1495,6 +1497,7 @@ function OverviewScreen({
           dueAt: debtorReturnDate || null,
           payoffAmount: Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null,
           status: "active",
+          direction: currentDebtorDirection,
         })
       } else {
         await createDebtor(token, {
@@ -1505,6 +1508,7 @@ function OverviewScreen({
           dueAt: debtorReturnDate || null,
           payoffAmount: Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null,
           status: "active",
+          direction: currentDebtorDirection,
         })
       }
       await refetchDebtors()
@@ -1521,6 +1525,7 @@ function OverviewScreen({
     debtorReturnDate,
     debtorSheetMode,
     editingDebtorId,
+    currentDebtorDirection,
     refetchDebtors,
     runDebtorSave,
     token,
