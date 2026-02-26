@@ -169,6 +169,7 @@ const Section: React.FC<{
   onAccountClick?: (id: string, title: string) => void
   onIncomeSourceClick?: (id: string, title: string) => void
   onGoalClick?: (id: string, title: string) => void
+  onDebtReceivableClick?: () => void
   baseCurrency: string
 }> = ({
   title,
@@ -182,6 +183,7 @@ const Section: React.FC<{
   onAccountClick,
   onIncomeSourceClick,
   onGoalClick,
+  onDebtReceivableClick,
   baseCurrency,
 }) => {
   const listClass = rowScroll
@@ -240,6 +242,7 @@ const Section: React.FC<{
                 if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "goal") onGoalClick?.(item.id, item.title)
+                if (!item.isAdd && item.id === "debt-bank") onDebtReceivableClick?.()
               }}
               onKeyDown={(e) => {
                 if (e.key !== "Enter" && e.key !== " ") return
@@ -250,6 +253,7 @@ const Section: React.FC<{
                 if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "goal") onGoalClick?.(item.id, item.title)
+                if (!item.isAdd && item.id === "debt-bank") onDebtReceivableClick?.()
               }}
             >
               <div
@@ -1829,7 +1833,16 @@ function TransactionsPanel({
           void openGoalsList()
         }}
       />
-      <Section title="Долги / Кредиты" items={[...debtsItems, addCard("debts")]} rowScroll baseCurrency={baseCurrency} />
+      <Section
+        title="Долги / Кредиты"
+        items={[...debtsItems, addCard("debts")]}
+        rowScroll
+        baseCurrency={baseCurrency}
+        onDebtReceivableClick={() => {
+          setDetailGoalId(null)
+          void openGoalsList()
+        }}
+      />
 
       {(detailAccountId || detailCategoryId || detailIncomeSourceId || detailGoalId) && (
         <div
