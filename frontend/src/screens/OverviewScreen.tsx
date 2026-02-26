@@ -56,12 +56,6 @@ const accountColorOptions = [
   "#9ca3af", // muted gray
 ]
 
-const getCurrentMonthTag = () => {
-  const now = new Date()
-  const month = String(now.getMonth() + 1).padStart(2, "0")
-  return `${now.getFullYear()}-${month}`
-}
-
 const MONTH_NAMES = [
   "январь",
   "февраль",
@@ -160,7 +154,11 @@ const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRi
   )
 }
 
-const isCurrentMonth = (tx: Transaction, currentTag: string) => tx.date.slice(0, 7) === currentTag
+const isCurrentMonth = (tx: Transaction, year: number, monthIndex: number) => {
+  const date = new Date(tx.date)
+  if (Number.isNaN(date.getTime())) return false
+  return date.getFullYear() === year && date.getMonth() === monthIndex
+}
 const isGoalContributionTx = (tx: Transaction) => tx.type === "transfer" && Boolean(tx.goalId) && Boolean(tx.fromAccountId ?? tx.accountId) && !tx.toAccountId
 
 const Section: React.FC<{
@@ -450,7 +448,9 @@ function OverviewScreen({
   const [editIncomeSourceId, setEditIncomeSourceId] = useState("")
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
-  const currentMonthTag = getCurrentMonthTag()
+  const currentDate = new Date()
+  const currentMonthYear = currentDate.getFullYear()
+  const currentMonthIndex = currentDate.getMonth()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
   const { run: runCategorySave, isRunning: isCategorySaveRunning } = useSingleFlight()
   const { run: runCategoryDelete, isRunning: isCategoryDeleteRunning } = useSingleFlight()
@@ -509,7 +509,7 @@ function OverviewScreen({
     const expenseMap = new Map<string, number>()
 
     transactions.forEach((tx) => {
-      if (!isCurrentMonth(tx, currentMonthTag)) return
+      if (!isCurrentMonth(tx, currentMonthYear, currentMonthIndex)) return
       if (tx.type === "transfer") return
 
       if (tx.type === "income") {
@@ -531,17 +531,17 @@ function OverviewScreen({
       incomeBySource: incomeMap,
       expenseByCategory: expenseMap,
     }
-  }, [transactions, currentMonthTag])
+  }, [transactions, currentMonthIndex, currentMonthYear])
 
   const monthlyGoalInflow = useMemo(
     () =>
       transactions.reduce((sum, tx) => {
-        if (!isCurrentMonth(tx, currentMonthTag)) return sum
+        if (!isCurrentMonth(tx, currentMonthYear, currentMonthIndex)) return sum
         if (!isGoalContributionTx(tx)) return sum
         const amount = Number(tx.amount.amount ?? 0)
         return Number.isFinite(amount) ? sum + Math.abs(amount) : sum
       }, 0),
-    [transactions, currentMonthTag],
+    [transactions, currentMonthIndex, currentMonthYear],
   )
 
   const monthLabel = useMemo(() => {
