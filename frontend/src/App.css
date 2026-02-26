@@ -118,6 +118,10 @@
   font-weight: 500;
 }
 
+.tile-card--goal {
+  grid-column: span 2;
+}
+
 .tile-card--category .tile-card__amount {
   font-size: 14px;
   font-weight: 700;

@@ -224,7 +224,7 @@ const Section: React.FC<{
               : item.type === "category" && categoryHighlight
               ? categoryHighlight
               : item.type === "goal" && !item.isAdd
-              ? { padding: "16px 14px", minHeight: 120, gridColumn: "span 2" }
+              ? { padding: "16px 14px", minHeight: 120 }
               : undefined
 
           return (
@@ -300,7 +300,7 @@ const Section: React.FC<{
                   ) : null}
                   {item.type === "goal" ? (
                     <>
-                      <div style={{ marginTop: 4, fontSize: 10, color: "#475569", fontWeight: 600 }}>
+                      <div style={{ marginTop: 4, fontSize: 9, color: "#475569", fontWeight: 600 }}>
                         {formatMoney(item.amount, baseCurrency)} / {formatMoney(item.amountTarget ?? 0, baseCurrency)}
                       </div>
                       <div
