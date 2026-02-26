@@ -4,6 +4,7 @@ import { getAccounts } from "./api/accounts"
 import { getCategories } from "./api/categories"
 import { getIncomeSources } from "./api/incomeSources"
 import { getTransactions } from "./api/transactions"
+import { getGoals } from "./api/goals"
 import HomeScreen from "./screens/HomeScreen"
 import OverviewScreen from "./screens/OverviewScreen"
 import AddScreen from "./screens/AddScreen"
@@ -127,7 +128,7 @@ function App() {
     customTo: string
     singleDay: string
   } | null>(null)
-  const { setAccounts, setCategories, setIncomeSources, setTransactions } = useAppStore()
+  const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals } = useAppStore()
 
   interface TelegramWebApp {
     ready(): void
@@ -264,14 +265,26 @@ function App() {
         const catData = await getCategories(token)
         setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null })))
 
-        const incData = await getIncomeSources(token)
-        setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })))
+      const incData = await getIncomeSources(token)
+      setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })))
 
-        const txData = await getTransactions(token)
-        setTransactions(
-          txData.transactions.map((t) => ({
-            id: t.id,
-            type: t.kind,
+      const goalsData = await getGoals(token)
+      setGoals(
+        goalsData.goals.map((g) => ({
+          id: g.id,
+          name: g.name,
+          icon: g.icon,
+          targetAmount: Number(g.targetAmount),
+          currentAmount: Number(g.currentAmount),
+          status: g.status,
+        }))
+      )
+
+      const txData = await getTransactions(token)
+      setTransactions(
+        txData.transactions.map((t) => ({
+          id: t.id,
+          type: t.kind,
             amount: {
               amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
               currency: "RUB",
@@ -332,6 +345,18 @@ function App() {
 
       const incData = await getIncomeSources(appToken)
       setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })))
+
+      const goalsData = await getGoals(appToken)
+      setGoals(
+        goalsData.goals.map((g) => ({
+          id: g.id,
+          name: g.name,
+          icon: g.icon,
+          targetAmount: Number(g.targetAmount),
+          currentAmount: Number(g.currentAmount),
+          status: g.status,
+        }))
+      )
 
       const txData = await getTransactions(appToken)
       setTransactions(
