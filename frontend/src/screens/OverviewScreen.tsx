@@ -491,6 +491,7 @@ function OverviewScreen({
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
   const isDebtsReceivableMode = goalsListMode === "debtsReceivable"
+  const isGoalsMode = goalsListMode === "goals"
   const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : "Список целей"
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
@@ -3887,38 +3888,40 @@ function TransactionsPanel({
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => setGoalTab("active")}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: goalTab === "active" ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                  background: goalTab === "active" ? "#0f172a" : "#f8fafc",
-                  color: goalTab === "active" ? "#fff" : "#0f172a",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {isDebtsReceivableMode ? "Текущие должники" : "Активные цели"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setGoalTab("completed")}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: goalTab === "completed" ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                  background: goalTab === "completed" ? "#0f172a" : "#f8fafc",
-                  color: goalTab === "completed" ? "#fff" : "#0f172a",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {isDebtsReceivableMode ? "Выплачено" : "Завершенные цели"}
-              </button>
-            </div>
+            {isGoalsMode ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setGoalTab("active")}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: goalTab === "active" ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                    background: goalTab === "active" ? "#0f172a" : "#f8fafc",
+                    color: goalTab === "active" ? "#fff" : "#0f172a",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Активные цели
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGoalTab("completed")}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: goalTab === "completed" ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                    background: goalTab === "completed" ? "#0f172a" : "#f8fafc",
+                    color: goalTab === "completed" ? "#fff" : "#0f172a",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Завершенные цели
+                </button>
+              </div>
+            ) : null}
 
             <div style={txListContainerStyle}>
               <div style={txScrollableStyle}>
