@@ -910,6 +910,14 @@ function OverviewScreen({
   }, [externalIncomeSourceId, incomeSources, onConsumeExternalIncomeSource])
 
   useEffect(() => {
+    if (!isDebtsPayableMode || !isDebtorSheetOpen) return
+    const activeElement = typeof document !== "undefined" ? document.activeElement : null
+    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+      activeElement.blur()
+    }
+  }, [isDebtorSheetOpen, isDebtsPayableMode])
+
+  useEffect(() => {
     if (!isAccountSheetOpen && accountSheetIntent === "openAccountIconPicker") {
       setIsAccountIconPickerOpen(true)
       setAccountSheetIntent(null)
@@ -3206,10 +3214,12 @@ function TransactionsPanel({
             inset: 0,
             background: "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isDebtsPayableMode ? "flex-end" : "center",
             justifyContent: "center",
             zIndex: 59,
-            padding: "12px",
+            padding: isDebtsPayableMode
+              ? "12px 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)"
+              : "12px",
           }}
         >
           <div
@@ -3225,6 +3235,11 @@ function TransactionsPanel({
               display: "flex",
               flexDirection: "column",
               gap: 12,
+              maxHeight: isDebtsPayableMode
+                ? "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)"
+                : undefined,
+              overflowY: isDebtsPayableMode ? "auto" : undefined,
+              WebkitOverflowScrolling: isDebtsPayableMode ? "touch" : undefined,
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
