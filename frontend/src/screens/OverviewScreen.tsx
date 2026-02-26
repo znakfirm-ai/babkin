@@ -344,6 +344,8 @@ type OverviewScreenProps = {
   returnToIncomeReport?: boolean
   onReturnToIncomeReport?: () => void
   onOpenReceivables?: () => void
+  autoOpenGoalsList?: boolean
+  goalsListTitle?: string
 }
 
 function OverviewScreen({
@@ -358,6 +360,8 @@ function OverviewScreen({
   returnToIncomeReport,
   onReturnToIncomeReport,
   onOpenReceivables,
+  autoOpenGoalsList = false,
+  goalsListTitle = "Мои цели",
 }: OverviewScreenProps) {
   const {
     accounts,
@@ -691,6 +695,13 @@ function OverviewScreen({
       setGoalSheetIntent(null)
     }
   }, [goalSheetIntent, isGoalIconPickerOpen])
+
+  const didAutoOpenGoalsListRef = useRef(false)
+  useEffect(() => {
+    if (!autoOpenGoalsList || didAutoOpenGoalsListRef.current) return
+    didAutoOpenGoalsListRef.current = true
+    void openGoalsList()
+  }, [autoOpenGoalsList, openGoalsList])
 
   useEffect(() => {
     if (externalCategoryId) {
@@ -2655,7 +2666,7 @@ function TransactionsPanel({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>Мои цели</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   type="button"

@@ -14,7 +14,6 @@ import IconPreviewScreen from "./screens/IconPreviewScreen"
 import ReportsScreen from "./screens/ReportsScreen"
 import SummaryReportScreen from "./screens/SummaryReportScreen"
 import ExpensesByCategoryScreen from "./screens/ExpensesByCategoryScreen"
-import ReceivablesScreen from "./screens/ReceivablesScreen"
 import BottomNav from "./BottomNav"
 import type { NavItem } from "./BottomNav"
 import "./BottomNav.css"
@@ -426,7 +425,36 @@ function App() {
           />
         )
       case "receivables":
-        return <ReceivablesScreen onBack={() => setActiveScreen("overview")} />
+        return (
+          <OverviewScreen
+            overviewError={overviewError}
+            onRetryOverview={retryOverviewData}
+            externalCategoryId={pendingCategoryOpenId}
+            onConsumeExternalCategory={() => setPendingCategoryOpenId(null)}
+            returnToReport={pendingReturnToReport}
+            onReturnToReport={() => {
+              setPendingReturnToReport(false)
+              setActiveNav("reports")
+              setActiveScreen("reports")
+              setAutoOpenExpensesSheet(true)
+            }}
+            externalIncomeSourceId={pendingIncomeSourceOpenId}
+            onConsumeExternalIncomeSource={() => setPendingIncomeSourceOpenId(null)}
+            returnToIncomeReport={pendingReturnToIncomeReport}
+            onReturnToIncomeReport={() => {
+              setPendingReturnToIncomeReport(false)
+              setActiveNav("reports")
+              setActiveScreen("reports")
+              setAutoOpenIncomeSheet(true)
+            }}
+            onOpenReceivables={() => {
+              setActiveNav("overview")
+              setActiveScreen("receivables")
+            }}
+            autoOpenGoalsList
+            goalsListTitle="Мне должны"
+          />
+        )
       case "add":
         prevScreen.current = "overview"
         return <AddScreen />
