@@ -242,7 +242,7 @@ const Section: React.FC<{
                 if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "goal") onGoalClick?.(item.id, item.title)
-                if (!item.isAdd && item.id === "debt-bank") onDebtReceivableClick?.()
+                if (!item.isAdd && (item.id === "debt-bank" || item.title === "Мне должны")) onDebtReceivableClick?.()
               }}
               onKeyDown={(e) => {
                 if (e.key !== "Enter" && e.key !== " ") return
@@ -253,7 +253,7 @@ const Section: React.FC<{
                 if (!item.isAdd && item.type === "account") onAccountClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "income-source") onIncomeSourceClick?.(item.id, item.title)
                 if (!item.isAdd && item.type === "goal") onGoalClick?.(item.id, item.title)
-                if (!item.isAdd && item.id === "debt-bank") onDebtReceivableClick?.()
+                if (!item.isAdd && (item.id === "debt-bank" || item.title === "Мне должны")) onDebtReceivableClick?.()
               }}
             >
               <div
