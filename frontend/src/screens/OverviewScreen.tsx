@@ -5,6 +5,7 @@ import "./OverviewScreen.css"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, FINANCE_ICON_SECTIONS, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { GoalList } from "../components/GoalList"
+import { DebtorList } from "../components/DebtorList"
 import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccountBalance } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
@@ -3455,41 +3456,11 @@ function TransactionsPanel({
             <div style={txListContainerStyle}>
               <div style={txScrollableStyle}>
                 {isDebtsReceivableMode ? (
-                  filteredDebtors.length === 0 ? (
-                    <div style={{ color: "#6b7280", fontSize: 14, padding: "8px 0" }}>Пока нет должников</div>
-                  ) : (
-                    <div style={{ display: "grid", gap: 10 }}>
-                      {filteredDebtors.map((debtor) => (
-                        <div
-                          key={debtor.id}
-                          style={{
-                            padding: 12,
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 12,
-                            background: "#fff",
-                            display: "grid",
-                            gap: 6,
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                              {debtor.icon && isFinanceIconKey(debtor.icon) ? <FinanceIcon iconKey={debtor.icon} size="sm" /> : null}
-                              <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {debtor.name}
-                              </div>
-                            </div>
-                            <div style={{ fontSize: 12, color: "#64748b" }}>
-                              {debtor.dueDate ? `до ${debtor.dueDate}` : "без даты возврата"}
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#475569" }}>
-                            <span>{formatMoney(debtor.loanAmount, baseCurrency)}</span>
-                            <span>{formatMoney(debtor.returnAmount, baseCurrency)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
+                  <DebtorList
+                    debtors={filteredDebtors}
+                    emptyText="Пока нет должников"
+                    currency={baseCurrency}
+                  />
                 ) : (
                   <GoalList
                     goals={filteredGoals}
