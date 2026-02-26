@@ -442,7 +442,7 @@ const incomeBySource = useMemo(() => {
   )
 
   const ensureGoalsLoaded = useCallback(async () => {
-    if (goals.length > 0 || !token || goalsFetchInFlight.current) return
+    if (!token || goalsFetchInFlight.current) return
     goalsFetchInFlight.current = true
     try {
       const data = await getGoals(token)
@@ -460,7 +460,7 @@ const incomeBySource = useMemo(() => {
     } finally {
       goalsFetchInFlight.current = false
     }
-  }, [goals.length, setGoals, token])
+  }, [setGoals, token])
 
   useEffect(() => {
     if (activeTab === "goal") {
@@ -648,6 +648,7 @@ const incomeBySource = useMemo(() => {
           goalId: (t as { goalId?: string | null }).goalId ?? undefined,
         })),
       )
+      await ensureGoalsLoaded()
       onClose()
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось сохранить"
