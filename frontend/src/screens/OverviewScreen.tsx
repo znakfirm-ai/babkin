@@ -345,7 +345,7 @@ type OverviewScreenProps = {
   onReturnToIncomeReport?: () => void
   onOpenReceivables?: () => void
   autoOpenGoalsList?: boolean
-  goalsListTitle?: string
+  goalsListMode?: "goals" | "debtsReceivable"
 }
 
 function OverviewScreen({
@@ -361,7 +361,7 @@ function OverviewScreen({
   onReturnToIncomeReport,
   onOpenReceivables,
   autoOpenGoalsList = false,
-  goalsListTitle = "Мои цели",
+  goalsListMode = "goals",
 }: OverviewScreenProps) {
   const {
     accounts,
@@ -454,6 +454,8 @@ function OverviewScreen({
   const [editIncomeSourceId, setEditIncomeSourceId] = useState("")
   const [editDate, setEditDate] = useState("")
   const [editNote, setEditNote] = useState("")
+  const isDebtsReceivableMode = goalsListMode === "debtsReceivable"
+  const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : "Мои цели"
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
   const { run: runCategorySave, isRunning: isCategorySaveRunning } = useSingleFlight()

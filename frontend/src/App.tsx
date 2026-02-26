@@ -452,7 +452,7 @@ function App() {
               setActiveScreen("receivables")
             }}
             autoOpenGoalsList
-            goalsListTitle="Мне должны"
+            goalsListMode="debtsReceivable"
           />
         )
       case "add":
