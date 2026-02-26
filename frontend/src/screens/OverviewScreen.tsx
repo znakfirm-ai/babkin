@@ -569,6 +569,27 @@ function OverviewScreen({
       }, 0),
     [currentMonthPoint.monthIndex, currentMonthPoint.year, transactions],
   )
+  const currentMonthRange = useMemo(() => {
+    const start = new Date(currentMonthPoint.year, currentMonthPoint.monthIndex, 1)
+    const next = new Date(currentMonthPoint.year, currentMonthPoint.monthIndex + 1, 1)
+    return { startMs: start.getTime(), nextMs: next.getTime() }
+  }, [currentMonthPoint.monthIndex, currentMonthPoint.year])
+  const monthlyReceivableRepayment = useMemo(
+    () =>
+      transactions.reduce((sum, tx) => {
+        const isReceivableRepayment =
+          tx.type === "transfer" && Boolean(tx.debtorId) && Boolean(tx.toAccountId) && !tx.fromAccountId && !tx.goalId
+        if (!isReceivableRepayment) return sum
+        if (!tx.date) return sum
+        const timestamp = new Date(tx.date).getTime()
+        if (!Number.isFinite(timestamp) || timestamp < currentMonthRange.startMs || timestamp >= currentMonthRange.nextMs) {
+          return sum
+        }
+        const amount = Number(tx.amount.amount ?? 0)
+        return Number.isFinite(amount) ? sum + Math.abs(amount) : sum
+      }, 0),
+    [currentMonthRange.nextMs, currentMonthRange.startMs, transactions],
+  )
 
   const monthLabel = useMemo(() => {
     const now = new Date()
@@ -1862,7 +1883,7 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
   ]
 
   const debtsItems: CardItem[] = [
-    { id: "debt-bank", title: "Мне должны", amount: 0, icon: "bank", color: "#ea580c" },
+    { id: "debt-bank", title: "Мне должны", amount: monthlyReceivableRepayment, icon: "bank", color: "#ea580c" },
     { id: "debt-friend", title: "Я должен", amount: 0, icon: "repeat", color: "#1e293b" },
   ]
 
