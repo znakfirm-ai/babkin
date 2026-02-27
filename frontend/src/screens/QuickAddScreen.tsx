@@ -153,6 +153,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [visualViewportShift, setVisualViewportShift] = useState(0)
+  const [footerBasePx, setFooterBasePx] = useState(56)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
@@ -163,8 +164,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
   const visualViewportShiftRef = useRef(0)
-  const hasKeyboardRef = useRef(false)
-  const viewportShiftLastRawRef = useRef(0)
+  const footerBasePxRef = useRef(56)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
@@ -261,9 +261,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     () =>
       ({
         "--qa-vv-shift": `${visualViewportShift}px`,
+        "--qa-footer-base": `${footerBasePx}px`,
         "--qa-footer-h": "136px",
       }) as CSSProperties,
-    [visualViewportShift],
+    [footerBasePx, visualViewportShift],
   )
   const stickyFooterStyle = useMemo(
     () =>
@@ -275,7 +276,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         position: "fixed",
         left: "max(16px, calc((100vw - 480px) / 2 + 16px))",
         right: "max(16px, calc((100vw - 480px) / 2 + 16px))",
-        bottom: "env(safe-area-inset-bottom,0px)",
+        bottom: "calc(env(safe-area-inset-bottom,0px) + var(--qa-footer-base, 0px))",
         transform: "translateY(var(--qa-vv-shift))",
         zIndex: 8,
         background: "#f5f6f8",
@@ -443,22 +444,32 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       visualViewportShiftRef.current = nextShift
       setVisualViewportShift(nextShift)
     }
+    const applyFooterBase = (nextBase: number) => {
+      if (Math.abs(nextBase - footerBasePxRef.current) < 1) return
+      footerBasePxRef.current = nextBase
+      setFooterBasePx(nextBase)
+    }
 
     const updateVisualViewportShift = () => {
       const innerHeight = window.innerHeight
       const viewportDelta = innerHeight - viewport.height
+      const bottomNavRaw = getComputedStyle(document.documentElement).getPropertyValue("--bottom-nav-height")
+      const bottomNavPx = Number.parseFloat(bottomNavRaw) || 56
+      const keyboardOpen = viewportDelta >= 120
       const keyboardClosed = viewportDelta < 40
-      const rawShift = -Math.round(Math.max(0, viewportDelta))
-      viewportShiftLastRawRef.current = rawShift
 
       if (keyboardClosed) {
-        hasKeyboardRef.current = false
+        applyFooterBase(bottomNavPx)
         applyShift(0)
         return
       }
 
-      hasKeyboardRef.current = true
-      applyShift(rawShift)
+      if (keyboardOpen) {
+        applyFooterBase(0)
+        const rawShift = -Math.round(Math.max(0, viewportDelta))
+        applyShift(rawShift)
+        return
+      }
     }
 
     updateVisualViewportShift()
