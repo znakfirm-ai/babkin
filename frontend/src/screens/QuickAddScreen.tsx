@@ -153,6 +153,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [transferDate, setTransferDate] = useState(() => getTodayLocalDate())
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [keyboardInsetPx, setKeyboardInsetPx] = useState(0)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
@@ -162,6 +163,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
+  const lastKeyboardInsetRef = useRef(0)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
@@ -408,6 +410,33 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       setShowDebtPayableScrollHint(false)
     }
   }, [debtPayableListScrolled])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const viewport = window.visualViewport
+    if (!viewport) {
+      if (lastKeyboardInsetRef.current === 0) return
+      lastKeyboardInsetRef.current = 0
+      setKeyboardInsetPx(0)
+      return
+    }
+
+    const updateKeyboardInset = () => {
+      const nextInset = Math.max(0, Math.round(window.innerHeight - viewport.height))
+      if (Math.abs(nextInset - lastKeyboardInsetRef.current) < 2) return
+      lastKeyboardInsetRef.current = nextInset
+      setKeyboardInsetPx(nextInset)
+    }
+
+    updateKeyboardInset()
+    viewport.addEventListener("resize", updateKeyboardInset)
+    viewport.addEventListener("scroll", updateKeyboardInset)
+
+    return () => {
+      viewport.removeEventListener("resize", updateKeyboardInset)
+      viewport.removeEventListener("scroll", updateKeyboardInset)
+    }
+  }, [])
 
   const isEditableElement = (element: Element | null): element is HTMLElement =>
     element instanceof HTMLElement && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable)
@@ -1151,7 +1180,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         onPointerUp={handleDismissPointerUp}
         onPointerCancel={handleDismissPointerCancel}
         style={{
-          paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
+          paddingBottom: `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + ${keyboardInsetPx}px)`,
           overflowY: "auto",
           overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
