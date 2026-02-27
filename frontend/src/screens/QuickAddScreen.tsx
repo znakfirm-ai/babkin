@@ -746,7 +746,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       ? Boolean(transferFromAccountId && transferToAccountId && transferFromAccountId !== transferToAccountId && transferAmountNumber > 0)
       : transferTargetType === "goal"
       ? Boolean(transferFromAccountId && selectedGoalId && transferAmountNumber > 0)
-      : false
+      : Boolean(transferFromAccountId && selectedPayableDebtorId && transferAmountNumber > 0)
   const goalReady = Boolean(selectedAccountId && selectedGoalId && Number(amount.replace(",", ".")) > 0)
   const debtReady = Boolean(
     selectedDebtAccountId &&
@@ -1282,6 +1282,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                       direction="payable"
                       emptyText="Нет актуальных долгов"
                       selectedDebtorId={selectedPayableDebtorId}
+                      selectedBorder={false}
                       currency={baseCurrency}
                       onSelectDebtor={(debtor) => {
                         setSelectedPayableDebtorId(debtor.id)
