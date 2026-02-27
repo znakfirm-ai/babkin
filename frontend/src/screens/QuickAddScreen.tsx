@@ -1187,7 +1187,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                 {[
                   { key: "account", label: "Счёт" },
                   { key: "goal", label: "Мои цели" },
-                  { key: "debt", label: "Долги / Кредиты" },
+                  { key: "debt", label: "Долг" },
                 ].map((opt) => (
                   <button
                     key={opt.key}
