@@ -228,6 +228,34 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   )
 
   useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === "undefined" || typeof document === "undefined") return
+    const viewportWidth = window.innerWidth
+    const docWidth = document.documentElement.scrollWidth
+    if (docWidth <= viewportWidth + 1) return
+    const offenders = Array.from(document.body.querySelectorAll("*"))
+      .map((element) => {
+        const rect = element.getBoundingClientRect()
+        return { element, rect }
+      })
+      .filter(({ rect }) => rect.right > viewportWidth + 1 || rect.left < -1)
+      .slice(0, 20)
+      .map(({ element, rect }) => ({
+        tag: element.tagName.toLowerCase(),
+        className: (element as HTMLElement).className || "",
+        dataHscroll: (element as HTMLElement).dataset?.hscroll || "",
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        width: Math.round(rect.width),
+      }))
+
+    console.warn("[QuickAdd overflow-x]", {
+      viewportWidth,
+      docWidth,
+      offenders,
+    })
+  }, [])
+
+  useEffect(() => {
     if (!selectedGoalId) return
     const existsInActive = activeGoals.some((goal) => goal.id === selectedGoalId)
     if (!existsInActive) {
@@ -918,6 +946,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         style={{
           paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
           overflowY: "auto",
+          overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
           minHeight: "100dvh",
         }}
