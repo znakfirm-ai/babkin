@@ -634,10 +634,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       setError("Нет токена")
       return
     }
-    if (transferTargetType === "debt") {
-      setError("Переводы в долги появятся позже")
-      return
-    }
     const amt = Number(amount.replace(",", "."))
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Введите сумму")
@@ -663,6 +659,16 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         return
       }
     }
+    if (transferTargetType === "debt") {
+      if (!transferFromAccountId) {
+        setError("Выберите счёт")
+        return
+      }
+      if (!selectedPayableDebtorId) {
+        setError("Выберите долг")
+        return
+      }
+    }
     setError(null)
     try {
       if (transferTargetType === "account") {
@@ -681,6 +687,14 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           accountId: fromId,
           amount: Math.round(amt * 100) / 100,
           date: `${transferDate}T00:00:00.000Z`,
+        })
+      } else if (transferTargetType === "debt" && selectedPayableDebtorId && transferFromAccountId) {
+        await createTransaction(token, {
+          kind: "expense",
+          amount: Math.round(amt * 100) / 100,
+          accountId: transferFromAccountId,
+          debtorId: selectedPayableDebtorId,
+          happenedAt: `${transferDate}T00:00:00.000Z`,
         })
       }
       const accountsData = await getAccounts(token)
@@ -716,6 +730,8 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       )
       if (transferTargetType === "goal") {
         await ensureGoalsLoaded()
+      } else if (transferTargetType === "debt") {
+        await refetchDebtors()
       }
       onClose()
     } catch (err) {
@@ -728,6 +744,8 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     ensureGoalsLoaded,
     run,
     onClose,
+    refetchDebtors,
+    selectedPayableDebtorId,
     selectedGoalId,
     setAccounts,
     setTransactions,
