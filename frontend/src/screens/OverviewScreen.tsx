@@ -1956,7 +1956,7 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
       id: "debt-friend",
       title: "Я должен",
       amount: monthlyPayableRepayment,
-      secondaryText: `Активные долги: ${formatMoney(totalActivePayableDebt, baseCurrency)}`,
+      secondaryText: formatMoney(totalActivePayableDebt, baseCurrency),
       icon: "repeat",
       color: "#1e293b",
     },
