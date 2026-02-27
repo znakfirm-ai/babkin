@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, type PointerEvent, type UIEvent } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type CSSProperties, type PointerEvent, type UIEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -253,6 +253,14 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       }) as const,
     [],
   )
+  const quickAddLayoutVars = useMemo(
+    () =>
+      ({
+        "--qa-kb-inset": `${keyboardInset}px`,
+        "--qa-footer-h": "136px",
+      }) as CSSProperties,
+    [keyboardInset],
+  )
   const stickyFooterStyle = useMemo(
     () =>
       ({
@@ -260,10 +268,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         paddingTop: 12,
         display: "grid",
         gap: 6,
-        position: "fixed",
+        position: "absolute",
         left: 16,
         right: 16,
-        bottom: `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + ${keyboardInset}px)`,
+        bottom: keyboardInset > 0 ? "var(--qa-kb-inset)" : "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
         zIndex: 8,
         background: "#f5f6f8",
       }) as const,
@@ -1130,6 +1138,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       className="app-shell"
       onPointerDownCapture={handleOutsideInputPointerDown}
       style={{
+        ...quickAddLayoutVars,
         background: "#f5f6f8",
         position: "relative",
         minHeight: "100dvh",
@@ -1139,7 +1148,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       <div
         className="app-shell__inner overview"
         style={{
-          paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + 136px)",
+          paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + var(--qa-footer-h))",
           overflowY: "auto",
           overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
