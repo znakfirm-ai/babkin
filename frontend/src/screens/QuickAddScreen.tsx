@@ -253,6 +253,20 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       }) as const,
     [],
   )
+  const stickyFooterStyle = useMemo(
+    () =>
+      ({
+        borderTop: "1px solid #e5e7eb",
+        paddingTop: 12,
+        display: "grid",
+        gap: 6,
+        position: "sticky",
+        bottom: keyboardInset,
+        zIndex: 3,
+        background: "#f5f6f8",
+      }) as const,
+    [keyboardInset],
+  )
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === "undefined" || typeof document === "undefined") return
@@ -425,6 +439,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     const target = event.target as HTMLElement | null
     if (!target) return
     if (target.closest("input, textarea, [contenteditable='true']")) return
+    if (target.closest("[data-quick-add-footer='1']")) return
     const active = document.activeElement
     if (active instanceof HTMLElement && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
       active.blur()
@@ -1122,12 +1137,11 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       <div
         className="app-shell__inner overview"
         style={{
-          paddingBottom: `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + ${keyboardInset}px)`,
+          paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + 136px)",
           overflowY: "auto",
           overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
           minHeight: "100dvh",
-          transform: keyboardInset > 0 ? `translateY(-${keyboardInset}px)` : "translateY(0)",
         }}
       >
         <div style={{ display: "grid", gap: 10, padding: "12px 16px" }}>
@@ -1239,7 +1253,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               </div>
             </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
+            <div data-quick-add-footer="1" style={stickyFooterStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1307,7 +1321,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
             </div>
             </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
+            <div data-quick-add-footer="1" style={stickyFooterStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1514,7 +1528,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               )}
             </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
+            <div data-quick-add-footer="1" style={stickyFooterStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1736,7 +1750,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               </>
             )}
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
+            <div data-quick-add-footer="1" style={stickyFooterStyle}>
               <AmountDateRow amount={amount} onAmountChange={setAmount} date={transferDate} onDateChange={setTransferDate} />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -1830,7 +1844,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               )}
             </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 6 }}>
+            <div data-quick-add-footer="1" style={stickyFooterStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
