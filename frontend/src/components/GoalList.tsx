@@ -9,6 +9,7 @@ type GoalListProps = {
   selectedGoalId?: string | null
   currency: string
   showSelectedCheck?: boolean
+  selectedCheckOnly?: boolean
 }
 
 export const GoalList: React.FC<GoalListProps> = ({
@@ -18,6 +19,7 @@ export const GoalList: React.FC<GoalListProps> = ({
   selectedGoalId = null,
   currency,
   showSelectedCheck = false,
+  selectedCheckOnly = false,
 }) => {
   if (goals.length === 0) {
     return (
@@ -49,7 +51,7 @@ export const GoalList: React.FC<GoalListProps> = ({
               borderRadius: 12,
               border: "none",
               textAlign: "left",
-              background: isSelected ? "rgba(15,23,42,0.06)" : "transparent",
+              background: isSelected && !selectedCheckOnly ? "rgba(15,23,42,0.06)" : "transparent",
               width: "100%",
               borderBottom: isLast ? "none" : "1px solid #e5e7eb",
               cursor: "pointer",

@@ -1340,6 +1340,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                         emptyText="Нет актуальных целей"
                         currency={baseCurrency}
                         showSelectedCheck
+                        selectedCheckOnly
                       />
                     </div>
                     {showTransferGoalScrollHint ? (
@@ -1383,6 +1384,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                         emptyText="Нет актуальных долгов"
                         selectedDebtorId={selectedPayableDebtorId}
                         selectedBorder={false}
+                        selectedCheckOnly
                         currency={baseCurrency}
                         onSelectDebtor={(debtor) => {
                           setSelectedPayableDebtorId(debtor.id)
@@ -1504,6 +1506,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                       debtors={activeReceivableDebtors}
                       direction="receivable"
                       selectedDebtorId={selectedReceivableDebtorId}
+                      selectedCheckOnly
                       currency={baseCurrency}
                       onSelectDebtor={(debtor) => {
                         setSelectedReceivableDebtorId(debtor.id)
@@ -1571,6 +1574,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                         debtors={activePayableDebtors}
                         direction="payable"
                         selectedDebtorId={selectedPayableDebtorId}
+                        selectedCheckOnly
                         currency={baseCurrency}
                         onSelectDebtor={(debtor) => {
                           setSelectedPayableDebtorId(debtor.id)

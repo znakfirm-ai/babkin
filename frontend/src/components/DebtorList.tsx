@@ -10,6 +10,7 @@ type DebtorListProps = {
   selectedDebtorId?: string | null
   onSelectDebtor?: (debtor: Debtor) => void
   selectedBorder?: boolean
+  selectedCheckOnly?: boolean
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
@@ -86,6 +87,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({
   selectedDebtorId,
   onSelectDebtor,
   selectedBorder = true,
+  selectedCheckOnly = false,
 }) => {
   if (debtors.length === 0) {
     return (
@@ -138,7 +140,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({
               borderRadius: 12,
               border: isSelected && selectedBorder ? "1px solid #0f172a" : "1px solid transparent",
               textAlign: "left",
-              background: isSelected ? "#f8fafc" : "transparent",
+              background: isSelected && !selectedCheckOnly ? "#f8fafc" : "transparent",
               width: "100%",
               borderBottom: isLast ? "none" : "1px solid #e5e7eb",
               cursor: onSelectDebtor ? "pointer" : "default",
