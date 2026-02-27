@@ -206,6 +206,12 @@ const pickReceivableDebtTotal = (debtor: Debtor) => {
   }
   return 0
 }
+const shouldIncludeActiveDebtTotal = (debtor: Debtor, total: number) => {
+  if (total <= 0) return false
+  const paid = Number(debtor.paidAmount ?? 0)
+  if (!Number.isFinite(paid) || paid <= 0) return true
+  return total - paid > 0
+}
 
 const Section: React.FC<{
   title: string
@@ -693,26 +699,18 @@ function OverviewScreen({
       debtors.reduce((sum, debtor) => {
         if (debtor.direction !== "payable" || debtor.status !== "active") return sum
         const total = pickPayableDebtTotal(debtor)
-        if (total <= 0) return sum
-        const paid = Math.max(0, Number(payablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0))
-        if (!Number.isFinite(paid)) return sum + total
-        const remaining = total - paid
-        return remaining > 0 ? sum + total : sum
+        return shouldIncludeActiveDebtTotal(debtor, total) ? sum + total : sum
       }, 0),
-    [debtors, payablePaidByDebtorId],
+    [debtors],
   )
   const totalActiveReceivableDebt = useMemo(
     () =>
       debtors.reduce((sum, debtor) => {
         if (debtor.direction !== "receivable" || debtor.status !== "active") return sum
         const total = pickReceivableDebtTotal(debtor)
-        if (total <= 0) return sum
-        const paid = Math.max(0, Number(receivablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0))
-        if (!Number.isFinite(paid)) return sum + total
-        const remaining = total - paid
-        return remaining > 0 ? sum + total : sum
+        return shouldIncludeActiveDebtTotal(debtor, total) ? sum + total : sum
       }, 0),
-    [debtors, receivablePaidByDebtorId],
+    [debtors],
   )
   const filteredDebtors = useMemo(() => {
     if (!isDebtsMode) return []
@@ -907,8 +905,9 @@ function OverviewScreen({
       status: d.status,
       direction: d.direction ?? currentDebtorDirection,
     }))
-    setDebtors(mapped)
-  }, [currentDebtorDirection, setDebtors, token])
+    const preserved = debtors.filter((debtor) => debtor.direction !== currentDebtorDirection)
+    setDebtors([...preserved, ...mapped])
+  }, [currentDebtorDirection, debtors, setDebtors, token])
 
   const refetchAccountsSeq = useCallback(async () => {
     if (!token) return
