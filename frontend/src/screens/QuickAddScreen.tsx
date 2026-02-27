@@ -154,9 +154,11 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [error, setError] = useState<string | null>(null)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
-  const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false)
+  const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
+  const [transferGoalListScrolled, setTransferGoalListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
+  const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const { run, isRunning } = useSingleFlight()
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
@@ -318,6 +320,29 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       setShowTransferDebtScrollHint(false)
     }
   }, [transferDebtListScrolled])
+
+  useEffect(() => {
+    if (activeTab !== "transfer" || transferTargetType !== "goal") {
+      setShowTransferGoalScrollHint(false)
+      setTransferGoalListScrolled(false)
+      return
+    }
+    const el = transferGoalListRef.current
+    if (!el) {
+      setShowTransferGoalScrollHint(false)
+      return
+    }
+    const canScroll = el.scrollHeight > el.clientHeight + 1
+    setShowTransferGoalScrollHint(canScroll && !transferGoalListScrolled && el.scrollTop <= 0)
+  }, [activeGoals.length, activeTab, transferGoalListScrolled, transferTargetType])
+
+  const handleTransferGoalListScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    if (transferGoalListScrolled) return
+    if (event.currentTarget.scrollTop > 0) {
+      setTransferGoalListScrolled(true)
+      setShowTransferGoalScrollHint(false)
+    }
+  }, [transferGoalListScrolled])
 
   const accountTiles = useMemo(
     () =>
@@ -658,10 +683,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   }, [setDebtors, token])
 
   useEffect(() => {
-    if (activeTab === "goal") {
+    if (activeTab === "goal" || (activeTab === "transfer" && transferTargetType === "goal")) {
       void ensureGoalsLoaded()
     }
-  }, [activeTab, ensureGoalsLoaded])
+  }, [activeTab, ensureGoalsLoaded, transferTargetType])
 
   useEffect(() => {
     if (activeTab === "debt") {
@@ -1299,34 +1324,49 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               ) : transferTargetType === "goal" ? (
                 <div style={{ display: "grid", gap: 8 }}>
                   <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setError(null)
-                      await ensureGoalsLoaded()
-                      setIsGoalPickerOpen(true)
-                    }}
-                    style={{
-                      padding: "12px 14px",
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                    }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      {selectedGoalId && isFinanceIconKey(getGoalDisplay(selectedGoalId, activeGoalsById).iconKey ?? "") ? (
-                        <FinanceIcon iconKey={getGoalDisplay(selectedGoalId, activeGoalsById).iconKey ?? ""} size={16} />
-                      ) : null}
-                      <span style={{ fontSize: 15 }}>
-                        {selectedGoalId ? getGoalDisplay(selectedGoalId, activeGoalsById).title : "Выбрать цель"}
-                      </span>
-                    </span>
-                    <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
-                  </button>
+                  <div style={{ position: "relative" }}>
+                    <div
+                      ref={transferGoalListRef}
+                      onScroll={handleTransferGoalListScroll}
+                      style={debtListScrollContainerStyle}
+                    >
+                      <GoalList
+                        goals={activeGoals}
+                        selectedGoalId={selectedGoalId}
+                        onSelectGoal={(goal) => {
+                          setSelectedGoalId(goal.id)
+                          setError(null)
+                        }}
+                        emptyText="Нет актуальных целей"
+                        currency={baseCurrency}
+                        showSelectedCheck
+                      />
+                    </div>
+                    {showTransferGoalScrollHint ? (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          bottom: 8,
+                          transform: "translateX(-50%)",
+                          pointerEvents: "none",
+                          color: "rgba(71,85,105,0.9)",
+                          fontSize: 14,
+                          lineHeight: 1,
+                          width: 20,
+                          height: 20,
+                          borderRadius: 999,
+                          background: "rgba(255,255,255,0.88)",
+                          border: "1px solid rgba(148,163,184,0.45)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        ↓
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
@@ -1672,68 +1712,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
         )}
 
-        {isGoalPickerOpen ? (
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.35)",
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "center",
-              zIndex: 90,
-              padding: "0 12px 12px",
-            }}
-            onClick={() => setIsGoalPickerOpen(false)}
-          >
-            <div
-              style={{
-                width: "100%",
-                maxWidth: 520,
-                margin: "24px auto calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
-                background: "#fff",
-                borderTopLeftRadius: 16,
-                borderTopRightRadius: 16,
-                borderBottomLeftRadius: 16,
-                borderBottomRightRadius: 16,
-                padding: 16,
-                boxShadow: "none",
-                maxHeight: "75vh",
-                overflowY: "auto",
-                paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-                <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-              Выбор цели
-            </div>
-              <div
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 14,
-                  padding: 8,
-                }}
-              >
-                <GoalList
-                  goals={activeGoals}
-                  selectedGoalId={selectedGoalId}
-                  onSelectGoal={(goal) => {
-                    setSelectedGoalId(goal.id)
-                    setIsGoalPickerOpen(false)
-                    setError(null)
-                  }}
-                  emptyText="Цели отсутствуют"
-                  currency={baseCurrency}
-                />
-              </div>
-          </div>
-        </div>
-      ) : null}
       </div>
     </div>
   )

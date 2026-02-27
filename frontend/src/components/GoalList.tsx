@@ -8,6 +8,7 @@ type GoalListProps = {
   emptyText?: string
   selectedGoalId?: string | null
   currency: string
+  showSelectedCheck?: boolean
 }
 
 export const GoalList: React.FC<GoalListProps> = ({
@@ -16,6 +17,7 @@ export const GoalList: React.FC<GoalListProps> = ({
   emptyText = "Пока нет целей",
   selectedGoalId = null,
   currency,
+  showSelectedCheck = false,
 }) => {
   if (goals.length === 0) {
     return (
@@ -60,7 +62,27 @@ export const GoalList: React.FC<GoalListProps> = ({
                 </span>
                 <span style={{ fontWeight: 600, color: "#0f172a" }}>{goal.name}</span>
               </span>
-              <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap" }}>{`Выполнено: ${percentText}`}</span>
+              <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {showSelectedCheck && isSelected ? (
+                  <span
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 999,
+                      background: "#0f172a",
+                      color: "#fff",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✓
+                  </span>
+                ) : null}
+                {`Выполнено: ${percentText}`}
+              </span>
             </div>
             <div style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
               <div
