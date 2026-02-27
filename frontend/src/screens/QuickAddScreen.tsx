@@ -7,11 +7,13 @@ import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { getAccountDisplay, getCategoryDisplay, getGoalDisplay, getIncomeSourceDisplay } from "../shared/display"
 import { GoalList } from "../components/GoalList"
+import { DebtorList } from "../components/DebtorList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 import { getDebtors } from "../api/debtors"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
 import { useSingleFlight } from "../hooks/useSingleFlight"
 import { buildMonthlyTransactionMetrics, getLocalMonthPoint } from "../utils/monthlyTransactionMetrics"
+import type { Debtor } from "../types/finance"
 
 const getTodayLocalDate = () => {
   const now = new Date()
@@ -19,6 +21,29 @@ const getTodayLocalDate = () => {
   const mm = String(now.getMonth() + 1).padStart(2, "0")
   const dd = String(now.getDate()).padStart(2, "0")
   return `${yyyy}-${mm}-${dd}`
+}
+
+const toPositiveNumberOrZero = (value: unknown) => {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+const pickDebtTotal = (debtor: Debtor) => {
+  const raw = debtor as Record<string, unknown>
+  const candidates = [
+    debtor.payoffAmount,
+    debtor.amountToReturn,
+    debtor.returnAmount,
+    raw.payoff,
+    raw.toReturnAmount,
+    raw.payoff_amount,
+    raw.amount_to_return,
+  ]
+  for (const candidate of candidates) {
+    const value = toPositiveNumberOrZero(candidate)
+    if (value > 0) return value
+  }
+  return 0
 }
 
 export const DateIconButton: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => (
@@ -133,13 +158,49 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
   const incomeSourcesList = useMemo(() => incomeSources, [incomeSources])
   const activeGoals = useMemo(() => goals.filter((goal) => goal.status === "active"), [goals])
+  const receivablePaidByDebtorId = useMemo(() => {
+    const paidById: Record<string, number> = {}
+    transactions.forEach((tx) => {
+      if (!tx.debtorId) return
+      const isReceivableReturn = tx.type === "transfer" && Boolean(tx.toAccountId) && !tx.fromAccountId && !tx.goalId
+      if (!isReceivableReturn) return
+      const amount = Number(tx.amount.amount ?? 0)
+      if (!Number.isFinite(amount)) return
+      paidById[tx.debtorId] = (paidById[tx.debtorId] ?? 0) + Math.abs(amount)
+    })
+    return paidById
+  }, [transactions])
+  const payablePaidByDebtorId = useMemo(() => {
+    const paidById: Record<string, number> = {}
+    transactions.forEach((tx) => {
+      if (!tx.debtorId) return
+      const isPayableRepayment = tx.type === "expense" && !tx.goalId
+      if (!isPayableRepayment) return
+      const amount = Number(tx.amount.amount ?? 0)
+      if (!Number.isFinite(amount)) return
+      paidById[tx.debtorId] = (paidById[tx.debtorId] ?? 0) + Math.abs(amount)
+    })
+    return paidById
+  }, [transactions])
   const activeReceivableDebtors = useMemo(
-    () => debtors.filter((debtor) => debtor.direction === "receivable" && debtor.status === "active" && debtor.returnAmount > 0),
-    [debtors],
+    () =>
+      debtors
+        .filter((debtor) => debtor.direction === "receivable" && debtor.status === "active" && pickDebtTotal(debtor) > 0)
+        .map((debtor) => ({
+          ...debtor,
+          paidAmount: receivablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0,
+        })),
+    [debtors, receivablePaidByDebtorId],
   )
   const activePayableDebtors = useMemo(
-    () => debtors.filter((debtor) => debtor.direction === "payable" && debtor.status === "active" && debtor.returnAmount > 0),
-    [debtors],
+    () =>
+      debtors
+        .filter((debtor) => debtor.direction === "payable" && debtor.status === "active" && pickDebtTotal(debtor) > 0)
+        .map((debtor) => ({
+          ...debtor,
+          paidAmount: payablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0,
+        })),
+    [debtors, payablePaidByDebtorId],
   )
   const currentMonthPoint = getLocalMonthPoint()
   const monthlyMetrics = useMemo(
@@ -231,30 +292,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         }
       }),
     [incomeBySource, incomeSourcesById, incomeSourcesList],
-  )
-
-  const receivableDebtorTiles = useMemo(
-    () =>
-      activeReceivableDebtors.map((debtor) => ({
-        id: debtor.id,
-        title: debtor.name,
-        iconKey: debtor.icon ?? null,
-        amount: debtor.returnAmount,
-        color: "#EEF2F7",
-      })),
-    [activeReceivableDebtors],
-  )
-
-  const payableDebtorTiles = useMemo(
-    () =>
-      activePayableDebtors.map((debtor) => ({
-        id: debtor.id,
-        title: debtor.name,
-        iconKey: debtor.icon ?? null,
-        amount: debtor.returnAmount,
-        color: "#EEF2F7",
-      })),
-    [activePayableDebtors],
   )
 
   const submitExpense = useCallback(() => {
@@ -1258,25 +1295,24 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
             {debtAction === "receivable" ? (
               <>
                 <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список должников</div>
-                {receivableDebtorTiles.length > 0 ? (
-                  <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
-                    {receivableDebtorTiles.map((debtor) =>
-                      renderTile(
-                        {
-                          id: debtor.id,
-                          title: debtor.title,
-                          iconKey: debtor.iconKey,
-                          amount: debtor.amount,
-                          color: debtor.color,
-                        },
-                        selectedReceivableDebtorId === debtor.id,
-                        "goal",
-                        (id) => {
-                          setSelectedReceivableDebtorId(id)
-                          setError(null)
-                        },
-                      ),
-                    )}
+                {activeReceivableDebtors.length > 0 ? (
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 14,
+                      padding: 8,
+                    }}
+                  >
+                    <DebtorList
+                      debtors={activeReceivableDebtors}
+                      direction="receivable"
+                      selectedDebtorId={selectedReceivableDebtorId}
+                      currency={baseCurrency}
+                      onSelectDebtor={(debtor) => {
+                        setSelectedReceivableDebtorId(debtor.id)
+                        setError(null)
+                      }}
+                    />
                   </div>
                 ) : (
                   <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13 }}>Нет актуальных должников</div>
@@ -1332,25 +1368,24 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
 
                 <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
                   <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список моих долгов</div>
-                  {payableDebtorTiles.length > 0 ? (
-                    <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
-                      {payableDebtorTiles.map((debtor) =>
-                        renderTile(
-                          {
-                            id: debtor.id,
-                            title: debtor.title,
-                            iconKey: debtor.iconKey,
-                            amount: debtor.amount,
-                            color: debtor.color,
-                          },
-                          selectedPayableDebtorId === debtor.id,
-                          "goal",
-                          (id) => {
-                            setSelectedPayableDebtorId(id)
-                            setError(null)
-                          },
-                        ),
-                      )}
+                  {activePayableDebtors.length > 0 ? (
+                    <div
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 14,
+                        padding: 8,
+                      }}
+                    >
+                      <DebtorList
+                        debtors={activePayableDebtors}
+                        direction="payable"
+                        selectedDebtorId={selectedPayableDebtorId}
+                        currency={baseCurrency}
+                        onSelectDebtor={(debtor) => {
+                          setSelectedPayableDebtorId(debtor.id)
+                          setError(null)
+                        }}
+                      />
                     </div>
                   ) : (
                     <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13 }}>Нет актуальных долгов</div>

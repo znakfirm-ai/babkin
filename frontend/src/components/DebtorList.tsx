@@ -7,6 +7,7 @@ type DebtorListProps = {
   emptyText?: string
   currency: string
   direction?: "receivable" | "payable"
+  selectedDebtorId?: string | null
   onSelectDebtor?: (debtor: Debtor) => void
 }
 
@@ -61,6 +62,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({
   emptyText = "Пока нет должников",
   currency,
   direction = "receivable",
+  selectedDebtorId,
   onSelectDebtor,
 }) => {
   if (debtors.length === 0) {
@@ -74,6 +76,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({
   return (
     <>
       {debtors.map((debtor, idx) => {
+        const isSelected = selectedDebtorId === debtor.id
         const isReceivable = direction === "receivable"
         const payablePaid = Math.max(0, toSafeNumber(debtor.paidAmount))
         const payableTotal = pickPayableTotal(debtor)
@@ -109,9 +112,9 @@ export const DebtorList: React.FC<DebtorListProps> = ({
               gap: 8,
               padding: 8,
               borderRadius: 12,
-              border: "none",
+              border: isSelected ? "1px solid #0f172a" : "1px solid transparent",
               textAlign: "left",
-              background: "transparent",
+              background: isSelected ? "#f8fafc" : "transparent",
               width: "100%",
               borderBottom: isLast ? "none" : "1px solid #e5e7eb",
               cursor: onSelectDebtor ? "pointer" : "default",
@@ -124,7 +127,27 @@ export const DebtorList: React.FC<DebtorListProps> = ({
                 </span>
                 <span style={{ fontWeight: 600, color: "#0f172a" }}>{debtor.name}</span>
               </span>
-              <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap" }}>{dueDateLabel}</span>
+              <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {isSelected ? (
+                  <span
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 999,
+                      background: "#0f172a",
+                      color: "#fff",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✓
+                  </span>
+                ) : null}
+                {dueDateLabel}
+              </span>
             </div>
             <div style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
               <div
