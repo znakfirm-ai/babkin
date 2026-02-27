@@ -2160,7 +2160,7 @@ function TransactionsPanel({
           tx.toAccountName ??
           (tx.toAccountId ? accountNameById.get(tx.toAccountId) ?? null : null) ??
           tx.accountName
-        return accountName ? `На счёт: ${accountName}` : "На счёт"
+        return accountName ?? "Счёт"
       }
       const sourceAccountId = tx.accountId || tx.fromAccountId
       const sourceAccountName =
