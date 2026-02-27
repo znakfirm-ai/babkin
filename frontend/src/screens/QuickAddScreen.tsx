@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type UIEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -152,8 +152,11 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [transferDate, setTransferDate] = useState(() => getTodayLocalDate())
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
+  const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false)
   const goalsFetchInFlight = useRef(false)
+  const transferDebtListRef = useRef<HTMLDivElement | null>(null)
   const { run, isRunning } = useSingleFlight()
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
@@ -292,6 +295,29 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       setSelectedPayableDebtorId(null)
     }
   }, [activePayableDebtors, selectedPayableDebtorId])
+
+  useEffect(() => {
+    if (activeTab !== "transfer" || transferTargetType !== "debt") {
+      setShowTransferDebtScrollHint(false)
+      setTransferDebtListScrolled(false)
+      return
+    }
+    const el = transferDebtListRef.current
+    if (!el) {
+      setShowTransferDebtScrollHint(false)
+      return
+    }
+    const canScroll = el.scrollHeight > el.clientHeight + 1
+    setShowTransferDebtScrollHint(canScroll && !transferDebtListScrolled && el.scrollTop <= 0)
+  }, [activePayableDebtors.length, activeTab, transferDebtListScrolled, transferTargetType])
+
+  const handleTransferDebtListScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    if (transferDebtListScrolled) return
+    if (event.currentTarget.scrollTop > 0) {
+      setTransferDebtListScrolled(true)
+      setShowTransferDebtScrollHint(false)
+    }
+  }, [transferDebtListScrolled])
 
   const accountTiles = useMemo(
     () =>
@@ -1305,19 +1331,49 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
                   <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список моих долгов</div>
-                  <div style={debtListScrollContainerStyle}>
-                    <DebtorList
-                      debtors={activePayableDebtors}
-                      direction="payable"
-                      emptyText="Нет актуальных долгов"
-                      selectedDebtorId={selectedPayableDebtorId}
-                      selectedBorder={false}
-                      currency={baseCurrency}
-                      onSelectDebtor={(debtor) => {
-                        setSelectedPayableDebtorId(debtor.id)
-                        setError(null)
-                      }}
-                    />
+                  <div style={{ position: "relative" }}>
+                    <div
+                      ref={transferDebtListRef}
+                      onScroll={handleTransferDebtListScroll}
+                      style={debtListScrollContainerStyle}
+                    >
+                      <DebtorList
+                        debtors={activePayableDebtors}
+                        direction="payable"
+                        emptyText="Нет актуальных долгов"
+                        selectedDebtorId={selectedPayableDebtorId}
+                        selectedBorder={false}
+                        currency={baseCurrency}
+                        onSelectDebtor={(debtor) => {
+                          setSelectedPayableDebtorId(debtor.id)
+                          setError(null)
+                        }}
+                      />
+                    </div>
+                    {showTransferDebtScrollHint ? (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          bottom: 8,
+                          transform: "translateX(-50%)",
+                          pointerEvents: "none",
+                          color: "rgba(71,85,105,0.9)",
+                          fontSize: 14,
+                          lineHeight: 1,
+                          width: 20,
+                          height: 20,
+                          borderRadius: 999,
+                          background: "rgba(255,255,255,0.88)",
+                          border: "1px solid rgba(148,163,184,0.45)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        ↓
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               )}
