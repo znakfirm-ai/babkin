@@ -164,6 +164,9 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const goalsFetchInFlight = useRef(false)
   const visualViewportShiftRef = useRef(0)
   const hasKeyboardRef = useRef(false)
+  const viewportShiftLockedRef = useRef(false)
+  const viewportShiftLockedValueRef = useRef(0)
+  const viewportShiftLastRawRef = useRef(0)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
@@ -429,33 +432,56 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   useEffect(() => {
     if (typeof window === "undefined") return
     const viewport = window.visualViewport
-    if (!viewport) return
+    if (!viewport) {
+      if (visualViewportShiftRef.current !== 0) {
+        visualViewportShiftRef.current = 0
+        setVisualViewportShift(0)
+      }
+      return
+    }
+
+    const applyShift = (nextShift: number) => {
+      if (Math.abs(nextShift - visualViewportShiftRef.current) < 2) return
+      visualViewportShiftRef.current = nextShift
+      setVisualViewportShift(nextShift)
+    }
 
     const updateVisualViewportShift = () => {
       const innerHeight = window.innerHeight
       const viewportDelta = innerHeight - viewport.height
+      const keyboardOpen = viewportDelta >= 120
+      const keyboardClosed = viewportDelta < 40
       let rawShift = Math.round(viewport.height + viewport.offsetTop - innerHeight)
       if (rawShift > 0) rawShift = 0
+      viewportShiftLastRawRef.current = rawShift
 
-      const currentShift = visualViewportShiftRef.current
-      if (rawShift < -innerHeight * 0.7) {
-        rawShift = currentShift
-      }
-
-      let nextShift = currentShift
-      if (viewportDelta < 40) {
+      if (keyboardClosed) {
         hasKeyboardRef.current = false
-        nextShift = 0
-      } else {
-        hasKeyboardRef.current = true
-        if (rawShift < currentShift) {
-          nextShift = rawShift
-        }
+        viewportShiftLockedRef.current = false
+        viewportShiftLockedValueRef.current = 0
+        applyShift(0)
+        return
       }
 
-      if (Math.abs(nextShift - currentShift) < 2) return
-      visualViewportShiftRef.current = nextShift
-      setVisualViewportShift(nextShift)
+      if (!keyboardOpen) {
+        return
+      }
+
+      hasKeyboardRef.current = true
+      if (viewportShiftLockedRef.current) {
+        applyShift(viewportShiftLockedValueRef.current)
+        return
+      }
+
+      const minAllowedShift = -Math.round(innerHeight * 0.6)
+      const maxAllowedShift = -80
+      if (rawShift < minAllowedShift || rawShift > maxAllowedShift) {
+        return
+      }
+
+      viewportShiftLockedRef.current = true
+      viewportShiftLockedValueRef.current = rawShift
+      applyShift(rawShift)
     }
 
     updateVisualViewportShift()
