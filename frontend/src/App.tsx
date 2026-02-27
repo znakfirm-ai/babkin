@@ -122,6 +122,7 @@ function App() {
   const [pendingIncomeSourceOpenId, setPendingIncomeSourceOpenId] = useState<string | null>(null)
   const [pendingReturnToIncomeReport, setPendingReturnToIncomeReport] = useState(false)
   const [autoOpenIncomeSheet, setAutoOpenIncomeSheet] = useState(false)
+  const [skipGoalsListRefetch, setSkipGoalsListRefetch] = useState(false)
   const [goalsListMode, setGoalsListMode] = useState<GoalsListMode>("goals")
   const [autoOpenGoalsList, setAutoOpenGoalsList] = useState(false)
   const [autoOpenGoalCreate, setAutoOpenGoalCreate] = useState(false)
@@ -478,10 +479,14 @@ function App() {
               setActiveScreen("receivables")
             }}
             autoOpenGoalsList={autoOpenGoalsList}
-            onConsumeAutoOpenGoalsList={() => setAutoOpenGoalsList(false)}
+            onConsumeAutoOpenGoalsList={() => {
+              setAutoOpenGoalsList(false)
+              setSkipGoalsListRefetch(false)
+            }}
             autoOpenGoalCreate={autoOpenGoalCreate}
             onConsumeAutoOpenGoalCreate={() => setAutoOpenGoalCreate(false)}
             goalsListMode={goalsListMode}
+            skipGoalsListRefetch={skipGoalsListRefetch}
             key={`goals-list-${goalsListMode}`}
           />
         )
@@ -527,10 +532,14 @@ function App() {
               setActiveScreen("receivables")
             }}
             autoOpenGoalsList={autoOpenGoalsList}
-            onConsumeAutoOpenGoalsList={() => setAutoOpenGoalsList(false)}
+            onConsumeAutoOpenGoalsList={() => {
+              setAutoOpenGoalsList(false)
+              setSkipGoalsListRefetch(false)
+            }}
             autoOpenGoalCreate={autoOpenGoalCreate}
             onConsumeAutoOpenGoalCreate={() => setAutoOpenGoalCreate(false)}
             goalsListMode={goalsListMode}
+            skipGoalsListRefetch={skipGoalsListRefetch}
             key={`goals-list-${goalsListMode}`}
           />
         )
@@ -568,6 +577,14 @@ function App() {
               setActiveNav("overview")
               setActiveScreen("overview")
               setPendingReturnToIncomeReport(true)
+            }}
+            onOpenPayableDebtsSheet={() => {
+              setGoalsListMode("debtsPayable")
+              setSkipGoalsListRefetch(true)
+              setAutoOpenGoalsList(true)
+              setActiveNav("overview")
+              setActiveScreen("receivables")
+              setPendingReturnToReport(true)
             }}
             autoOpenIncomeSheet={autoOpenIncomeSheet}
             onConsumeAutoOpenIncome={() => setAutoOpenIncomeSheet(false)}

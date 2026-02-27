@@ -414,6 +414,7 @@ type OverviewScreenProps = {
   autoOpenGoalCreate?: boolean
   onConsumeAutoOpenGoalCreate?: () => void
   goalsListMode?: "goals" | "debtsReceivable" | "debtsPayable"
+  skipGoalsListRefetch?: boolean
 }
 
 function OverviewScreen({
@@ -435,6 +436,7 @@ function OverviewScreen({
   autoOpenGoalCreate = false,
   onConsumeAutoOpenGoalCreate,
   goalsListMode = "goals",
+  skipGoalsListRefetch = false,
 }: OverviewScreenProps) {
   const {
     accounts,
@@ -964,7 +966,7 @@ function OverviewScreen({
         const msg = err instanceof Error ? err.message : "Не удалось загрузить цели"
         setGoalError(msg)
       }
-    } else {
+    } else if (!skipGoalsListRefetch) {
       try {
         await refetchDebtors()
       } catch (err) {
@@ -975,7 +977,7 @@ function OverviewScreen({
     setIsGoalsListOpen(true)
     setDetailGoalId(null)
     setDetailDebtorId(null)
-  }, [isDebtsMode, refetchDebtors, refetchGoals])
+  }, [isDebtsMode, refetchDebtors, refetchGoals, skipGoalsListRefetch])
 
   useEffect(() => {
     if (!isGoalsListOpen && pendingGoalCreate) {
@@ -1607,7 +1609,13 @@ function OverviewScreen({
 
   const closeGoalsList = useCallback(() => {
     setIsGoalsListOpen(false)
-  }, [])
+    if (returnToReport) {
+      onReturnToReport?.()
+    }
+    if (returnToIncomeReport) {
+      onReturnToIncomeReport?.()
+    }
+  }, [onReturnToIncomeReport, onReturnToReport, returnToIncomeReport, returnToReport])
 
   const closeDebtorSheet = useCallback(() => {
     setIsDebtorSheetOpen(false)

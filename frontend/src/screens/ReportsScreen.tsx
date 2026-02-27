@@ -24,6 +24,7 @@ type Props = {
   ) => void
   autoOpenIncomeSheet?: boolean
   onConsumeAutoOpenIncome?: () => void
+  onOpenPayableDebtsSheet?: () => void
   incomeReportState?: {
     periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
     monthOffset: number
@@ -66,6 +67,7 @@ const ReportsScreen: React.FC<Props> = ({
   onOpenIncomeSourceSheet,
   autoOpenIncomeSheet,
   onConsumeAutoOpenIncome,
+  onOpenPayableDebtsSheet,
   incomeReportState,
 }) => {
   const { transactions, categories, incomeSources, currency } = useAppStore()
@@ -946,7 +948,11 @@ const ReportsScreen: React.FC<Props> = ({
                         <div
                           key={item.id}
                           onClick={() => {
-                            onOpenCategorySheet?.(item.id, item.title)
+                            if (item.id === REPORT_GROUP_DEBTS_ID) {
+                              onOpenPayableDebtsSheet?.()
+                            } else {
+                              onOpenCategorySheet?.(item.id, item.title)
+                            }
                             setIsExpensesSheetOpen(false)
                           }}
                           style={{
