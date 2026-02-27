@@ -158,10 +158,13 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [transferGoalListScrolled, setTransferGoalListScrolled] = useState(false)
   const [showDebtReceivableScrollHint, setShowDebtReceivableScrollHint] = useState(false)
   const [debtReceivableListScrolled, setDebtReceivableListScrolled] = useState(false)
+  const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
+  const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
   const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
+  const debtPayableListRef = useRef<HTMLDivElement | null>(null)
   const { run, isRunning } = useSingleFlight()
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
@@ -369,6 +372,29 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       setShowDebtReceivableScrollHint(false)
     }
   }, [debtReceivableListScrolled])
+
+  useEffect(() => {
+    if (activeTab !== "debt" || debtAction !== "payable") {
+      setShowDebtPayableScrollHint(false)
+      setDebtPayableListScrolled(false)
+      return
+    }
+    const el = debtPayableListRef.current
+    if (!el) {
+      setShowDebtPayableScrollHint(false)
+      return
+    }
+    const canScroll = el.scrollHeight > el.clientHeight + 1
+    setShowDebtPayableScrollHint(canScroll && !debtPayableListScrolled && el.scrollTop <= 0)
+  }, [activePayableDebtors.length, activeTab, debtAction, debtPayableListScrolled])
+
+  const handleDebtPayableListScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    if (debtPayableListScrolled) return
+    if (event.currentTarget.scrollTop > 0) {
+      setDebtPayableListScrolled(true)
+      setShowDebtPayableScrollHint(false)
+    }
+  }, [debtPayableListScrolled])
 
   const accountTiles = useMemo(
     () =>
@@ -1619,18 +1645,48 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                 <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
                   <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список моих долгов</div>
                   {activePayableDebtors.length > 0 ? (
-                    <div style={debtListScrollContainerStyle}>
-                      <DebtorList
-                        debtors={activePayableDebtors}
-                        direction="payable"
-                        selectedDebtorId={selectedPayableDebtorId}
-                        selectedCheckOnly
-                        currency={baseCurrency}
-                        onSelectDebtor={(debtor) => {
-                          setSelectedPayableDebtorId(debtor.id)
-                          setError(null)
-                        }}
-                      />
+                    <div style={{ position: "relative" }}>
+                      <div
+                        ref={debtPayableListRef}
+                        onScroll={handleDebtPayableListScroll}
+                        style={debtListScrollContainerStyle}
+                      >
+                        <DebtorList
+                          debtors={activePayableDebtors}
+                          direction="payable"
+                          selectedDebtorId={selectedPayableDebtorId}
+                          selectedCheckOnly
+                          currency={baseCurrency}
+                          onSelectDebtor={(debtor) => {
+                            setSelectedPayableDebtorId(debtor.id)
+                            setError(null)
+                          }}
+                        />
+                      </div>
+                      {showDebtPayableScrollHint ? (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: "50%",
+                            bottom: 8,
+                            transform: "translateX(-50%)",
+                            pointerEvents: "none",
+                            color: "rgba(71,85,105,0.9)",
+                            fontSize: 14,
+                            lineHeight: 1,
+                            width: 20,
+                            height: 20,
+                            borderRadius: 999,
+                            background: "rgba(255,255,255,0.88)",
+                            border: "1px solid rgba(148,163,184,0.45)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          ↓
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13 }}>Нет актуальных долгов</div>
