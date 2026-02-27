@@ -1476,16 +1476,6 @@ function OverviewScreen({
           return
         }
         const message = err instanceof Error ? err.message : "Не удалось сохранить"
-        if (/5\d\d/.test(message)) {
-          const restore = buildEditTransactionPayload(original, original.amount.amount, original.date.slice(0, 10))
-          if (restore.payload) {
-            try {
-              await createTransaction(token, restore.payload)
-            } catch {
-              // best-effort restore
-            }
-          }
-        }
         setTxError(message)
       } finally {
         setTxLoading(false)
