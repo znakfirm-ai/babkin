@@ -112,7 +112,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({
         const formattedPaid = formatMoneyIntl(paidAmount, currency)
         const percentLabel = `${percent}%`
         const formattedPayoff = formatMoneyIntl(totalAmount, currency)
-        const dueDateTone = isReceivable ? getDueDateTone(debtor.dueDate) : "default"
+        const dueDateTone = getDueDateTone(debtor.dueDate)
         const dueDateColor = dueDateTone === "red" ? "#ff0000" : dueDateTone === "amber" ? "#b45309" : "#475569"
         const dueDateLabel = (() => {
           if (!debtor.dueDate) return "До —"
