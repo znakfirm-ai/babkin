@@ -1014,41 +1014,45 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           })
         }
 
-        const accountsData = await getAccounts(token)
-        setAccounts(
-          accountsData.accounts.map((a) => ({
-            id: a.id,
-            name: a.name,
-            balance: { amount: a.balance, currency: a.currency },
-            color: a.color ?? undefined,
-            icon: a.icon ?? null,
-          })),
-        )
-
-        const txData = await getTransactions(token)
-        setTransactions(
-          txData.transactions.map((t) => ({
-            id: t.id,
-            type: t.kind,
-            amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
-            date: t.happenedAt,
-            accountId: t.accountId ?? t.fromAccountId ?? "",
-            accountName: t.accountName ?? null,
-            fromAccountId: t.fromAccountId ?? undefined,
-            fromAccountName: t.fromAccountName ?? null,
-            categoryId: t.categoryId ?? undefined,
-            incomeSourceId: t.incomeSourceId ?? undefined,
-            toAccountId: t.toAccountId ?? undefined,
-            toAccountName: t.toAccountName ?? null,
-            goalId: (t as { goalId?: string | null }).goalId ?? undefined,
-            goalName: (t as { goalName?: string | null }).goalName ?? null,
-            debtorId: (t as { debtorId?: string | null }).debtorId ?? undefined,
-            debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
-          })),
-        )
-
-        await refetchDebtors()
         onClose()
+        try {
+          const accountsData = await getAccounts(token)
+          setAccounts(
+            accountsData.accounts.map((a) => ({
+              id: a.id,
+              name: a.name,
+              balance: { amount: a.balance, currency: a.currency },
+              color: a.color ?? undefined,
+              icon: a.icon ?? null,
+            })),
+          )
+
+          const txData = await getTransactions(token)
+          setTransactions(
+            txData.transactions.map((t) => ({
+              id: t.id,
+              type: t.kind,
+              amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
+              date: t.happenedAt,
+              accountId: t.accountId ?? t.fromAccountId ?? "",
+              accountName: t.accountName ?? null,
+              fromAccountId: t.fromAccountId ?? undefined,
+              fromAccountName: t.fromAccountName ?? null,
+              categoryId: t.categoryId ?? undefined,
+              incomeSourceId: t.incomeSourceId ?? undefined,
+              toAccountId: t.toAccountId ?? undefined,
+              toAccountName: t.toAccountName ?? null,
+              goalId: (t as { goalId?: string | null }).goalId ?? undefined,
+              goalName: (t as { goalName?: string | null }).goalName ?? null,
+              debtorId: (t as { debtorId?: string | null }).debtorId ?? undefined,
+              debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
+            })),
+          )
+
+          await refetchDebtors()
+        } catch (refreshErr) {
+          console.error(refreshErr)
+        }
       } catch (err) {
         setError(getTransactionErrorMessage(err))
       }
