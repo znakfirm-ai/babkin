@@ -163,6 +163,8 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
   const keyboardInsetRef = useRef(0)
+  const stableKeyboardInsetRef = useRef(0)
+  const hasKeyboardRef = useRef(false)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
@@ -430,8 +432,29 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     if (!viewport) return
 
     const updateKeyboardInset = () => {
-      const rawInset = window.innerHeight - viewport.height - viewport.offsetTop
-      const nextInset = rawInset > 0 ? Math.round(rawInset) : 0
+      const innerHeight = window.innerHeight
+      const viewportDelta = innerHeight - viewport.height
+      let rawInset = Math.max(0, Math.round(innerHeight - viewport.height - viewport.offsetTop))
+      const currentStableInset = stableKeyboardInsetRef.current
+
+      if (rawInset > 0 && viewportDelta < 40) {
+        rawInset = 0
+      }
+      if (rawInset > innerHeight * 0.6) {
+        rawInset = currentStableInset
+      }
+
+      let nextInset = currentStableInset
+      if (rawInset >= 40) {
+        hasKeyboardRef.current = true
+        nextInset = Math.max(currentStableInset, rawInset)
+      } else if (rawInset < 20) {
+        hasKeyboardRef.current = false
+        nextInset = 0
+      }
+
+      if (Math.abs(nextInset - currentStableInset) < 6) return
+      stableKeyboardInsetRef.current = nextInset
       if (Math.abs(nextInset - keyboardInsetRef.current) < 2) return
       keyboardInsetRef.current = nextInset
       setKeyboardInset(nextInset)
