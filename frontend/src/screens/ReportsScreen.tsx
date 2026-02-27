@@ -35,6 +35,15 @@ type Props = {
 }
 
 const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
+const REPORT_GROUP_GOALS_ID = "__report_goals__"
+const REPORT_GROUP_DEBTS_ID = "__report_debts__"
+const REPORT_GROUP_UNCATEGORIZED_ID = "uncategorized"
+
+const resolveReportGroupId = (tx: { goalId?: string | null; debtorId?: string | null; categoryId?: string | null; incomeSourceId?: string | null }) => {
+  if (tx.goalId) return REPORT_GROUP_GOALS_ID
+  if (tx.debtorId) return REPORT_GROUP_DEBTS_ID
+  return tx.incomeSourceId ?? tx.categoryId ?? REPORT_GROUP_UNCATEGORIZED_ID
+}
 
 const getMonthRange = (offset: number) => {
   const now = new Date()
@@ -280,7 +289,11 @@ const ReportsScreen: React.FC<Props> = ({
       const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
       if (kind !== "expense") return
       if ((t as { kind?: string }).kind === "adjustment") return
-      const catId = (t as { categoryId?: string | null }).categoryId ?? "uncategorized"
+      const catId = resolveReportGroupId({
+        goalId: (t as { goalId?: string | null }).goalId ?? null,
+        debtorId: (t as { debtorId?: string | null }).debtorId ?? null,
+        categoryId: (t as { categoryId?: string | null }).categoryId ?? null,
+      })
       const amt = t.amount?.amount ?? 0
       totals.set(catId, (totals.get(catId) ?? 0) + amt)
       total += amt
@@ -290,10 +303,12 @@ const ReportsScreen: React.FC<Props> = ({
       .sort((a, b) => b[1] - a[1])
       .map(([categoryId, sum]) => {
         const cat = categories.find((c) => c.id === categoryId)
+        const isGoals = categoryId === REPORT_GROUP_GOALS_ID
+        const isDebts = categoryId === REPORT_GROUP_DEBTS_ID
         return {
           id: categoryId,
-          title: cat?.name ?? "Без категории",
-          iconKey: cat?.icon ?? null,
+          title: isGoals ? "Цели" : isDebts ? "Долги / Кредиты" : cat?.name ?? "Без категории",
+          iconKey: isDebts ? "debt" : cat?.icon ?? null,
           sum,
         }
       })
@@ -390,9 +405,12 @@ const ReportsScreen: React.FC<Props> = ({
       if (date < effectiveRange.start || date > effectiveRange.end) return
       const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
       if (kind !== "income") return
-      const sourceId = (t as { incomeSourceId?: string | null }).incomeSourceId ?? null
-      const catId = (t as { categoryId?: string | null }).categoryId ?? null
-      const groupId = sourceId ?? catId ?? "uncategorized"
+      const groupId = resolveReportGroupId({
+        goalId: (t as { goalId?: string | null }).goalId ?? null,
+        debtorId: (t as { debtorId?: string | null }).debtorId ?? null,
+        incomeSourceId: (t as { incomeSourceId?: string | null }).incomeSourceId ?? null,
+        categoryId: (t as { categoryId?: string | null }).categoryId ?? null,
+      })
       const amt = t.amount?.amount ?? 0
       totals.set(groupId, (totals.get(groupId) ?? 0) + amt)
       total += amt
@@ -403,8 +421,11 @@ const ReportsScreen: React.FC<Props> = ({
       .map(([groupId, sum]) => {
         const src = incomeSources.find((s) => s.id === groupId)
         const cat = categories.find((c) => c.id === groupId)
-        const title = src?.name ?? cat?.name ?? "Без источника"
-        const iconKey = src?.icon ?? cat?.icon ?? null
+        const isGoals = groupId === REPORT_GROUP_GOALS_ID
+        const isDebts = groupId === REPORT_GROUP_DEBTS_ID
+        const isUncategorized = groupId === REPORT_GROUP_UNCATEGORIZED_ID
+        const title = isGoals ? "Цели" : isDebts ? "Долги / Кредиты" : src?.name ?? cat?.name ?? (isUncategorized ? "Без источника" : "Без источника")
+        const iconKey = isDebts ? "debt" : src?.icon ?? cat?.icon ?? null
         return { id: groupId, title, iconKey, sum }
       })
 

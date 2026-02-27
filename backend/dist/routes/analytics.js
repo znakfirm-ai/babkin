@@ -9,6 +9,9 @@ const client_1 = require("@prisma/client");
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
+const REPORT_GROUP_GOALS_ID = "__report_goals__";
+const REPORT_GROUP_DEBTS_ID = "__report_debts__";
+const REPORT_GROUP_UNCATEGORIZED_ID = "uncategorized";
 const unauthorized = async (reply, reason) => {
     await reply.status(401).send({ error: "Unauthorized", reason });
     return null;
@@ -123,7 +126,7 @@ async function analyticsRoutes(fastify, _opts) {
         }
         const topN = Math.min(Math.max(Number(top) || 4, 1), 10);
         const grouped = await prisma_1.prisma.transactions.groupBy({
-            by: ["category_id"],
+            by: ["category_id", "goal_id", "debtor_id"],
             where: {
                 workspace_id: user.active_workspace_id,
                 kind: "expense",
@@ -132,25 +135,43 @@ async function analyticsRoutes(fastify, _opts) {
             _sum: { amount: true },
             orderBy: { _sum: { amount: "desc" } },
         });
-        const totalExpenseDec = grouped.reduce((acc, g) => acc.plus(g._sum.amount ?? new client_1.Prisma.Decimal(0)), new client_1.Prisma.Decimal(0));
-        const topGroups = grouped.slice(0, topN);
-        const otherGroups = grouped.slice(topN);
-        const categoryIds = topGroups
-            .map((g) => g.category_id)
-            .filter((id) => Boolean(id));
-        const names = await prisma_1.prisma.categories.findMany({
-            where: { id: { in: categoryIds } },
-            select: { id: true, name: true },
+        const aggregatedByGroup = new Map();
+        grouped.forEach((group) => {
+            const amount = group._sum.amount ?? new client_1.Prisma.Decimal(0);
+            if (amount.lte(0))
+                return;
+            const groupId = group.goal_id
+                ? REPORT_GROUP_GOALS_ID
+                : group.debtor_id
+                    ? REPORT_GROUP_DEBTS_ID
+                    : group.category_id ?? REPORT_GROUP_UNCATEGORIZED_ID;
+            const prev = aggregatedByGroup.get(groupId) ?? new client_1.Prisma.Decimal(0);
+            aggregatedByGroup.set(groupId, prev.plus(amount));
         });
+        const merged = Array.from(aggregatedByGroup.entries()).sort((a, b) => b[1].minus(a[1]).toNumber());
+        const totalExpenseDec = merged.reduce((acc, [, amount]) => acc.plus(amount), new client_1.Prisma.Decimal(0));
+        const topGroups = merged.slice(0, topN);
+        const otherGroups = merged.slice(topN);
+        const categoryIds = topGroups
+            .map(([groupId]) => groupId)
+            .filter((groupId) => groupId !== REPORT_GROUP_GOALS_ID && groupId !== REPORT_GROUP_DEBTS_ID && groupId !== REPORT_GROUP_UNCATEGORIZED_ID);
+        const names = categoryIds.length
+            ? await prisma_1.prisma.categories.findMany({
+                where: { id: { in: categoryIds } },
+                select: { id: true, name: true },
+            })
+            : [];
         const nameMap = new Map(names.map((c) => [c.id, c.name]));
-        const topPayload = topGroups
-            .filter((g) => g.category_id)
-            .map((g) => ({
-            categoryId: g.category_id,
-            name: nameMap.get(g.category_id) ?? "Без категории",
-            total: (g._sum.amount ?? new client_1.Prisma.Decimal(0)).toFixed(2),
+        const topPayload = topGroups.map(([groupId, amount]) => ({
+            categoryId: groupId,
+            name: groupId === REPORT_GROUP_GOALS_ID
+                ? "Цели"
+                : groupId === REPORT_GROUP_DEBTS_ID
+                    ? "Долги / Кредиты"
+                    : nameMap.get(groupId) ?? "Без категории",
+            total: amount.toFixed(2),
         }));
-        const otherTotalDec = otherGroups.reduce((acc, g) => acc.plus(g._sum.amount ?? new client_1.Prisma.Decimal(0)), new client_1.Prisma.Decimal(0));
+        const otherTotalDec = otherGroups.reduce((acc, [, amount]) => acc.plus(amount), new client_1.Prisma.Decimal(0));
         return reply.send({
             top: topPayload,
             otherTotal: otherTotalDec.toFixed(2),
