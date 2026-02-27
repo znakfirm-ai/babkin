@@ -449,10 +449,12 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     const updateVisualViewportShift = () => {
       const innerHeight = window.innerHeight
       const viewportDelta = innerHeight - viewport.height
+      const bottomNavRaw = getComputedStyle(document.documentElement).getPropertyValue("--bottom-nav-height")
+      const bottomNavPx = Number.parseFloat(bottomNavRaw) || 56
       const keyboardOpen = viewportDelta >= 120
       const keyboardClosed = viewportDelta < 40
-      let rawShift = Math.round(viewport.height + viewport.offsetTop - innerHeight)
-      if (rawShift > 0) rawShift = 0
+      const effectiveDelta = Math.max(0, viewportDelta - bottomNavPx)
+      const rawShift = -Math.round(effectiveDelta)
       viewportShiftLastRawRef.current = rawShift
 
       if (keyboardClosed) {
@@ -473,8 +475,8 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         return
       }
 
-      const minAllowedShift = -Math.round(innerHeight * 0.6)
-      const maxAllowedShift = -80
+      const minAllowedShift = -Math.round(innerHeight * 0.8)
+      const maxAllowedShift = -20
       if (rawShift < minAllowedShift || rawShift > maxAllowedShift) {
         return
       }
