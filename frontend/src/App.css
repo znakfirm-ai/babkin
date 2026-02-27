@@ -67,8 +67,16 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(15, 23, 42, 0.12);
+  background: rgba(15, 23, 42, 0.14);
   pointer-events: none;
+}
+
+.tile-card--selected.tile-card--account::after {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.tile-card--selected.tile-card--category::after {
+  background: rgba(15, 23, 42, 0.14);
 }
 
 .tile-card__selected-check {
