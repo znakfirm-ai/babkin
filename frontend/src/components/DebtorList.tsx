@@ -22,6 +22,14 @@ const toSafeNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+const firstPositiveNumber = (...values: unknown[]) => {
+  for (const value of values) {
+    const parsed = toSafeNumber(value)
+    if (parsed > 0) return parsed
+  }
+  return 0
+}
+
 const pickReceivableTotal = (debtor: Debtor): number => {
   const payoffAmount = toFiniteNumber(debtor.payoffAmount)
   if (payoffAmount !== null && payoffAmount > 0) return payoffAmount
@@ -33,6 +41,19 @@ const pickReceivableTotal = (debtor: Debtor): number => {
   ]
   const fallback = fallbackCandidates.find((value) => value !== null && value > 0)
   return fallback ?? 0
+}
+
+const pickPayableTotal = (debtor: Debtor): number => {
+  const raw = debtor as Record<string, unknown>
+  return firstPositiveNumber(
+    debtor.payoffAmount,
+    debtor.amountToReturn,
+    debtor.returnAmount,
+    raw.payoff,
+    raw.toReturnAmount,
+    raw.payoff_amount,
+    raw.amount_to_return,
+  )
 }
 
 export const DebtorList: React.FC<DebtorListProps> = ({
@@ -55,7 +76,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({
       {debtors.map((debtor, idx) => {
         const isReceivable = direction === "receivable"
         const payablePaid = Math.max(0, toSafeNumber(debtor.paidAmount))
-        const payableTotal = Math.max(0, toSafeNumber(debtor.payoffAmount))
+        const payableTotal = pickPayableTotal(debtor)
         const payablePercent = payableTotal > 0 ? clamp01(payablePaid / payableTotal) : 0
         const paidAmount = isReceivable ? Math.max(0, toFiniteNumber(debtor.paidAmount) ?? 0) : payablePaid
         const totalAmount = isReceivable ? pickReceivableTotal(debtor) : payableTotal
