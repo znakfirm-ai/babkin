@@ -1271,7 +1271,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         </div>
 
         {activeTab === "expense" ? (
-          <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
+          <div style={{ display: "grid", gap: 10, padding: "0 16px 16px" }}>
             <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для списания</div>
             <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
               {accountTiles.map((acc) =>
@@ -1290,7 +1290,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               )}
             </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Категория расходов</div>
               <div className="overview-expenses-row">
                 {expenseCategoryTiles.map((cat) =>
@@ -1310,7 +1310,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               </div>
             </div>
 
-            <div data-quick-add-footer="1" style={footerSectionStyle}>
+            <div data-quick-add-footer="1" style={{ ...footerSectionStyle, paddingTop: 8 }}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1319,7 +1319,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                 onAmountFocus={handleAmountFocus}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
-              <div style={{ paddingTop: 8 }}>
+              <div style={{ paddingTop: 4 }}>
                 <button
                   type="button"
                   disabled={!expenseReady || isRunning}
