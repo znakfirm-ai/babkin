@@ -163,6 +163,11 @@ const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRi
 }
 
 const isGoalContributionTx = (tx: Transaction) => tx.type === "transfer" && Boolean(tx.goalId) && Boolean(tx.fromAccountId ?? tx.accountId) && !tx.toAccountId
+const isPayableDebtRepaymentTx = (tx: Transaction) => {
+  if (tx.type !== "expense" || Boolean(tx.goalId)) return false
+  if (tx.debtorId) return true
+  return !tx.categoryId && !tx.incomeSourceId && !tx.fromAccountId && !tx.toAccountId
+}
 const toPositiveNumberOrZero = (value: unknown) => {
   const parsed = Number(value ?? 0)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
@@ -635,7 +640,7 @@ function OverviewScreen({
   const monthlyPayableRepayment = useMemo(
     () =>
       transactions.reduce((sum, tx) => {
-        const isPayableRepayment = tx.type === "expense" && Boolean(tx.debtorId) && !tx.goalId
+        const isPayableRepayment = isPayableDebtRepaymentTx(tx)
         if (!isPayableRepayment) return sum
         if (!tx.date) return sum
         const timestamp = new Date(tx.date).getTime()
@@ -2137,12 +2142,11 @@ function TransactionsPanel({
   const getDebtTxDebtorName = useCallback((tx: Transaction) => tx.debtorName ?? "Должник", [])
   const getDebtTxAccountTitle = useCallback(
     (tx: Transaction) => {
-      if (!tx.debtorId) return null
       const debtorName = getDebtTxDebtorName(tx)
-      if (tx.type === "transfer") {
+      if (tx.type === "transfer" && tx.debtorId) {
         return `Возврат долга от ${debtorName}`
       }
-      if (tx.type === "expense") {
+      if (isPayableDebtRepaymentTx(tx)) {
         return `Погашение долга: ${debtorName}`
       }
       return null
