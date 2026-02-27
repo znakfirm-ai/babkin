@@ -221,8 +221,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       ({
         paddingBottom: 6,
         overflowX: "auto",
+        overflowY: "hidden",
         WebkitOverflowScrolling: "touch",
         touchAction: "pan-x",
+        overscrollBehaviorX: "contain",
       }) as const,
     [],
   )
@@ -247,8 +249,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       const dx = touch.clientX - start.x
       const dy = touch.clientY - start.y
       if (Math.abs(dx) <= Math.abs(dy)) return
-      const target = event.target instanceof Element ? event.target : null
-      if (target?.closest('[data-hscroll="1"]')) return
+      const inHorizontalScroller = event
+        .composedPath()
+        .some((node) => node instanceof HTMLElement && node.dataset.hscroll === "1")
+      if (inHorizontalScroller) return
       event.preventDefault()
     }
 
@@ -962,7 +966,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
-          touchAction: "pan-y",
           minHeight: "100dvh",
         }}
       >
@@ -984,7 +987,17 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               Закрыть
             </button>
           </div>
-          <div data-hscroll="1" style={{ overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}>
+          <div
+            data-hscroll="1"
+            style={{
+              overflowX: "auto",
+              overflowY: "hidden",
+              paddingBottom: 2,
+              WebkitOverflowScrolling: "touch",
+              touchAction: "pan-x",
+              overscrollBehaviorX: "contain",
+            }}
+          >
             <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
               {(Object.keys(labelMap) as QuickAddTab[]).map((tab) => {
                 const iconMap: Record<QuickAddTab, IconName> = {
