@@ -661,7 +661,7 @@ function OverviewScreen({
 
   const monthLabel = useMemo(() => {
     const now = new Date()
-    return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(now)
+    return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(now).replace(/\s*г\.$/u, "")
   }, [])
 
   const baseCurrency = normalizeCurrency(currency || "RUB")
