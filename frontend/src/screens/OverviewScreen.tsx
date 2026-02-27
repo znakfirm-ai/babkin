@@ -17,7 +17,7 @@ import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
 import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint } from "../utils/monthlyTransactionMetrics"
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
-import { groupTransactionsByDayDesc, sortTransactionsDesc } from "../utils/sortTransactions"
+import { buildTransactionDaySections, sortTransactionsDesc } from "../utils/sortTransactions"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -2275,16 +2275,16 @@ function TransactionsPanel({
   }, [accountPeriod, categorySearch, categoryTx, detailCategoryId, getTxAccountName])
 
   const groupedAccountTx = useMemo(() => {
-    return groupTransactionsByDayDesc(filteredAccountTx).map((group) => ({
-      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
-      items: group.items,
+    return buildTransactionDaySections(filteredAccountTx).map((section) => ({
+      dateLabel: section.dayLabel,
+      items: section.items,
     }))
   }, [filteredAccountTx])
 
   const groupedCategoryTx = useMemo(() => {
-    return groupTransactionsByDayDesc(filteredCategoryTx).map((group) => ({
-      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
-      items: group.items,
+    return buildTransactionDaySections(filteredCategoryTx).map((section) => ({
+      dateLabel: section.dayLabel,
+      items: section.items,
     }))
   }, [filteredCategoryTx])
 
@@ -2306,9 +2306,9 @@ function TransactionsPanel({
   }, [accountPeriod, getTxAccountName, incomeSourceSearch, incomeSourceTx, detailIncomeSourceId])
 
   const groupedIncomeSourceTx = useMemo(() => {
-    return groupTransactionsByDayDesc(filteredIncomeSourceTx).map((group) => ({
-      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
-      items: group.items,
+    return buildTransactionDaySections(filteredIncomeSourceTx).map((section) => ({
+      dateLabel: section.dayLabel,
+      items: section.items,
     }))
   }, [filteredIncomeSourceTx])
 
@@ -2342,9 +2342,9 @@ function TransactionsPanel({
   }, [accountPeriod, detailGoalId, getGoalTransferSourceLabel, goalSearch, goalTx])
 
   const groupedGoalTx = useMemo(() => {
-    return groupTransactionsByDayDesc(filteredGoalTx).map((group) => ({
-      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
-      items: group.items,
+    return buildTransactionDaySections(filteredGoalTx).map((section) => ({
+      dateLabel: section.dayLabel,
+      items: section.items,
     }))
   }, [filteredGoalTx])
 
@@ -2365,9 +2365,9 @@ function TransactionsPanel({
   }, [accountPeriod, debtorSearch, debtorTx, detailDebtorId, getDebtTxDebtorLabel])
 
   const groupedDebtorTx = useMemo(() => {
-    return groupTransactionsByDayDesc(filteredDebtorTx).map((group) => ({
-      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
-      items: group.items,
+    return buildTransactionDaySections(filteredDebtorTx).map((section) => ({
+      dateLabel: section.dayLabel,
+      items: section.items,
     }))
   }, [filteredDebtorTx])
 

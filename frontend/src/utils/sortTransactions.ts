@@ -15,8 +15,13 @@ export const compareTransactionsDesc = (left: Transaction, right: Transaction) =
   const happenedDiff = toUnixMs(right.date) - toUnixMs(left.date)
   if (happenedDiff !== 0) return happenedDiff
 
-  const createdDiff = getCreatedUnixMs(right) - getCreatedUnixMs(left)
+  const rightCreatedUnixMs = getCreatedUnixMs(right)
+  const leftCreatedUnixMs = getCreatedUnixMs(left)
+  const createdDiff = rightCreatedUnixMs - leftCreatedUnixMs
   if (createdDiff !== 0) return createdDiff
+
+  // Keep input order for equal happenedAt when creation timestamps are not available.
+  if (rightCreatedUnixMs <= 0 && leftCreatedUnixMs <= 0) return 0
 
   if (left.id === right.id) return 0
   return right.id.localeCompare(left.id)
@@ -71,5 +76,44 @@ export const groupTransactionsByDayDesc = (transactions: Transaction[]): Transac
       dayKey,
       dayDate: toLocalDayDate(dayKey),
       items: sortTransactionsDesc(items),
+    }))
+}
+
+export type TransactionDaySection = {
+  dayKey: string
+  dayDate: Date
+  dayLabel: string
+  items: Transaction[]
+}
+
+export const buildTransactionDaySections = (transactions: Transaction[]): TransactionDaySection[] => {
+  const dateLabelFormat = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+  const sortedEntries = [...transactions]
+    .map((tx, index) => ({ tx, index }))
+    .sort((left, right) => {
+      const byTransaction = compareTransactionsDesc(left.tx, right.tx)
+      if (byTransaction !== 0) return byTransaction
+      if (left.index !== right.index) return left.index - right.index
+      return right.tx.id.localeCompare(left.tx.id)
+    })
+
+  const sectionsByDay = new Map<string, { dayDate: Date; items: Transaction[] }>()
+  sortedEntries.forEach(({ tx }) => {
+    const dayKey = toLocalDayKey(tx.date)
+    const existing = sectionsByDay.get(dayKey)
+    if (existing) {
+      existing.items.push(tx)
+      return
+    }
+    sectionsByDay.set(dayKey, { dayDate: toLocalDayDate(dayKey), items: [tx] })
+  })
+
+  return Array.from(sectionsByDay.entries())
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([dayKey, section]) => ({
+      dayKey,
+      dayDate: section.dayDate,
+      dayLabel: dateLabelFormat.format(section.dayDate),
+      items: section.items,
     }))
 }
