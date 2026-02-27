@@ -406,7 +406,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     const updateKeyboardInset = () => {
       const rawInset = window.innerHeight - viewport.height - viewport.offsetTop
       const nextInset = rawInset > 0 ? Math.round(rawInset) : 0
-      if (Math.abs(nextInset - keyboardInsetRef.current) < 1) return
+      if (Math.abs(nextInset - keyboardInsetRef.current) < 2) return
       keyboardInsetRef.current = nextInset
       setKeyboardInset(nextInset)
     }
@@ -1127,6 +1127,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
           minHeight: "100dvh",
+          transform: keyboardInset > 0 ? `translateY(-${keyboardInset}px)` : "translateY(0)",
         }}
       >
         <div style={{ display: "grid", gap: 10, padding: "12px 16px" }}>
