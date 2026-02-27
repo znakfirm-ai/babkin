@@ -163,7 +163,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
-  const lastKeyboardInsetRef = useRef(0)
+  const keyboardInsetRef = useRef(0)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
@@ -415,16 +415,16 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     if (typeof window === "undefined") return
     const viewport = window.visualViewport
     if (!viewport) {
-      if (lastKeyboardInsetRef.current === 0) return
-      lastKeyboardInsetRef.current = 0
+      if (keyboardInsetRef.current === 0) return
+      keyboardInsetRef.current = 0
       setKeyboardInsetPx(0)
       return
     }
 
     const updateKeyboardInset = () => {
       const nextInset = Math.max(0, Math.round(window.innerHeight - viewport.height))
-      if (Math.abs(nextInset - lastKeyboardInsetRef.current) < 2) return
-      lastKeyboardInsetRef.current = nextInset
+      if (Math.abs(nextInset - keyboardInsetRef.current) < 2) return
+      keyboardInsetRef.current = nextInset
       setKeyboardInsetPx(nextInset)
     }
 
@@ -1180,7 +1180,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         onPointerUp={handleDismissPointerUp}
         onPointerCancel={handleDismissPointerCancel}
         style={{
-          paddingBottom: `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + ${keyboardInsetPx}px)`,
+          paddingBottom: `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + var(--qa-footer-h, 0px) + ${keyboardInsetPx}px)`,
           overflowY: "auto",
           overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
