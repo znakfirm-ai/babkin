@@ -17,6 +17,7 @@ import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
 import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint } from "../utils/monthlyTransactionMetrics"
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
+import { sortTransactionsDesc } from "../utils/sortTransactions"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -2175,28 +2176,25 @@ function TransactionsPanel({
 
   const accountTx = useMemo(() => {
     if (!detailAccountId) return []
-    return displayTransactions
+    return sortTransactionsDesc(
+      displayTransactions
       .filter(
         (t) =>
           t.accountId === detailAccountId ||
           t.toAccountId === detailAccountId ||
           (t.type === "transfer" && t.accountId === detailAccountId)
-      )
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      ),
+    )
   }, [detailAccountId, displayTransactions])
 
   const categoryTx = useMemo(() => {
     if (!detailCategoryId) return []
-    return displayTransactions
-      .filter((t) => t.type === "expense" && t.categoryId === detailCategoryId)
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
+    return sortTransactionsDesc(displayTransactions.filter((t) => t.type === "expense" && t.categoryId === detailCategoryId))
   }, [detailCategoryId, displayTransactions])
 
   const incomeSourceTx = useMemo(() => {
     if (!detailIncomeSourceId) return []
-    return displayTransactions
-      .filter((t) => t.type === "income" && t.incomeSourceId === detailIncomeSourceId)
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
+    return sortTransactionsDesc(displayTransactions.filter((t) => t.type === "income" && t.incomeSourceId === detailIncomeSourceId))
   }, [detailIncomeSourceId, displayTransactions])
 
   const accountPeriod = useMemo(() => {
@@ -2287,7 +2285,7 @@ function TransactionsPanel({
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
       .map(([date, items]) => ({
         dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
+        items: sortTransactionsDesc(items),
       }))
   }, [filteredAccountTx])
 
@@ -2302,7 +2300,7 @@ function TransactionsPanel({
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
       .map(([date, items]) => ({
         dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
+        items: sortTransactionsDesc(items),
       }))
   }, [filteredCategoryTx])
 
@@ -2334,21 +2332,21 @@ function TransactionsPanel({
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
       .map(([date, items]) => ({
         dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
+        items: sortTransactionsDesc(items),
       }))
   }, [filteredIncomeSourceTx])
 
   const goalTx = useMemo(() => {
     if (!detailGoalId) return []
-    return displayTransactions.filter((t) => t.type !== "adjustment" && t.goalId === detailGoalId)
+    return sortTransactionsDesc(displayTransactions.filter((t) => t.type !== "adjustment" && t.goalId === detailGoalId))
   }, [detailGoalId, displayTransactions])
 
   const debtorTx = useMemo(() => {
     if (!detailDebtorId) return []
-    return displayTransactions.filter((tx) => {
+    return sortTransactionsDesc(displayTransactions.filter((tx) => {
       if (tx.type === "adjustment") return false
       return tx.debtorId === detailDebtorId
-    })
+    }))
   }, [detailDebtorId, displayTransactions])
 
   const filteredGoalTx = useMemo(() => {
@@ -2378,7 +2376,7 @@ function TransactionsPanel({
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
       .map(([date, items]) => ({
         dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
+        items: sortTransactionsDesc(items),
       }))
   }, [filteredGoalTx])
 
@@ -2409,7 +2407,7 @@ function TransactionsPanel({
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
       .map(([date, items]) => ({
         dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: items.sort((a, b) => (a.date < b.date ? 1 : -1)),
+        items: sortTransactionsDesc(items),
       }))
   }, [filteredDebtorTx])
 
