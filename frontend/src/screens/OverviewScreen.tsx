@@ -614,6 +614,18 @@ function OverviewScreen({
     })
     return paidById
   }, [transactions])
+  const payablePaidByDebtorId = useMemo(() => {
+    const paidById: Record<string, number> = {}
+    transactions.forEach((tx) => {
+      if (!tx.debtorId) return
+      const isPayableRepayment = tx.type === "expense" && !tx.goalId
+      if (!isPayableRepayment) return
+      const amount = Number(tx.amount.amount ?? 0)
+      if (!Number.isFinite(amount)) return
+      paidById[tx.debtorId] = (paidById[tx.debtorId] ?? 0) + Math.abs(amount)
+    })
+    return paidById
+  }, [transactions])
   const filteredDebtors = useMemo(() => {
     if (!isDebtsMode) return []
     return debtors
@@ -624,9 +636,12 @@ function OverviewScreen({
               ...debtor,
               paidAmount: receivablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0,
             }
-          : debtor,
+          : {
+              ...debtor,
+              paidAmount: payablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0,
+            },
       )
-  }, [currentDebtorDirection, debtors, goalTab, isDebtsMode, receivablePaidByDebtorId])
+  }, [currentDebtorDirection, debtors, goalTab, isDebtsMode, payablePaidByDebtorId, receivablePaidByDebtorId])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
   const goalCompleteAccount = useMemo(
     () => accounts.find((account) => account.id === goalCompleteAccountId) ?? null,

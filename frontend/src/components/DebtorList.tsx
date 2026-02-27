@@ -65,11 +65,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({
         const isLast = idx === debtors.length - 1
         const formattedPaid = formatMoneyIntl(paidAmount, currency)
         const percentLabel = `${percent}%`
-        const formattedPayoff = isReceivable
-          ? formatMoneyIntl(totalAmount, currency)
-          : totalAmount > 0
-            ? formatMoneyIntl(totalAmount, currency)
-            : "—"
+        const formattedPayoff = formatMoneyIntl(totalAmount, currency)
         const dueDateLabel = (() => {
           if (!debtor.dueDate) return "До —"
           const parsed = new Date(`${debtor.dueDate}T00:00:00`)
