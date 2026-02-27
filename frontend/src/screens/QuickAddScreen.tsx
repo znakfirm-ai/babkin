@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, type UIEvent } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type PointerEvent, type UIEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -152,6 +152,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [transferDate, setTransferDate] = useState(() => getTodayLocalDate())
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [keyboardInset, setKeyboardInset] = useState(0)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
@@ -161,6 +162,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
+  const keyboardInsetRef = useRef(0)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
   const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
@@ -395,6 +397,39 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       setShowDebtPayableScrollHint(false)
     }
   }, [debtPayableListScrolled])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const viewport = window.visualViewport
+    if (!viewport) return
+
+    const updateKeyboardInset = () => {
+      const rawInset = window.innerHeight - viewport.height - viewport.offsetTop
+      const nextInset = rawInset > 0 ? Math.round(rawInset) : 0
+      if (Math.abs(nextInset - keyboardInsetRef.current) < 1) return
+      keyboardInsetRef.current = nextInset
+      setKeyboardInset(nextInset)
+    }
+
+    updateKeyboardInset()
+    viewport.addEventListener("resize", updateKeyboardInset)
+    viewport.addEventListener("scroll", updateKeyboardInset)
+
+    return () => {
+      viewport.removeEventListener("resize", updateKeyboardInset)
+      viewport.removeEventListener("scroll", updateKeyboardInset)
+    }
+  }, [])
+
+  const handleOutsideInputPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null
+    if (!target) return
+    if (target.closest("input, textarea, [contenteditable='true']")) return
+    const active = document.activeElement
+    if (active instanceof HTMLElement && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
+      active.blur()
+    }
+  }, [])
 
   const accountTiles = useMemo(
     () =>
@@ -1076,6 +1111,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   return (
     <div
       className="app-shell"
+      onPointerDownCapture={handleOutsideInputPointerDown}
       style={{
         background: "#f5f6f8",
         position: "relative",
@@ -1086,7 +1122,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       <div
         className="app-shell__inner overview"
         style={{
-          paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
+          paddingBottom: `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + ${keyboardInset}px)`,
           overflowY: "auto",
           overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
