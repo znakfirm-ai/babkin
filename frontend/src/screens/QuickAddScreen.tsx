@@ -227,6 +227,19 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       }) as const,
     [],
   )
+  const debtListScrollContainerStyle = useMemo(
+    () =>
+      ({
+        border: "1px solid #e5e7eb",
+        borderRadius: 14,
+        padding: 8,
+        maxHeight: 236,
+        overflowY: "auto",
+        overflowX: "hidden",
+        WebkitOverflowScrolling: "touch",
+      }) as const,
+    [],
+  )
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === "undefined" || typeof document === "undefined") return
@@ -1292,13 +1305,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
                   <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список моих долгов</div>
-                  <div
-                    style={{
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 14,
-                      padding: 8,
-                    }}
-                  >
+                  <div style={debtListScrollContainerStyle}>
                     <DebtorList
                       debtors={activePayableDebtors}
                       direction="payable"
@@ -1463,13 +1470,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                 <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
                   <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список моих долгов</div>
                   {activePayableDebtors.length > 0 ? (
-                    <div
-                      style={{
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 14,
-                        padding: 8,
-                      }}
-                    >
+                    <div style={debtListScrollContainerStyle}>
                       <DebtorList
                         debtors={activePayableDebtors}
                         direction="payable"
