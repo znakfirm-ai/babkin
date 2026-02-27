@@ -2167,9 +2167,12 @@ function TransactionsPanel({
         tx.accountName ??
         tx.fromAccountName ??
         (sourceAccountId ? accountNameById.get(sourceAccountId) ?? null : null)
+      if (isPayableDebtRepaymentTx(tx)) {
+        return sourceAccountName ?? "Счёт"
+      }
       return sourceAccountName ? `Со счёта: ${sourceAccountName}` : "Со счёта"
     },
-    [accountNameById],
+    [accountNameById, isPayableDebtRepaymentTx],
   )
 
   const displayTransactions = useMemo(() => transactions.filter((t) => t.type !== "adjustment"), [transactions])
