@@ -17,6 +17,11 @@ const toFiniteNumber = (value: unknown): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const toSafeNumber = (value: unknown) => {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 const pickReceivableTotal = (debtor: Debtor): number => {
   const payoffAmount = toFiniteNumber(debtor.payoffAmount)
   if (payoffAmount !== null && payoffAmount > 0) return payoffAmount
@@ -49,14 +54,17 @@ export const DebtorList: React.FC<DebtorListProps> = ({
     <>
       {debtors.map((debtor, idx) => {
         const isReceivable = direction === "receivable"
-        const paidAmount = isReceivable ? Math.max(0, toFiniteNumber(debtor.paidAmount) ?? 0) : 0
-        const totalAmount = isReceivable ? pickReceivableTotal(debtor) : Math.max(0, debtor.returnAmount)
-        const percentValue = totalAmount > 0 ? clamp01(paidAmount / totalAmount) : 0
+        const payablePaid = Math.max(0, toSafeNumber(debtor.paidAmount))
+        const payableTotal = Math.max(0, toSafeNumber(debtor.payoffAmount))
+        const payablePercent = payableTotal > 0 ? clamp01(payablePaid / payableTotal) : 0
+        const paidAmount = isReceivable ? Math.max(0, toFiniteNumber(debtor.paidAmount) ?? 0) : payablePaid
+        const totalAmount = isReceivable ? pickReceivableTotal(debtor) : payableTotal
+        const percentValue = isReceivable ? (totalAmount > 0 ? clamp01(paidAmount / totalAmount) : 0) : payablePercent
         const percent = Math.round(percentValue * 100)
         const progress = clamp01(percentValue) * 100
         const isLast = idx === debtors.length - 1
         const formattedPaid = formatMoneyIntl(paidAmount, currency)
-        const percentLabel = isReceivable ? `${percent}%` : totalAmount > 0 ? `${percent}%` : "—"
+        const percentLabel = `${percent}%`
         const formattedPayoff = isReceivable
           ? formatMoneyIntl(totalAmount, currency)
           : totalAmount > 0
