@@ -269,27 +269,34 @@ function AddScreen() {
                 })
               }
 
-              const txRes = await getTransactions(token)
               const accRes = await getAccounts(token)
-
-              const mappedTx = txRes.transactions.map((t) => ({
-                id: t.id,
-                type: t.kind,
-                amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
-                date: t.happenedAt,
-                accountId: t.accountId ?? t.fromAccountId ?? "",
-                categoryId: t.categoryId ?? undefined,
-                incomeSourceId: t.incomeSourceId ?? undefined,
-                toAccountId: t.toAccountId ?? undefined,
-              }))
-              setTransactions(mappedTx)
-
               const mappedAcc = accRes.accounts.map((a) => ({
                 id: a.id,
                 name: a.name,
                 balance: { amount: a.balance, currency: a.currency },
               }))
               setAccounts(mappedAcc)
+
+              const txRes = await getTransactions(token)
+              const mappedTx = txRes.transactions.map((t) => ({
+                id: t.id,
+                type: t.kind,
+                amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
+                date: t.happenedAt,
+                accountId: t.accountId ?? t.fromAccountId ?? "",
+                accountName: t.accountName ?? null,
+                fromAccountId: t.fromAccountId ?? undefined,
+                fromAccountName: t.fromAccountName ?? null,
+                categoryId: t.categoryId ?? undefined,
+                incomeSourceId: t.incomeSourceId ?? undefined,
+                toAccountId: t.toAccountId ?? undefined,
+                toAccountName: t.toAccountName ?? null,
+                goalId: t.goalId ?? undefined,
+                goalName: t.goalName ?? null,
+                debtorId: t.debtorId ?? undefined,
+                debtorName: t.debtorName ?? null,
+              }))
+              setTransactions(mappedTx)
 
               setAmount("")
               setComment("")
