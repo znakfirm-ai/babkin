@@ -3,6 +3,7 @@ import { useAppStore } from "../store/useAppStore"
 import { createTransaction, getTransactions } from "../api/transactions"
 import { getAccounts } from "../api/accounts"
 import { useSingleFlight } from "../hooks/useSingleFlight"
+import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 
 type TxKind = "expense" | "income" | "transfer"
 
@@ -22,6 +23,7 @@ function AddScreen() {
 
   const [amount, setAmount] = useState("")
   const [comment, setComment] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
   const filteredCategories = useMemo(() => {
     const catType = "expense"
@@ -217,95 +219,100 @@ function AddScreen() {
           type="button"
           style={{ padding: 12 }}
           disabled={isRunning}
-          onClick={() =>
-            run(async () => {
+          onClick={() => {
+            if (isRunning) return
+            void run(async () => {
               const num = Number(amount.replace(",", "."))
               if (!Number.isFinite(num) || num <= 0) return
 
               const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
               if (!token) {
-                alert("Нет токена")
+                setError("Нет токена")
                 return
               }
+              setError(null)
+              try {
+                const payloadBase = {
+                  note: comment.trim() || undefined,
+                  amount: num,
+                  happenedAt: new Date().toISOString(),
+                }
 
-              const payloadBase = {
-                note: comment.trim() || undefined,
-                amount: num,
-                happenedAt: new Date().toISOString(),
+                if (type === "transfer") {
+                  if (!effectiveFromAccountId || !effectiveToAccountId) return
+                  if (effectiveFromAccountId === effectiveToAccountId) return
+
+                  await createTransaction(token, {
+                    kind: "transfer",
+                    fromAccountId: effectiveFromAccountId,
+                    toAccountId: effectiveToAccountId,
+                    amount: num,
+                    note: payloadBase.note,
+                    happenedAt: payloadBase.happenedAt,
+                  })
+                } else if (type === "income") {
+                  if (!effectiveAccountId) return
+                  await createTransaction(token, {
+                    kind: "income",
+                    accountId: effectiveAccountId,
+                    categoryId: null,
+                    incomeSourceId: effectiveIncomeSourceId || null,
+                    amount: num,
+                    note: payloadBase.note,
+                    happenedAt: payloadBase.happenedAt,
+                  })
+                } else {
+                  if (!effectiveAccountId) return
+                  await createTransaction(token, {
+                    kind: "expense",
+                    accountId: effectiveAccountId,
+                    categoryId: effectiveCategoryId || null,
+                    amount: num,
+                    note: payloadBase.note,
+                    happenedAt: payloadBase.happenedAt,
+                  })
+                }
+
+                const accRes = await getAccounts(token)
+                const mappedAcc = accRes.accounts.map((a) => ({
+                  id: a.id,
+                  name: a.name,
+                  balance: { amount: a.balance, currency: a.currency },
+                }))
+                setAccounts(mappedAcc)
+
+                const txRes = await getTransactions(token)
+                const mappedTx = txRes.transactions.map((t) => ({
+                  id: t.id,
+                  type: t.kind,
+                  amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
+                  date: t.happenedAt,
+                  accountId: t.accountId ?? t.fromAccountId ?? "",
+                  accountName: t.accountName ?? null,
+                  fromAccountId: t.fromAccountId ?? undefined,
+                  fromAccountName: t.fromAccountName ?? null,
+                  categoryId: t.categoryId ?? undefined,
+                  incomeSourceId: t.incomeSourceId ?? undefined,
+                  toAccountId: t.toAccountId ?? undefined,
+                  toAccountName: t.toAccountName ?? null,
+                  goalId: t.goalId ?? undefined,
+                  goalName: t.goalName ?? null,
+                  debtorId: t.debtorId ?? undefined,
+                  debtorName: t.debtorName ?? null,
+                }))
+                setTransactions(mappedTx)
+
+                setAmount("")
+                setComment("")
+              } catch (err) {
+                setError(getTransactionErrorMessage(err))
               }
-
-              if (type === "transfer") {
-                if (!effectiveFromAccountId || !effectiveToAccountId) return
-                if (effectiveFromAccountId === effectiveToAccountId) return
-
-                await createTransaction(token, {
-                  kind: "transfer",
-                  fromAccountId: effectiveFromAccountId,
-                  toAccountId: effectiveToAccountId,
-                  amount: num,
-                  note: payloadBase.note,
-                  happenedAt: payloadBase.happenedAt,
-                })
-              } else if (type === "income") {
-                if (!effectiveAccountId) return
-                await createTransaction(token, {
-                  kind: "income",
-                  accountId: effectiveAccountId,
-                  categoryId: null,
-                  incomeSourceId: effectiveIncomeSourceId || null,
-                  amount: num,
-                  note: payloadBase.note,
-                  happenedAt: payloadBase.happenedAt,
-                })
-              } else {
-                if (!effectiveAccountId) return
-                await createTransaction(token, {
-                  kind: "expense",
-                  accountId: effectiveAccountId,
-                  categoryId: effectiveCategoryId || null,
-                  amount: num,
-                  note: payloadBase.note,
-                  happenedAt: payloadBase.happenedAt,
-                })
-              }
-
-              const accRes = await getAccounts(token)
-              const mappedAcc = accRes.accounts.map((a) => ({
-                id: a.id,
-                name: a.name,
-                balance: { amount: a.balance, currency: a.currency },
-              }))
-              setAccounts(mappedAcc)
-
-              const txRes = await getTransactions(token)
-              const mappedTx = txRes.transactions.map((t) => ({
-                id: t.id,
-                type: t.kind,
-                amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
-                date: t.happenedAt,
-                accountId: t.accountId ?? t.fromAccountId ?? "",
-                accountName: t.accountName ?? null,
-                fromAccountId: t.fromAccountId ?? undefined,
-                fromAccountName: t.fromAccountName ?? null,
-                categoryId: t.categoryId ?? undefined,
-                incomeSourceId: t.incomeSourceId ?? undefined,
-                toAccountId: t.toAccountId ?? undefined,
-                toAccountName: t.toAccountName ?? null,
-                goalId: t.goalId ?? undefined,
-                goalName: t.goalName ?? null,
-                debtorId: t.debtorId ?? undefined,
-                debtorName: t.debtorName ?? null,
-              }))
-              setTransactions(mappedTx)
-
-              setAmount("")
-              setComment("")
-              alert("Сохранено")
             })
-          }
+          }}
         >
           Сохранить
         </button>
+        {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
       </div>
     </div>
   )

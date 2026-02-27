@@ -13,6 +13,7 @@ import { getDebtors } from "../api/debtors"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
 import { useSingleFlight } from "../hooks/useSingleFlight"
 import { buildMonthlyTransactionMetrics, getLocalMonthPoint } from "../utils/monthlyTransactionMetrics"
+import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import type { Debtor } from "../types/finance"
 
 const getTodayLocalDate = () => {
@@ -335,6 +336,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   )
 
   const submitExpense = useCallback(() => {
+    if (isRunning) return
     return run(async () => {
     if (!token) {
       setError("Нет токена")
@@ -391,13 +393,13 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       )
       onClose()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Не удалось сохранить"
-      setError(msg)
+      setError(getTransactionErrorMessage(err))
     }
     })
-  }, [amount, onClose, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
+  }, [amount, isRunning, onClose, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
 
   const submitIncome = useCallback(() => {
+    if (isRunning) return
     return run(async () => {
     if (!token) {
       setError("Нет токена")
@@ -457,11 +459,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       setAmount("")
       onClose()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Не удалось сохранить"
-      setError(msg)
+      setError(getTransactionErrorMessage(err))
     }
     })
-  }, [amount, onClose, run, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
+  }, [amount, isRunning, onClose, run, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
 
   const renderTile = (
     item: {
@@ -630,6 +631,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   }, [activeTab, refetchDebtors])
 
   const submitTransfer = useCallback(() => {
+    if (isRunning) return
     return run(async () => {
     if (!token) {
       setError("Нет токена")
@@ -736,13 +738,13 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       }
       onClose()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Не удалось сохранить"
-      setError(msg)
+      setError(getTransactionErrorMessage(err))
     }
     })
   }, [
     amount,
     ensureGoalsLoaded,
+    isRunning,
     run,
     onClose,
     refetchDebtors,
@@ -782,6 +784,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   }
 
   const submitGoal = useCallback(() => {
+    if (isRunning) return
     return run(async () => {
     if (!token) {
       setError("Нет токена")
@@ -841,13 +844,13 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       await ensureGoalsLoaded()
       onClose()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Не удалось сохранить"
-      setError(msg)
+      setError(getTransactionErrorMessage(err))
     }
     })
-  }, [amount, onClose, run, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
+  }, [amount, isRunning, onClose, run, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
 
   const submitDebt = useCallback(() => {
+    if (isRunning) return
     return run(async () => {
       if (!token) {
         setError("Нет токена")
@@ -931,13 +934,13 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         await refetchDebtors()
         onClose()
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Не удалось сохранить"
-        setError(msg)
+        setError(getTransactionErrorMessage(err))
       }
     })
   }, [
     amount,
     debtAction,
+    isRunning,
     onClose,
     refetchDebtors,
     run,

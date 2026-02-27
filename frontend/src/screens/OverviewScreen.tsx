@@ -16,6 +16,7 @@ import { useSingleFlight } from "../hooks/useSingleFlight"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
 import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint } from "../utils/monthlyTransactionMetrics"
+import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -1283,6 +1284,7 @@ function OverviewScreen({
   ])
 
   const handleDeleteTx = useCallback(() => {
+    if (txLoading || isDeleteTxRunning) return
     return runDeleteTx(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
     if (!token) {
@@ -1310,12 +1312,12 @@ function OverviewScreen({
       if (err instanceof DOMException && err.name === "AbortError") {
         return
       }
-      setTxError("Не удалось удалить операцию")
+      setTxError(getTransactionErrorMessage(err, "Не удалось удалить операцию"))
     } finally {
       setTxLoading(false)
     }
     })
-  }, [closeTxSheet, refetchAccountsSeq, refetchDebtors, refetchGoals, refetchTransactions, runDeleteTx, transactions, txActionId])
+  }, [closeTxSheet, isDeleteTxRunning, refetchAccountsSeq, refetchDebtors, refetchGoals, refetchTransactions, runDeleteTx, transactions, txActionId, txLoading])
 
   const buildEditTransactionPayload = useCallback(
     (original: Transaction, amount: number, date: string): { payload?: CreateTransactionBody; error?: string } => {
@@ -1408,6 +1410,7 @@ function OverviewScreen({
   )
 
   const handleSaveEdit = useCallback(() => {
+    if (txLoading || isEditTxRunning) return
     return runEditTx(async () => {
       const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
       if (!token) {
@@ -1450,8 +1453,7 @@ function OverviewScreen({
         if (err instanceof DOMException && err.name === "AbortError") {
           return
         }
-        const message = err instanceof Error ? err.message : "Не удалось сохранить"
-        setTxError(message)
+        setTxError(getTransactionErrorMessage(err, "Не удалось сохранить"))
       } finally {
         setTxLoading(false)
       }
@@ -1461,6 +1463,7 @@ function OverviewScreen({
     closeTxSheet,
     editAmount,
     editDate,
+    isEditTxRunning,
     refetchAccountsSeq,
     refetchDebtors,
     refetchGoals,
@@ -1468,6 +1471,7 @@ function OverviewScreen({
     runEditTx,
     transactions,
     txActionId,
+    txLoading,
   ])
 
   const handleSaveCategory = useCallback(() => {
