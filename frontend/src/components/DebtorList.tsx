@@ -24,6 +24,26 @@ const toSafeNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+type DueDateTone = "default" | "amber" | "red"
+
+const parseLocalDate = (value: string | null | undefined): Date | null => {
+  if (!value) return null
+  const parsed = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return null
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
+}
+
+const getDueDateTone = (dueDate: string | null | undefined): DueDateTone => {
+  const due = parseLocalDate(dueDate)
+  if (!due) return "default"
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dayDiff = Math.floor((due.getTime() - today.getTime()) / 86400000)
+  if (dayDiff <= 0) return "red"
+  if (dayDiff < 7) return "amber"
+  return "default"
+}
+
 const firstPositiveNumber = (...values: unknown[]) => {
   for (const value of values) {
     const parsed = toSafeNumber(value)
@@ -92,6 +112,8 @@ export const DebtorList: React.FC<DebtorListProps> = ({
         const formattedPaid = formatMoneyIntl(paidAmount, currency)
         const percentLabel = `${percent}%`
         const formattedPayoff = formatMoneyIntl(totalAmount, currency)
+        const dueDateTone = isReceivable ? getDueDateTone(debtor.dueDate) : "default"
+        const dueDateColor = dueDateTone === "red" ? "#b91c1c" : dueDateTone === "amber" ? "#b45309" : "#475569"
         const dueDateLabel = (() => {
           if (!debtor.dueDate) return "До —"
           const parsed = new Date(`${debtor.dueDate}T00:00:00`)
@@ -129,7 +151,7 @@ export const DebtorList: React.FC<DebtorListProps> = ({
                 </span>
                 <span style={{ fontWeight: 600, color: "#0f172a" }}>{debtor.name}</span>
               </span>
-              <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12, color: dueDateColor, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
                 {isSelected ? (
                   <span
                     style={{
