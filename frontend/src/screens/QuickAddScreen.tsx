@@ -133,6 +133,8 @@ type Props = {
 export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) => {
   const { accounts, categories, incomeSources, goals, debtors, transactions, setAccounts, setTransactions, setGoals, setDebtors, currency } =
     useAppStore()
+  const quickAddScrollRef = useRef<HTMLDivElement | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
@@ -214,6 +216,58 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const categoriesById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
   const incomeSourcesById = useMemo(() => Object.fromEntries(incomeSources.map((s) => [s.id, s])), [incomeSources])
   const activeGoalsById = useMemo(() => Object.fromEntries(activeGoals.map((g) => [g.id, g])), [activeGoals])
+  const hScrollRowStyle = useMemo(
+    () =>
+      ({
+        paddingBottom: 6,
+        overflowX: "auto",
+        WebkitOverflowScrolling: "touch",
+        touchAction: "pan-x",
+      }) as const,
+    [],
+  )
+
+  useEffect(() => {
+    const root = quickAddScrollRef.current
+    if (!root) return
+
+    const handleTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0]
+      if (!touch) {
+        touchStartRef.current = null
+        return
+      }
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+    }
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0]
+      const start = touchStartRef.current
+      if (!touch || !start) return
+      const dx = touch.clientX - start.x
+      const dy = touch.clientY - start.y
+      if (Math.abs(dx) <= Math.abs(dy)) return
+      const target = event.target instanceof Element ? event.target : null
+      if (target?.closest('[data-hscroll="1"]')) return
+      event.preventDefault()
+    }
+
+    const clearTouch = () => {
+      touchStartRef.current = null
+    }
+
+    root.addEventListener("touchstart", handleTouchStart, { passive: true })
+    root.addEventListener("touchmove", handleTouchMove, { passive: false })
+    root.addEventListener("touchend", clearTouch, { passive: true })
+    root.addEventListener("touchcancel", clearTouch, { passive: true })
+
+    return () => {
+      root.removeEventListener("touchstart", handleTouchStart)
+      root.removeEventListener("touchmove", handleTouchMove)
+      root.removeEventListener("touchend", clearTouch)
+      root.removeEventListener("touchcancel", clearTouch)
+    }
+  }, [])
 
   useEffect(() => {
     if (!selectedGoalId) return
@@ -902,6 +956,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       }}
     >
       <div
+        ref={quickAddScrollRef}
         className="app-shell__inner overview"
         style={{
           paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
@@ -929,7 +984,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               Закрыть
             </button>
           </div>
-          <div style={{ overflowX: "auto", paddingBottom: 2 }}>
+          <div data-hscroll="1" style={{ overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}>
             <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
               {(Object.keys(labelMap) as QuickAddTab[]).map((tab) => {
                 const iconMap: Record<QuickAddTab, IconName> = {
@@ -973,7 +1028,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         {activeTab === "expense" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
             <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для списания</div>
-            <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+            <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
               {accountTiles.map((acc) =>
                 renderTile(
                     {
@@ -1042,7 +1097,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         ) : activeTab === "income" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
             <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Источник дохода</div>
-            <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+            <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
               {incomeSourceTiles.map((src) =>
                 renderTile(
                   {
@@ -1060,7 +1115,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
 
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для зачисления</div>
-              <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+              <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
               {accountTiles.map((acc) =>
                 renderTile(
                   {
@@ -1110,7 +1165,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         ) : activeTab === "transfer" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
             <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт — откуда</div>
-            <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+            <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
               {accountTiles.map((acc) =>
                 renderTile(
                   {
@@ -1164,7 +1219,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               {transferTargetType === "account" ? (
                 <div style={{ display: "grid", gap: 10 }}>
                   <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт — куда</div>
-                  <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+                  <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
                     {accountTiles.map((acc) =>
                       renderTile(
                         {
@@ -1320,7 +1375,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
 
                 <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
                   <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для зачисления</div>
-                  <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+                  <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
                     {accountTiles.map((acc) =>
                       renderTile(
                         {
@@ -1345,7 +1400,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
             ) : (
               <>
                 <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для списания</div>
-                <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+                <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
                   {accountTiles.map((acc) =>
                     renderTile(
                       {
@@ -1421,7 +1476,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         ) : activeTab === "goal" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
             <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт</div>
-            <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+            <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
               {accountTiles.map((acc) =>
                 renderTile(
                   {
@@ -1441,7 +1496,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
               {activeGoals.length > 0 ? (
-                <div className="overview-section__list overview-section__list--row overview-accounts-row" style={{ paddingBottom: 6 }}>
+                <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
                   {activeGoals.map((goal) =>
                     renderTile(
                       {
