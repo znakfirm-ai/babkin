@@ -277,7 +277,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         position: "fixed",
         left: "max(16px, calc((100vw - 480px) / 2 + 16px))",
         right: "max(16px, calc((100vw - 480px) / 2 + 16px))",
-        bottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
+        bottom: "env(safe-area-inset-bottom,0px)",
         transform: "translateY(var(--qa-vv-shift))",
         zIndex: 8,
         background: "#f5f6f8",
@@ -449,12 +449,9 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     const updateVisualViewportShift = () => {
       const innerHeight = window.innerHeight
       const viewportDelta = innerHeight - viewport.height
-      const bottomNavRaw = getComputedStyle(document.documentElement).getPropertyValue("--bottom-nav-height")
-      const bottomNavPx = Number.parseFloat(bottomNavRaw) || 56
       const keyboardOpen = viewportDelta >= 120
       const keyboardClosed = viewportDelta < 40
-      const effectiveDelta = Math.max(0, viewportDelta - bottomNavPx)
-      const rawShift = -Math.round(effectiveDelta)
+      const rawShift = -Math.round(Math.max(0, viewportDelta))
       viewportShiftLastRawRef.current = rawShift
 
       if (keyboardClosed) {
