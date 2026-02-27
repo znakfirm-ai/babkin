@@ -163,6 +163,8 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
   const keyboardInsetRef = useRef(0)
+  const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
+  const dismissMovedRef = useRef(false)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
   const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
@@ -445,13 +447,50 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     }
   }, [])
 
-  const handleOutsideInputPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+  const isEditableElement = (element: Element | null): element is HTMLElement =>
+    element instanceof HTMLElement && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable)
+
+  const handleDismissPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const active = document.activeElement
+    if (!isEditableElement(active)) {
+      dismissStartPointRef.current = null
+      dismissMovedRef.current = false
+      return
+    }
+    dismissStartPointRef.current = { x: event.clientX, y: event.clientY }
+    dismissMovedRef.current = false
+  }, [])
+
+  const handleDismissPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const startPoint = dismissStartPointRef.current
+    if (!startPoint) return
+    if (dismissMovedRef.current) return
+    const dx = Math.abs(event.clientX - startPoint.x)
+    const dy = Math.abs(event.clientY - startPoint.y)
+    if (Math.max(dx, dy) > 8) {
+      dismissMovedRef.current = true
+    }
+  }, [])
+
+  const handleDismissPointerCancel = useCallback(() => {
+    dismissStartPointRef.current = null
+    dismissMovedRef.current = false
+  }, [])
+
+  const handleDismissPointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const startPoint = dismissStartPointRef.current
+    const wasMoved = dismissMovedRef.current
+    dismissStartPointRef.current = null
+    dismissMovedRef.current = false
+    if (!startPoint || wasMoved) return
+
     const target = event.target as HTMLElement | null
     if (!target) return
-    if (target.closest("input, textarea, [contenteditable='true']")) return
     if (target.closest("[data-quick-add-footer='1']")) return
+    if (target.closest("input, textarea, [contenteditable='true']")) return
+
     const active = document.activeElement
-    if (active instanceof HTMLElement && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
+    if (isEditableElement(active)) {
       active.blur()
     }
   }, [])
@@ -1136,7 +1175,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   return (
     <div
       className="app-shell"
-      onPointerDownCapture={handleOutsideInputPointerDown}
       style={{
         ...quickAddLayoutVars,
         background: "#f5f6f8",
@@ -1147,6 +1185,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     >
       <div
         className="app-shell__inner overview"
+        onPointerDown={handleDismissPointerDown}
+        onPointerMove={handleDismissPointerMove}
+        onPointerUp={handleDismissPointerUp}
+        onPointerCancel={handleDismissPointerCancel}
         style={{
           paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + var(--qa-footer-h))",
           overflowY: "auto",
