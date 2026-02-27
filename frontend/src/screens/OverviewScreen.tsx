@@ -184,6 +184,23 @@ const pickPayableDebtTotal = (debtor: Debtor) => {
   }
   return 0
 }
+const pickReceivableDebtTotal = (debtor: Debtor) => {
+  const raw = debtor as Record<string, unknown>
+  const candidates = [
+    debtor.payoffAmount,
+    debtor.amountToReturn,
+    debtor.returnAmount,
+    raw.payoff,
+    raw.toReturnAmount,
+    raw.payoff_amount,
+    raw.amount_to_return,
+  ]
+  for (const candidate of candidates) {
+    const value = toPositiveNumberOrZero(candidate)
+    if (value > 0) return value
+  }
+  return 0
+}
 
 const Section: React.FC<{
   title: string
@@ -678,6 +695,19 @@ function OverviewScreen({
         return remaining > 0 ? sum + total : sum
       }, 0),
     [debtors, payablePaidByDebtorId],
+  )
+  const totalActiveReceivableDebt = useMemo(
+    () =>
+      debtors.reduce((sum, debtor) => {
+        if (debtor.direction !== "receivable" || debtor.status !== "active") return sum
+        const total = pickReceivableDebtTotal(debtor)
+        if (total <= 0) return sum
+        const paid = Math.max(0, Number(receivablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0))
+        if (!Number.isFinite(paid)) return sum + total
+        const remaining = total - paid
+        return remaining > 0 ? sum + total : sum
+      }, 0),
+    [debtors, receivablePaidByDebtorId],
   )
   const filteredDebtors = useMemo(() => {
     if (!isDebtsMode) return []
@@ -1951,7 +1981,14 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
   ]
 
   const debtsItems: CardItem[] = [
-    { id: "debt-bank", title: "Мне должны", amount: monthlyReceivableRepayment, icon: "bank", color: "#ea580c" },
+    {
+      id: "debt-bank",
+      title: "Мне должны",
+      amount: monthlyReceivableRepayment,
+      secondaryText: formatMoney(totalActiveReceivableDebt, baseCurrency),
+      icon: "bank",
+      color: "#ea580c",
+    },
     {
       id: "debt-friend",
       title: "Я должен",
