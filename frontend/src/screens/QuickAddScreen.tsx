@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, type PointerEvent, type UIEvent } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type FocusEvent, type PointerEvent, type UIEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -102,12 +102,13 @@ const AmountDateRow: React.FC<{
   onAmountChange: (val: string) => void
   date: string
   onDateChange: (val: string) => void
-}> = ({ amount, onAmountChange, date, onDateChange }) => (
+  onAmountFocus?: (event: FocusEvent<HTMLInputElement>) => void
+}> = ({ amount, onAmountChange, date, onDateChange, onAmountFocus }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
     <input
       value={amount}
       onChange={(e) => onAmountChange(e.target.value)}
-      onFocus={(e) => e.currentTarget.scrollIntoView({ block: "center" })}
+      onFocus={onAmountFocus}
       placeholder="Сумма"
       inputMode="decimal"
       style={{
@@ -166,6 +167,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const keyboardInsetRef = useRef(0)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
   const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
@@ -484,6 +486,17 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     if (isEditableElement(active)) {
       active.blur()
     }
+  }, [])
+
+  const handleAmountFocus = useCallback((event: FocusEvent<HTMLInputElement>) => {
+    const input = event.currentTarget
+    input.scrollIntoView({ block: "center" })
+    const scrollHost = scrollRef.current
+    if (!scrollHost) return
+    const inputRect = input.getBoundingClientRect()
+    const hostRect = scrollHost.getBoundingClientRect()
+    if (inputRect.bottom <= hostRect.bottom - 12) return
+    scrollHost.scrollTop += inputRect.bottom - (hostRect.bottom - 12)
   }, [])
 
   const accountTiles = useMemo(
@@ -1175,6 +1188,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     >
       <div
         className="app-shell__inner overview"
+        ref={scrollRef}
         onPointerDown={handleDismissPointerDown}
         onPointerMove={handleDismissPointerMove}
         onPointerUp={handleDismissPointerUp}
@@ -1302,6 +1316,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                 onAmountChange={setAmount}
                 date={transferDate}
                 onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -1370,6 +1385,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                 onAmountChange={setAmount}
                 date={transferDate}
                 onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -1577,6 +1593,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                 onAmountChange={setAmount}
                 date={transferDate}
                 onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -1794,7 +1811,13 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
             )}
 
             <div data-quick-add-footer="1" style={footerSectionStyle}>
-              <AmountDateRow amount={amount} onAmountChange={setAmount} date={transferDate} onDateChange={setTransferDate} />
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
+              />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
                 <button
@@ -1893,6 +1916,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                 onAmountChange={setAmount}
                 date={transferDate}
                 onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
