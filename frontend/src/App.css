@@ -55,10 +55,20 @@
   min-height: 116px;
   text-align: center;
   position: relative;
+  overflow: hidden;
 }
 
 .tile-card--selected {
-  opacity: 0.97;
+  opacity: 1;
+}
+
+.tile-card--selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(15, 23, 42, 0.12);
+  pointer-events: none;
 }
 
 .tile-card__selected-check {
@@ -79,6 +89,7 @@
   font-weight: 700;
   line-height: 1;
   pointer-events: none;
+  z-index: 2;
 }
 
 .tile-card__icon {
