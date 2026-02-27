@@ -1659,26 +1659,46 @@ function OverviewScreen({
         return
       }
       const returnAmount = Number(debtorReturnAmount.trim().replace(",", "."))
+      const roundedLoan = Math.round(loan * 100) / 100
+      const normalizedReturnAmount = Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null
       setDebtorError(null)
       if (debtorSheetMode === "edit" && editingDebtorId) {
         await updateDebtor(token, editingDebtorId, {
           name: trimmedName,
           icon: debtorIcon ?? null,
           issuedAt: debtorIssuedDate || getTodayLocalDate(),
-          principalAmount: Math.round(loan * 100) / 100,
+          principalAmount: roundedLoan,
           dueAt: debtorReturnDate || null,
-          payoffAmount: Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null,
+          payoffAmount: normalizedReturnAmount,
           status: "active",
           direction: currentDebtorDirection,
         })
+        setDebtors(
+          debtors.map((debtor) =>
+            debtor.id === editingDebtorId
+              ? {
+                  ...debtor,
+                  name: trimmedName,
+                  icon: debtorIcon ?? null,
+                  issuedDate: debtorIssuedDate || getTodayLocalDate(),
+                  loanAmount: roundedLoan,
+                  dueDate: debtorReturnDate || "",
+                  returnAmount: normalizedReturnAmount ?? roundedLoan,
+                  payoffAmount: normalizedReturnAmount,
+                  status: "active",
+                  direction: currentDebtorDirection,
+                }
+              : debtor,
+          ),
+        )
       } else {
         await createDebtor(token, {
           name: trimmedName,
           icon: debtorIcon ?? null,
           issuedAt: debtorIssuedDate || getTodayLocalDate(),
-          principalAmount: Math.round(loan * 100) / 100,
+          principalAmount: roundedLoan,
           dueAt: debtorReturnDate || null,
-          payoffAmount: Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null,
+          payoffAmount: normalizedReturnAmount,
           status: "active",
           direction: currentDebtorDirection,
         })
@@ -1698,8 +1718,10 @@ function OverviewScreen({
     debtorSheetMode,
     editingDebtorId,
     currentDebtorDirection,
+    debtors,
     refetchDebtors,
     runDebtorSave,
+    setDebtors,
     token,
   ])
 
