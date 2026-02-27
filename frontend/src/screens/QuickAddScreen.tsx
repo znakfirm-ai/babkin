@@ -1268,7 +1268,28 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                   </button>
                 </div>
               ) : (
-                <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13 }}>Долги и кредиты будут доступны позже</div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список моих долгов</div>
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 14,
+                      padding: 8,
+                    }}
+                  >
+                    <DebtorList
+                      debtors={activePayableDebtors}
+                      direction="payable"
+                      emptyText="Нет актуальных долгов"
+                      selectedDebtorId={selectedPayableDebtorId}
+                      currency={baseCurrency}
+                      onSelectDebtor={(debtor) => {
+                        setSelectedPayableDebtorId(debtor.id)
+                        setError(null)
+                      }}
+                    />
+                  </div>
+                </div>
               )}
             </div>
 
