@@ -133,8 +133,6 @@ type Props = {
 export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) => {
   const { accounts, categories, incomeSources, goals, debtors, transactions, setAccounts, setTransactions, setGoals, setDebtors, currency } =
     useAppStore()
-  const quickAddScrollRef = useRef<HTMLDivElement | null>(null)
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
@@ -228,50 +226,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       }) as const,
     [],
   )
-
-  useEffect(() => {
-    const root = quickAddScrollRef.current
-    if (!root) return
-
-    const handleTouchStart = (event: TouchEvent) => {
-      const touch = event.touches[0]
-      if (!touch) {
-        touchStartRef.current = null
-        return
-      }
-      touchStartRef.current = { x: touch.clientX, y: touch.clientY }
-    }
-
-    const handleTouchMove = (event: TouchEvent) => {
-      const touch = event.touches[0]
-      const start = touchStartRef.current
-      if (!touch || !start) return
-      const dx = touch.clientX - start.x
-      const dy = touch.clientY - start.y
-      if (Math.abs(dx) <= Math.abs(dy)) return
-      const inHorizontalScroller = event
-        .composedPath()
-        .some((node) => node instanceof HTMLElement && node.dataset.hscroll === "1")
-      if (inHorizontalScroller) return
-      event.preventDefault()
-    }
-
-    const clearTouch = () => {
-      touchStartRef.current = null
-    }
-
-    root.addEventListener("touchstart", handleTouchStart, { passive: true })
-    root.addEventListener("touchmove", handleTouchMove, { passive: false })
-    root.addEventListener("touchend", clearTouch, { passive: true })
-    root.addEventListener("touchcancel", clearTouch, { passive: true })
-
-    return () => {
-      root.removeEventListener("touchstart", handleTouchStart)
-      root.removeEventListener("touchmove", handleTouchMove)
-      root.removeEventListener("touchend", clearTouch)
-      root.removeEventListener("touchcancel", clearTouch)
-    }
-  }, [])
 
   useEffect(() => {
     if (!selectedGoalId) return
@@ -960,7 +914,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       }}
     >
       <div
-        ref={quickAddScrollRef}
         className="app-shell__inner overview"
         style={{
           paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
@@ -998,7 +951,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               overscrollBehaviorX: "contain",
             }}
           >
-            <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
+            <div style={{ display: "flex", flexWrap: "nowrap", gap: 8, minWidth: 0 }}>
               {(Object.keys(labelMap) as QuickAddTab[]).map((tab) => {
                 const iconMap: Record<QuickAddTab, IconName> = {
                   expense: "report",

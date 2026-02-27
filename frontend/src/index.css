@@ -12,6 +12,13 @@
   --app-height: 100vh;
 }
 
+html,
+body,
+#root {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
 * {
   box-sizing: border-box;
 }
