@@ -54,6 +54,31 @@
   box-shadow: none;
   min-height: 116px;
   text-align: center;
+  position: relative;
+}
+
+.tile-card--selected {
+  opacity: 0.97;
+}
+
+.tile-card__selected-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .tile-card__icon {

@@ -492,7 +492,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               background: bg,
               color: contentColor,
               border: "1px solid rgba(0,0,0,0.08)",
-              boxShadow: active ? "0 0 0 2px #0f172a inset" : undefined,
+              boxShadow: undefined,
             }
           : {
               background: item.budgetTone
@@ -509,7 +509,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
                   ? "1px solid #f59e0b"
                   : undefined
                 : "1px solid rgba(0,0,0,0.08)",
-              boxShadow: active ? "0 0 0 2px #0f172a inset" : undefined,
+              boxShadow: undefined,
               color: isAccount ? contentColor : "#0f172a",
             }
 
@@ -517,7 +517,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         <button
           key={item.id}
           type="button"
-          className={`tile-card ${kind === "category" ? "tile-card--category" : "tile-card--account"}`}
+          className={`tile-card ${kind === "category" ? "tile-card--category" : "tile-card--account"}${active ? " tile-card--selected" : ""}`}
           onClick={() => {
             if (onSelect) {
               onSelect(item.id)
@@ -535,6 +535,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
           }}
           style={buttonStyle}
         >
+          {active ? <span className="tile-card__selected-check" aria-hidden="true">✓</span> : null}
           <div
             className="tile-card__icon"
             style={
