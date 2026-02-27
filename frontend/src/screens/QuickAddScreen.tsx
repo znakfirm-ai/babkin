@@ -164,8 +164,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const goalsFetchInFlight = useRef(false)
   const visualViewportShiftRef = useRef(0)
   const hasKeyboardRef = useRef(false)
-  const viewportShiftLockedRef = useRef(false)
-  const viewportShiftLockedValueRef = useRef(0)
   const viewportShiftLastRawRef = useRef(0)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
@@ -449,37 +447,17 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     const updateVisualViewportShift = () => {
       const innerHeight = window.innerHeight
       const viewportDelta = innerHeight - viewport.height
-      const keyboardOpen = viewportDelta >= 120
       const keyboardClosed = viewportDelta < 40
       const rawShift = -Math.round(Math.max(0, viewportDelta))
       viewportShiftLastRawRef.current = rawShift
 
       if (keyboardClosed) {
         hasKeyboardRef.current = false
-        viewportShiftLockedRef.current = false
-        viewportShiftLockedValueRef.current = 0
         applyShift(0)
         return
       }
 
-      if (!keyboardOpen) {
-        return
-      }
-
       hasKeyboardRef.current = true
-      if (viewportShiftLockedRef.current) {
-        applyShift(viewportShiftLockedValueRef.current)
-        return
-      }
-
-      const minAllowedShift = -Math.round(innerHeight * 0.8)
-      const maxAllowedShift = -20
-      if (rawShift < minAllowedShift || rawShift > maxAllowedShift) {
-        return
-      }
-
-      viewportShiftLockedRef.current = true
-      viewportShiftLockedValueRef.current = rawShift
       applyShift(rawShift)
     }
 
