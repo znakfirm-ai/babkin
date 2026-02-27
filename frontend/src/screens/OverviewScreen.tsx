@@ -17,7 +17,7 @@ import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
 import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint } from "../utils/monthlyTransactionMetrics"
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
-import { sortTransactionsDesc } from "../utils/sortTransactions"
+import { groupTransactionsByDayDesc, sortTransactionsDesc } from "../utils/sortTransactions"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -2275,33 +2275,17 @@ function TransactionsPanel({
   }, [accountPeriod, categorySearch, categoryTx, detailCategoryId, getTxAccountName])
 
   const groupedAccountTx = useMemo(() => {
-    const groups = new Map<string, Transaction[]>()
-    filteredAccountTx.forEach((tx) => {
-      const key = tx.date.slice(0, 10)
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(tx)
-    })
-    return Array.from(groups.entries())
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([date, items]) => ({
-        dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: sortTransactionsDesc(items),
-      }))
+    return groupTransactionsByDayDesc(filteredAccountTx).map((group) => ({
+      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
+      items: group.items,
+    }))
   }, [filteredAccountTx])
 
   const groupedCategoryTx = useMemo(() => {
-    const groups = new Map<string, Transaction[]>()
-    filteredCategoryTx.forEach((tx) => {
-      const key = tx.date.slice(0, 10)
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(tx)
-    })
-    return Array.from(groups.entries())
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([date, items]) => ({
-        dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: sortTransactionsDesc(items),
-      }))
+    return groupTransactionsByDayDesc(filteredCategoryTx).map((group) => ({
+      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
+      items: group.items,
+    }))
   }, [filteredCategoryTx])
 
   const filteredIncomeSourceTx = useMemo(() => {
@@ -2322,18 +2306,10 @@ function TransactionsPanel({
   }, [accountPeriod, getTxAccountName, incomeSourceSearch, incomeSourceTx, detailIncomeSourceId])
 
   const groupedIncomeSourceTx = useMemo(() => {
-    const groups = new Map<string, Transaction[]>()
-    filteredIncomeSourceTx.forEach((tx) => {
-      const key = tx.date.slice(0, 10)
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(tx)
-    })
-    return Array.from(groups.entries())
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([date, items]) => ({
-        dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: sortTransactionsDesc(items),
-      }))
+    return groupTransactionsByDayDesc(filteredIncomeSourceTx).map((group) => ({
+      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
+      items: group.items,
+    }))
   }, [filteredIncomeSourceTx])
 
   const goalTx = useMemo(() => {
@@ -2366,18 +2342,10 @@ function TransactionsPanel({
   }, [accountPeriod, detailGoalId, getGoalTransferSourceLabel, goalSearch, goalTx])
 
   const groupedGoalTx = useMemo(() => {
-    const groups = new Map<string, Transaction[]>()
-    filteredGoalTx.forEach((tx) => {
-      const key = tx.date.slice(0, 10)
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(tx)
-    })
-    return Array.from(groups.entries())
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([date, items]) => ({
-        dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: sortTransactionsDesc(items),
-      }))
+    return groupTransactionsByDayDesc(filteredGoalTx).map((group) => ({
+      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
+      items: group.items,
+    }))
   }, [filteredGoalTx])
 
   const filteredDebtorTx = useMemo(() => {
@@ -2397,18 +2365,10 @@ function TransactionsPanel({
   }, [accountPeriod, debtorSearch, debtorTx, detailDebtorId, getDebtTxDebtorLabel])
 
   const groupedDebtorTx = useMemo(() => {
-    const groups = new Map<string, Transaction[]>()
-    filteredDebtorTx.forEach((tx) => {
-      const key = tx.date.slice(0, 10)
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(tx)
-    })
-    return Array.from(groups.entries())
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([date, items]) => ({
-        dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date)),
-        items: sortTransactionsDesc(items),
-      }))
+    return groupTransactionsByDayDesc(filteredDebtorTx).map((group) => ({
+      dateLabel: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(group.dayDate),
+      items: group.items,
+    }))
   }, [filteredDebtorTx])
 
   if (overviewError) {
