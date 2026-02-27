@@ -152,7 +152,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [transferDate, setTransferDate] = useState(() => getTodayLocalDate())
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [keyboardInset, setKeyboardInset] = useState(0)
+  const [visualViewportShift, setVisualViewportShift] = useState(0)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
@@ -162,8 +162,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
-  const keyboardInsetRef = useRef(0)
-  const stableKeyboardInsetRef = useRef(0)
+  const visualViewportShiftRef = useRef(0)
   const hasKeyboardRef = useRef(false)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
@@ -260,10 +259,10 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const quickAddLayoutVars = useMemo(
     () =>
       ({
-        "--qa-kb-inset": `${keyboardInset}px`,
+        "--qa-vv-shift": `${visualViewportShift}px`,
         "--qa-footer-h": "136px",
       }) as CSSProperties,
-    [keyboardInset],
+    [visualViewportShift],
   )
   const stickyFooterStyle = useMemo(
     () =>
@@ -275,11 +274,12 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         position: "fixed",
         left: "max(16px, calc((100vw - 480px) / 2 + 16px))",
         right: "max(16px, calc((100vw - 480px) / 2 + 16px))",
-        bottom: keyboardInset > 0 ? "var(--qa-kb-inset)" : "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
+        bottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
+        transform: "translateY(var(--qa-vv-shift))",
         zIndex: 8,
         background: "#f5f6f8",
       }) as const,
-    [keyboardInset],
+    [],
   )
 
   useEffect(() => {
@@ -431,42 +431,40 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     const viewport = window.visualViewport
     if (!viewport) return
 
-    const updateKeyboardInset = () => {
+    const updateVisualViewportShift = () => {
       const innerHeight = window.innerHeight
       const viewportDelta = innerHeight - viewport.height
-      let rawInset = Math.max(0, Math.round(innerHeight - viewport.height - viewport.offsetTop))
-      const currentStableInset = stableKeyboardInsetRef.current
+      let rawShift = Math.round(viewport.height + viewport.offsetTop - innerHeight)
+      if (rawShift > 0) rawShift = 0
 
-      if (rawInset > 0 && viewportDelta < 40) {
-        rawInset = 0
-      }
-      if (rawInset > innerHeight * 0.6) {
-        rawInset = currentStableInset
+      const currentShift = visualViewportShiftRef.current
+      if (rawShift < -innerHeight * 0.7) {
+        rawShift = currentShift
       }
 
-      let nextInset = currentStableInset
-      if (rawInset >= 40) {
-        hasKeyboardRef.current = true
-        nextInset = Math.max(currentStableInset, rawInset)
-      } else if (rawInset < 20) {
+      let nextShift = currentShift
+      if (viewportDelta < 40) {
         hasKeyboardRef.current = false
-        nextInset = 0
+        nextShift = 0
+      } else {
+        hasKeyboardRef.current = true
+        if (rawShift < currentShift) {
+          nextShift = rawShift
+        }
       }
 
-      if (Math.abs(nextInset - currentStableInset) < 6) return
-      stableKeyboardInsetRef.current = nextInset
-      if (Math.abs(nextInset - keyboardInsetRef.current) < 2) return
-      keyboardInsetRef.current = nextInset
-      setKeyboardInset(nextInset)
+      if (Math.abs(nextShift - currentShift) < 2) return
+      visualViewportShiftRef.current = nextShift
+      setVisualViewportShift(nextShift)
     }
 
-    updateKeyboardInset()
-    viewport.addEventListener("resize", updateKeyboardInset)
-    viewport.addEventListener("scroll", updateKeyboardInset)
+    updateVisualViewportShift()
+    viewport.addEventListener("resize", updateVisualViewportShift)
+    viewport.addEventListener("scroll", updateVisualViewportShift)
 
     return () => {
-      viewport.removeEventListener("resize", updateKeyboardInset)
-      viewport.removeEventListener("scroll", updateKeyboardInset)
+      viewport.removeEventListener("resize", updateVisualViewportShift)
+      viewport.removeEventListener("scroll", updateVisualViewportShift)
     }
   }, [])
 
