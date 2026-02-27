@@ -233,7 +233,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         border: "1px solid #e5e7eb",
         borderRadius: 14,
         padding: 8,
-        maxHeight: 196,
+        maxHeight: 181,
         overflowY: "auto",
         overflowX: "hidden",
         WebkitOverflowScrolling: "touch",
