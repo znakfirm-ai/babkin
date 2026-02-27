@@ -23,6 +23,7 @@ type CardItem = {
   id: string
   title: string
   amount: number
+  secondaryText?: string
   goalCurrent?: number
   icon?: string | null
   financeIconKey?: string | null
@@ -162,6 +163,27 @@ const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRi
 }
 
 const isGoalContributionTx = (tx: Transaction) => tx.type === "transfer" && Boolean(tx.goalId) && Boolean(tx.fromAccountId ?? tx.accountId) && !tx.toAccountId
+const toPositiveNumberOrZero = (value: unknown) => {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+const pickPayableDebtTotal = (debtor: Debtor) => {
+  const raw = debtor as Record<string, unknown>
+  const candidates = [
+    debtor.payoffAmount,
+    debtor.amountToReturn,
+    debtor.returnAmount,
+    raw.payoff,
+    raw.toReturnAmount,
+    raw.payoff_amount,
+    raw.amount_to_return,
+  ]
+  for (const candidate of candidates) {
+    const value = toPositiveNumberOrZero(candidate)
+    if (value > 0) return value
+  }
+  return 0
+}
 
 const Section: React.FC<{
   title: string
@@ -307,6 +329,9 @@ const Section: React.FC<{
                   {formatMoney(item.amount, baseCurrency)}
                   {item.type === "category" && item.budget != null ? (
                     <div style={{ marginTop: 2, fontSize: 9, color: "#6b7280" }}>{formatMoney(item.budget, baseCurrency)}</div>
+                  ) : null}
+                  {item.secondaryText ? (
+                    <div style={{ marginTop: 4, fontSize: 9, color: "#475569", fontWeight: 600 }}>{item.secondaryText}</div>
                   ) : null}
                   {item.type === "goal" ? (
                     <>
@@ -641,6 +666,19 @@ function OverviewScreen({
     })
     return paidById
   }, [transactions])
+  const totalActivePayableDebt = useMemo(
+    () =>
+      debtors.reduce((sum, debtor) => {
+        if (debtor.direction !== "payable" || debtor.status !== "active") return sum
+        const total = pickPayableDebtTotal(debtor)
+        if (total <= 0) return sum
+        const paid = Math.max(0, Number(payablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0))
+        if (!Number.isFinite(paid)) return sum + total
+        const remaining = total - paid
+        return remaining > 0 ? sum + total : sum
+      }, 0),
+    [debtors, payablePaidByDebtorId],
+  )
   const filteredDebtors = useMemo(() => {
     if (!isDebtsMode) return []
     return debtors
@@ -1914,7 +1952,14 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
 
   const debtsItems: CardItem[] = [
     { id: "debt-bank", title: "Мне должны", amount: monthlyReceivableRepayment, icon: "bank", color: "#ea580c" },
-    { id: "debt-friend", title: "Я должен", amount: monthlyPayableRepayment, icon: "repeat", color: "#1e293b" },
+    {
+      id: "debt-friend",
+      title: "Я должен",
+      amount: monthlyPayableRepayment,
+      secondaryText: `Активные долги: ${formatMoney(totalActivePayableDebt, baseCurrency)}`,
+      icon: "repeat",
+      color: "#1e293b",
+    },
   ]
 
   const addCard = (suffix: string): CardItem => ({
