@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, type CSSProperties, type PointerEvent, type UIEvent } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type PointerEvent, type UIEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -107,6 +107,7 @@ const AmountDateRow: React.FC<{
     <input
       value={amount}
       onChange={(e) => onAmountChange(e.target.value)}
+      onFocus={(e) => e.currentTarget.scrollIntoView({ block: "center" })}
       placeholder="Сумма"
       inputMode="decimal"
       style={{
@@ -152,8 +153,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [transferDate, setTransferDate] = useState(() => getTodayLocalDate())
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [visualViewportShift, setVisualViewportShift] = useState(0)
-  const [footerBasePx, setFooterBasePx] = useState(56)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
@@ -163,8 +162,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
   const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
-  const visualViewportShiftRef = useRef(0)
-  const footerBasePxRef = useRef(56)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
@@ -257,29 +254,13 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       }) as const,
     [],
   )
-  const quickAddLayoutVars = useMemo(
-    () =>
-      ({
-        "--qa-vv-shift": `${visualViewportShift}px`,
-        "--qa-footer-base": `${footerBasePx}px`,
-        "--qa-footer-h": "136px",
-      }) as CSSProperties,
-    [footerBasePx, visualViewportShift],
-  )
-  const stickyFooterStyle = useMemo(
+  const footerSectionStyle = useMemo(
     () =>
       ({
         borderTop: "1px solid #e5e7eb",
         paddingTop: 12,
         display: "grid",
         gap: 6,
-        position: "fixed",
-        left: "max(16px, calc((100vw - 480px) / 2 + 16px))",
-        right: "max(16px, calc((100vw - 480px) / 2 + 16px))",
-        bottom: "calc(env(safe-area-inset-bottom,0px) + var(--qa-footer-base, 0px))",
-        transform: "translateY(var(--qa-vv-shift))",
-        zIndex: 8,
-        background: "#f5f6f8",
       }) as const,
     [],
   )
@@ -427,60 +408,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
       setShowDebtPayableScrollHint(false)
     }
   }, [debtPayableListScrolled])
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const viewport = window.visualViewport
-    if (!viewport) {
-      if (visualViewportShiftRef.current !== 0) {
-        visualViewportShiftRef.current = 0
-        setVisualViewportShift(0)
-      }
-      return
-    }
-
-    const applyShift = (nextShift: number) => {
-      if (Math.abs(nextShift - visualViewportShiftRef.current) < 2) return
-      visualViewportShiftRef.current = nextShift
-      setVisualViewportShift(nextShift)
-    }
-    const applyFooterBase = (nextBase: number) => {
-      if (Math.abs(nextBase - footerBasePxRef.current) < 1) return
-      footerBasePxRef.current = nextBase
-      setFooterBasePx(nextBase)
-    }
-
-    const updateVisualViewportShift = () => {
-      const innerHeight = window.innerHeight
-      const viewportDelta = innerHeight - viewport.height
-      const bottomNavRaw = getComputedStyle(document.documentElement).getPropertyValue("--bottom-nav-height")
-      const bottomNavPx = Number.parseFloat(bottomNavRaw) || 56
-      const keyboardOpen = viewportDelta >= 120
-      const keyboardClosed = viewportDelta < 40
-
-      if (keyboardClosed) {
-        applyFooterBase(bottomNavPx)
-        applyShift(0)
-        return
-      }
-
-      if (keyboardOpen) {
-        applyFooterBase(0)
-        const rawShift = -Math.round(Math.max(0, viewportDelta))
-        applyShift(rawShift)
-        return
-      }
-    }
-
-    updateVisualViewportShift()
-    viewport.addEventListener("resize", updateVisualViewportShift)
-    viewport.addEventListener("scroll", updateVisualViewportShift)
-
-    return () => {
-      viewport.removeEventListener("resize", updateVisualViewportShift)
-      viewport.removeEventListener("scroll", updateVisualViewportShift)
-    }
-  }, [])
 
   const isEditableElement = (element: Element | null): element is HTMLElement =>
     element instanceof HTMLElement && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable)
@@ -1211,7 +1138,6 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
     <div
       className="app-shell"
       style={{
-        ...quickAddLayoutVars,
         background: "#f5f6f8",
         position: "relative",
         minHeight: "100dvh",
@@ -1225,7 +1151,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
         onPointerUp={handleDismissPointerUp}
         onPointerCancel={handleDismissPointerCancel}
         style={{
-          paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + var(--qa-footer-h))",
+          paddingBottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
           overflowY: "auto",
           overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
@@ -1341,7 +1267,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               </div>
             </div>
 
-            <div data-quick-add-footer="1" style={stickyFooterStyle}>
+            <div data-quick-add-footer="1" style={footerSectionStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1409,7 +1335,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
             </div>
             </div>
 
-            <div data-quick-add-footer="1" style={stickyFooterStyle}>
+            <div data-quick-add-footer="1" style={footerSectionStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1616,7 +1542,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               )}
             </div>
 
-            <div data-quick-add-footer="1" style={stickyFooterStyle}>
+            <div data-quick-add-footer="1" style={footerSectionStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1838,7 +1764,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               </>
             )}
 
-            <div data-quick-add-footer="1" style={stickyFooterStyle}>
+            <div data-quick-add-footer="1" style={footerSectionStyle}>
               <AmountDateRow amount={amount} onAmountChange={setAmount} date={transferDate} onDateChange={setTransferDate} />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -1932,7 +1858,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) =
               )}
             </div>
 
-            <div data-quick-add-footer="1" style={stickyFooterStyle}>
+            <div data-quick-add-footer="1" style={footerSectionStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
