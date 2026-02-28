@@ -533,7 +533,7 @@
 }
 
 .home-split-banner__period-btn {
-  z-index: 2;
+  z-index: 3;
   padding: 4px 6px;
   min-height: 24px;
   border-radius: 5px;
@@ -566,6 +566,13 @@
   gap: 8px;
 }
 
+.home-split-banner__period-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  background: transparent;
+}
+
 .home-split-banner__period-wrap {
   position: relative;
   flex: 0 0 auto;
@@ -591,11 +598,11 @@
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-  z-index: 3;
+  z-index: 4;
   display: grid;
   gap: 4px;
   padding: 8px;
-  width: 140px;
+  width: 120px;
   max-height: min(60vh, 220px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -661,7 +668,7 @@
 .home-split-banner__line--horizontal {
   left: 15px;
   right: 15px;
-  top: 50%;
+  top: calc(50% + 15px);
   height: 1px;
   transform: translateY(-0.5px);
 }

@@ -466,6 +466,13 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
 
       <section className="home-section">
         <div className="home-split-banner">
+          {isHomePeriodMenuOpen ? (
+            <div
+              className="home-split-banner__period-overlay"
+              onPointerDown={() => setIsHomePeriodMenuOpen(false)}
+              onClick={() => setIsHomePeriodMenuOpen(false)}
+            />
+          ) : null}
           <div className="home-split-banner__period-row">
             <div className="home-split-banner__period-wrap">
               <button
@@ -477,7 +484,11 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                 <span className="home-split-banner__period-caret">▾</span>
               </button>
               {isHomePeriodMenuOpen ? (
-                <div className="home-split-banner__period-menu">
+                <div
+                  className="home-split-banner__period-menu"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
                   {HOME_PERIOD_OPTIONS.map((option) => (
                     <button
                       key={option.key}
