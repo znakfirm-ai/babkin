@@ -18,6 +18,67 @@ const VIEWED_KEY = "home_stories_viewed"
 
 type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
+type HomePeriodMode = "day" | "week" | "month" | "quarter" | "year" | "custom"
+
+const HOME_PERIOD_OPTIONS: Array<{ key: HomePeriodMode; label: string }> = [
+  { key: "day", label: "День" },
+  { key: "week", label: "Неделя" },
+  { key: "month", label: "Месяц" },
+  { key: "quarter", label: "Квартал" },
+  { key: "year", label: "Год" },
+  { key: "custom", label: "Свой" },
+]
+
+const capitalizeFirst = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value)
+const formatDayMonth = (value: Date) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(value)
+const formatMonthTitle = (value: Date) => capitalizeFirst(new Intl.DateTimeFormat("ru-RU", { month: "long" }).format(value))
+const formatDotDate = (value: Date) =>
+  `${String(value.getDate()).padStart(2, "0")}.${String(value.getMonth() + 1).padStart(2, "0")}.${value.getFullYear()}`
+const parseIsoDateLocal = (value: string) => {
+  const parsed = new Date(`${value}T00:00:00`)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+const getTodayIsoDate = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+}
+const getHomePeriodLabel = (mode: HomePeriodMode, customFrom: string, customTo: string, now: Date) => {
+  if (mode === "day") {
+    return formatDayMonth(now)
+  }
+  if (mode === "week") {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const day = start.getDay()
+    const mondayOffset = day === 0 ? -6 : 1 - day
+    start.setDate(start.getDate() + mondayOffset)
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+    end.setDate(end.getDate() + 6)
+    return `${formatDayMonth(start)} - ${formatDayMonth(end)}`
+  }
+  if (mode === "month") {
+    return formatMonthTitle(now)
+  }
+  if (mode === "quarter") {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3
+    const startMonth = new Date(now.getFullYear(), quarterStartMonth, 1)
+    const endMonth = new Date(now.getFullYear(), quarterStartMonth + 2, 1)
+    return `${formatMonthTitle(startMonth)} - ${formatMonthTitle(endMonth)}`
+  }
+  if (mode === "year") {
+    return String(now.getFullYear())
+  }
+  if (!customFrom || !customTo) {
+    return formatMonthTitle(now)
+  }
+  const fromDate = parseIsoDateLocal(customFrom)
+  const toDate = parseIsoDateLocal(customTo)
+  if (!fromDate || !toDate) {
+    return formatMonthTitle(now)
+  }
+  const from = fromDate <= toDate ? fromDate : toDate
+  const to = fromDate <= toDate ? toDate : fromDate
+  return `${formatDotDate(from)} - ${formatDotDate(to)}`
+}
 
 function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace }: HomeScreenProps) {
   const { setAccounts, setCategories, setIncomeSources, setTransactions, currency } = useAppStore()
@@ -32,6 +93,10 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
   const [accountType, setAccountType] = useState("cash")
   const [accountCurrency, setAccountCurrency] = useState(currency)
   const [accountBalance, setAccountBalance] = useState("0")
+  const [homePeriodMode, setHomePeriodMode] = useState<HomePeriodMode>("month")
+  const [homePeriodCustomFrom, setHomePeriodCustomFrom] = useState("")
+  const [homePeriodCustomTo, setHomePeriodCustomTo] = useState("")
+  const [isHomePeriodMenuOpen, setIsHomePeriodMenuOpen] = useState(false)
   const stories = useMemo<Story[]>(
     () => [
       { id: "story-1", title: "Инвест книга", image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg" },
@@ -80,6 +145,22 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
   }, [])
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+  const todayIsoDate = useMemo(() => getTodayIsoDate(), [])
+  const homePeriodLabel = useMemo(
+    () => getHomePeriodLabel(homePeriodMode, homePeriodCustomFrom, homePeriodCustomTo, new Date()),
+    [homePeriodCustomFrom, homePeriodCustomTo, homePeriodMode],
+  )
+  const handleHomePeriodSelect = useCallback(
+    (nextMode: HomePeriodMode) => {
+      setHomePeriodMode(nextMode)
+      setIsHomePeriodMenuOpen(false)
+      if (nextMode === "custom" && !homePeriodCustomFrom && !homePeriodCustomTo) {
+        setHomePeriodCustomFrom(todayIsoDate)
+        setHomePeriodCustomTo(todayIsoDate)
+      }
+    },
+    [homePeriodCustomFrom, homePeriodCustomTo, todayIsoDate],
+  )
 
   const openViewer = useCallback(
     (index: number) => {
@@ -381,10 +462,47 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
 
       <section className="home-section">
         <div className="home-split-banner">
-          <button type="button" className="home-split-banner__period-btn">
-            Период
-            <span className="home-split-banner__period-caret">▾</span>
-          </button>
+          <div className="home-split-banner__period-row">
+            <div className="home-split-banner__period-wrap">
+              <button
+                type="button"
+                className="home-split-banner__period-btn"
+                onClick={() => setIsHomePeriodMenuOpen((prev) => !prev)}
+              >
+                Период
+                <span className="home-split-banner__period-caret">▾</span>
+              </button>
+              {isHomePeriodMenuOpen ? (
+                <div className="home-split-banner__period-menu">
+                  {HOME_PERIOD_OPTIONS.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      className="home-split-banner__period-menu-item"
+                      onClick={() => handleHomePeriodSelect(option.key)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="home-split-banner__period-label">{homePeriodLabel}</div>
+          </div>
+          {homePeriodMode === "custom" ? (
+            <div className="home-split-banner__custom-row">
+              <input
+                type="date"
+                value={homePeriodCustomFrom || todayIsoDate}
+                onChange={(event) => setHomePeriodCustomFrom(event.target.value)}
+              />
+              <input
+                type="date"
+                value={homePeriodCustomTo || todayIsoDate}
+                onChange={(event) => setHomePeriodCustomTo(event.target.value)}
+              />
+            </div>
+          ) : null}
           <div className="home-split-banner__cell" />
           <div className="home-split-banner__cell" />
           <div className="home-split-banner__cell" />
