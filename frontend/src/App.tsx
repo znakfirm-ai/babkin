@@ -458,7 +458,17 @@ function App() {
     switch (activeScreen) {
       case "home":
         return (
-          <HomeScreen initialWorkspaces={appWorkspaces} initialActiveWorkspace={appActiveWorkspace} />
+          <HomeScreen
+            initialWorkspaces={appWorkspaces}
+            initialActiveWorkspace={appActiveWorkspace}
+            onOpenQuickAdd={(tab) => {
+              if (tab === "debt") {
+                openQuickAddScreen("debt", null, null, "receivable")
+                return
+              }
+              openQuickAddScreen(tab)
+            }}
+          />
         )
       case "overview":
         return (

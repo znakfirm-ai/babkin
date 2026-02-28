@@ -13,6 +13,7 @@ type HomeScreenProps = {
   disableDataFetch?: boolean
   initialWorkspaces?: Workspace[]
   initialActiveWorkspace?: Workspace | null
+  onOpenQuickAdd?: (tab: "expense" | "income" | "debt" | "goal") => void
 }
 const VIEWED_KEY = "home_stories_viewed"
 
@@ -122,7 +123,7 @@ const getHomePeriodLabel = (mode: HomePeriodMode, customFrom: string, customTo: 
   return `${formatDotDate(from)} - ${formatDotDate(to)}`
 }
 
-function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace }: HomeScreenProps) {
+function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace, onOpenQuickAdd }: HomeScreenProps) {
   const { accounts, goals, transactions, setAccounts, setCategories, setIncomeSources, setTransactions, currency } = useAppStore()
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(initialActiveWorkspace ?? null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>(initialWorkspaces ?? [])
@@ -185,6 +186,16 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     const addBtn = document.querySelector(".bottom-nav__item--add") as HTMLButtonElement | null
     addBtn?.click()
   }, [])
+  const openHomeQuickAdd = useCallback(
+    (tab: "expense" | "income" | "debt" | "goal") => {
+      if (onOpenQuickAdd) {
+        onOpenQuickAdd(tab)
+        return
+      }
+      clickAddNav()
+    },
+    [clickAddNav, onOpenQuickAdd],
+  )
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const todayIsoDate = useMemo(() => getTodayIsoDate(), [])
@@ -447,12 +458,12 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
 
   const quickActions = useMemo(
     () => [
-      { id: "qa-accounts", title: "Все счета", icon: "wallet" as IconName, action: () => setIsAccountSheetOpen(true) },
-      { id: "qa-income", title: "Доход", icon: "arrowUp" as IconName, action: () => clickAddNav() },
-      { id: "qa-expense", title: "Расход", icon: "arrowDown" as IconName, action: () => clickAddNav() },
-      { id: "qa-more", title: "Другое", icon: "more" as IconName, action: () => console.log("Другое") },
+      { id: "qa-expense", title: "Расход", icon: "report" as IconName, action: () => openHomeQuickAdd("expense") },
+      { id: "qa-income", title: "Доход", icon: "plus" as IconName, action: () => openHomeQuickAdd("income") },
+      { id: "qa-debt", title: "Долг", icon: "bank" as IconName, action: () => openHomeQuickAdd("debt") },
+      { id: "qa-goal", title: "Цель", icon: "goal" as IconName, action: () => openHomeQuickAdd("goal") },
     ],
-    [clickAddNav]
+    [openHomeQuickAdd]
   )
 
   const personalWorkspace = workspaces.find((w) => w.type === "personal") ?? null
