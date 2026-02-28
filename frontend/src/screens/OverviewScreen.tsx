@@ -738,7 +738,7 @@ function OverviewScreen({
     [debtors],
   )
   const filteredDebtors = useMemo(() => {
-    if (!isDebtsMode) return []
+    if (!isDebtsMode || !isGoalsListOpen) return []
     return debtors
       .filter((d) => d.direction === currentDebtorDirection && d.status === goalTab)
       .map((debtor) =>
@@ -752,7 +752,7 @@ function OverviewScreen({
               paidAmount: payablePaidByDebtorId[debtor.id] ?? debtor.paidAmount ?? 0,
             },
       )
-  }, [currentDebtorDirection, debtors, goalTab, isDebtsMode, payablePaidByDebtorId, receivablePaidByDebtorId])
+  }, [currentDebtorDirection, debtors, goalTab, isDebtsMode, isGoalsListOpen, payablePaidByDebtorId, receivablePaidByDebtorId])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
   const goalCompleteAccount = useMemo(
     () => accounts.find((account) => account.id === goalCompleteAccountId) ?? null,
