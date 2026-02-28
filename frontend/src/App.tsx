@@ -24,6 +24,7 @@ type Workspace = { id: string; type: "personal" | "family"; name: string | null 
 type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add" | "icons-preview" | "receivables"
 type GoalsListMode = "goals" | "debtsReceivable" | "debtsPayable"
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
+type QuickAddDebtAction = "receivable" | "payable"
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
 type ErrorBoundaryState = { hasError: boolean; error: Error | null }
@@ -128,6 +129,7 @@ function App() {
   const [quickAddInitialTab, setQuickAddInitialTab] = useState<QuickAddTab>("expense")
   const [quickAddInitialIncomeSourceId, setQuickAddInitialIncomeSourceId] = useState<string | null>(null)
   const [quickAddInitialCategoryId, setQuickAddInitialCategoryId] = useState<string | null>(null)
+  const [quickAddInitialDebtAction, setQuickAddInitialDebtAction] = useState<QuickAddDebtAction>("receivable")
   const [autoOpenGoalsList, setAutoOpenGoalsList] = useState(false)
   const [autoOpenGoalCreate, setAutoOpenGoalCreate] = useState(false)
   const [savedIncomeReportState, setSavedIncomeReportState] = useState<{
@@ -435,10 +437,16 @@ function App() {
 
   const prevScreen = useRef<ScreenKey>("overview")
   const openQuickAddScreen = useCallback(
-    (tab: QuickAddTab, incomeSourceId: string | null = null, categoryId: string | null = null) => {
+    (
+      tab: QuickAddTab,
+      incomeSourceId: string | null = null,
+      categoryId: string | null = null,
+      debtAction: QuickAddDebtAction = "receivable",
+    ) => {
       setQuickAddInitialTab(tab)
       setQuickAddInitialIncomeSourceId(incomeSourceId)
       setQuickAddInitialCategoryId(categoryId)
+      setQuickAddInitialDebtAction(debtAction)
       prevScreen.current = activeScreen
       setActiveNav("add")
       setActiveScreen("quick-add")
@@ -506,7 +514,10 @@ function App() {
               openQuickAddScreen("goal")
             }}
             onOpenQuickAddDebtReceivable={() => {
-              openQuickAddScreen("debt")
+              openQuickAddScreen("debt", null, null, "receivable")
+            }}
+            onOpenQuickAddDebtPayable={() => {
+              openQuickAddScreen("debt", null, null, "payable")
             }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {
@@ -574,7 +585,10 @@ function App() {
               openQuickAddScreen("goal")
             }}
             onOpenQuickAddDebtReceivable={() => {
-              openQuickAddScreen("debt")
+              openQuickAddScreen("debt", null, null, "receivable")
+            }}
+            onOpenQuickAddDebtPayable={() => {
+              openQuickAddScreen("debt", null, null, "payable")
             }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {
@@ -597,6 +611,7 @@ function App() {
             initialTab={quickAddInitialTab}
             initialIncomeSourceId={quickAddInitialIncomeSourceId}
             initialCategoryId={quickAddInitialCategoryId}
+            initialDebtAction={quickAddInitialDebtAction}
             onClose={() => setActiveScreen(prevScreen.current ?? "overview")}
             onOpenCreateGoal={() => {
               setGoalsListMode("goals")
@@ -696,6 +711,7 @@ function App() {
               setQuickAddInitialTab("expense")
               setQuickAddInitialIncomeSourceId(null)
               setQuickAddInitialCategoryId(null)
+              setQuickAddInitialDebtAction("receivable")
               prevScreen.current = activeScreen
               setActiveScreen("quick-add")
             } else {

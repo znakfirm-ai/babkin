@@ -134,6 +134,7 @@ type Props = {
   initialTab?: QuickAddTab
   initialIncomeSourceId?: string | null
   initialCategoryId?: string | null
+  initialDebtAction?: "receivable" | "payable"
 }
 
 export const QuickAddScreen: React.FC<Props> = ({
@@ -142,6 +143,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   initialTab = "expense",
   initialIncomeSourceId = null,
   initialCategoryId = null,
+  initialDebtAction = "receivable",
 }) => {
   const { accounts, categories, incomeSources, goals, debtors, transactions, setAccounts, setTransactions, setGoals, setDebtors, currency } =
     useAppStore()
@@ -156,7 +158,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [transferToAccountId, setTransferToAccountId] = useState<string | null>(null)
   const [transferTargetType, setTransferTargetType] = useState<"account" | "goal" | "debt">("account")
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
-  const [debtAction, setDebtAction] = useState<"receivable" | "payable">("receivable")
+  const [debtAction, setDebtAction] = useState<"receivable" | "payable">(initialDebtAction)
   const [selectedDebtAccountId, setSelectedDebtAccountId] = useState<string | null>(null)
   const [selectedReceivableDebtorId, setSelectedReceivableDebtorId] = useState<string | null>(null)
   const [selectedPayableDebtorId, setSelectedPayableDebtorId] = useState<string | null>(null)

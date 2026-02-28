@@ -416,6 +416,7 @@ type OverviewScreenProps = {
   onOpenQuickAddExpense?: (categoryId: string | null) => void
   onOpenQuickAddGoal?: () => void
   onOpenQuickAddDebtReceivable?: () => void
+  onOpenQuickAddDebtPayable?: () => void
   autoOpenGoalsList?: boolean
   onConsumeAutoOpenGoalsList?: () => void
   autoOpenGoalCreate?: boolean
@@ -443,6 +444,7 @@ function OverviewScreen({
   onOpenQuickAddExpense,
   onOpenQuickAddGoal,
   onOpenQuickAddDebtReceivable,
+  onOpenQuickAddDebtPayable,
   autoOpenGoalsList = false,
   onConsumeAutoOpenGoalsList,
   autoOpenGoalCreate = false,
@@ -1623,6 +1625,11 @@ function OverviewScreen({
     closeGoalsList()
     onOpenQuickAddDebtReceivable?.()
   }, [closeGoalsList, onOpenQuickAddDebtReceivable])
+
+  const openPayableDebtOperationFromGoalsList = useCallback(() => {
+    closeGoalsList()
+    onOpenQuickAddDebtPayable?.()
+  }, [closeGoalsList, onOpenQuickAddDebtPayable])
 
   const closeDebtorSheet = useCallback(() => {
     setIsDebtorSheetOpen(false)
@@ -4186,12 +4193,18 @@ function TransactionsPanel({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: isGoalsMode || isDebtsReceivableMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
+              <div style={{ fontSize: isGoalsMode || isDebtsMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
               <div style={{ display: "flex", gap: 8 }}>
-                {isGoalsMode || isDebtsReceivableMode ? (
+                {isGoalsMode || isDebtsMode ? (
                   <button
                     type="button"
-                    onClick={isGoalsMode ? openGoalOperationFromGoalsList : openReceivableDebtOperationFromGoalsList}
+                    onClick={
+                      isGoalsMode
+                        ? openGoalOperationFromGoalsList
+                        : isDebtsReceivableMode
+                        ? openReceivableDebtOperationFromGoalsList
+                        : openPayableDebtOperationFromGoalsList
+                    }
                     style={{
                       padding: "8px 10px",
                       borderRadius: 10,
