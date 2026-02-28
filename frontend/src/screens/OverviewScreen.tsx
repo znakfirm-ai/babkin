@@ -80,6 +80,7 @@ const getTodayLocalDate = () => {
   const now = new Date()
   return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
 }
+const GOALS_LIST_STALE_MS = 60_000
 
 type OpenPicker =
   | {
@@ -504,6 +505,7 @@ function OverviewScreen({
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null)
   const [detailIncomeSourceId, setDetailIncomeSourceId] = useState<string | null>(null)
   const [isGoalsListOpen, setIsGoalsListOpen] = useState(false)
+  const [isGoalsListLoading, setIsGoalsListLoading] = useState(false)
   const [goalTab, setGoalTab] = useState<"active" | "completed">("active")
   const [detailGoalId, setDetailGoalId] = useState<string | null>(null)
   const [detailDebtorId, setDetailDebtorId] = useState<string | null>(null)
@@ -555,6 +557,9 @@ function OverviewScreen({
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
   const [txLoading, setTxLoading] = useState(false)
+  const goalsListLoadingRef = useRef(false)
+  const goalsListLoadedOnceRef = useRef(false)
+  const goalsListLastLoadedAtRef = useRef(0)
   const [editAmount, setEditAmount] = useState("")
   const [editDate, setEditDate] = useState("")
   const isDebtsReceivableMode = goalsListMode === "debtsReceivable"
@@ -879,6 +884,8 @@ function OverviewScreen({
       status: g.status,
     }))
     setGoals(mapped)
+    goalsListLoadedOnceRef.current = true
+    goalsListLastLoadedAtRef.current = Date.now()
   }, [setGoals, token])
 
   const refetchDebtors = useCallback(async () => {
@@ -940,6 +947,12 @@ function OverviewScreen({
     setTransactions(mapped)
   }, [setTransactions, token])
 
+  useEffect(() => {
+    if (goalsListLoadedOnceRef.current || goals.length === 0) return
+    goalsListLoadedOnceRef.current = true
+    goalsListLastLoadedAtRef.current = Date.now()
+  }, [goals.length])
+
   const openCreateCategory = useCallback(() => {
     setCategorySheetMode("create")
     lastCategorySheetModeRef.current = "create"
@@ -948,14 +961,14 @@ function OverviewScreen({
   }, [])
 
   const openGoalsList = useCallback(async () => {
+    setIsGoalsListOpen(true)
+    setDetailGoalId(null)
+    setDetailDebtorId(null)
     if (!isDebtsMode) {
-      try {
-        await refetchGoals()
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Не удалось загрузить цели"
-        setGoalError(msg)
-      }
-    } else if (!skipGoalsListRefetch) {
+      setGoalError(null)
+      return
+    }
+    if (!skipGoalsListRefetch) {
       try {
         await refetchDebtors()
       } catch (err) {
@@ -963,10 +976,27 @@ function OverviewScreen({
         setGoalError(msg)
       }
     }
-    setIsGoalsListOpen(true)
-    setDetailGoalId(null)
-    setDetailDebtorId(null)
-  }, [isDebtsMode, refetchDebtors, refetchGoals, skipGoalsListRefetch])
+  }, [isDebtsMode, refetchDebtors, skipGoalsListRefetch])
+
+  useEffect(() => {
+    if (!isGoalsListOpen || !isGoalsMode) return
+    if (goalsListLoadingRef.current) return
+    const now = Date.now()
+    const isStale = now - goalsListLastLoadedAtRef.current >= GOALS_LIST_STALE_MS
+    if (goalsListLoadedOnceRef.current && !isStale) return
+    goalsListLoadingRef.current = true
+    setIsGoalsListLoading(true)
+    setGoalError(null)
+    void refetchGoals()
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "Не удалось загрузить цели"
+        setGoalError(msg)
+      })
+      .finally(() => {
+        goalsListLoadingRef.current = false
+        setIsGoalsListLoading(false)
+      })
+  }, [isGoalsListOpen, isGoalsMode, refetchGoals])
 
   useEffect(() => {
     if (!isGoalsListOpen && pendingGoalCreate) {
@@ -4300,6 +4330,23 @@ function TransactionsPanel({
                       setDebtorSearch("")
                     }}
                   />
+                ) : isGoalsListLoading && filteredGoals.length === 0 ? (
+                  <div
+                    style={{
+                      minHeight: 120,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "#f8fafc",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#64748b",
+                      fontSize: 14,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Загрузка целей...
+                  </div>
                 ) : (
                   <GoalList
                     goals={filteredGoals}
