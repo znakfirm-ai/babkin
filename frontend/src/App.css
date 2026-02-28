@@ -650,12 +650,22 @@
   min-width: 0;
   min-height: 0;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px;
+}
+
+.home-split-banner__metric {
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  text-align: center;
-  padding: 10px;
+}
+
+.home-split-banner__metric--top-shift {
+  transform: translateY(15px);
 }
 
 .home-split-banner__metric-title {
@@ -677,10 +687,6 @@
 
 .home-split-banner__metric-value--income {
   color: #16a34a;
-}
-
-.home-split-banner__metric-value--savings {
-  color: #334155;
 }
 
 .home-split-banner__line {

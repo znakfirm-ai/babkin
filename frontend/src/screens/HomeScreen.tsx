@@ -214,28 +214,20 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
       const value = Number(tx.amount.amount ?? 0)
       return Number.isFinite(value) ? sum + Math.abs(value) : sum
     }, 0)
-    const periodGoalAccumulations = transactions.reduce((sum, tx) => {
-      if (tx.type !== "transfer" || !tx.goalId) return sum
-      const ts = new Date(tx.date).getTime()
-      if (!Number.isFinite(ts) || ts < startMs || ts >= endMs) return sum
-      const value = Number(tx.amount.amount ?? 0)
-      return Number.isFinite(value) ? sum + Math.abs(value) : sum
-    }, 0)
     const onAccounts = accounts.reduce((sum, account) => {
       const value = Number(account.balance.amount ?? 0)
       return Number.isFinite(value) ? sum + value : sum
     }, 0)
-    const goalsFallback = goals.reduce((sum, goal) => {
+    const balance = onAccounts + goals.reduce((sum, goal) => {
       if (goal.status !== "active") return sum
       const value = Number(goal.currentAmount ?? 0)
       return Number.isFinite(value) ? sum + value : sum
     }, 0)
-    const accumulations = periodGoalAccumulations > 0 ? periodGoalAccumulations : goalsFallback
     return {
       expenses: periodExpenses,
       income: periodIncome,
       onAccounts,
-      accumulations,
+      balance,
     }
   }, [accounts, goals, homePeriodRange.end, homePeriodRange.start, transactions])
   const handleHomePeriodSelect = useCallback(
@@ -608,27 +600,35 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             </div>
           ) : null}
           <div className="home-split-banner__cell">
-            <div className="home-split-banner__metric-title">РАСХОДЫ</div>
-            <div className="home-split-banner__metric-value home-split-banner__metric-value--expense">
-              {formatMoney(homeBannerStats.expenses, baseCurrency)}
+            <div className="home-split-banner__metric home-split-banner__metric--top-shift">
+              <div className="home-split-banner__metric-title">РАСХОДЫ</div>
+              <div className="home-split-banner__metric-value home-split-banner__metric-value--expense">
+                {formatMoney(homeBannerStats.expenses, baseCurrency)}
+              </div>
             </div>
           </div>
           <div className="home-split-banner__cell">
-            <div className="home-split-banner__metric-title">ДОХОДЫ</div>
-            <div className="home-split-banner__metric-value home-split-banner__metric-value--income">
-              {formatMoney(homeBannerStats.income, baseCurrency)}
+            <div className="home-split-banner__metric home-split-banner__metric--top-shift">
+              <div className="home-split-banner__metric-title">ДОХОДЫ</div>
+              <div className="home-split-banner__metric-value home-split-banner__metric-value--income">
+                {formatMoney(homeBannerStats.income, baseCurrency)}
+              </div>
             </div>
           </div>
           <div className="home-split-banner__cell">
-            <div className="home-split-banner__metric-title">НА СЧЕТАХ</div>
-            <div className="home-split-banner__metric-value">
-              {formatMoney(homeBannerStats.onAccounts, baseCurrency)}
+            <div className="home-split-banner__metric">
+              <div className="home-split-banner__metric-title">НА СЧЕТАХ</div>
+              <div className="home-split-banner__metric-value">
+                {formatMoney(homeBannerStats.onAccounts, baseCurrency)}
+              </div>
             </div>
           </div>
           <div className="home-split-banner__cell">
-            <div className="home-split-banner__metric-title">НАКОПЛЕНИЯ</div>
-            <div className="home-split-banner__metric-value home-split-banner__metric-value--savings">
-              {formatMoney(homeBannerStats.accumulations, baseCurrency)}
+            <div className="home-split-banner__metric">
+              <div className="home-split-banner__metric-title">БАЛАНС</div>
+              <div className="home-split-banner__metric-value">
+                {formatMoney(homeBannerStats.balance, baseCurrency)}
+              </div>
             </div>
           </div>
           <div className="home-split-banner__line home-split-banner__line--vertical" />
