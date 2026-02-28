@@ -505,6 +505,9 @@ function App() {
             onOpenQuickAddGoal={() => {
               openQuickAddScreen("goal")
             }}
+            onOpenQuickAddDebtReceivable={() => {
+              openQuickAddScreen("debt")
+            }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {
               setAutoOpenGoalsList(false)
@@ -569,6 +572,9 @@ function App() {
             }}
             onOpenQuickAddGoal={() => {
               openQuickAddScreen("goal")
+            }}
+            onOpenQuickAddDebtReceivable={() => {
+              openQuickAddScreen("debt")
             }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {

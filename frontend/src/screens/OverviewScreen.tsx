@@ -415,6 +415,7 @@ type OverviewScreenProps = {
   onOpenQuickAddIncome?: (incomeSourceId: string | null) => void
   onOpenQuickAddExpense?: (categoryId: string | null) => void
   onOpenQuickAddGoal?: () => void
+  onOpenQuickAddDebtReceivable?: () => void
   autoOpenGoalsList?: boolean
   onConsumeAutoOpenGoalsList?: () => void
   autoOpenGoalCreate?: boolean
@@ -441,6 +442,7 @@ function OverviewScreen({
   onOpenQuickAddIncome,
   onOpenQuickAddExpense,
   onOpenQuickAddGoal,
+  onOpenQuickAddDebtReceivable,
   autoOpenGoalsList = false,
   onConsumeAutoOpenGoalsList,
   autoOpenGoalCreate = false,
@@ -1616,6 +1618,11 @@ function OverviewScreen({
     closeGoalsList()
     onOpenQuickAddGoal?.()
   }, [closeGoalsList, onOpenQuickAddGoal])
+
+  const openReceivableDebtOperationFromGoalsList = useCallback(() => {
+    closeGoalsList()
+    onOpenQuickAddDebtReceivable?.()
+  }, [closeGoalsList, onOpenQuickAddDebtReceivable])
 
   const closeDebtorSheet = useCallback(() => {
     setIsDebtorSheetOpen(false)
@@ -4179,12 +4186,12 @@ function TransactionsPanel({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: isGoalsMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
+              <div style={{ fontSize: isGoalsMode || isDebtsReceivableMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
               <div style={{ display: "flex", gap: 8 }}>
-                {isGoalsMode ? (
+                {isGoalsMode || isDebtsReceivableMode ? (
                   <button
                     type="button"
-                    onClick={openGoalOperationFromGoalsList}
+                    onClick={isGoalsMode ? openGoalOperationFromGoalsList : openReceivableDebtOperationFromGoalsList}
                     style={{
                       padding: "8px 10px",
                       borderRadius: 10,
