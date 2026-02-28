@@ -379,6 +379,15 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         </div>
       </section>
 
+      <section className="home-section">
+        <div className="home-split-banner">
+          <div className="home-split-banner__cell" />
+          <div className="home-split-banner__cell" />
+          <div className="home-split-banner__cell" />
+          <div className="home-split-banner__cell" />
+        </div>
+      </section>
+
       <section className="home-section" style={{ marginTop: 8 }}>
         <div className="home-quick-actions">
           {quickActions.map((action) => (
