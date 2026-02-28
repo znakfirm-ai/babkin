@@ -413,6 +413,7 @@ type OverviewScreenProps = {
   onOpenPayables?: () => void
   onOpenQuickAddTransfer?: () => void
   onOpenQuickAddIncome?: (incomeSourceId: string | null) => void
+  onOpenQuickAddExpense?: (categoryId: string | null) => void
   autoOpenGoalsList?: boolean
   onConsumeAutoOpenGoalsList?: () => void
   autoOpenGoalCreate?: boolean
@@ -437,6 +438,7 @@ function OverviewScreen({
   onOpenPayables,
   onOpenQuickAddTransfer,
   onOpenQuickAddIncome,
+  onOpenQuickAddExpense,
   autoOpenGoalsList = false,
   onConsumeAutoOpenGoalsList,
   autoOpenGoalCreate = false,
@@ -1238,6 +1240,12 @@ function OverviewScreen({
     closeDetails()
     onOpenQuickAddIncome?.(incomeSourceId)
   }, [closeDetails, detailIncomeSourceId, onOpenQuickAddIncome])
+
+  const openExpenseFromCategoryDetails = useCallback(() => {
+    const categoryId = detailCategoryId
+    closeDetails()
+    onOpenQuickAddExpense?.(categoryId)
+  }, [closeDetails, detailCategoryId, onOpenQuickAddExpense])
 
   const openEditDebtorFromDetails = useCallback(
     (debtor: Debtor) => {
@@ -2556,10 +2564,16 @@ function TransactionsPanel({
                 {detailTitle || detailGoal?.name || detailDebtor?.name || "Детали"}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {detailAccountId || detailIncomeSourceId ? (
+                {detailAccountId || detailIncomeSourceId || detailCategoryId ? (
                   <button
                     type="button"
-                    onClick={detailAccountId ? openTransferFromAccountDetails : openIncomeFromSourceDetails}
+                    onClick={
+                      detailAccountId
+                        ? openTransferFromAccountDetails
+                        : detailIncomeSourceId
+                        ? openIncomeFromSourceDetails
+                        : openExpenseFromCategoryDetails
+                    }
                     style={{
                       border: "1px solid #e5e7eb",
                       background: "#fff",

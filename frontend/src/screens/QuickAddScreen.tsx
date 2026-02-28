@@ -133,6 +133,7 @@ type Props = {
   onOpenCreateGoal?: () => void
   initialTab?: QuickAddTab
   initialIncomeSourceId?: string | null
+  initialCategoryId?: string | null
 }
 
 export const QuickAddScreen: React.FC<Props> = ({
@@ -140,6 +141,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   onOpenCreateGoal,
   initialTab = "expense",
   initialIncomeSourceId = null,
+  initialCategoryId = null,
 }) => {
   const { accounts, categories, incomeSources, goals, debtors, transactions, setAccounts, setTransactions, setGoals, setDebtors, currency } =
     useAppStore()
@@ -148,7 +150,7 @@ export const QuickAddScreen: React.FC<Props> = ({
 
   const [activeTab, setActiveTab] = useState<QuickAddTab>(initialTab)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(initialCategoryId)
   const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState<string | null>(initialIncomeSourceId)
   const [transferFromAccountId, setTransferFromAccountId] = useState<string | null>(null)
   const [transferToAccountId, setTransferToAccountId] = useState<string | null>(null)

@@ -127,6 +127,7 @@ function App() {
   const [goalsListMode, setGoalsListMode] = useState<GoalsListMode>("goals")
   const [quickAddInitialTab, setQuickAddInitialTab] = useState<QuickAddTab>("expense")
   const [quickAddInitialIncomeSourceId, setQuickAddInitialIncomeSourceId] = useState<string | null>(null)
+  const [quickAddInitialCategoryId, setQuickAddInitialCategoryId] = useState<string | null>(null)
   const [autoOpenGoalsList, setAutoOpenGoalsList] = useState(false)
   const [autoOpenGoalCreate, setAutoOpenGoalCreate] = useState(false)
   const [savedIncomeReportState, setSavedIncomeReportState] = useState<{
@@ -434,9 +435,10 @@ function App() {
 
   const prevScreen = useRef<ScreenKey>("overview")
   const openQuickAddScreen = useCallback(
-    (tab: QuickAddTab, incomeSourceId: string | null = null) => {
+    (tab: QuickAddTab, incomeSourceId: string | null = null, categoryId: string | null = null) => {
       setQuickAddInitialTab(tab)
       setQuickAddInitialIncomeSourceId(incomeSourceId)
+      setQuickAddInitialCategoryId(categoryId)
       prevScreen.current = activeScreen
       setActiveNav("add")
       setActiveScreen("quick-add")
@@ -497,6 +499,9 @@ function App() {
             onOpenQuickAddIncome={(incomeSourceId) => {
               openQuickAddScreen("income", incomeSourceId)
             }}
+            onOpenQuickAddExpense={(categoryId) => {
+              openQuickAddScreen("expense", null, categoryId)
+            }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {
               setAutoOpenGoalsList(false)
@@ -556,6 +561,9 @@ function App() {
             onOpenQuickAddIncome={(incomeSourceId) => {
               openQuickAddScreen("income", incomeSourceId)
             }}
+            onOpenQuickAddExpense={(categoryId) => {
+              openQuickAddScreen("expense", null, categoryId)
+            }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {
               setAutoOpenGoalsList(false)
@@ -576,6 +584,7 @@ function App() {
           <QuickAddScreen
             initialTab={quickAddInitialTab}
             initialIncomeSourceId={quickAddInitialIncomeSourceId}
+            initialCategoryId={quickAddInitialCategoryId}
             onClose={() => setActiveScreen(prevScreen.current ?? "overview")}
             onOpenCreateGoal={() => {
               setGoalsListMode("goals")
@@ -674,6 +683,7 @@ function App() {
             if (key === "add") {
               setQuickAddInitialTab("expense")
               setQuickAddInitialIncomeSourceId(null)
+              setQuickAddInitialCategoryId(null)
               prevScreen.current = activeScreen
               setActiveScreen("quick-add")
             } else {
