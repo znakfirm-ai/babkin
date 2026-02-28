@@ -543,9 +543,18 @@
   background: #f8fafc;
   color: #0f172a;
   font-weight: 600;
-  font-size: 14px;
-  line-height: 1;
+  font-size: 13px;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
   cursor: pointer;
+}
+
+.home-split-banner__period-caret {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .home-split-banner__cell {

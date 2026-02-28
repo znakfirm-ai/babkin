@@ -383,6 +383,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         <div className="home-split-banner">
           <button type="button" className="home-split-banner__period-btn">
             Период
+            <span className="home-split-banner__period-caret">▾</span>
           </button>
           <div className="home-split-banner__cell" />
           <div className="home-split-banner__cell" />
