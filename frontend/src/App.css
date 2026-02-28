@@ -296,6 +296,16 @@
   border-radius: 10px;
 }
 
+.overview .overview-goals-entry-tile {
+  transition: transform 120ms ease, filter 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.overview .overview-goals-entry-tile:active {
+  transform: scale(0.985);
+  filter: brightness(0.94);
+}
+
 .overview .overview-add-tile {
   display: flex;
   flex-direction: column;

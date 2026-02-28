@@ -291,7 +291,7 @@ const Section: React.FC<{
               key={item.id}
               className={`tile-card ${item.isAdd ? "tile-card--add overview-add-tile" : ""} ${
                 item.type ? `tile-card--${item.type}` : ""
-              } tile--${item.size ?? "md"}`}
+              }${item.id === "goals-entry" ? " overview-goals-entry-tile" : ""} tile--${item.size ?? "md"}`}
               role={item.isAdd ? "button" : "button"}
               tabIndex={0}
               style={tileStyle}
