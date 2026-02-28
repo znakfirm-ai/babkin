@@ -26,7 +26,6 @@ const HOME_PERIOD_OPTIONS: Array<{ key: HomePeriodMode; label: string }> = [
   { key: "month", label: "Месяц" },
   { key: "quarter", label: "Квартал" },
   { key: "year", label: "Год" },
-  { key: "custom", label: "Свой" },
 ]
 
 const capitalizeFirst = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value)
@@ -359,6 +358,11 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     if (initialWorkspaces) setWorkspaces(initialWorkspaces)
     if (initialActiveWorkspace) setActiveWorkspace(initialActiveWorkspace)
   }, [initialActiveWorkspace, initialWorkspaces])
+
+  useEffect(() => {
+    if (homePeriodMode !== "custom") return
+    setHomePeriodMode("month")
+  }, [homePeriodMode])
 
   const quickActions = useMemo(
     () => [
