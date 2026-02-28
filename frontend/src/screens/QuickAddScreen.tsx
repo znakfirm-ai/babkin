@@ -132,9 +132,15 @@ type Props = {
   onClose: () => void
   onOpenCreateGoal?: () => void
   initialTab?: QuickAddTab
+  initialIncomeSourceId?: string | null
 }
 
-export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal, initialTab = "expense" }) => {
+export const QuickAddScreen: React.FC<Props> = ({
+  onClose,
+  onOpenCreateGoal,
+  initialTab = "expense",
+  initialIncomeSourceId = null,
+}) => {
   const { accounts, categories, incomeSources, goals, debtors, transactions, setAccounts, setTransactions, setGoals, setDebtors, currency } =
     useAppStore()
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
@@ -143,7 +149,7 @@ export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal, ini
   const [activeTab, setActiveTab] = useState<QuickAddTab>(initialTab)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
-  const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState<string | null>(null)
+  const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState<string | null>(initialIncomeSourceId)
   const [transferFromAccountId, setTransferFromAccountId] = useState<string | null>(null)
   const [transferToAccountId, setTransferToAccountId] = useState<string | null>(null)
   const [transferTargetType, setTransferTargetType] = useState<"account" | "goal" | "debt">("account")

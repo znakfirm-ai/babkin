@@ -412,6 +412,7 @@ type OverviewScreenProps = {
   onOpenReceivables?: () => void
   onOpenPayables?: () => void
   onOpenQuickAddTransfer?: () => void
+  onOpenQuickAddIncome?: (incomeSourceId: string | null) => void
   autoOpenGoalsList?: boolean
   onConsumeAutoOpenGoalsList?: () => void
   autoOpenGoalCreate?: boolean
@@ -435,6 +436,7 @@ function OverviewScreen({
   onOpenReceivables,
   onOpenPayables,
   onOpenQuickAddTransfer,
+  onOpenQuickAddIncome,
   autoOpenGoalsList = false,
   onConsumeAutoOpenGoalsList,
   autoOpenGoalCreate = false,
@@ -1230,6 +1232,12 @@ function OverviewScreen({
     closeDetails()
     onOpenQuickAddTransfer?.()
   }, [closeDetails, onOpenQuickAddTransfer])
+
+  const openIncomeFromSourceDetails = useCallback(() => {
+    const incomeSourceId = detailIncomeSourceId
+    closeDetails()
+    onOpenQuickAddIncome?.(incomeSourceId)
+  }, [closeDetails, detailIncomeSourceId, onOpenQuickAddIncome])
 
   const openEditDebtorFromDetails = useCallback(
     (debtor: Debtor) => {
@@ -2548,10 +2556,10 @@ function TransactionsPanel({
                 {detailTitle || detailGoal?.name || detailDebtor?.name || "Детали"}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {detailAccountId ? (
+                {detailAccountId || detailIncomeSourceId ? (
                   <button
                     type="button"
-                    onClick={openTransferFromAccountDetails}
+                    onClick={detailAccountId ? openTransferFromAccountDetails : openIncomeFromSourceDetails}
                     style={{
                       border: "1px solid #e5e7eb",
                       background: "#fff",
