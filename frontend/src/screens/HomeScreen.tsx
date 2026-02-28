@@ -6,7 +6,7 @@ import { getCategories } from "../api/categories"
 import { getTransactions } from "../api/transactions"
 import { getIncomeSources } from "../api/incomeSources"
 import { useAppStore } from "../store/useAppStore"
-import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
+import { CURRENCIES, formatMoney, normalizeCurrency } from "../utils/formatMoney"
 
 type Story = { id: string; title: string; image: string }
 type HomeScreenProps = {
@@ -40,6 +40,49 @@ const parseIsoDateLocal = (value: string) => {
 const getTodayIsoDate = () => {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+}
+const getHomePeriodRange = (mode: HomePeriodMode, customFrom: string, customTo: string, now: Date) => {
+  const toDayStart = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate())
+  if (mode === "day") {
+    const start = toDayStart(now)
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1)
+    return { start, end }
+  }
+  if (mode === "week") {
+    const start = toDayStart(now)
+    const day = start.getDay()
+    const mondayOffset = day === 0 ? -6 : 1 - day
+    start.setDate(start.getDate() + mondayOffset)
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7)
+    return { start, end }
+  }
+  if (mode === "month") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1)
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    return { start, end }
+  }
+  if (mode === "quarter") {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3
+    const start = new Date(now.getFullYear(), quarterStartMonth, 1)
+    const end = new Date(now.getFullYear(), quarterStartMonth + 3, 1)
+    return { start, end }
+  }
+  if (mode === "year") {
+    const start = new Date(now.getFullYear(), 0, 1)
+    const end = new Date(now.getFullYear() + 1, 0, 1)
+    return { start, end }
+  }
+  const fromDate = customFrom ? parseIsoDateLocal(customFrom) : null
+  const toDate = customTo ? parseIsoDateLocal(customTo) : null
+  if (!fromDate || !toDate) {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1)
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    return { start, end }
+  }
+  const start = fromDate <= toDate ? toDayStart(fromDate) : toDayStart(toDate)
+  const to = fromDate <= toDate ? toDayStart(toDate) : toDayStart(fromDate)
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1)
+  return { start, end }
 }
 const getHomePeriodLabel = (mode: HomePeriodMode, customFrom: string, customTo: string, now: Date) => {
   if (mode === "day") {
@@ -80,7 +123,7 @@ const getHomePeriodLabel = (mode: HomePeriodMode, customFrom: string, customTo: 
 }
 
 function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace }: HomeScreenProps) {
-  const { setAccounts, setCategories, setIncomeSources, setTransactions, currency } = useAppStore()
+  const { accounts, goals, transactions, setAccounts, setCategories, setIncomeSources, setTransactions, currency } = useAppStore()
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(initialActiveWorkspace ?? null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>(initialWorkspaces ?? [])
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
@@ -145,10 +188,56 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const todayIsoDate = useMemo(() => getTodayIsoDate(), [])
+  const baseCurrency = useMemo(() => normalizeCurrency(currency || "RUB"), [currency])
+  const homePeriodRange = useMemo(
+    () => getHomePeriodRange(homePeriodMode, homePeriodCustomFrom, homePeriodCustomTo, new Date()),
+    [homePeriodCustomFrom, homePeriodCustomTo, homePeriodMode],
+  )
   const homePeriodLabel = useMemo(
     () => getHomePeriodLabel(homePeriodMode, homePeriodCustomFrom, homePeriodCustomTo, new Date()),
     [homePeriodCustomFrom, homePeriodCustomTo, homePeriodMode],
   )
+  const homeBannerStats = useMemo(() => {
+    const startMs = homePeriodRange.start.getTime()
+    const endMs = homePeriodRange.end.getTime()
+    const periodExpenses = transactions.reduce((sum, tx) => {
+      if (tx.type !== "expense") return sum
+      const ts = new Date(tx.date).getTime()
+      if (!Number.isFinite(ts) || ts < startMs || ts >= endMs) return sum
+      const value = Number(tx.amount.amount ?? 0)
+      return Number.isFinite(value) ? sum + Math.abs(value) : sum
+    }, 0)
+    const periodIncome = transactions.reduce((sum, tx) => {
+      if (tx.type !== "income") return sum
+      const ts = new Date(tx.date).getTime()
+      if (!Number.isFinite(ts) || ts < startMs || ts >= endMs) return sum
+      const value = Number(tx.amount.amount ?? 0)
+      return Number.isFinite(value) ? sum + Math.abs(value) : sum
+    }, 0)
+    const periodGoalAccumulations = transactions.reduce((sum, tx) => {
+      if (tx.type !== "transfer" || !tx.goalId) return sum
+      const ts = new Date(tx.date).getTime()
+      if (!Number.isFinite(ts) || ts < startMs || ts >= endMs) return sum
+      const value = Number(tx.amount.amount ?? 0)
+      return Number.isFinite(value) ? sum + Math.abs(value) : sum
+    }, 0)
+    const onAccounts = accounts.reduce((sum, account) => {
+      const value = Number(account.balance.amount ?? 0)
+      return Number.isFinite(value) ? sum + value : sum
+    }, 0)
+    const goalsFallback = goals.reduce((sum, goal) => {
+      if (goal.status !== "active") return sum
+      const value = Number(goal.currentAmount ?? 0)
+      return Number.isFinite(value) ? sum + value : sum
+    }, 0)
+    const accumulations = periodGoalAccumulations > 0 ? periodGoalAccumulations : goalsFallback
+    return {
+      expenses: periodExpenses,
+      income: periodIncome,
+      onAccounts,
+      accumulations,
+    }
+  }, [accounts, goals, homePeriodRange.end, homePeriodRange.start, transactions])
   const handleHomePeriodSelect = useCallback(
     (nextMode: HomePeriodMode) => {
       setHomePeriodMode(nextMode)
@@ -518,10 +607,30 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
               />
             </div>
           ) : null}
-          <div className="home-split-banner__cell" />
-          <div className="home-split-banner__cell" />
-          <div className="home-split-banner__cell" />
-          <div className="home-split-banner__cell" />
+          <div className="home-split-banner__cell">
+            <div className="home-split-banner__metric-title">РАСХОДЫ</div>
+            <div className="home-split-banner__metric-value home-split-banner__metric-value--expense">
+              {formatMoney(homeBannerStats.expenses, baseCurrency)}
+            </div>
+          </div>
+          <div className="home-split-banner__cell">
+            <div className="home-split-banner__metric-title">ДОХОДЫ</div>
+            <div className="home-split-banner__metric-value home-split-banner__metric-value--income">
+              {formatMoney(homeBannerStats.income, baseCurrency)}
+            </div>
+          </div>
+          <div className="home-split-banner__cell">
+            <div className="home-split-banner__metric-title">НА СЧЕТАХ</div>
+            <div className="home-split-banner__metric-value">
+              {formatMoney(homeBannerStats.onAccounts, baseCurrency)}
+            </div>
+          </div>
+          <div className="home-split-banner__cell">
+            <div className="home-split-banner__metric-title">НАКОПЛЕНИЯ</div>
+            <div className="home-split-banner__metric-value home-split-banner__metric-value--savings">
+              {formatMoney(homeBannerStats.accumulations, baseCurrency)}
+            </div>
+          </div>
           <div className="home-split-banner__line home-split-banner__line--vertical" />
           <div className="home-split-banner__line home-split-banner__line--horizontal" />
         </div>

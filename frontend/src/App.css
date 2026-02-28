@@ -649,6 +649,38 @@
 .home-split-banner__cell {
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 10px;
+}
+
+.home-split-banner__metric-title {
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.home-split-banner__metric-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.home-split-banner__metric-value--expense {
+  color: #dc2626;
+}
+
+.home-split-banner__metric-value--income {
+  color: #16a34a;
+}
+
+.home-split-banner__metric-value--savings {
+  color: #334155;
 }
 
 .home-split-banner__line {
