@@ -658,8 +658,8 @@
 }
 
 .home-split-banner__line--vertical {
-  top: 15px;
-  bottom: 30px;
+  top: 30px;
+  bottom: 15px;
   left: 50%;
   width: 1px;
   transform: translateX(-0.5px);
