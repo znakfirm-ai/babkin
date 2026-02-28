@@ -506,6 +506,7 @@ function OverviewScreen({
   const [detailIncomeSourceId, setDetailIncomeSourceId] = useState<string | null>(null)
   const [isGoalsListOpen, setIsGoalsListOpen] = useState(false)
   const [isGoalsListLoading, setIsGoalsListLoading] = useState(false)
+  const [isDebtorsListLoading, setIsDebtorsListLoading] = useState(false)
   const [goalTab, setGoalTab] = useState<"active" | "completed">("active")
   const [detailGoalId, setDetailGoalId] = useState<string | null>(null)
   const [detailDebtorId, setDetailDebtorId] = useState<string | null>(null)
@@ -560,6 +561,9 @@ function OverviewScreen({
   const goalsListLoadingRef = useRef(false)
   const goalsListLoadedOnceRef = useRef(false)
   const goalsListLastLoadedAtRef = useRef(0)
+  const debtorsListLoadingRef = useRef(false)
+  const debtorsListLoadedOnceRef = useRef<{ receivable: boolean; payable: boolean }>({ receivable: false, payable: false })
+  const debtorsListLastLoadedAtRef = useRef<{ receivable: number; payable: number }>({ receivable: 0, payable: 0 })
   const [editAmount, setEditAmount] = useState("")
   const [editDate, setEditDate] = useState("")
   const isDebtsReceivableMode = goalsListMode === "debtsReceivable"
@@ -905,6 +909,8 @@ function OverviewScreen({
     }))
     const preserved = debtors.filter((debtor) => debtor.direction !== currentDebtorDirection)
     setDebtors([...preserved, ...mapped])
+    debtorsListLoadedOnceRef.current[currentDebtorDirection] = true
+    debtorsListLastLoadedAtRef.current[currentDebtorDirection] = Date.now()
   }, [currentDebtorDirection, debtors, setDebtors, token])
 
   const refetchAccountsSeq = useCallback(async () => {
@@ -953,6 +959,19 @@ function OverviewScreen({
     goalsListLastLoadedAtRef.current = Date.now()
   }, [goals.length])
 
+  useEffect(() => {
+    if (debtors.length === 0) return
+    const now = Date.now()
+    if (!debtorsListLoadedOnceRef.current.receivable && debtors.some((debtor) => debtor.direction === "receivable")) {
+      debtorsListLoadedOnceRef.current.receivable = true
+      debtorsListLastLoadedAtRef.current.receivable = now
+    }
+    if (!debtorsListLoadedOnceRef.current.payable && debtors.some((debtor) => debtor.direction === "payable")) {
+      debtorsListLoadedOnceRef.current.payable = true
+      debtorsListLastLoadedAtRef.current.payable = now
+    }
+  }, [debtors])
+
   const openCreateCategory = useCallback(() => {
     setCategorySheetMode("create")
     lastCategorySheetModeRef.current = "create"
@@ -964,19 +983,8 @@ function OverviewScreen({
     setIsGoalsListOpen(true)
     setDetailGoalId(null)
     setDetailDebtorId(null)
-    if (!isDebtsMode) {
-      setGoalError(null)
-      return
-    }
-    if (!skipGoalsListRefetch) {
-      try {
-        await refetchDebtors()
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Не удалось загрузить должников"
-        setGoalError(msg)
-      }
-    }
-  }, [isDebtsMode, refetchDebtors, skipGoalsListRefetch])
+    setGoalError(null)
+  }, [])
 
   useEffect(() => {
     if (!isGoalsListOpen || !isGoalsMode) return
@@ -997,6 +1005,27 @@ function OverviewScreen({
         setIsGoalsListLoading(false)
       })
   }, [isGoalsListOpen, isGoalsMode, refetchGoals])
+
+  useEffect(() => {
+    if (!isGoalsListOpen || !isDebtsMode || skipGoalsListRefetch) return
+    if (debtorsListLoadingRef.current) return
+    const lastLoadedAt = debtorsListLastLoadedAtRef.current[currentDebtorDirection]
+    const loadedOnce = debtorsListLoadedOnceRef.current[currentDebtorDirection]
+    const isStale = Date.now() - lastLoadedAt >= GOALS_LIST_STALE_MS
+    if (loadedOnce && !isStale) return
+    debtorsListLoadingRef.current = true
+    setIsDebtorsListLoading(true)
+    setGoalError(null)
+    void refetchDebtors()
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "Не удалось загрузить должников"
+        setGoalError(msg)
+      })
+      .finally(() => {
+        debtorsListLoadingRef.current = false
+        setIsDebtorsListLoading(false)
+      })
+  }, [currentDebtorDirection, isDebtsMode, isGoalsListOpen, refetchDebtors, skipGoalsListRefetch])
 
   useEffect(() => {
     if (!isGoalsListOpen && pendingGoalCreate) {
@@ -4318,18 +4347,37 @@ function TransactionsPanel({
             <div style={txListContainerStyle}>
               <div style={txScrollableStyle}>
                 {isDebtsMode ? (
-                  <DebtorList
-                    debtors={filteredDebtors}
-                    emptyText="Пока нет должников"
-                    currency={baseCurrency}
-                    direction={currentDebtorDirection}
-                    onSelectDebtor={(debtor) => {
-                      setDetailDebtorId(debtor.id)
-                      setDetailTitle(debtor.name)
-                      setIsGoalsListOpen(false)
-                      setDebtorSearch("")
-                    }}
-                  />
+                  isDebtorsListLoading && filteredDebtors.length === 0 ? (
+                    <div
+                      style={{
+                        minHeight: 120,
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        background: "#f8fafc",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#64748b",
+                        fontSize: 14,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Загрузка должников...
+                    </div>
+                  ) : (
+                    <DebtorList
+                      debtors={filteredDebtors}
+                      emptyText="Пока нет должников"
+                      currency={baseCurrency}
+                      direction={currentDebtorDirection}
+                      onSelectDebtor={(debtor) => {
+                        setDetailDebtorId(debtor.id)
+                        setDetailTitle(debtor.name)
+                        setIsGoalsListOpen(false)
+                        setDebtorSearch("")
+                      }}
+                    />
+                  )
                 ) : isGoalsListLoading && filteredGoals.length === 0 ? (
                   <div
                     style={{
