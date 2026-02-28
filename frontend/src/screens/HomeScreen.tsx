@@ -381,6 +381,9 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
 
       <section className="home-section">
         <div className="home-split-banner">
+          <button type="button" className="home-split-banner__period-btn">
+            Период
+          </button>
           <div className="home-split-banner__cell" />
           <div className="home-split-banner__cell" />
           <div className="home-split-banner__cell" />
