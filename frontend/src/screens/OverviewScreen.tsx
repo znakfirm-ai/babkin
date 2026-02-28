@@ -2562,7 +2562,7 @@ function TransactionsPanel({
                       fontWeight: 600,
                     }}
                   >
-                    +Операция
+                    + Операция
                   </button>
                 ) : null}
                 <button
