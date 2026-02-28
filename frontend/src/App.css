@@ -537,23 +537,24 @@
   top: 15px;
   left: 15px;
   z-index: 2;
-  padding: 8px 10px;
+  padding: 4px 6px;
+  min-height: 24px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   background: #f8fafc;
   color: #0f172a;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.2;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   width: fit-content;
   cursor: pointer;
 }
 
 .home-split-banner__period-caret {
-  font-size: 12px;
+  font-size: 9px;
   color: #6b7280;
 }
 
