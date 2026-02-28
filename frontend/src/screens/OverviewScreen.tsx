@@ -2530,7 +2530,7 @@ function TransactionsPanel({
       />
       <Section
         title="Долги / Кредиты"
-        items={[...debtsItems, addCard("debts")]}
+        items={debtsItems}
         rowScroll
         baseCurrency={baseCurrency}
         onDebtReceivableClick={() => {
