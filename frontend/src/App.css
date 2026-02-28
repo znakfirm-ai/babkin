@@ -529,7 +529,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .home-split-banner__period-btn {
@@ -596,6 +596,11 @@
   gap: 4px;
   padding: 8px;
   width: 140px;
+  max-height: min(60vh, 220px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 .home-split-banner__period-menu-item {
