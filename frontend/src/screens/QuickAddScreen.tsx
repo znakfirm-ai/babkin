@@ -131,15 +131,16 @@ type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 type Props = {
   onClose: () => void
   onOpenCreateGoal?: () => void
+  initialTab?: QuickAddTab
 }
 
-export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal }) => {
+export const QuickAddScreen: React.FC<Props> = ({ onClose, onOpenCreateGoal, initialTab = "expense" }) => {
   const { accounts, categories, incomeSources, goals, debtors, transactions, setAccounts, setTransactions, setGoals, setDebtors, currency } =
     useAppStore()
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
-  const [activeTab, setActiveTab] = useState<QuickAddTab>("expense")
+  const [activeTab, setActiveTab] = useState<QuickAddTab>(initialTab)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState<string | null>(null)

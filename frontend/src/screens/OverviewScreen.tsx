@@ -411,6 +411,7 @@ type OverviewScreenProps = {
   onOpenGoalsList?: () => void
   onOpenReceivables?: () => void
   onOpenPayables?: () => void
+  onOpenQuickAddTransfer?: () => void
   autoOpenGoalsList?: boolean
   onConsumeAutoOpenGoalsList?: () => void
   autoOpenGoalCreate?: boolean
@@ -433,6 +434,7 @@ function OverviewScreen({
   onOpenGoalsList,
   onOpenReceivables,
   onOpenPayables,
+  onOpenQuickAddTransfer,
   autoOpenGoalsList = false,
   onConsumeAutoOpenGoalsList,
   autoOpenGoalCreate = false,
@@ -1223,6 +1225,11 @@ function OverviewScreen({
     },
     [closeDetails, openEditAccountSheet],
   )
+
+  const openTransferFromAccountDetails = useCallback(() => {
+    closeDetails()
+    onOpenQuickAddTransfer?.()
+  }, [closeDetails, onOpenQuickAddTransfer])
 
   const openEditDebtorFromDetails = useCallback(
     (debtor: Debtor) => {
@@ -2540,19 +2547,38 @@ function TransactionsPanel({
               <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
                 {detailTitle || detailGoal?.name || detailDebtor?.name || "Детали"}
               </div>
-              <button
-                type="button"
-                onClick={closeDetails}
-                style={{
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  borderRadius: 10,
-                  padding: "6px 10px",
-                  cursor: "pointer",
-                }}
-              >
-                Закрыть
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {detailAccountId ? (
+                  <button
+                    type="button"
+                    onClick={openTransferFromAccountDetails}
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      borderRadius: 10,
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      color: "#0f172a",
+                      fontWeight: 600,
+                    }}
+                  >
+                    +Операция
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={closeDetails}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    borderRadius: 10,
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Закрыть
+                </button>
+              </div>
             </div>
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
               {detailAccountId ? (
