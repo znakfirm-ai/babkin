@@ -385,6 +385,8 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
           <div className="home-split-banner__cell" />
           <div className="home-split-banner__cell" />
           <div className="home-split-banner__cell" />
+          <div className="home-split-banner__line home-split-banner__line--vertical" />
+          <div className="home-split-banner__line home-split-banner__line--horizontal" />
         </div>
       </section>
 
