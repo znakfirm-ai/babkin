@@ -502,6 +502,9 @@ function App() {
             onOpenQuickAddExpense={(categoryId) => {
               openQuickAddScreen("expense", null, categoryId)
             }}
+            onOpenQuickAddGoal={() => {
+              openQuickAddScreen("goal")
+            }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {
               setAutoOpenGoalsList(false)
@@ -563,6 +566,9 @@ function App() {
             }}
             onOpenQuickAddExpense={(categoryId) => {
               openQuickAddScreen("expense", null, categoryId)
+            }}
+            onOpenQuickAddGoal={() => {
+              openQuickAddScreen("goal")
             }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {

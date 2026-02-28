@@ -414,6 +414,7 @@ type OverviewScreenProps = {
   onOpenQuickAddTransfer?: () => void
   onOpenQuickAddIncome?: (incomeSourceId: string | null) => void
   onOpenQuickAddExpense?: (categoryId: string | null) => void
+  onOpenQuickAddGoal?: () => void
   autoOpenGoalsList?: boolean
   onConsumeAutoOpenGoalsList?: () => void
   autoOpenGoalCreate?: boolean
@@ -439,6 +440,7 @@ function OverviewScreen({
   onOpenQuickAddTransfer,
   onOpenQuickAddIncome,
   onOpenQuickAddExpense,
+  onOpenQuickAddGoal,
   autoOpenGoalsList = false,
   onConsumeAutoOpenGoalsList,
   autoOpenGoalCreate = false,
@@ -1609,6 +1611,11 @@ function OverviewScreen({
       onReturnToIncomeReport?.()
     }
   }, [onReturnToIncomeReport, onReturnToReport, returnToIncomeReport, returnToReport])
+
+  const openGoalOperationFromGoalsList = useCallback(() => {
+    closeGoalsList()
+    onOpenQuickAddGoal?.()
+  }, [closeGoalsList, onOpenQuickAddGoal])
 
   const closeDebtorSheet = useCallback(() => {
     setIsDebtorSheetOpen(false)
@@ -4172,8 +4179,25 @@ function TransactionsPanel({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
+              <div style={{ fontSize: isGoalsMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
               <div style={{ display: "flex", gap: 8 }}>
+                {isGoalsMode ? (
+                  <button
+                    type="button"
+                    onClick={openGoalOperationFromGoalsList}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      fontWeight: 600,
+                      color: "#0f172a",
+                      cursor: "pointer",
+                    }}
+                  >
+                    + Операция
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={isDebtsMode ? openCreateDebtor : openCreateGoal}
