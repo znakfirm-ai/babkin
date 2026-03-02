@@ -318,6 +318,13 @@ const buildReceiptParseText = (receipt: ReceiptExtract): string => {
   return `${segments.join(". ")}.`
 }
 
+const formatDateDMY = (value: Date): string => {
+  const day = String(value.getDate()).padStart(2, "0")
+  const month = String(value.getMonth() + 1).padStart(2, "0")
+  const year = String(value.getFullYear())
+  return `${day}.${month}.${year}`
+}
+
 const buildPickerKeyboard = (
   draftId: string,
   mode: "category" | "account",
@@ -589,9 +596,20 @@ async function handleParsedOperationResult(
     messageId: number | undefined
     sourceText: string
     unresolvedMessage: string
+    receiptOccurredAtISO?: string
   },
 ): Promise<void> {
-  const { parsedOperation, telegramUserId, chatId, workspaceId, context, messageId, sourceText, unresolvedMessage } = params
+  const {
+    parsedOperation,
+    telegramUserId,
+    chatId,
+    workspaceId,
+    context,
+    messageId,
+    sourceText,
+    unresolvedMessage,
+    receiptOccurredAtISO,
+  } = params
   fastify.log.info(`[parse] ${telegramUserId} ${String(messageId ?? "unknown")} ${JSON.stringify(parsedOperation)}`)
 
   if (!parsedOperation.ok) {
@@ -600,13 +618,35 @@ async function handleParsedOperationResult(
   }
 
   const draftId = randomUUID()
+  let draftData = parsedOperation.data
+  if (receiptOccurredAtISO) {
+    const receiptDate = new Date(receiptOccurredAtISO)
+    if (Number.isFinite(receiptDate.getTime())) {
+      const now = new Date()
+      const twoYearsAgo = new Date(now)
+      twoYearsAgo.setFullYear(now.getFullYear() - 2)
+      if (receiptDate < twoYearsAgo) {
+        const newDateISO = now.toISOString()
+        const receiptDateLabel = formatDateDMY(receiptDate)
+        const dateNoteLine = `Дата на чеке: ${receiptDateLabel}`
+        draftData = {
+          ...draftData,
+          occurredAtISO: newDateISO,
+          note: draftData.note ? `${draftData.note}\n${dateNoteLine}` : dateNoteLine,
+        }
+        fastify.log.info(
+          `[receipt-date-adjusted] ${telegramUserId} ${draftId} ${receiptOccurredAtISO} -> ${newDateISO}`,
+        )
+      }
+    }
+  }
   const lookup = toLookup(context)
   draftStore.set(draftId, {
     telegramUserId,
     chatId,
     workspaceId,
     messageId: messageId ?? null,
-    draft: parsedOperation.data,
+    draft: draftData,
     transcript: sourceText,
     createdAtMs: Date.now(),
     lookup,
@@ -615,7 +655,7 @@ async function handleParsedOperationResult(
   await sendTelegramMessage(
     fastify,
     chatId,
-    buildConfirmText(parsedOperation.data, lookup),
+    buildConfirmText(draftData, lookup),
     buildConfirmKeyboard(draftId),
   )
 }
@@ -962,6 +1002,7 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
             messageId,
             sourceText: receiptParseText,
             unresolvedMessage: "Не понял чек, уточни",
+            receiptOccurredAtISO: receipt.occurredAtISO,
           })
         } catch (error) {
           if (error instanceof DOMException && error.name === "AbortError") {
