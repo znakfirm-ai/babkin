@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyPluginOptions } from "fastify"
 import { transcribeAudio } from "../utils/openaiTranscribe"
 import { downloadTelegramFileAsBuffer } from "../utils/telegramFiles"
+import { parseOperationFromText } from "../utils/openaiParseOperation"
 
 type TelegramMessage = {
   message_id?: number
@@ -49,6 +50,16 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
       const filename = resolveFileName(messageId, downloaded.mimeType)
       const transcript = await transcribeAudio(downloaded.buffer, filename)
       fastify.log.info(`[voice] ${String(telegramUserId ?? "unknown")} ${String(messageId ?? "unknown")} ${transcript}`)
+      try {
+        const parsedOperation = await parseOperationFromText(transcript)
+        fastify.log.info(`[parse] ${String(telegramUserId ?? "unknown")} ${String(messageId ?? "unknown")} ${JSON.stringify(parsedOperation)}`)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return reply.send({ ok: true })
+        }
+        const messageText = error instanceof Error ? error.message : String(error)
+        fastify.log.error(`[parse] error ${messageText}`)
+      }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return reply.send({ ok: true })
