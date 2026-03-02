@@ -5,13 +5,27 @@ import { env } from "../env"
 import { createWorkspaceTransaction, type TransactionCreateInput } from "./transactions"
 import { transcribeAudio } from "../utils/openaiTranscribe"
 import { parseOperationFromText, type OperationContext, type OperationDraftResolved } from "../utils/openaiParseOperation"
+import { extractReceiptFromImage, type ReceiptExtract } from "../utils/openaiReceiptExtract"
 import { downloadTelegramFileAsBuffer } from "../utils/telegramFiles"
+
+type TelegramPhotoSize = {
+  file_id?: string | null
+  file_size?: number | null
+}
+
+type TelegramDocument = {
+  file_id?: string | null
+  mime_type?: string | null
+  file_size?: number | null
+}
 
 type TelegramMessage = {
   message_id?: number
   from?: { id?: number | string | null } | null
   chat?: { id?: number | string | null } | null
   text?: string | null
+  photo?: TelegramPhotoSize[] | null
+  document?: TelegramDocument | null
   voice?: { file_id?: string | null } | null
   audio?: { file_id?: string | null } | null
 }
@@ -69,6 +83,7 @@ const extensionByMime: Record<string, string> = {
 const draftStore = new Map<string, DraftEntry>()
 const pendingEditStore = new Map<string, PendingEdit>()
 const EDIT_PAGE_SIZE = 10
+const MAX_RECEIPT_IMAGE_BYTES = 8 * 1024 * 1024
 
 function resolveFileName(messageId: number | undefined, mimeType: string | null): string {
   const normalizedMime = (mimeType ?? "").split(";")[0].trim().toLowerCase()
@@ -271,6 +286,36 @@ const parseActionNumber = (action: string, prefix: string): number | null => {
   const value = Number.parseInt(action.slice(prefix.length), 10)
   if (!Number.isFinite(value) || value < 0) return null
   return value
+}
+
+const buildReceiptParseText = (receipt: ReceiptExtract): string => {
+  const segments: string[] = ["Чек"]
+  if (receipt.merchant) {
+    segments.push(`Магазин: ${receipt.merchant}`)
+  }
+  if (receipt.total) {
+    const currency = receipt.currency ? ` ${receipt.currency}` : ""
+    segments.push(`Итого: ${receipt.total}${currency}`)
+  }
+  if (receipt.occurredAtISO) {
+    segments.push(`Дата: ${receipt.occurredAtISO}`)
+  }
+  if (receipt.items && receipt.items.length > 0) {
+    const itemNames = receipt.items
+      .map((item) => item.name.trim())
+      .filter((name) => name.length > 0)
+      .slice(0, 12)
+    if (itemNames.length > 0) {
+      segments.push(`Позиции: ${itemNames.join(", ")}`)
+    }
+  }
+  if (receipt.rawText) {
+    const normalizedText = receipt.rawText.trim().slice(0, 600)
+    if (normalizedText.length > 0) {
+      segments.push(`Текст: ${normalizedText}`)
+    }
+  }
+  return `${segments.join(". ")}.`
 }
 
 const buildPickerKeyboard = (
@@ -531,6 +576,48 @@ async function handlePendingAmountEditMessage(
   fastify.log.info(`[edit:set] ${telegramUserId} ${pendingEdit.draftId} amount ${String(parsedAmount)}`)
   await sendDraftConfirm(fastify, pendingEdit.draftId, draftEntry)
   return true
+}
+
+async function handleParsedOperationResult(
+  fastify: FastifyInstance,
+  params: {
+    parsedOperation: Awaited<ReturnType<typeof parseOperationFromText>>
+    telegramUserId: string
+    chatId: string
+    workspaceId: string
+    context: OperationContext
+    messageId: number | undefined
+    sourceText: string
+    unresolvedMessage: string
+  },
+): Promise<void> {
+  const { parsedOperation, telegramUserId, chatId, workspaceId, context, messageId, sourceText, unresolvedMessage } = params
+  fastify.log.info(`[parse] ${telegramUserId} ${String(messageId ?? "unknown")} ${JSON.stringify(parsedOperation)}`)
+
+  if (!parsedOperation.ok) {
+    await sendTelegramMessage(fastify, chatId, unresolvedMessage)
+    return
+  }
+
+  const draftId = randomUUID()
+  const lookup = toLookup(context)
+  draftStore.set(draftId, {
+    telegramUserId,
+    chatId,
+    workspaceId,
+    messageId: messageId ?? null,
+    draft: parsedOperation.data,
+    transcript: sourceText,
+    createdAtMs: Date.now(),
+    lookup,
+    status: "pending",
+  })
+  await sendTelegramMessage(
+    fastify,
+    chatId,
+    buildConfirmText(parsedOperation.data, lookup),
+    buildConfirmKeyboard(draftId),
+  )
 }
 
 async function handleDraftCallback(
@@ -810,75 +897,137 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
       }
     }
 
-    const fileId = message?.voice?.file_id ?? message?.audio?.file_id
+    const voiceFileId = message?.voice?.file_id ?? message?.audio?.file_id ?? null
+    const photoList = Array.isArray(message?.photo) ? message.photo : []
+    const largestPhoto = photoList.length > 0 ? photoList[photoList.length - 1] : null
+    const photoFileId = largestPhoto?.file_id ?? null
+    const photoFileSize = largestPhoto?.file_size ?? null
+    const document = message?.document ?? null
+    const documentMime = document?.mime_type?.toLowerCase() ?? null
+    const imageDocumentFileId = document?.file_id && documentMime?.startsWith("image/") ? document.file_id : null
+    const imageDocumentSize = document?.file_size ?? null
+    const receiptFileId = photoFileId ?? imageDocumentFileId
+    const receiptFileSize = photoFileId ? photoFileSize : imageDocumentSize
 
-    if (!fileId) {
+    if (!voiceFileId && !receiptFileId) {
       return reply.send({ ok: true })
     }
 
     const messageId = message?.message_id
+    if (!chatId || !telegramUserId) {
+      fastify.log.warn(
+        `[draft] missing identity fields: user=${String(telegramUserId ?? "unknown")} chat=${String(chatId ?? "unknown")}`,
+      )
+      return reply.send({ ok: true })
+    }
 
-    try {
-      const downloaded = await downloadTelegramFileAsBuffer(fileId)
-      const filename = resolveFileName(messageId, downloaded.mimeType)
-      const transcript = await transcribeAudio(downloaded.buffer, filename)
-      fastify.log.info(`[voice] ${String(telegramUserId ?? "unknown")} ${String(messageId ?? "unknown")} ${transcript}`)
-
-      if (!chatId || !telegramUserId) {
+    if (receiptFileId) {
+      if (typeof receiptFileSize === "number" && receiptFileSize > MAX_RECEIPT_IMAGE_BYTES) {
         fastify.log.warn(
-          `[draft] missing identity fields: user=${String(telegramUserId ?? "unknown")} chat=${String(chatId ?? "unknown")}`,
+          `[receipt] file too large before download: user=${telegramUserId} message=${String(messageId ?? "unknown")} size=${String(receiptFileSize)}`,
         )
+        await sendTelegramMessage(fastify, chatId, "Слишком большое фото, пришли меньше")
         return reply.send({ ok: true })
       }
-
-      const loadedContext = await loadOperationContextByTelegramUserId(telegramUserId)
-      if (!loadedContext) {
-        fastify.log.warn(`[parse] no active workspace context for telegram user ${telegramUserId}`)
-        await sendTelegramMessage(fastify, chatId, "Не понял, уточни")
-        return reply.send({ ok: true })
-      }
-      const { workspaceId, context } = loadedContext
 
       try {
-        const parsedOperation = await parseOperationFromText(transcript, context)
-        fastify.log.info(`[parse] ${telegramUserId} ${String(messageId ?? "unknown")} ${JSON.stringify(parsedOperation)}`)
+        const downloaded = await downloadTelegramFileAsBuffer(receiptFileId)
+        if (downloaded.buffer.length > MAX_RECEIPT_IMAGE_BYTES) {
+          fastify.log.warn(
+            `[receipt] file too large after download: user=${telegramUserId} message=${String(messageId ?? "unknown")} size=${String(downloaded.buffer.length)}`,
+          )
+          await sendTelegramMessage(fastify, chatId, "Слишком большое фото, пришли меньше")
+          return reply.send({ ok: true })
+        }
+        const receipt = await extractReceiptFromImage(downloaded.buffer, downloaded.mimeType)
+        fastify.log.info(`[receipt] ${telegramUserId} ${String(messageId ?? "unknown")} ${JSON.stringify(receipt)}`)
 
-        if (parsedOperation.ok) {
-          const draftId = randomUUID()
-          const lookup = toLookup(context)
-          draftStore.set(draftId, {
+        const loadedContext = await loadOperationContextByTelegramUserId(telegramUserId)
+        if (!loadedContext) {
+          fastify.log.warn(`[parse] no active workspace context for telegram user ${telegramUserId}`)
+          await sendTelegramMessage(fastify, chatId, "Не понял чек, уточни")
+          return reply.send({ ok: true })
+        }
+        const { workspaceId, context } = loadedContext
+        const receiptParseText = buildReceiptParseText(receipt)
+
+        try {
+          const parsedOperation = await parseOperationFromText(receiptParseText, context)
+          await handleParsedOperationResult(fastify, {
+            parsedOperation,
             telegramUserId,
             chatId,
             workspaceId,
-            messageId: messageId ?? null,
-            draft: parsedOperation.data,
-            transcript,
-            createdAtMs: Date.now(),
-            lookup,
-            status: "pending",
+            context,
+            messageId,
+            sourceText: receiptParseText,
+            unresolvedMessage: "Не понял чек, уточни",
           })
+        } catch (error) {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return reply.send({ ok: true })
+          }
+          const parseErrorText = error instanceof Error ? error.message : String(error)
+          fastify.log.error(`[parse] error ${parseErrorText}`)
           await sendTelegramMessage(
             fastify,
             chatId,
-            buildConfirmText(parsedOperation.data, lookup),
-            buildConfirmKeyboard(draftId),
+            "Не понял чек, уточни",
           )
-        } else {
-          await sendTelegramMessage(fastify, chatId, "Не понял, уточни")
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return reply.send({ ok: true })
         }
-        const messageText = error instanceof Error ? error.message : String(error)
-        fastify.log.error(`[parse] error ${messageText}`)
+        const receiptErrorText = error instanceof Error ? error.message : String(error)
+        fastify.log.error(`[receipt] failed: ${receiptErrorText}`)
+        await sendTelegramMessage(fastify, chatId, "Не получилось обработать фото чека")
       }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return reply.send({ ok: true })
+
+      return reply.send({ ok: true })
+    }
+
+    if (voiceFileId) {
+      try {
+        const downloaded = await downloadTelegramFileAsBuffer(voiceFileId)
+        const filename = resolveFileName(messageId, downloaded.mimeType)
+        const transcript = await transcribeAudio(downloaded.buffer, filename)
+        fastify.log.info(`[voice] ${String(telegramUserId ?? "unknown")} ${String(messageId ?? "unknown")} ${transcript}`)
+
+        const loadedContext = await loadOperationContextByTelegramUserId(telegramUserId)
+        if (!loadedContext) {
+          fastify.log.warn(`[parse] no active workspace context for telegram user ${telegramUserId}`)
+          await sendTelegramMessage(fastify, chatId, "Не понял, уточни")
+          return reply.send({ ok: true })
+        }
+        const { workspaceId, context } = loadedContext
+
+        try {
+          const parsedOperation = await parseOperationFromText(transcript, context)
+          await handleParsedOperationResult(fastify, {
+            parsedOperation,
+            telegramUserId,
+            chatId,
+            workspaceId,
+            context,
+            messageId,
+            sourceText: transcript,
+            unresolvedMessage: "Не понял, уточни",
+          })
+        } catch (error) {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return reply.send({ ok: true })
+          }
+          const parseErrorText = error instanceof Error ? error.message : String(error)
+          fastify.log.error(`[parse] error ${parseErrorText}`)
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return reply.send({ ok: true })
+        }
+        const voiceErrorText = error instanceof Error ? error.message : String(error)
+        fastify.log.error(`[voice] failed: ${voiceErrorText}`)
       }
-      const messageText = error instanceof Error ? error.message : String(error)
-      fastify.log.error(`[voice] failed: ${messageText}`)
     }
 
     return reply.send({ ok: true })
