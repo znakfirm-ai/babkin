@@ -12,6 +12,7 @@ import { incomeSourcesRoutes } from "./routes/incomeSources"
 import { analyticsRoutes } from "./routes/analytics"
 import { goalsRoutes } from "./routes/goals"
 import { debtorsRoutes } from "./routes/debtors"
+import { runOpenAITest } from "./utils/openaiTest"
 
 const fastify = Fastify({
   logger: true,
@@ -36,6 +37,14 @@ fastify
   .listen({ port, host: "0.0.0.0" })
   .then(() => {
     fastify.log.info(`listening on http://0.0.0.0:${port}`)
+    void (async () => {
+      try {
+        await runOpenAITest()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        fastify.log.warn(`[openai-test] skipped: ${message}`)
+      }
+    })()
   })
   .catch((err) => {
     fastify.log.error(err)

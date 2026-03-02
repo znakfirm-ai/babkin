@@ -17,6 +17,7 @@ const incomeSources_1 = require("./routes/incomeSources");
 const analytics_1 = require("./routes/analytics");
 const goals_1 = require("./routes/goals");
 const debtors_1 = require("./routes/debtors");
+const openaiTest_1 = require("./utils/openaiTest");
 const fastify = (0, fastify_1.default)({
     logger: true,
 });
@@ -37,6 +38,15 @@ fastify
     .listen({ port, host: "0.0.0.0" })
     .then(() => {
     fastify.log.info(`listening on http://0.0.0.0:${port}`);
+    void (async () => {
+        try {
+            await (0, openaiTest_1.runOpenAITest)();
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            fastify.log.warn(`[openai-test] skipped: ${message}`);
+        }
+    })();
 })
     .catch((err) => {
     fastify.log.error(err);
