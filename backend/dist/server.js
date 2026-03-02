@@ -18,6 +18,7 @@ const analytics_1 = require("./routes/analytics");
 const goals_1 = require("./routes/goals");
 const debtors_1 = require("./routes/debtors");
 const openaiTest_1 = require("./utils/openaiTest");
+const telegramWebhook_1 = require("./routes/telegramWebhook");
 const fastify = (0, fastify_1.default)({
     logger: true,
 });
@@ -33,6 +34,7 @@ fastify.register(goals_1.goalsRoutes, { prefix: "/api/v1" });
 fastify.register(debtors_1.debtorsRoutes, { prefix: "/api/v1" });
 fastify.register(transactions_1.transactionsRoutes, { prefix: "/api/v1" });
 fastify.register(analytics_1.analyticsRoutes, { prefix: "/api/v1" });
+fastify.register(telegramWebhook_1.telegramWebhookRoutes, { prefix: "/api/v1" });
 const port = Number(process.env.PORT) || env_1.env.PORT;
 fastify
     .listen({ port, host: "0.0.0.0" })
