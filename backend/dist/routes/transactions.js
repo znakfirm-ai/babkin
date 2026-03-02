@@ -3,12 +3,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.createWorkspaceTransaction = createWorkspaceTransaction;
 exports.transactionsRoutes = transactionsRoutes;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const client_1 = require("@prisma/client");
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
+class CreateTransactionError extends Error {
+    statusCode;
+    reason;
+    constructor(statusCode, reason) {
+        super(reason);
+        this.statusCode = statusCode;
+        this.reason = reason;
+    }
+}
 async function resolveUserId(request, reply) {
     const authHeader = request.headers.authorization;
     let userId = null;
@@ -71,6 +81,181 @@ function mapTx(tx) {
         debtorName: tx.debtor?.name ?? null,
     };
 }
+async function createWorkspaceTransaction(workspaceId, body) {
+    if (!body?.kind || (body.kind !== "income" && body.kind !== "expense" && body.kind !== "transfer")) {
+        throw new CreateTransactionError(400, "invalid_kind");
+    }
+    const kind = body.kind;
+    if (!body.amount || !Number.isFinite(body.amount) || body.amount <= 0) {
+        throw new CreateTransactionError(400, "invalid_amount");
+    }
+    const amount = new client_1.Prisma.Decimal(body.amount);
+    const happenedAt = body.happenedAt ? new Date(body.happenedAt) : new Date();
+    if (Number.isNaN(happenedAt.getTime())) {
+        throw new CreateTransactionError(400, "invalid_date");
+    }
+    const debtor = body.debtorId
+        ? await prisma_1.prisma.debtors.findFirst({ where: { id: body.debtorId, workspace_id: workspaceId } })
+        : null;
+    if (body.debtorId && !debtor) {
+        throw new CreateTransactionError(403, "debtor_not_in_workspace");
+    }
+    if (kind === "income" || kind === "expense") {
+        if (!body.accountId) {
+            throw new CreateTransactionError(400, "missing_account");
+        }
+        const account = await prisma_1.prisma.accounts.findFirst({ where: { id: body.accountId, workspace_id: workspaceId } });
+        if (!account) {
+            throw new CreateTransactionError(403, "account_not_in_workspace");
+        }
+        if (body.categoryId) {
+            const cat = await prisma_1.prisma.categories.findFirst({ where: { id: body.categoryId, workspace_id: workspaceId } });
+            if (!cat) {
+                throw new CreateTransactionError(403, "category_not_in_workspace");
+            }
+        }
+        if (body.incomeSourceId && kind !== "income") {
+            throw new CreateTransactionError(400, "income_source_only_for_income");
+        }
+        if (kind === "income" && body.debtorId) {
+            throw new CreateTransactionError(400, "debtor_income_not_allowed");
+        }
+        if (kind === "expense" && body.debtorId && debtor?.direction !== "PAYABLE") {
+            throw new CreateTransactionError(400, "invalid_debtor_direction");
+        }
+        let incomeSourceId = null;
+        if (kind === "income" && body.incomeSourceId) {
+            const src = await prisma_1.prisma.income_sources.findFirst({
+                where: { id: body.incomeSourceId, workspace_id: workspaceId },
+            });
+            if (!src) {
+                throw new CreateTransactionError(403, "income_source_not_in_workspace");
+            }
+            incomeSourceId = src.id;
+        }
+        const tx = await prisma_1.prisma.$transaction(async (trx) => {
+            const delta = kind === "income" ? amount : amount.neg();
+            await trx.accounts.update({
+                where: { id: account.id },
+                data: { balance: { increment: delta } },
+            });
+            return trx.transactions.create({
+                data: {
+                    workspace_id: workspaceId,
+                    kind,
+                    amount,
+                    happened_at: happenedAt,
+                    note: body.note ?? null,
+                    account_id: account.id,
+                    category_id: body.categoryId ?? null,
+                    income_source_id: incomeSourceId,
+                    debtor_id: debtor?.id ?? null,
+                },
+            });
+        });
+        return mapTx(tx);
+    }
+    const isGoalTransfer = Boolean(body.goalId) && !body.toAccountId;
+    const isDebtorRepayment = Boolean(body.debtorId) && !body.fromAccountId && Boolean(body.toAccountId);
+    if (isDebtorRepayment) {
+        if (debtor?.direction !== "RECEIVABLE") {
+            throw new CreateTransactionError(400, "invalid_debtor_direction");
+        }
+        const to = await prisma_1.prisma.accounts.findFirst({ where: { id: body.toAccountId ?? "", workspace_id: workspaceId } });
+        if (!to) {
+            throw new CreateTransactionError(403, "account_not_in_workspace");
+        }
+        const tx = await prisma_1.prisma.$transaction(async (trx) => {
+            await trx.accounts.update({
+                where: { id: to.id },
+                data: { balance: { increment: amount } },
+            });
+            return trx.transactions.create({
+                data: {
+                    workspace_id: workspaceId,
+                    kind,
+                    amount,
+                    happened_at: happenedAt,
+                    note: body.note ?? null,
+                    account_id: null,
+                    from_account_id: null,
+                    to_account_id: to.id,
+                    goal_id: null,
+                    debtor_id: debtor.id,
+                },
+            });
+        });
+        return mapTx(tx);
+    }
+    if (!body.fromAccountId) {
+        throw new CreateTransactionError(400, "invalid_transfer_accounts");
+    }
+    const from = await prisma_1.prisma.accounts.findFirst({ where: { id: body.fromAccountId, workspace_id: workspaceId } });
+    if (!from) {
+        throw new CreateTransactionError(403, "account_not_in_workspace");
+    }
+    if (isGoalTransfer) {
+        const goal = await prisma_1.prisma.goals.findFirst({ where: { id: body.goalId ?? "", workspace_id: workspaceId } });
+        if (!goal) {
+            throw new CreateTransactionError(403, "goal_not_in_workspace");
+        }
+        const tx = await prisma_1.prisma.$transaction(async (trx) => {
+            await trx.accounts.update({
+                where: { id: from.id },
+                data: { balance: { decrement: amount } },
+            });
+            await trx.goals.update({
+                where: { id: goal.id },
+                data: { current_amount: { increment: amount } },
+            });
+            return trx.transactions.create({
+                data: {
+                    workspace_id: workspaceId,
+                    kind,
+                    amount,
+                    happened_at: happenedAt,
+                    note: body.note ?? null,
+                    account_id: null,
+                    from_account_id: from.id,
+                    to_account_id: null,
+                    goal_id: goal.id,
+                    debtor_id: null,
+                },
+            });
+        });
+        return mapTx(tx);
+    }
+    if (!body.toAccountId || body.fromAccountId === body.toAccountId) {
+        throw new CreateTransactionError(400, "invalid_transfer_accounts");
+    }
+    const to = await prisma_1.prisma.accounts.findFirst({ where: { id: body.toAccountId, workspace_id: workspaceId } });
+    if (!to) {
+        throw new CreateTransactionError(403, "account_not_in_workspace");
+    }
+    const tx = await prisma_1.prisma.$transaction(async (trx) => {
+        await trx.accounts.update({
+            where: { id: from.id },
+            data: { balance: { decrement: amount } },
+        });
+        await trx.accounts.update({
+            where: { id: to.id },
+            data: { balance: { increment: amount } },
+        });
+        return trx.transactions.create({
+            data: {
+                workspace_id: workspaceId,
+                kind,
+                amount,
+                happened_at: happenedAt,
+                note: body.note ?? null,
+                from_account_id: from.id,
+                to_account_id: to.id,
+                debtor_id: null,
+            },
+        });
+    });
+    return mapTx(tx);
+}
 async function transactionsRoutes(fastify, _opts) {
     fastify.get("/transactions", async (request, reply) => {
         const userId = await resolveUserId(request, reply);
@@ -107,187 +292,20 @@ async function transactionsRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "No active workspace" });
         }
         const body = request.body;
-        if (!body?.kind || (body.kind !== "income" && body.kind !== "expense" && body.kind !== "transfer")) {
-            return reply.status(400).send({ error: "Bad Request", reason: "invalid_kind" });
+        try {
+            const transaction = await createWorkspaceTransaction(user.active_workspace_id, body);
+            return reply.send({ transaction });
         }
-        const kind = body.kind;
-        if (!body.amount || !Number.isFinite(body.amount) || body.amount <= 0) {
-            return reply.status(400).send({ error: "Bad Request", reason: "invalid_amount" });
-        }
-        const amount = new client_1.Prisma.Decimal(body.amount);
-        const happenedAt = body.happenedAt ? new Date(body.happenedAt) : new Date();
-        if (Number.isNaN(happenedAt.getTime())) {
-            return reply.status(400).send({ error: "Bad Request", reason: "invalid_date" });
-        }
-        const workspaceId = user.active_workspace_id;
-        const debtor = body.debtorId
-            ? await prisma_1.prisma.debtors.findFirst({ where: { id: body.debtorId, workspace_id: workspaceId } })
-            : null;
-        if (body.debtorId && !debtor) {
-            return reply.status(403).send({ error: "Forbidden", reason: "debtor_not_in_workspace" });
-        }
-        if (kind === "income" || kind === "expense") {
-            if (!body.accountId) {
-                return reply.status(400).send({ error: "Bad Request", reason: "missing_account" });
-            }
-            const account = await prisma_1.prisma.accounts.findFirst({ where: { id: body.accountId, workspace_id: workspaceId } });
-            if (!account) {
-                return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" });
-            }
-            if (body.categoryId) {
-                const cat = await prisma_1.prisma.categories.findFirst({ where: { id: body.categoryId, workspace_id: workspaceId } });
-                if (!cat) {
-                    return reply.status(403).send({ error: "Forbidden", reason: "category_not_in_workspace" });
-                }
-            }
-            if (body.incomeSourceId && kind !== "income") {
-                return reply.status(400).send({ error: "Bad Request", reason: "income_source_only_for_income" });
-            }
-            if (kind === "income" && body.debtorId) {
-                return reply.status(400).send({ error: "Bad Request", reason: "debtor_income_not_allowed" });
-            }
-            if (kind === "expense" && body.debtorId && debtor?.direction !== "PAYABLE") {
-                return reply.status(400).send({ error: "Bad Request", reason: "invalid_debtor_direction" });
-            }
-            let incomeSourceId = null;
-            if (kind === "income") {
-                if (body.incomeSourceId) {
-                    const src = await prisma_1.prisma.income_sources.findFirst({
-                        where: { id: body.incomeSourceId, workspace_id: workspaceId },
-                    });
-                    if (!src) {
-                        return reply.status(403).send({ error: "Forbidden", reason: "income_source_not_in_workspace" });
-                    }
-                    incomeSourceId = src.id;
-                }
-            }
-            const tx = await prisma_1.prisma.$transaction(async (trx) => {
-                const delta = kind === "income" ? amount : amount.neg();
-                await trx.accounts.update({
-                    where: { id: account.id },
-                    data: { balance: { increment: delta } },
+        catch (error) {
+            if (error instanceof CreateTransactionError) {
+                const statusCode = error.statusCode === 403 ? 403 : 400;
+                return reply.status(statusCode).send({
+                    error: statusCode === 403 ? "Forbidden" : "Bad Request",
+                    reason: error.reason,
                 });
-                const created = await trx.transactions.create({
-                    data: {
-                        workspace_id: workspaceId,
-                        kind,
-                        amount,
-                        happened_at: happenedAt,
-                        note: body.note ?? null,
-                        account_id: account.id,
-                        category_id: body.categoryId ?? null,
-                        income_source_id: incomeSourceId,
-                        debtor_id: debtor?.id ?? null,
-                    },
-                });
-                return created;
-            });
-            return reply.send({ transaction: mapTx(tx) });
-        }
-        // transfer
-        const isGoalTransfer = Boolean(body.goalId) && !body.toAccountId;
-        const isDebtorRepayment = Boolean(body.debtorId) && !body.fromAccountId && Boolean(body.toAccountId);
-        if (isDebtorRepayment) {
-            if (debtor?.direction !== "RECEIVABLE") {
-                return reply.status(400).send({ error: "Bad Request", reason: "invalid_debtor_direction" });
             }
-            const to = await prisma_1.prisma.accounts.findFirst({ where: { id: body.toAccountId ?? "", workspace_id: workspaceId } });
-            if (!to) {
-                return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" });
-            }
-            const tx = await prisma_1.prisma.$transaction(async (trx) => {
-                await trx.accounts.update({
-                    where: { id: to.id },
-                    data: { balance: { increment: amount } },
-                });
-                const created = await trx.transactions.create({
-                    data: {
-                        workspace_id: workspaceId,
-                        kind,
-                        amount,
-                        happened_at: happenedAt,
-                        note: body.note ?? null,
-                        account_id: null,
-                        from_account_id: null,
-                        to_account_id: to.id,
-                        goal_id: null,
-                        debtor_id: debtor.id,
-                    },
-                });
-                return created;
-            });
-            return reply.send({ transaction: mapTx(tx) });
+            throw error;
         }
-        if (!body.fromAccountId) {
-            return reply.status(400).send({ error: "Bad Request", reason: "invalid_transfer_accounts" });
-        }
-        const from = await prisma_1.prisma.accounts.findFirst({ where: { id: body.fromAccountId, workspace_id: workspaceId } });
-        if (!from) {
-            return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" });
-        }
-        if (isGoalTransfer) {
-            const goal = await prisma_1.prisma.goals.findFirst({ where: { id: body.goalId ?? "", workspace_id: workspaceId } });
-            if (!goal) {
-                return reply.status(403).send({ error: "Forbidden", reason: "goal_not_in_workspace" });
-            }
-            const tx = await prisma_1.prisma.$transaction(async (trx) => {
-                await trx.accounts.update({
-                    where: { id: from.id },
-                    data: { balance: { decrement: amount } },
-                });
-                await trx.goals.update({
-                    where: { id: goal.id },
-                    data: { current_amount: { increment: amount } },
-                });
-                const created = await trx.transactions.create({
-                    data: {
-                        workspace_id: workspaceId,
-                        kind,
-                        amount,
-                        happened_at: happenedAt,
-                        note: body.note ?? null,
-                        account_id: null,
-                        from_account_id: from.id,
-                        to_account_id: null,
-                        goal_id: goal.id,
-                        debtor_id: null,
-                    },
-                });
-                return created;
-            });
-            return reply.send({ transaction: mapTx(tx) });
-        }
-        if (!body.toAccountId || body.fromAccountId === body.toAccountId) {
-            return reply.status(400).send({ error: "Bad Request", reason: "invalid_transfer_accounts" });
-        }
-        const to = await prisma_1.prisma.accounts.findFirst({ where: { id: body.toAccountId, workspace_id: workspaceId } });
-        if (!to) {
-            return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" });
-        }
-        const tx = await prisma_1.prisma.$transaction(async (trx) => {
-            await trx.accounts.update({
-                where: { id: from.id },
-                data: { balance: { decrement: amount } },
-            });
-            await trx.accounts.update({
-                where: { id: to.id },
-                data: { balance: { increment: amount } },
-            });
-            const created = await trx.transactions.create({
-                data: {
-                    workspace_id: workspaceId,
-                    kind,
-                    amount,
-                    happened_at: happenedAt,
-                    note: body.note ?? null,
-                    from_account_id: from.id,
-                    to_account_id: to.id,
-                    debtor_id: null,
-                },
-            });
-            return created;
-        });
-        return reply.send({ transaction: mapTx(tx) });
     });
     fastify.delete("/transactions/:id", async (request, reply) => {
         const userId = await resolveUserId(request, reply);

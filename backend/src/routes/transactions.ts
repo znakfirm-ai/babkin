@@ -25,6 +25,31 @@ type TransactionResponse = {
   debtorName?: string | null
 }
 
+export type TransactionCreateInput = {
+  kind?: "income" | "expense" | "transfer"
+  accountId?: string
+  categoryId?: string | null
+  fromAccountId?: string
+  toAccountId?: string
+  amount?: number
+  happenedAt?: string
+  note?: string
+  incomeSourceId?: string
+  goalId?: string | null
+  debtorId?: string | null
+}
+
+class CreateTransactionError extends Error {
+  statusCode: number
+  reason: string
+
+  constructor(statusCode: number, reason: string) {
+    super(reason)
+    this.statusCode = statusCode
+    this.reason = reason
+  }
+}
+
 async function resolveUserId(request: any, reply: any): Promise<string | null> {
   const authHeader = request.headers.authorization
   let userId: string | null = null
@@ -93,6 +118,217 @@ function mapTx(tx: any): TransactionResponse {
   }
 }
 
+export async function createWorkspaceTransaction(
+  workspaceId: string,
+  body: TransactionCreateInput,
+): Promise<TransactionResponse> {
+  if (!body?.kind || (body.kind !== "income" && body.kind !== "expense" && body.kind !== "transfer")) {
+    throw new CreateTransactionError(400, "invalid_kind")
+  }
+
+  const kind: TransactionKind = body.kind
+
+  if (!body.amount || !Number.isFinite(body.amount) || body.amount <= 0) {
+    throw new CreateTransactionError(400, "invalid_amount")
+  }
+
+  const amount = new Prisma.Decimal(body.amount)
+  const happenedAt = body.happenedAt ? new Date(body.happenedAt) : new Date()
+  if (Number.isNaN(happenedAt.getTime())) {
+    throw new CreateTransactionError(400, "invalid_date")
+  }
+
+  const debtor = body.debtorId
+    ? await prisma.debtors.findFirst({ where: { id: body.debtorId, workspace_id: workspaceId } })
+    : null
+
+  if (body.debtorId && !debtor) {
+    throw new CreateTransactionError(403, "debtor_not_in_workspace")
+  }
+
+  if (kind === "income" || kind === "expense") {
+    if (!body.accountId) {
+      throw new CreateTransactionError(400, "missing_account")
+    }
+
+    const account = await prisma.accounts.findFirst({ where: { id: body.accountId, workspace_id: workspaceId } })
+    if (!account) {
+      throw new CreateTransactionError(403, "account_not_in_workspace")
+    }
+
+    if (body.categoryId) {
+      const cat = await prisma.categories.findFirst({ where: { id: body.categoryId, workspace_id: workspaceId } })
+      if (!cat) {
+        throw new CreateTransactionError(403, "category_not_in_workspace")
+      }
+    }
+
+    if (body.incomeSourceId && kind !== "income") {
+      throw new CreateTransactionError(400, "income_source_only_for_income")
+    }
+    if (kind === "income" && body.debtorId) {
+      throw new CreateTransactionError(400, "debtor_income_not_allowed")
+    }
+    if (kind === "expense" && body.debtorId && debtor?.direction !== "PAYABLE") {
+      throw new CreateTransactionError(400, "invalid_debtor_direction")
+    }
+
+    let incomeSourceId: string | null = null
+    if (kind === "income" && body.incomeSourceId) {
+      const src = await prisma.income_sources.findFirst({
+        where: { id: body.incomeSourceId, workspace_id: workspaceId },
+      })
+      if (!src) {
+        throw new CreateTransactionError(403, "income_source_not_in_workspace")
+      }
+      incomeSourceId = src.id
+    }
+
+    const tx = await prisma.$transaction(async (trx) => {
+      const delta = kind === "income" ? amount : amount.neg()
+
+      await trx.accounts.update({
+        where: { id: account.id },
+        data: { balance: { increment: delta } },
+      })
+
+      return trx.transactions.create({
+        data: {
+          workspace_id: workspaceId,
+          kind,
+          amount,
+          happened_at: happenedAt,
+          note: body.note ?? null,
+          account_id: account.id,
+          category_id: body.categoryId ?? null,
+          income_source_id: incomeSourceId,
+          debtor_id: debtor?.id ?? null,
+        },
+      })
+    })
+
+    return mapTx(tx)
+  }
+
+  const isGoalTransfer = Boolean(body.goalId) && !body.toAccountId
+  const isDebtorRepayment = Boolean(body.debtorId) && !body.fromAccountId && Boolean(body.toAccountId)
+
+  if (isDebtorRepayment) {
+    if (debtor?.direction !== "RECEIVABLE") {
+      throw new CreateTransactionError(400, "invalid_debtor_direction")
+    }
+    const to = await prisma.accounts.findFirst({ where: { id: body.toAccountId ?? "", workspace_id: workspaceId } })
+    if (!to) {
+      throw new CreateTransactionError(403, "account_not_in_workspace")
+    }
+
+    const tx = await prisma.$transaction(async (trx) => {
+      await trx.accounts.update({
+        where: { id: to.id },
+        data: { balance: { increment: amount } },
+      })
+
+      return trx.transactions.create({
+        data: {
+          workspace_id: workspaceId,
+          kind,
+          amount,
+          happened_at: happenedAt,
+          note: body.note ?? null,
+          account_id: null,
+          from_account_id: null,
+          to_account_id: to.id,
+          goal_id: null,
+          debtor_id: debtor.id,
+        },
+      })
+    })
+
+    return mapTx(tx)
+  }
+
+  if (!body.fromAccountId) {
+    throw new CreateTransactionError(400, "invalid_transfer_accounts")
+  }
+
+  const from = await prisma.accounts.findFirst({ where: { id: body.fromAccountId, workspace_id: workspaceId } })
+  if (!from) {
+    throw new CreateTransactionError(403, "account_not_in_workspace")
+  }
+
+  if (isGoalTransfer) {
+    const goal = await prisma.goals.findFirst({ where: { id: body.goalId ?? "", workspace_id: workspaceId } })
+    if (!goal) {
+      throw new CreateTransactionError(403, "goal_not_in_workspace")
+    }
+
+    const tx = await prisma.$transaction(async (trx) => {
+      await trx.accounts.update({
+        where: { id: from.id },
+        data: { balance: { decrement: amount } },
+      })
+
+      await trx.goals.update({
+        where: { id: goal.id },
+        data: { current_amount: { increment: amount } },
+      })
+
+      return trx.transactions.create({
+        data: {
+          workspace_id: workspaceId,
+          kind,
+          amount,
+          happened_at: happenedAt,
+          note: body.note ?? null,
+          account_id: null,
+          from_account_id: from.id,
+          to_account_id: null,
+          goal_id: goal.id,
+          debtor_id: null,
+        },
+      })
+    })
+
+    return mapTx(tx)
+  }
+
+  if (!body.toAccountId || body.fromAccountId === body.toAccountId) {
+    throw new CreateTransactionError(400, "invalid_transfer_accounts")
+  }
+
+  const to = await prisma.accounts.findFirst({ where: { id: body.toAccountId, workspace_id: workspaceId } })
+  if (!to) {
+    throw new CreateTransactionError(403, "account_not_in_workspace")
+  }
+
+  const tx = await prisma.$transaction(async (trx) => {
+    await trx.accounts.update({
+      where: { id: from.id },
+      data: { balance: { decrement: amount } },
+    })
+
+    await trx.accounts.update({
+      where: { id: to.id },
+      data: { balance: { increment: amount } },
+    })
+
+    return trx.transactions.create({
+      data: {
+        workspace_id: workspaceId,
+        kind,
+        amount,
+        happened_at: happenedAt,
+        note: body.note ?? null,
+        from_account_id: from.id,
+        to_account_id: to.id,
+        debtor_id: null,
+      },
+    })
+  })
+
+  return mapTx(tx)
+}
+
 export async function transactionsRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   fastify.get("/transactions", async (request, reply) => {
     const userId = await resolveUserId(request, reply)
@@ -133,237 +369,20 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
       return reply.status(400).send({ error: "No active workspace" })
     }
 
-    const body = request.body as {
-      kind?: "income" | "expense" | "transfer"
-      accountId?: string
-      categoryId?: string | null
-      fromAccountId?: string
-      toAccountId?: string
-      amount?: number
-      happenedAt?: string
-      note?: string
-      incomeSourceId?: string
-      goalId?: string | null
-      debtorId?: string | null
-    }
-
-    if (!body?.kind || (body.kind !== "income" && body.kind !== "expense" && body.kind !== "transfer")) {
-      return reply.status(400).send({ error: "Bad Request", reason: "invalid_kind" })
-    }
-
-    const kind: TransactionKind = body.kind
-
-    if (!body.amount || !Number.isFinite(body.amount) || body.amount <= 0) {
-      return reply.status(400).send({ error: "Bad Request", reason: "invalid_amount" })
-    }
-
-    const amount = new Prisma.Decimal(body.amount)
-    const happenedAt = body.happenedAt ? new Date(body.happenedAt) : new Date()
-    if (Number.isNaN(happenedAt.getTime())) {
-      return reply.status(400).send({ error: "Bad Request", reason: "invalid_date" })
-    }
-
-    const workspaceId = user.active_workspace_id
-    const debtor = body.debtorId
-      ? await prisma.debtors.findFirst({ where: { id: body.debtorId, workspace_id: workspaceId } })
-      : null
-
-    if (body.debtorId && !debtor) {
-      return reply.status(403).send({ error: "Forbidden", reason: "debtor_not_in_workspace" })
-    }
-
-    if (kind === "income" || kind === "expense") {
-      if (!body.accountId) {
-        return reply.status(400).send({ error: "Bad Request", reason: "missing_account" })
-      }
-
-      const account = await prisma.accounts.findFirst({ where: { id: body.accountId, workspace_id: workspaceId } })
-      if (!account) {
-        return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" })
-      }
-
-      if (body.categoryId) {
-        const cat = await prisma.categories.findFirst({ where: { id: body.categoryId, workspace_id: workspaceId } })
-        if (!cat) {
-          return reply.status(403).send({ error: "Forbidden", reason: "category_not_in_workspace" })
-        }
-      }
-
-      if (body.incomeSourceId && kind !== "income") {
-        return reply.status(400).send({ error: "Bad Request", reason: "income_source_only_for_income" })
-      }
-      if (kind === "income" && body.debtorId) {
-        return reply.status(400).send({ error: "Bad Request", reason: "debtor_income_not_allowed" })
-      }
-      if (kind === "expense" && body.debtorId && debtor?.direction !== "PAYABLE") {
-        return reply.status(400).send({ error: "Bad Request", reason: "invalid_debtor_direction" })
-      }
-
-      let incomeSourceId: string | null = null
-      if (kind === "income") {
-        if (body.incomeSourceId) {
-          const src = await prisma.income_sources.findFirst({
-            where: { id: body.incomeSourceId, workspace_id: workspaceId },
-          })
-          if (!src) {
-            return reply.status(403).send({ error: "Forbidden", reason: "income_source_not_in_workspace" })
-          }
-          incomeSourceId = src.id
-        }
-      }
-
-      const tx = await prisma.$transaction(async (trx) => {
-        const delta = kind === "income" ? amount : amount.neg()
-
-        await trx.accounts.update({
-          where: { id: account.id },
-          data: { balance: { increment: delta } },
+    const body = request.body as TransactionCreateInput
+    try {
+      const transaction = await createWorkspaceTransaction(user.active_workspace_id, body)
+      return reply.send({ transaction })
+    } catch (error) {
+      if (error instanceof CreateTransactionError) {
+        const statusCode = error.statusCode === 403 ? 403 : 400
+        return reply.status(statusCode).send({
+          error: statusCode === 403 ? "Forbidden" : "Bad Request",
+          reason: error.reason,
         })
-
-        const created = await trx.transactions.create({
-          data: {
-            workspace_id: workspaceId,
-            kind,
-            amount,
-            happened_at: happenedAt,
-            note: body.note ?? null,
-            account_id: account.id,
-            category_id: body.categoryId ?? null,
-            income_source_id: incomeSourceId,
-            debtor_id: debtor?.id ?? null,
-          },
-        })
-
-        return created
-      })
-
-      return reply.send({ transaction: mapTx(tx) })
-    }
-
-    // transfer
-    const isGoalTransfer = Boolean(body.goalId) && !body.toAccountId
-    const isDebtorRepayment = Boolean(body.debtorId) && !body.fromAccountId && Boolean(body.toAccountId)
-
-    if (isDebtorRepayment) {
-      if (debtor?.direction !== "RECEIVABLE") {
-        return reply.status(400).send({ error: "Bad Request", reason: "invalid_debtor_direction" })
       }
-      const to = await prisma.accounts.findFirst({ where: { id: body.toAccountId ?? "", workspace_id: workspaceId } })
-      if (!to) {
-        return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" })
-      }
-
-      const tx = await prisma.$transaction(async (trx) => {
-        await trx.accounts.update({
-          where: { id: to.id },
-          data: { balance: { increment: amount } },
-        })
-
-        const created = await trx.transactions.create({
-          data: {
-            workspace_id: workspaceId,
-            kind,
-            amount,
-            happened_at: happenedAt,
-            note: body.note ?? null,
-            account_id: null,
-            from_account_id: null,
-            to_account_id: to.id,
-            goal_id: null,
-            debtor_id: debtor.id,
-          },
-        })
-
-        return created
-      })
-
-      return reply.send({ transaction: mapTx(tx) })
+      throw error
     }
-
-    if (!body.fromAccountId) {
-      return reply.status(400).send({ error: "Bad Request", reason: "invalid_transfer_accounts" })
-    }
-
-    const from = await prisma.accounts.findFirst({ where: { id: body.fromAccountId, workspace_id: workspaceId } })
-    if (!from) {
-      return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" })
-    }
-
-    if (isGoalTransfer) {
-      const goal = await prisma.goals.findFirst({ where: { id: body.goalId ?? "", workspace_id: workspaceId } })
-      if (!goal) {
-        return reply.status(403).send({ error: "Forbidden", reason: "goal_not_in_workspace" })
-      }
-
-      const tx = await prisma.$transaction(async (trx) => {
-        await trx.accounts.update({
-          where: { id: from.id },
-          data: { balance: { decrement: amount } },
-        })
-
-        await trx.goals.update({
-          where: { id: goal.id },
-          data: { current_amount: { increment: amount } },
-        })
-
-        const created = await trx.transactions.create({
-          data: {
-            workspace_id: workspaceId,
-            kind,
-            amount,
-            happened_at: happenedAt,
-            note: body.note ?? null,
-            account_id: null,
-            from_account_id: from.id,
-            to_account_id: null,
-            goal_id: goal.id,
-            debtor_id: null,
-          },
-        })
-
-        return created
-      })
-
-      return reply.send({ transaction: mapTx(tx) })
-    }
-
-    if (!body.toAccountId || body.fromAccountId === body.toAccountId) {
-      return reply.status(400).send({ error: "Bad Request", reason: "invalid_transfer_accounts" })
-    }
-
-    const to = await prisma.accounts.findFirst({ where: { id: body.toAccountId, workspace_id: workspaceId } })
-    if (!to) {
-      return reply.status(403).send({ error: "Forbidden", reason: "account_not_in_workspace" })
-    }
-
-    const tx = await prisma.$transaction(async (trx) => {
-      await trx.accounts.update({
-        where: { id: from.id },
-        data: { balance: { decrement: amount } },
-      })
-
-      await trx.accounts.update({
-        where: { id: to.id },
-        data: { balance: { increment: amount } },
-      })
-
-      const created = await trx.transactions.create({
-        data: {
-          workspace_id: workspaceId,
-          kind,
-          amount,
-          happened_at: happenedAt,
-          note: body.note ?? null,
-          from_account_id: from.id,
-          to_account_id: to.id,
-          debtor_id: null,
-        },
-      })
-
-      return created
-    })
-
-    return reply.send({ transaction: mapTx(tx) })
   })
 
   fastify.delete("/transactions/:id", async (request, reply) => {
