@@ -1,9 +1,10 @@
 import { FastifyInstance, FastifyPluginOptions } from "fastify"
 import { randomUUID } from "crypto"
-import { transcribeAudio } from "../utils/openaiTranscribe"
-import { downloadTelegramFileAsBuffer } from "../utils/telegramFiles"
-import { parseOperationFromText, type OperationDraft } from "../utils/openaiParseOperation"
+import { prisma } from "../db/prisma"
 import { env } from "../env"
+import { transcribeAudio } from "../utils/openaiTranscribe"
+import { parseOperationFromText, type OperationContext, type OperationDraftResolved } from "../utils/openaiParseOperation"
+import { downloadTelegramFileAsBuffer } from "../utils/telegramFiles"
 
 type TelegramMessage = {
   message_id?: number
@@ -26,13 +27,22 @@ type TelegramUpdate = {
   callback_query?: TelegramCallbackQuery | null
 }
 
+type DraftLookup = {
+  accounts: Record<string, string>
+  categories: Record<string, string>
+  incomeSources: Record<string, string>
+  goals: Record<string, string>
+  debtors: Record<string, string>
+}
+
 type DraftEntry = {
   telegramUserId: string
   chatId: string
   messageId: number | null
-  draft: OperationDraft
+  draft: OperationDraftResolved
   transcript: string
   createdAtMs: number
+  lookup: DraftLookup
 }
 
 const extensionByMime: Record<string, string> = {
@@ -60,14 +70,14 @@ const toStringId = (value: number | string | null | undefined): string | null =>
   return null
 }
 
-const currencySignMap: Record<NonNullable<OperationDraft["currency"]>, string> = {
+const currencySignMap: Record<NonNullable<OperationDraftResolved["currency"]>, string> = {
   RUB: "₽",
   KZT: "₸",
   USD: "$",
   EUR: "€",
 }
 
-const operationTypeLabels: Record<OperationDraft["type"], string> = {
+const operationTypeLabels: Record<OperationDraftResolved["type"], string> = {
   expense: "Расход",
   income: "Доход",
   transfer: "Перевод",
@@ -77,7 +87,10 @@ const operationTypeLabels: Record<OperationDraft["type"], string> = {
   unknown: "Операция",
 }
 
-const formatAmountWithCurrency = (amount: number | undefined, currency: OperationDraft["currency"] | undefined) => {
+const formatAmountWithCurrency = (
+  amount: number | undefined,
+  currency: OperationDraftResolved["currency"] | undefined,
+) => {
   if (!Number.isFinite(amount) || amount === undefined) return null
   const normalizedAmount = Math.abs(amount)
   const formatted = normalizedAmount.toLocaleString("ru-RU")
@@ -85,17 +98,27 @@ const formatAmountWithCurrency = (amount: number | undefined, currency: Operatio
   return sign ? `${formatted} ${sign}` : formatted
 }
 
-const buildConfirmText = (draft: OperationDraft) => {
+const toLookup = (context: OperationContext): DraftLookup => ({
+  accounts: Object.fromEntries(context.accounts.map((account) => [account.id, account.name])),
+  categories: Object.fromEntries(context.categories.map((category) => [category.id, category.name])),
+  incomeSources: Object.fromEntries(context.incomeSources.map((source) => [source.id, source.name])),
+  goals: Object.fromEntries(context.goals.map((goal) => [goal.id, goal.name])),
+  debtors: Object.fromEntries(context.debtors.map((debtor) => [debtor.id, debtor.name])),
+})
+
+const buildConfirmText = (draft: OperationDraftResolved, lookup: DraftLookup) => {
   const typeLabel = operationTypeLabels[draft.type] ?? operationTypeLabels.unknown
   const amountLabel = formatAmountWithCurrency(draft.amount, draft.currency)
   const head = amountLabel ? `${typeLabel} ${amountLabel}` : typeLabel
   const details: string[] = []
-  if (draft.categoryHint) details.push(draft.categoryHint)
-  if (draft.incomeSourceHint) details.push(draft.incomeSourceHint)
-  if (draft.accountHint) details.push(draft.accountHint)
-  if (draft.toAccountHint) details.push(draft.toAccountHint)
-  if (draft.debtorHint) details.push(draft.debtorHint)
-  if (draft.goalHint) details.push(draft.goalHint)
+
+  if (draft.categoryId && lookup.categories[draft.categoryId]) details.push(lookup.categories[draft.categoryId])
+  if (draft.incomeSourceId && lookup.incomeSources[draft.incomeSourceId]) details.push(lookup.incomeSources[draft.incomeSourceId])
+  if (draft.debtorId && lookup.debtors[draft.debtorId]) details.push(lookup.debtors[draft.debtorId])
+  if (draft.goalId && lookup.goals[draft.goalId]) details.push(lookup.goals[draft.goalId])
+  if (draft.accountId && lookup.accounts[draft.accountId]) details.push(lookup.accounts[draft.accountId])
+  if (draft.toAccountId && lookup.accounts[draft.toAccountId]) details.push(lookup.accounts[draft.toAccountId])
+
   const suffix = details.length > 0 ? ` • ${details.join(" • ")}` : ""
   return `Понял так: ${head}${suffix}. Создать?`
 }
@@ -186,6 +209,48 @@ const parseDraftAction = (value: string | null | undefined): { draftId: string; 
   return { draftId, action }
 }
 
+async function loadOperationContextByTelegramUserId(telegramUserId: string): Promise<OperationContext | null> {
+  const user = await prisma.users.findUnique({
+    where: { telegram_user_id: telegramUserId },
+    select: { active_workspace_id: true },
+  })
+  const workspaceId = user?.active_workspace_id ?? null
+  if (!workspaceId) return null
+
+  const accounts = await prisma.accounts.findMany({
+    where: { workspace_id: workspaceId, is_archived: false, archived_at: null },
+    select: { id: true, name: true, currency: true },
+  })
+
+  const categories = await prisma.categories.findMany({
+    where: { workspace_id: workspaceId },
+    select: { id: true, name: true, kind: true },
+  })
+
+  const incomeSources = await prisma.income_sources.findMany({
+    where: { workspace_id: workspaceId },
+    select: { id: true, name: true },
+  })
+
+  const goals = await prisma.goals.findMany({
+    where: { workspace_id: workspaceId },
+    select: { id: true, name: true },
+  })
+
+  const debtors = await prisma.debtors.findMany({
+    where: { workspace_id: workspaceId },
+    select: { id: true, name: true, direction: true },
+  })
+
+  return {
+    accounts: accounts.map((account) => ({ id: account.id, name: account.name, currency: account.currency })),
+    categories: categories.map((category) => ({ id: category.id, name: category.name, kind: category.kind })),
+    incomeSources: incomeSources.map((source) => ({ id: source.id, name: source.name })),
+    goals: goals.map((goal) => ({ id: goal.id, name: goal.name })),
+    debtors: debtors.map((debtor) => ({ id: debtor.id, name: debtor.name, direction: debtor.direction === "PAYABLE" ? "payable" : "receivable" })),
+  }
+}
+
 async function handleDraftCallback(
   fastify: FastifyInstance,
   callbackQuery: TelegramCallbackQuery,
@@ -210,7 +275,9 @@ async function handleDraftCallback(
   }
 
   if (!callbackUserId || !callbackChatId || callbackUserId !== draft.telegramUserId || callbackChatId !== draft.chatId) {
-    fastify.log.warn(`[draft] forbidden callback: draft=${parsedAction.draftId} user=${callbackUserId ?? "unknown"} chat=${callbackChatId ?? "unknown"}`)
+    fastify.log.warn(
+      `[draft] forbidden callback: draft=${parsedAction.draftId} user=${callbackUserId ?? "unknown"} chat=${callbackChatId ?? "unknown"}`,
+    )
     return
   }
 
@@ -260,7 +327,7 @@ async function handleDraftCallback(
     await sendTelegramMessage(
       fastify,
       draft.chatId,
-      buildConfirmText(draft.draft),
+      buildConfirmText(draft.draft, draft.lookup),
       buildConfirmKeyboard(parsedAction.draftId),
     )
   }
@@ -299,15 +366,28 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
       const filename = resolveFileName(messageId, downloaded.mimeType)
       const transcript = await transcribeAudio(downloaded.buffer, filename)
       fastify.log.info(`[voice] ${String(telegramUserId ?? "unknown")} ${String(messageId ?? "unknown")} ${transcript}`)
+
+      if (!chatId || !telegramUserId) {
+        fastify.log.warn(
+          `[draft] missing identity fields: user=${String(telegramUserId ?? "unknown")} chat=${String(chatId ?? "unknown")}`,
+        )
+        return reply.send({ ok: true })
+      }
+
+      const context = await loadOperationContextByTelegramUserId(telegramUserId)
+      if (!context) {
+        fastify.log.warn(`[parse] no active workspace context for telegram user ${telegramUserId}`)
+        await sendTelegramMessage(fastify, chatId, "Не понял, уточни")
+        return reply.send({ ok: true })
+      }
+
       try {
-        const parsedOperation = await parseOperationFromText(transcript)
-        fastify.log.info(`[parse] ${String(telegramUserId ?? "unknown")} ${String(messageId ?? "unknown")} ${JSON.stringify(parsedOperation)}`)
-        if (!chatId || !telegramUserId) {
-          fastify.log.warn(`[draft] missing identity fields: user=${String(telegramUserId ?? "unknown")} chat=${String(chatId ?? "unknown")}`)
-          return reply.send({ ok: true })
-        }
+        const parsedOperation = await parseOperationFromText(transcript, context)
+        fastify.log.info(`[parse] ${telegramUserId} ${String(messageId ?? "unknown")} ${JSON.stringify(parsedOperation)}`)
+
         if (parsedOperation.ok) {
           const draftId = randomUUID()
+          const lookup = toLookup(context)
           draftStore.set(draftId, {
             telegramUserId,
             chatId,
@@ -315,11 +395,12 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
             draft: parsedOperation.data,
             transcript,
             createdAtMs: Date.now(),
+            lookup,
           })
           await sendTelegramMessage(
             fastify,
             chatId,
-            buildConfirmText(parsedOperation.data),
+            buildConfirmText(parsedOperation.data, lookup),
             buildConfirmKeyboard(draftId),
           )
         } else {
