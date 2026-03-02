@@ -11,6 +11,7 @@ type TelegramMessage = {
   message_id?: number
   from?: { id?: number | string | null } | null
   chat?: { id?: number | string | null } | null
+  text?: string | null
   voice?: { file_id?: string | null } | null
   audio?: { file_id?: string | null } | null
 }
@@ -48,6 +49,12 @@ type DraftEntry = {
   status: "pending" | "applied"
 }
 
+type PendingEdit = {
+  draftId: string
+  field: "amount" | "category" | "account"
+  startedAtMs: number
+}
+
 const extensionByMime: Record<string, string> = {
   "audio/ogg": "ogg",
   "audio/opus": "ogg",
@@ -60,6 +67,8 @@ const extensionByMime: Record<string, string> = {
 }
 
 const draftStore = new Map<string, DraftEntry>()
+const pendingEditStore = new Map<string, PendingEdit>()
+const EDIT_PAGE_SIZE = 10
 
 function resolveFileName(messageId: number | undefined, mimeType: string | null): string {
   const normalizedMime = (mimeType ?? "").split(";")[0].trim().toLowerCase()
@@ -215,6 +224,121 @@ const parseDraftAction = (value: string | null | undefined): { draftId: string; 
   return { draftId, action }
 }
 
+const pendingEditKey = (telegramUserId: string, chatId: string) => `${telegramUserId}:${chatId}`
+
+const clearPendingEdit = (telegramUserId: string, chatId: string) => {
+  pendingEditStore.delete(pendingEditKey(telegramUserId, chatId))
+}
+
+const setPendingEdit = (telegramUserId: string, chatId: string, pendingEdit: PendingEdit) => {
+  pendingEditStore.set(pendingEditKey(telegramUserId, chatId), pendingEdit)
+}
+
+const getPendingEdit = (telegramUserId: string, chatId: string): PendingEdit | null =>
+  pendingEditStore.get(pendingEditKey(telegramUserId, chatId)) ?? null
+
+const parseEditedAmount = (input: string): number | null => {
+  const compact = input
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/₽/g, "")
+    .replace(/руб(лей|ля|ль)?/g, "")
+    .replace(/р\./g, "")
+    .replace(/р/g, "")
+
+  if (!compact) return null
+
+  const match = compact.match(/(\d+(?:[.,]\d+)?)([kк])?/)
+  if (!match) return null
+
+  const rawValue = Number(match[1].replace(",", "."))
+  if (!Number.isFinite(rawValue) || rawValue <= 0) return null
+
+  const multiplier = match[2] ? 1000 : 1
+  const value = rawValue * multiplier
+  if (!Number.isFinite(value) || value <= 0) return null
+
+  return value
+}
+
+const backToEditKeyboard = (draftId: string) => ({
+  inline_keyboard: [[{ text: "Назад", callback_data: `draft:${draftId}:edit_back` }]],
+})
+
+const parseActionNumber = (action: string, prefix: string): number | null => {
+  if (!action.startsWith(prefix)) return null
+  const value = Number.parseInt(action.slice(prefix.length), 10)
+  if (!Number.isFinite(value) || value < 0) return null
+  return value
+}
+
+const buildPickerKeyboard = (
+  draftId: string,
+  mode: "category" | "account",
+  items: Array<{ id: string; name: string }>,
+  offset: number,
+) => {
+  const safeOffset = Math.max(0, Math.min(offset, Math.max(0, items.length - 1)))
+  const pageItems = items.slice(safeOffset, safeOffset + EDIT_PAGE_SIZE)
+  const rows: Array<Array<{ text: string; callback_data: string }>> = []
+
+  for (let index = 0; index < pageItems.length; index += 2) {
+    const rowItems = pageItems.slice(index, index + 2)
+    rows.push(
+      rowItems.map((item, rowIndex) => ({
+        text: item.name,
+        callback_data: `draft:${draftId}:${mode === "category" ? "set_category" : "set_account"}:${safeOffset + index + rowIndex}`,
+      })),
+    )
+  }
+
+  const navRow: Array<{ text: string; callback_data: string }> = []
+  if (safeOffset > 0) {
+    const prevOffset = Math.max(0, safeOffset - EDIT_PAGE_SIZE)
+    navRow.push({
+      text: "◀ Назад",
+      callback_data: `draft:${draftId}:${mode === "category" ? "cat_page" : "acc_page"}:${prevOffset}`,
+    })
+  }
+  if (safeOffset + EDIT_PAGE_SIZE < items.length) {
+    navRow.push({
+      text: "Далее ▶",
+      callback_data: `draft:${draftId}:${mode === "category" ? "cat_page" : "acc_page"}:${safeOffset + EDIT_PAGE_SIZE}`,
+    })
+  }
+  if (navRow.length > 0) {
+    rows.push(navRow)
+  }
+  rows.push([{ text: "Назад", callback_data: `draft:${draftId}:edit_back` }])
+
+  return { inline_keyboard: rows }
+}
+
+async function loadCategoryOptions(
+  workspaceId: string,
+  draftType: OperationDraftResolved["type"],
+): Promise<Array<{ id: string; name: string }>> {
+  const categories = await prisma.categories.findMany({
+    where: {
+      workspace_id: workspaceId,
+      ...(draftType === "expense" ? { kind: "expense" } : {}),
+    },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  })
+  return categories.map((category) => ({ id: category.id, name: category.name }))
+}
+
+async function loadAccountOptions(workspaceId: string): Promise<Array<{ id: string; name: string }>> {
+  const accounts = await prisma.accounts.findMany({
+    where: { workspace_id: workspaceId, is_archived: false, archived_at: null },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  })
+  return accounts.map((account) => ({ id: account.id, name: account.name }))
+}
+
 function buildCreateInputFromDraft(draft: OperationDraftResolved): TransactionCreateInput | null {
   const amount = draft.amount
   if (!amount || !Number.isFinite(amount) || amount <= 0) return null
@@ -348,6 +472,67 @@ async function loadOperationContextByTelegramUserId(
   }
 }
 
+async function sendDraftConfirm(
+  fastify: FastifyInstance,
+  draftId: string,
+  draftEntry: DraftEntry,
+): Promise<void> {
+  await sendTelegramMessage(
+    fastify,
+    draftEntry.chatId,
+    buildConfirmText(draftEntry.draft, draftEntry.lookup),
+    buildConfirmKeyboard(draftId),
+  )
+}
+
+async function handlePendingAmountEditMessage(
+  fastify: FastifyInstance,
+  telegramUserId: string,
+  chatId: string,
+  text: string,
+): Promise<boolean> {
+  const pendingEdit = getPendingEdit(telegramUserId, chatId)
+  if (!pendingEdit || pendingEdit.field !== "amount") return false
+
+  const draftEntry = draftStore.get(pendingEdit.draftId)
+  if (!draftEntry) {
+    clearPendingEdit(telegramUserId, chatId)
+    await sendTelegramMessage(fastify, chatId, "Черновик не найден.")
+    return true
+  }
+
+  if (draftEntry.telegramUserId !== telegramUserId || draftEntry.chatId !== chatId) {
+    clearPendingEdit(telegramUserId, chatId)
+    fastify.log.warn(
+      `[draft] forbidden pending edit: draft=${pendingEdit.draftId} user=${telegramUserId} chat=${chatId}`,
+    )
+    return true
+  }
+
+  if (draftEntry.status === "applied") {
+    clearPendingEdit(telegramUserId, chatId)
+    await sendTelegramMessage(fastify, chatId, "Уже создано ✅")
+    return true
+  }
+
+  const parsedAmount = parseEditedAmount(text)
+  if (!parsedAmount) {
+    await sendTelegramMessage(fastify, chatId, "Не понял сумму, попробуй ещё раз")
+    return true
+  }
+
+  draftEntry.draft = {
+    ...draftEntry.draft,
+    amount: parsedAmount,
+    currency: draftEntry.draft.currency ?? "RUB",
+  }
+  draftStore.set(pendingEdit.draftId, draftEntry)
+  clearPendingEdit(telegramUserId, chatId)
+  fastify.log.info(`[edit:set] ${telegramUserId} ${pendingEdit.draftId} amount ${String(parsedAmount)}`)
+  await sendDraftConfirm(fastify, pendingEdit.draftId, draftEntry)
+  return true
+}
+
 async function handleDraftCallback(
   fastify: FastifyInstance,
   callbackQuery: TelegramCallbackQuery,
@@ -360,11 +545,14 @@ async function handleDraftCallback(
   const parsedAction = parseDraftAction(callbackQuery.data)
   if (!parsedAction) return
 
-  const draft = draftStore.get(parsedAction.draftId)
   const callbackUserId = toStringId(callbackQuery.from?.id)
   const callbackChatId = toStringId(callbackQuery.message?.chat?.id)
+  const draft = draftStore.get(parsedAction.draftId)
 
   if (!draft) {
+    if (callbackUserId && callbackChatId) {
+      clearPendingEdit(callbackUserId, callbackChatId)
+    }
     if (callbackChatId) {
       await sendTelegramMessage(fastify, callbackChatId, "Черновик не найден.")
     }
@@ -372,9 +560,30 @@ async function handleDraftCallback(
   }
 
   if (!callbackUserId || !callbackChatId || callbackUserId !== draft.telegramUserId || callbackChatId !== draft.chatId) {
+    if (callbackUserId && callbackChatId) {
+      clearPendingEdit(callbackUserId, callbackChatId)
+    }
     fastify.log.warn(
       `[draft] forbidden callback: draft=${parsedAction.draftId} user=${callbackUserId ?? "unknown"} chat=${callbackChatId ?? "unknown"}`,
     )
+    return
+  }
+
+  const action = parsedAction.action
+  const isEditAction =
+    action === "edit" ||
+    action === "edit_amount" ||
+    action === "edit_category" ||
+    action === "edit_account" ||
+    action === "edit_back" ||
+    action.startsWith("cat_page:") ||
+    action.startsWith("acc_page:") ||
+    action.startsWith("set_category:") ||
+    action.startsWith("set_account:")
+
+  if (draft.status === "applied" && isEditAction) {
+    clearPendingEdit(callbackUserId, callbackChatId)
+    await sendTelegramMessage(fastify, draft.chatId, "Уже создано ✅")
     return
   }
 
@@ -396,6 +605,7 @@ async function handleDraftCallback(
       await sendTelegramMessage(fastify, draft.chatId, "Не получилось создать, попробуй ещё раз")
       return
     }
+    clearPendingEdit(callbackUserId, callbackChatId)
     draft.status = "applied"
     draftStore.set(parsedAction.draftId, draft)
     fastify.log.info(
@@ -417,6 +627,7 @@ async function handleDraftCallback(
   }
 
   if (parsedAction.action === "cancel") {
+    clearPendingEdit(callbackUserId, callbackChatId)
     draftStore.delete(parsedAction.draftId)
     fastify.log.info(`[cancel] ${draft.telegramUserId} ${parsedAction.draftId}`)
     await sendTelegramMessage(fastify, draft.chatId, "Отменено.")
@@ -424,37 +635,150 @@ async function handleDraftCallback(
   }
 
   if (parsedAction.action === "edit") {
+    clearPendingEdit(callbackUserId, callbackChatId)
     fastify.log.info(`[edit] ${draft.telegramUserId} ${parsedAction.draftId}`)
     await sendTelegramMessage(fastify, draft.chatId, "Что исправить?", buildEditKeyboard(parsedAction.draftId))
     return
   }
 
   if (parsedAction.action === "edit_amount") {
-    fastify.log.info(`[edit_amount] ${draft.telegramUserId} ${parsedAction.draftId}`)
-    await sendTelegramMessage(fastify, draft.chatId, "Ок, редактирование суммы сделаем следующим шагом")
+    setPendingEdit(callbackUserId, callbackChatId, {
+      draftId: parsedAction.draftId,
+      field: "amount",
+      startedAtMs: Date.now(),
+    })
+    fastify.log.info(`[edit] ${draft.telegramUserId} ${parsedAction.draftId} amount`)
+    await sendTelegramMessage(
+      fastify,
+      draft.chatId,
+      "Введи новую сумму (например 2000).",
+      backToEditKeyboard(parsedAction.draftId),
+    )
     return
   }
 
   if (parsedAction.action === "edit_category") {
-    fastify.log.info(`[edit_category] ${draft.telegramUserId} ${parsedAction.draftId}`)
-    await sendTelegramMessage(fastify, draft.chatId, "Ок, редактирование категории сделаем следующим шагом")
+    setPendingEdit(callbackUserId, callbackChatId, {
+      draftId: parsedAction.draftId,
+      field: "category",
+      startedAtMs: Date.now(),
+    })
+    fastify.log.info(`[edit] ${draft.telegramUserId} ${parsedAction.draftId} category`)
+    const categoryOptions = await loadCategoryOptions(draft.workspaceId, draft.draft.type)
+    if (categoryOptions.length === 0) {
+      await sendTelegramMessage(fastify, draft.chatId, "Категории не найдены.")
+      return
+    }
+    await sendTelegramMessage(
+      fastify,
+      draft.chatId,
+      "Выбери категорию:",
+      buildPickerKeyboard(parsedAction.draftId, "category", categoryOptions, 0),
+    )
     return
   }
 
   if (parsedAction.action === "edit_account") {
-    fastify.log.info(`[edit_account] ${draft.telegramUserId} ${parsedAction.draftId}`)
-    await sendTelegramMessage(fastify, draft.chatId, "Ок, редактирование счёта сделаем следующим шагом")
+    setPendingEdit(callbackUserId, callbackChatId, {
+      draftId: parsedAction.draftId,
+      field: "account",
+      startedAtMs: Date.now(),
+    })
+    fastify.log.info(`[edit] ${draft.telegramUserId} ${parsedAction.draftId} account`)
+    const accountOptions = await loadAccountOptions(draft.workspaceId)
+    if (accountOptions.length === 0) {
+      await sendTelegramMessage(fastify, draft.chatId, "Счета не найдены.")
+      return
+    }
+    await sendTelegramMessage(
+      fastify,
+      draft.chatId,
+      "Выбери счёт:",
+      buildPickerKeyboard(parsedAction.draftId, "account", accountOptions, 0),
+    )
+    return
+  }
+
+  const categoryPageOffset = parseActionNumber(parsedAction.action, "cat_page:")
+  if (categoryPageOffset !== null) {
+    setPendingEdit(callbackUserId, callbackChatId, {
+      draftId: parsedAction.draftId,
+      field: "category",
+      startedAtMs: Date.now(),
+    })
+    const categoryOptions = await loadCategoryOptions(draft.workspaceId, draft.draft.type)
+    if (categoryOptions.length === 0) {
+      await sendTelegramMessage(fastify, draft.chatId, "Категории не найдены.")
+      return
+    }
+    await sendTelegramMessage(
+      fastify,
+      draft.chatId,
+      "Выбери категорию:",
+      buildPickerKeyboard(parsedAction.draftId, "category", categoryOptions, categoryPageOffset),
+    )
+    return
+  }
+
+  const accountPageOffset = parseActionNumber(parsedAction.action, "acc_page:")
+  if (accountPageOffset !== null) {
+    setPendingEdit(callbackUserId, callbackChatId, {
+      draftId: parsedAction.draftId,
+      field: "account",
+      startedAtMs: Date.now(),
+    })
+    const accountOptions = await loadAccountOptions(draft.workspaceId)
+    if (accountOptions.length === 0) {
+      await sendTelegramMessage(fastify, draft.chatId, "Счета не найдены.")
+      return
+    }
+    await sendTelegramMessage(
+      fastify,
+      draft.chatId,
+      "Выбери счёт:",
+      buildPickerKeyboard(parsedAction.draftId, "account", accountOptions, accountPageOffset),
+    )
+    return
+  }
+
+  const setCategoryIndex = parseActionNumber(parsedAction.action, "set_category:")
+  if (setCategoryIndex !== null) {
+    clearPendingEdit(callbackUserId, callbackChatId)
+    const categoryOptions = await loadCategoryOptions(draft.workspaceId, draft.draft.type)
+    const selectedCategory = categoryOptions[setCategoryIndex] ?? null
+    if (!selectedCategory) {
+      await sendTelegramMessage(fastify, draft.chatId, "Категория не найдена.")
+      return
+    }
+    draft.draft = { ...draft.draft, categoryId: selectedCategory.id }
+    draft.lookup.categories[selectedCategory.id] = selectedCategory.name
+    draftStore.set(parsedAction.draftId, draft)
+    fastify.log.info(`[edit:set] ${draft.telegramUserId} ${parsedAction.draftId} category ${selectedCategory.id}`)
+    await sendDraftConfirm(fastify, parsedAction.draftId, draft)
+    return
+  }
+
+  const setAccountIndex = parseActionNumber(parsedAction.action, "set_account:")
+  if (setAccountIndex !== null) {
+    clearPendingEdit(callbackUserId, callbackChatId)
+    const accountOptions = await loadAccountOptions(draft.workspaceId)
+    const selectedAccount = accountOptions[setAccountIndex] ?? null
+    if (!selectedAccount) {
+      await sendTelegramMessage(fastify, draft.chatId, "Счёт не найден.")
+      return
+    }
+    draft.draft = { ...draft.draft, accountId: selectedAccount.id }
+    draft.lookup.accounts[selectedAccount.id] = selectedAccount.name
+    draftStore.set(parsedAction.draftId, draft)
+    fastify.log.info(`[edit:set] ${draft.telegramUserId} ${parsedAction.draftId} account ${selectedAccount.id}`)
+    await sendDraftConfirm(fastify, parsedAction.draftId, draft)
     return
   }
 
   if (parsedAction.action === "edit_back") {
-    fastify.log.info(`[edit_back] ${draft.telegramUserId} ${parsedAction.draftId}`)
-    await sendTelegramMessage(
-      fastify,
-      draft.chatId,
-      buildConfirmText(draft.draft, draft.lookup),
-      buildConfirmKeyboard(parsedAction.draftId),
-    )
+    clearPendingEdit(callbackUserId, callbackChatId)
+    fastify.log.info(`[edit] ${draft.telegramUserId} ${parsedAction.draftId} back`)
+    await sendDraftConfirm(fastify, parsedAction.draftId, draft)
   }
 }
 
@@ -476,6 +800,16 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
     }
 
     const message = update?.message ?? null
+    const messageText = message?.text?.trim()
+    const telegramUserId = toStringId(message?.from?.id)
+    const chatId = toStringId(message?.chat?.id)
+    if (messageText && telegramUserId && chatId) {
+      const wasPendingEditHandled = await handlePendingAmountEditMessage(fastify, telegramUserId, chatId, messageText)
+      if (wasPendingEditHandled) {
+        return reply.send({ ok: true })
+      }
+    }
+
     const fileId = message?.voice?.file_id ?? message?.audio?.file_id
 
     if (!fileId) {
@@ -483,8 +817,6 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
     }
 
     const messageId = message?.message_id
-    const telegramUserId = toStringId(message?.from?.id)
-    const chatId = toStringId(message?.chat?.id)
 
     try {
       const downloaded = await downloadTelegramFileAsBuffer(fileId)
