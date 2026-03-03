@@ -424,6 +424,10 @@ type OverviewScreenProps = {
   onConsumeAutoOpenGoalCreate?: () => void
   goalsListMode?: "goals" | "debtsReceivable" | "debtsPayable"
   skipGoalsListRefetch?: boolean
+  workspaceAccountLabel?: string
+  workspaceAccountIcon?: string
+  canOpenWorkspaceSwitcher?: boolean
+  onOpenWorkspaceSwitcher?: () => void
 }
 
 function OverviewScreen({
@@ -452,6 +456,10 @@ function OverviewScreen({
   onConsumeAutoOpenGoalCreate,
   goalsListMode = "goals",
   skipGoalsListRefetch = false,
+  workspaceAccountLabel = "Личный",
+  workspaceAccountIcon = "Л",
+  canOpenWorkspaceSwitcher = false,
+  onOpenWorkspaceSwitcher,
 }: OverviewScreenProps) {
   const {
     accounts,
@@ -2507,9 +2515,20 @@ function TransactionsPanel({
     <div className="overview">
       <div className="overview__header">
         <div className="overview__header-spacer" />
-        <button type="button" className="profile-selector">
-          <span className="profile-selector__label">default</span>
-          <span className="profile-selector__caret">▾</span>
+        <button
+          type="button"
+          className="home-header__name-btn"
+          onClick={onOpenWorkspaceSwitcher}
+          aria-label={`Переключить аккаунт. Текущий: ${workspaceAccountLabel}`}
+          disabled={!canOpenWorkspaceSwitcher}
+        >
+          <span className="home-header__name-icon" aria-hidden="true">
+            {workspaceAccountIcon}
+          </span>
+          <span className="home-header__name-text">{workspaceAccountLabel}</span>
+          <span className="home-header__name-caret" aria-hidden="true">
+            ▾
+          </span>
         </button>
         <div className="overview__month">{monthLabel}</div>
       </div>

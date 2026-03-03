@@ -15,6 +15,8 @@ type HomeScreenProps = {
   initialWorkspaces?: Workspace[]
   initialActiveWorkspace?: Workspace | null
   onOpenQuickAdd?: (tab: "expense" | "income" | "debt" | "goal") => void
+  autoOpenWorkspaceSheet?: boolean
+  onConsumeAutoOpenWorkspaceSheet?: () => void
 }
 const VIEWED_KEY = "home_stories_viewed"
 
@@ -186,7 +188,14 @@ const readWorkspaceMeta = (storageKey: string): Record<SpaceKey, WorkspaceMeta> 
   }
 }
 
-function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace, onOpenQuickAdd }: HomeScreenProps) {
+function HomeScreen({
+  disableDataFetch = false,
+  initialWorkspaces,
+  initialActiveWorkspace,
+  onOpenQuickAdd,
+  autoOpenWorkspaceSheet = false,
+  onConsumeAutoOpenWorkspaceSheet,
+}: HomeScreenProps) {
   const workspaceMetaStorageKey = getWorkspaceMetaStorageKey()
   const { accounts, goals, transactions, setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, currency } = useAppStore()
   const [activeSpaceKey, setActiveSpaceKeyState] = useState<SpaceKey | null>(() => {
@@ -774,6 +783,12 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     setWorkspaceModalView("list")
     setIsWorkspaceSheetOpen(true)
   }, [activeSpaceKey, canOpenWorkspaceSwitcher, familyAccountLabel, personalAccountLabel, workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon])
+
+  useEffect(() => {
+    if (!autoOpenWorkspaceSheet) return
+    handleOpenWorkspaceSheet()
+    onConsumeAutoOpenWorkspaceSheet?.()
+  }, [autoOpenWorkspaceSheet, handleOpenWorkspaceSheet, onConsumeAutoOpenWorkspaceSheet])
 
   const closeWorkspaceSheet = useCallback(() => {
     setWorkspaceModalView("list")

@@ -21,10 +21,30 @@ import "./BottomNav.css"
 import "./App.css"
 
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
+type SpaceKey = Workspace["type"]
 type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add" | "icons-preview" | "receivables"
 type GoalsListMode = "goals" | "debtsReceivable" | "debtsPayable"
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 type QuickAddDebtAction = "receivable" | "payable"
+type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number | string } } } } }
+type WorkspaceMeta = { name?: string; icon?: string }
+
+const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
+const WORKSPACE_META_STORAGE_PREFIX = "workspaceMetaByKey"
+
+const getWorkspaceMetaStorageKey = () => {
+  if (typeof window === "undefined") return `${WORKSPACE_META_STORAGE_PREFIX}:guest`
+  const userId = (window as unknown as TelegramUser).Telegram?.WebApp?.initDataUnsafe?.user?.id
+  const normalizedUserId = typeof userId === "number" || typeof userId === "string" ? String(userId) : "guest"
+  return `${WORKSPACE_META_STORAGE_PREFIX}:${normalizedUserId}`
+}
+
+const normalizeWorkspaceIcon = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ""
+  const symbol = Array.from(trimmed)[0]
+  return symbol ? symbol.trim() : ""
+}
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
 type ErrorBoundaryState = { hasError: boolean; error: Error | null }
@@ -132,6 +152,7 @@ function App() {
   const [quickAddInitialDebtAction, setQuickAddInitialDebtAction] = useState<QuickAddDebtAction>("receivable")
   const [autoOpenGoalsList, setAutoOpenGoalsList] = useState(false)
   const [autoOpenGoalCreate, setAutoOpenGoalCreate] = useState(false)
+  const [autoOpenWorkspaceSheet, setAutoOpenWorkspaceSheet] = useState(false)
   const [savedIncomeReportState, setSavedIncomeReportState] = useState<{
     periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
     monthOffset: number
@@ -436,6 +457,35 @@ function App() {
   }, [appToken, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setTransactions])
 
   const prevScreen = useRef<ScreenKey>("overview")
+  const openWorkspaceSwitcherFromOverview = useCallback(() => {
+    setAutoOpenWorkspaceSheet(true)
+    setActiveNav("home")
+    setActiveScreen("home")
+  }, [])
+
+  const overviewWorkspacePresentation = useCallback(() => {
+    const fallbackLabel = "Личный"
+    if (typeof window === "undefined") return { label: fallbackLabel, icon: "Л", canOpen: false }
+
+    const activeSpaceRaw = localStorage.getItem(ACTIVE_SPACE_KEY_STORAGE)
+    const activeSpaceKey: SpaceKey = activeSpaceRaw === "family" ? "family" : "personal"
+    let parsedMeta: Partial<Record<SpaceKey, WorkspaceMeta>> = {}
+    try {
+      const storedMeta = localStorage.getItem(getWorkspaceMetaStorageKey())
+      if (storedMeta) {
+        parsedMeta = JSON.parse(storedMeta) as Partial<Record<SpaceKey, WorkspaceMeta>>
+      }
+    } catch {
+      parsedMeta = {}
+    }
+    const workspaceFromList = appWorkspaces.find((workspace) => workspace.type === activeSpaceKey)
+    const customLabel = parsedMeta[activeSpaceKey]?.name?.trim() ?? ""
+    const label = customLabel || workspaceFromList?.name?.trim() || (activeSpaceKey === "family" ? "Семейный" : fallbackLabel)
+    const customIcon = normalizeWorkspaceIcon(parsedMeta[activeSpaceKey]?.icon ?? "")
+    const fallbackIcon = Array.from(label.trim())[0]?.toLocaleUpperCase("ru-RU") ?? "?"
+    const canOpen = appWorkspaces.length > 0
+    return { label, icon: customIcon || fallbackIcon, canOpen }
+  }, [appWorkspaces])
   const openQuickAddScreen = useCallback(
     (
       tab: QuickAddTab,
@@ -453,6 +503,7 @@ function App() {
     },
     [activeScreen],
   )
+  const overviewWorkspaceView = overviewWorkspacePresentation()
 
   const renderScreen = () => {
     switch (activeScreen) {
@@ -461,6 +512,8 @@ function App() {
           <HomeScreen
             initialWorkspaces={appWorkspaces}
             initialActiveWorkspace={appActiveWorkspace}
+            autoOpenWorkspaceSheet={autoOpenWorkspaceSheet}
+            onConsumeAutoOpenWorkspaceSheet={() => setAutoOpenWorkspaceSheet(false)}
             onOpenQuickAdd={(tab) => {
               if (tab === "debt") {
                 openQuickAddScreen("debt", null, null, "receivable")
@@ -538,6 +591,10 @@ function App() {
             onConsumeAutoOpenGoalCreate={() => setAutoOpenGoalCreate(false)}
             goalsListMode={goalsListMode}
             skipGoalsListRefetch={skipGoalsListRefetch}
+            workspaceAccountLabel={overviewWorkspaceView.label}
+            workspaceAccountIcon={overviewWorkspaceView.icon}
+            canOpenWorkspaceSwitcher={overviewWorkspaceView.canOpen}
+            onOpenWorkspaceSwitcher={openWorkspaceSwitcherFromOverview}
             key={`goals-list-${goalsListMode}`}
           />
         )
@@ -609,6 +666,10 @@ function App() {
             onConsumeAutoOpenGoalCreate={() => setAutoOpenGoalCreate(false)}
             goalsListMode={goalsListMode}
             skipGoalsListRefetch={skipGoalsListRefetch}
+            workspaceAccountLabel={overviewWorkspaceView.label}
+            workspaceAccountIcon={overviewWorkspaceView.icon}
+            canOpenWorkspaceSwitcher={overviewWorkspaceView.canOpen}
+            onOpenWorkspaceSwitcher={openWorkspaceSwitcherFromOverview}
             key={`goals-list-${goalsListMode}`}
           />
         )
