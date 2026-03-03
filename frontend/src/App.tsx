@@ -873,6 +873,7 @@ function App() {
       case "home":
         return (
           <HomeScreen
+            disableDataFetch
             initialWorkspaces={appWorkspaces}
             initialActiveWorkspace={appActiveWorkspace}
             workspaceAccountLabel={accountLabel}
@@ -1109,7 +1110,7 @@ function App() {
       case "report-expenses-by-category":
         return <ExpensesByCategoryScreen onBack={() => setActiveScreen("reports")} />
       default:
-        return <HomeScreen />
+        return <HomeScreen disableDataFetch />
     }
   }
 
