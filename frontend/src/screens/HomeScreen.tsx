@@ -18,11 +18,13 @@ type HomeScreenProps = {
 }
 const VIEWED_KEY = "home_stories_viewed"
 
-type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
+type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number | string; first_name?: string } } } } }
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 type SpaceKey = Workspace["type"]
 type BannerLoadStatus = "idle" | "loading" | "success" | "error"
+type WorkspaceMeta = { name: string; icon: string }
 type HomePeriodMode = "day" | "week" | "month" | "quarter" | "year" | "custom"
+type WorkspaceModalView = "list" | "settings" | "edit-name" | "edit-icon"
 
 const HOME_PERIOD_OPTIONS: Array<{ key: HomePeriodMode; label: string }> = [
   { key: "day", label: "День" },
@@ -32,8 +34,10 @@ const HOME_PERIOD_OPTIONS: Array<{ key: HomePeriodMode; label: string }> = [
   { key: "year", label: "Год" },
 ]
 const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
+const WORKSPACE_META_STORAGE_PREFIX = "workspaceMetaByKey"
 const isSpaceKey = (value: string | null): value is SpaceKey => value === "personal" || value === "family"
 const bannerStatusCache: Partial<Record<SpaceKey, BannerLoadStatus>> = {}
+const WORKSPACE_NAME_LIMIT = 32
 
 const capitalizeFirst = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value)
 const formatDayMonth = (value: Date) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(value)
@@ -129,6 +133,22 @@ const getHomePeriodLabel = (mode: HomePeriodMode, customFrom: string, customTo: 
   return `${formatDotDate(from)} - ${formatDotDate(to)}`
 }
 
+const getWorkspaceMetaStorageKey = () => {
+  if (typeof window === "undefined") return `${WORKSPACE_META_STORAGE_PREFIX}:guest`
+  const userId = (window as unknown as TelegramUser).Telegram?.WebApp?.initDataUnsafe?.user?.id
+  const normalizedUserId = typeof userId === "number" || typeof userId === "string" ? String(userId) : "guest"
+  return `${WORKSPACE_META_STORAGE_PREFIX}:${normalizedUserId}`
+}
+
+const normalizeWorkspaceIcon = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ""
+  const symbol = Array.from(trimmed)[0]
+  return symbol ? symbol.trim() : ""
+}
+
+const buildWorkspaceFallbackLabel = (spaceKey: SpaceKey) => (spaceKey === "family" ? "Семейный" : "Личный")
+
 function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace, onOpenQuickAdd }: HomeScreenProps) {
   const { accounts, goals, transactions, setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, currency } = useAppStore()
   const [activeSpaceKey, setActiveSpaceKeyState] = useState<SpaceKey | null>(() => {
@@ -139,6 +159,35 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
   })
   const [workspaces, setWorkspaces] = useState<Workspace[]>(initialWorkspaces ?? [])
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
+  const [workspaceModalView, setWorkspaceModalView] = useState<WorkspaceModalView>("list")
+  const [workspaceSettingsTargetKey, setWorkspaceSettingsTargetKey] = useState<SpaceKey>("personal")
+  const [workspaceNameDraft, setWorkspaceNameDraft] = useState("")
+  const [workspaceIconDraft, setWorkspaceIconDraft] = useState("")
+  const [workspaceMetaByKey, setWorkspaceMetaByKey] = useState<Record<SpaceKey, WorkspaceMeta>>(() => {
+    const defaults: Record<SpaceKey, WorkspaceMeta> = {
+      personal: { name: "", icon: "" },
+      family: { name: "", icon: "" },
+    }
+    if (typeof window === "undefined") return defaults
+    try {
+      const raw = localStorage.getItem(getWorkspaceMetaStorageKey())
+      if (!raw) return defaults
+      const parsed = JSON.parse(raw) as Partial<Record<SpaceKey, Partial<WorkspaceMeta>>>
+      const next: Record<SpaceKey, WorkspaceMeta> = {
+        personal: {
+          name: typeof parsed.personal?.name === "string" ? parsed.personal.name : "",
+          icon: typeof parsed.personal?.icon === "string" ? parsed.personal.icon : "",
+        },
+        family: {
+          name: typeof parsed.family?.name === "string" ? parsed.family.name : "",
+          icon: typeof parsed.family?.icon === "string" ? parsed.family.icon : "",
+        },
+      }
+      return next
+    } catch {
+      return defaults
+    }
+  })
   const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false)
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false)
   const [switchingToWorkspaceId, setSwitchingToWorkspaceId] = useState<string | null>(null)
@@ -325,6 +374,29 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
       logSpaceDebug(`[space] setActiveSpace ${nextKey}`)
     },
     [logSpaceDebug],
+  )
+
+  const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
+    if (typeof window === "undefined") return
+    localStorage.setItem(getWorkspaceMetaStorageKey(), JSON.stringify(next))
+  }, [])
+
+  const updateWorkspaceMeta = useCallback(
+    (spaceKey: SpaceKey, patch: Partial<WorkspaceMeta>) => {
+      setWorkspaceMetaByKey((prev) => {
+        const next: Record<SpaceKey, WorkspaceMeta> = {
+          personal: { ...prev.personal },
+          family: { ...prev.family },
+        }
+        next[spaceKey] = {
+          name: typeof patch.name === "string" ? patch.name : prev[spaceKey].name,
+          icon: typeof patch.icon === "string" ? patch.icon : prev[spaceKey].icon,
+        }
+        persistWorkspaceMeta(next)
+        return next
+      })
+    },
+    [persistWorkspaceMeta],
   )
 
   const setBannerStatus = useCallback((spaceKey: SpaceKey, status: BannerLoadStatus) => {
@@ -662,22 +734,92 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
   const personalWorkspace = workspaces.find((w) => w.type === "personal") ?? null
   const familyWorkspace = workspaces.find((w) => w.type === "family") ?? null
   const activeWorkspace = activeSpaceKey === "personal" ? personalWorkspace : activeSpaceKey === "family" ? familyWorkspace : null
-  const accountLabel = useMemo(() => {
-    if (activeSpaceKey === "family") {
-      const familyName = familyWorkspace?.name?.trim()
-      return familyName && familyName.length > 0 ? familyName : "Семейный"
-    }
-    if (activeSpaceKey === "personal") {
-      const personalName = personalWorkspace?.name?.trim()
-      return personalName && personalName.length > 0 ? personalName : "Личный"
-    }
-    return "Аккаунт"
-  }, [activeSpaceKey, familyWorkspace?.name, personalWorkspace?.name])
+  const personalAccountLabel = useMemo(() => {
+    const customName = workspaceMetaByKey.personal.name.trim()
+    if (customName) return customName
+    const workspaceName = personalWorkspace?.name?.trim()
+    if (workspaceName) return workspaceName
+    return buildWorkspaceFallbackLabel("personal")
+  }, [personalWorkspace?.name, workspaceMetaByKey.personal.name])
+  const familyAccountLabel = useMemo(() => {
+    const customName = workspaceMetaByKey.family.name.trim()
+    if (customName) return customName
+    const workspaceName = familyWorkspace?.name?.trim()
+    if (workspaceName) return workspaceName
+    return buildWorkspaceFallbackLabel("family")
+  }, [familyWorkspace?.name, workspaceMetaByKey.family.name])
+  const personalAccountIcon = useMemo(() => {
+    const customIcon = normalizeWorkspaceIcon(workspaceMetaByKey.personal.icon)
+    if (customIcon) return customIcon
+    return Array.from(personalAccountLabel.trim())[0]?.toLocaleUpperCase("ru-RU") ?? "Л"
+  }, [personalAccountLabel, workspaceMetaByKey.personal.icon])
+  const familyAccountIcon = useMemo(() => {
+    const customIcon = normalizeWorkspaceIcon(workspaceMetaByKey.family.icon)
+    if (customIcon) return customIcon
+    return Array.from(familyAccountLabel.trim())[0]?.toLocaleUpperCase("ru-RU") ?? "С"
+  }, [familyAccountLabel, workspaceMetaByKey.family.icon])
+  const accountLabel = activeSpaceKey === "family" ? familyAccountLabel : activeSpaceKey === "personal" ? personalAccountLabel : "Аккаунт"
+  const accountIcon = activeSpaceKey === "family" ? familyAccountIcon : activeSpaceKey === "personal" ? personalAccountIcon : "?"
   const canOpenWorkspaceSwitcher = Boolean(activeWorkspace) && workspaces.length > 0
   const handleOpenWorkspaceSheet = useCallback(() => {
     if (!canOpenWorkspaceSwitcher) return
+    const targetKey: SpaceKey = activeSpaceKey === "family" ? "family" : "personal"
+    setWorkspaceSettingsTargetKey(targetKey)
+    setWorkspaceNameDraft(targetKey === "family" ? familyAccountLabel : personalAccountLabel)
+    setWorkspaceIconDraft(targetKey === "family" ? workspaceMetaByKey.family.icon : workspaceMetaByKey.personal.icon)
+    setWorkspaceModalView("list")
     setIsWorkspaceSheetOpen(true)
-  }, [canOpenWorkspaceSwitcher])
+  }, [activeSpaceKey, canOpenWorkspaceSwitcher, familyAccountLabel, personalAccountLabel, workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon])
+
+  const closeWorkspaceSheet = useCallback(() => {
+    setWorkspaceModalView("list")
+    setIsWorkspaceSheetOpen(false)
+  }, [])
+
+  const openWorkspaceSettings = useCallback(() => {
+    const targetKey: SpaceKey = activeSpaceKey === "family" ? "family" : "personal"
+    setWorkspaceSettingsTargetKey(targetKey)
+    setWorkspaceNameDraft(targetKey === "family" ? familyAccountLabel : personalAccountLabel)
+    setWorkspaceIconDraft(targetKey === "family" ? workspaceMetaByKey.family.icon : workspaceMetaByKey.personal.icon)
+    setWorkspaceModalView("settings")
+  }, [activeSpaceKey, familyAccountLabel, personalAccountLabel, workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon])
+
+  const openWorkspaceNameEditor = useCallback(() => {
+    const currentLabel = workspaceSettingsTargetKey === "family" ? familyAccountLabel : personalAccountLabel
+    setWorkspaceNameDraft(currentLabel)
+    setWorkspaceModalView("edit-name")
+  }, [familyAccountLabel, personalAccountLabel, workspaceSettingsTargetKey])
+
+  const openWorkspaceIconEditor = useCallback(() => {
+    const currentIcon = workspaceSettingsTargetKey === "family" ? workspaceMetaByKey.family.icon : workspaceMetaByKey.personal.icon
+    setWorkspaceIconDraft(currentIcon)
+    setWorkspaceModalView("edit-icon")
+  }, [workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon, workspaceSettingsTargetKey])
+
+  const goBackWorkspaceModal = useCallback(() => {
+    if (workspaceModalView === "edit-name" || workspaceModalView === "edit-icon") {
+      setWorkspaceModalView("settings")
+      return
+    }
+    setWorkspaceModalView("list")
+  }, [workspaceModalView])
+
+  const normalizedWorkspaceNameDraft = useMemo(
+    () => workspaceNameDraft.trim().slice(0, WORKSPACE_NAME_LIMIT),
+    [workspaceNameDraft],
+  )
+  const canSaveWorkspaceName = normalizedWorkspaceNameDraft.length > 0
+
+  const handleSaveWorkspaceName = useCallback(() => {
+    if (!canSaveWorkspaceName) return
+    updateWorkspaceMeta(workspaceSettingsTargetKey, { name: normalizedWorkspaceNameDraft })
+    setWorkspaceModalView("settings")
+  }, [canSaveWorkspaceName, normalizedWorkspaceNameDraft, updateWorkspaceMeta, workspaceSettingsTargetKey])
+
+  const handleSaveWorkspaceIcon = useCallback(() => {
+    updateWorkspaceMeta(workspaceSettingsTargetKey, { icon: normalizeWorkspaceIcon(workspaceIconDraft) })
+    setWorkspaceModalView("settings")
+  }, [updateWorkspaceMeta, workspaceIconDraft, workspaceSettingsTargetKey])
 
   return (
     <div className="home-screen">
@@ -716,6 +858,9 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
           aria-label={`Переключить аккаунт. Текущий: ${accountLabel}`}
           disabled={!canOpenWorkspaceSwitcher}
         >
+          <span className="home-header__name-icon" aria-hidden="true">
+            {accountIcon}
+          </span>
           <span className="home-header__name-text">{accountLabel}</span>
           <span className="home-header__name-caret" aria-hidden="true">
             ▾
@@ -901,7 +1046,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             paddingBottom: "calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 12px)",
             zIndex: 30,
           }}
-          onClick={() => setIsWorkspaceSheetOpen(false)}
+          onClick={closeWorkspaceSheet}
         >
           <div
             style={{
@@ -918,100 +1063,314 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
               <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-              Пространство
-            </div>
-            <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <button
                 type="button"
-                onClick={() => {
-                  if (isSwitchingWorkspace) return
-                  const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-                  if (!token) {
-                    alert("Нет токена")
-                    return
-                  }
-                  if (personalWorkspace) {
-                    void setActiveWorkspaceRemote(personalWorkspace, token)
-                  } else {
-                    setIsWorkspaceSheetOpen(false)
-                  }
-                }}
-                disabled={!personalWorkspace}
+                onClick={goBackWorkspaceModal}
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  border:
-                    personalWorkspace && activeSpaceKey === "personal"
-                      ? "1px solid rgba(59,130,246,0.4)"
-                      : "1px solid rgba(15,23,42,0.08)",
-                  background:
-                    personalWorkspace && activeSpaceKey === "personal"
-                      ? "rgba(59,130,246,0.06)"
-                      : "#fff",
-                  color: personalWorkspace && !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
-                  cursor: personalWorkspace && !isSwitchingWorkspace ? "pointer" : "not-allowed",
+                  width: 28,
+                  height: 28,
+                  border: "none",
+                  background: "transparent",
+                  borderRadius: 8,
+                  display: "grid",
+                  placeItems: "center",
+                  color: workspaceModalView === "list" ? "transparent" : "#64748b",
+                  cursor: workspaceModalView === "list" ? "default" : "pointer",
                 }}
+                aria-label="Назад"
+                disabled={workspaceModalView === "list"}
               >
-                <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>Личный аккаунт</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>personal</div>
-                </div>
-                {switchingToWorkspaceId === personalWorkspace?.id && isSwitchingWorkspace ? (
-                  <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
-                ) : personalWorkspace && activeSpaceKey === "personal" ? (
-                  <AppIcon name="more" size={16} />
-                ) : null}
+                ‹
               </button>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center" }}>
+                {workspaceModalView === "list"
+                  ? "Пространство"
+                  : workspaceModalView === "settings"
+                    ? "Настройки аккаунта"
+                    : workspaceModalView === "edit-name"
+                      ? "Изменить название"
+                      : "Выбрать иконку"}
+              </div>
+              <button
+                type="button"
+                onClick={openWorkspaceSettings}
+                style={{
+                  width: 28,
+                  height: 28,
+                  border: "none",
+                  background: "transparent",
+                  borderRadius: 8,
+                  display: "grid",
+                  placeItems: "center",
+                  color: workspaceModalView === "list" ? "#64748b" : "transparent",
+                  cursor: workspaceModalView === "list" ? "pointer" : "default",
+                }}
+                aria-label="Настройки аккаунта"
+                disabled={workspaceModalView !== "list"}
+              >
+                <AppIcon name="settings" size={16} />
+              </button>
+            </div>
+            {workspaceModalView === "list" ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSwitchingWorkspace) return
+                    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                    if (!token) return
+                    if (personalWorkspace) {
+                      void setActiveWorkspaceRemote(personalWorkspace, token)
+                    } else {
+                      closeWorkspaceSheet()
+                    }
+                  }}
+                  disabled={!personalWorkspace}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border:
+                      personalWorkspace && activeSpaceKey === "personal"
+                        ? "1px solid rgba(59,130,246,0.4)"
+                        : "1px solid rgba(15,23,42,0.08)",
+                    background:
+                      personalWorkspace && activeSpaceKey === "personal"
+                        ? "rgba(59,130,246,0.06)"
+                        : "#fff",
+                    color: personalWorkspace && !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
+                    cursor: personalWorkspace && !isSwitchingWorkspace ? "pointer" : "not-allowed",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <div
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        background: "rgba(15,23,42,0.06)",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {personalAccountIcon}
+                    </div>
+                    <div style={{ display: "grid", gap: 2, textAlign: "left", minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {personalAccountLabel}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>personal</div>
+                    </div>
+                  </div>
+                  {switchingToWorkspaceId === personalWorkspace?.id && isSwitchingWorkspace ? (
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
+                  ) : personalWorkspace && activeSpaceKey === "personal" ? (
+                    <span style={{ fontSize: 13, color: "#64748b" }}>✓</span>
+                  ) : null}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (isSwitchingWorkspace) return
-                  const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-                  if (!token) {
-                    alert("Нет токена")
-                    return
-                  }
-                  if (familyWorkspace) {
-                    void setActiveWorkspaceRemote(familyWorkspace, token)
-                    return
-                  }
-                  setIsWorkspaceSheetOpen(false)
-                  setIsFamilySheetOpen(true)
-                }}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  border:
-                    familyWorkspace && activeSpaceKey === "family"
-                      ? "1px solid rgba(59,130,246,0.4)"
-                      : "1px solid rgba(15,23,42,0.08)",
-                  background:
-                    familyWorkspace && activeSpaceKey === "family"
-                      ? "rgba(59,130,246,0.06)"
-                      : "#fff",
-                  color: !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
-                  cursor: !isSwitchingWorkspace ? "pointer" : "not-allowed",
-                }}
-              >
-                <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>Совместный доступ</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>family</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSwitchingWorkspace) return
+                    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                    if (!token) return
+                    if (familyWorkspace) {
+                      void setActiveWorkspaceRemote(familyWorkspace, token)
+                      return
+                    }
+                    closeWorkspaceSheet()
+                    setIsFamilySheetOpen(true)
+                  }}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border:
+                      familyWorkspace && activeSpaceKey === "family"
+                        ? "1px solid rgba(59,130,246,0.4)"
+                        : "1px solid rgba(15,23,42,0.08)",
+                    background:
+                      familyWorkspace && activeSpaceKey === "family"
+                        ? "rgba(59,130,246,0.06)"
+                        : "#fff",
+                    color: !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
+                    cursor: !isSwitchingWorkspace ? "pointer" : "not-allowed",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <div
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        background: "rgba(15,23,42,0.06)",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {familyAccountIcon}
+                    </div>
+                    <div style={{ display: "grid", gap: 2, textAlign: "left", minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {familyAccountLabel}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>family</div>
+                    </div>
+                  </div>
+                  {switchingToWorkspaceId === familyWorkspace?.id && isSwitchingWorkspace ? (
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
+                  ) : familyWorkspace && activeSpaceKey === "family" ? (
+                    <span style={{ fontSize: 13, color: "#64748b" }}>✓</span>
+                  ) : null}
+                </button>
+              </div>
+            ) : null}
+            {workspaceModalView === "settings" ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 2 }}>
+                  Текущий аккаунт: {workspaceSettingsTargetKey === "family" ? familyAccountLabel : personalAccountLabel}
                 </div>
-                {switchingToWorkspaceId === familyWorkspace?.id && isSwitchingWorkspace ? (
-                  <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
-                ) : familyWorkspace && activeSpaceKey === "family" ? (
-                  <AppIcon name="more" size={16} />
-                ) : null}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={openWorkspaceNameEditor}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(15,23,42,0.08)",
+                    background: "#fff",
+                    fontSize: 14,
+                    color: "#0f172a",
+                  }}
+                >
+                  Изменить название
+                </button>
+                <button
+                  type="button"
+                  onClick={openWorkspaceIconEditor}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(15,23,42,0.08)",
+                    background: "#fff",
+                    fontSize: 14,
+                    color: "#0f172a",
+                  }}
+                >
+                  Выбрать иконку
+                </button>
+              </div>
+            ) : null}
+            {workspaceModalView === "edit-name" ? (
+              <div style={{ display: "grid", gap: 10 }}>
+                <input
+                  value={workspaceNameDraft}
+                  onChange={(event) => setWorkspaceNameDraft(event.target.value)}
+                  maxLength={WORKSPACE_NAME_LIMIT}
+                  style={{
+                    width: "100%",
+                    borderRadius: 12,
+                    border: "1px solid rgba(15,23,42,0.12)",
+                    padding: "12px 14px",
+                    fontSize: 16,
+                  }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceModalView("settings")}
+                    style={{
+                      flex: 1,
+                      padding: "11px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(15,23,42,0.12)",
+                      background: "#fff",
+                      fontSize: 14,
+                    }}
+                  >
+                    Отменить
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveWorkspaceName}
+                    disabled={!canSaveWorkspaceName}
+                    style={{
+                      flex: 1,
+                      padding: "11px 12px",
+                      borderRadius: 12,
+                      border: "none",
+                      background: canSaveWorkspaceName ? "#0f172a" : "rgba(15,23,42,0.3)",
+                      color: "#fff",
+                      fontSize: 14,
+                    }}
+                  >
+                    Готово
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {workspaceModalView === "edit-icon" ? (
+              <div style={{ display: "grid", gap: 10 }}>
+                <input
+                  value={workspaceIconDraft}
+                  onChange={(event) => setWorkspaceIconDraft(event.target.value)}
+                  placeholder="🙂"
+                  style={{
+                    width: "100%",
+                    borderRadius: 12,
+                    border: "1px solid rgba(15,23,42,0.12)",
+                    padding: "12px 14px",
+                    fontSize: 16,
+                  }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceModalView("settings")}
+                    style={{
+                      flex: 1,
+                      padding: "11px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(15,23,42,0.12)",
+                      background: "#fff",
+                      fontSize: 14,
+                    }}
+                  >
+                    Отменить
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveWorkspaceIcon}
+                    style={{
+                      flex: 1,
+                      padding: "11px 12px",
+                      borderRadius: 12,
+                      border: "none",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontSize: 14,
+                    }}
+                  >
+                    Готово
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
