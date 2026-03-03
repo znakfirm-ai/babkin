@@ -15,6 +15,10 @@ type HomeScreenProps = {
   initialWorkspaces?: Workspace[]
   initialActiveWorkspace?: Workspace | null
   onOpenQuickAdd?: (tab: "expense" | "income" | "debt" | "goal") => void
+  workspaceAccountLabel?: string
+  workspaceAccountIcon?: string
+  canOpenWorkspaceSwitcher?: boolean
+  onOpenWorkspaceSwitcher?: () => void
   autoOpenWorkspaceSheet?: boolean
   onConsumeAutoOpenWorkspaceSheet?: () => void
   onWorkspaceSheetClosed?: () => void
@@ -194,6 +198,10 @@ function HomeScreen({
   initialWorkspaces,
   initialActiveWorkspace,
   onOpenQuickAdd,
+  workspaceAccountLabel,
+  workspaceAccountIcon,
+  canOpenWorkspaceSwitcher: canOpenWorkspaceSwitcherOverride,
+  onOpenWorkspaceSwitcher,
   autoOpenWorkspaceSheet = false,
   onConsumeAutoOpenWorkspaceSheet,
   onWorkspaceSheetClosed,
@@ -786,6 +794,10 @@ function HomeScreen({
     setWorkspaceModalView("list")
     setIsWorkspaceSheetOpen(true)
   }, [activeSpaceKey, canOpenWorkspaceSwitcher, familyAccountLabel, personalAccountLabel, workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon])
+  const accountLabelView = workspaceAccountLabel ?? accountLabel
+  const accountIconView = workspaceAccountIcon ?? accountIcon
+  const canOpenWorkspaceSwitcherView = canOpenWorkspaceSwitcherOverride ?? canOpenWorkspaceSwitcher
+  const handleOpenWorkspaceSheetView = onOpenWorkspaceSwitcher ?? handleOpenWorkspaceSheet
 
   useEffect(() => {
     if (!autoOpenWorkspaceSheet) return
@@ -858,14 +870,14 @@ function HomeScreen({
         <button
           type="button"
           className="home-header__name-btn"
-          onClick={handleOpenWorkspaceSheet}
-          aria-label={`Переключить аккаунт. Текущий: ${accountLabel}`}
-          disabled={!canOpenWorkspaceSwitcher}
+          onClick={handleOpenWorkspaceSheetView}
+          aria-label={`Переключить аккаунт. Текущий: ${accountLabelView}`}
+          disabled={!canOpenWorkspaceSwitcherView}
         >
           <span className="home-header__name-icon" aria-hidden="true">
-            {accountIcon}
+            {accountIconView}
           </span>
-          <span className="home-header__name-text">{accountLabel}</span>
+          <span className="home-header__name-text">{accountLabelView}</span>
           <span className="home-header__name-caret" aria-hidden="true">
             ▾
           </span>
