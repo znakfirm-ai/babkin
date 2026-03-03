@@ -665,6 +665,11 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     (activeSpaceKey === "personal" ? personalWorkspace : activeSpaceKey === "family" ? familyWorkspace : null) ??
     initialActiveWorkspace ??
     null
+  const canOpenWorkspaceSwitcher = Boolean(activeWorkspace) && workspaces.length > 0
+  const handleOpenWorkspaceSheet = useCallback(() => {
+    if (!canOpenWorkspaceSwitcher) return
+    setIsWorkspaceSheetOpen(true)
+  }, [canOpenWorkspaceSwitcher])
 
   return (
     <div className="home-screen">
@@ -696,39 +701,18 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         >
           {userAvatarInitial}
         </div>
-        <div
-          style={{
-            fontSize: 18,
-            fontWeight: 500,
-            color: "#0f172a",
-          }}
+        <button
+          type="button"
+          className="home-header__name-btn"
+          onClick={handleOpenWorkspaceSheet}
+          aria-label="Переключить аккаунт"
+          disabled={!canOpenWorkspaceSwitcher}
         >
-          {userDisplayName}
-        </div>
-        {activeWorkspace ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (workspaces.length > 0) setIsWorkspaceSheetOpen(true)
-            }}
-            style={{
-              display: "grid",
-              gap: 2,
-              fontSize: 12,
-              color: "#6b7280",
-              textAlign: "left",
-              border: "none",
-              background: "transparent",
-              padding: 0,
-              cursor: workspaces.length > 0 ? "pointer" : "default",
-            }}
-          >
-            <span>
-              {activeWorkspace.name ?? (activeWorkspace.type === "personal" ? "Личный" : "Семейный")}
-            </span>
-            <span style={{ fontSize: 11 }}>{activeWorkspace.type}</span>
-          </button>
-        ) : null}
+          <span className="home-header__name-text">{userDisplayName}</span>
+          <span className="home-header__name-caret" aria-hidden="true">
+            ▾
+          </span>
+        </button>
       </div>
       <section className="home-section">
         <div className="home-stories" style={{ marginTop: 0 }}>

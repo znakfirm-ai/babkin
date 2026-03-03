@@ -357,6 +357,42 @@
   color: #6b7280;
 }
 
+.home-header__name-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  margin: 0;
+  border-radius: 10px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-header__name-btn:active {
+  opacity: 0.8;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.home-header__name-btn:disabled {
+  cursor: default;
+}
+
+.home-header__name-text {
+  white-space: nowrap;
+}
+
+.home-header__name-caret {
+  font-size: 13px;
+  color: #64748b;
+  transform: translateY(1px);
+}
+
 .home-stories {
   display: flex;
   gap: 10px;
