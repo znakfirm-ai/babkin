@@ -213,15 +213,6 @@ function App() {
     singleDay: string
   } | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
-  type OverviewSnapshot = {
-    accounts: Parameters<typeof setAccounts>[0]
-    categories: Parameters<typeof setCategories>[0]
-    incomeSources: Parameters<typeof setIncomeSources>[0]
-    goals: Parameters<typeof setGoals>[0]
-    debtors: Parameters<typeof setDebtors>[0]
-    transactions: Parameters<typeof setTransactions>[0]
-  }
-  const overviewSnapshotBySpaceRef = useRef<Partial<Record<SpaceKey, OverviewSnapshot>>>({})
   const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
 
   interface TelegramWebApp {
@@ -321,23 +312,12 @@ function App() {
       return { ...prev, [spaceKey]: status }
     })
   }, [])
+  const activeOverviewStatus = overviewStatusBySpaceKey[appActiveSpaceKey]
 
   const isStaleOverviewReload = useCallback((spaceKey: SpaceKey, requestId?: number) => {
     if (requestId !== undefined && workspaceSwitchRequestRef.current !== requestId) return true
     return activeSpaceKeyRef.current !== spaceKey
   }, [])
-
-  const applyOverviewSnapshot = useCallback(
-    (snapshot: OverviewSnapshot) => {
-      setAccounts(snapshot.accounts)
-      setCategories(snapshot.categories)
-      setIncomeSources(snapshot.incomeSources)
-      setGoals(snapshot.goals)
-      setDebtors(snapshot.debtors)
-      setTransactions(snapshot.transactions)
-    },
-    [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setTransactions],
-  )
 
   const initApp = useCallback(async () => {
     if (initDone.current) return
@@ -446,14 +426,6 @@ function App() {
         setTransactions(mappedTransactions)
         setOverviewError(null)
         if (wsData.activeWorkspace?.type) {
-          overviewSnapshotBySpaceRef.current[wsData.activeWorkspace.type] = {
-            accounts: mappedAccounts,
-            categories: mappedCategories,
-            incomeSources: mappedIncomeSources,
-            goals: mappedGoals,
-            debtors: mappedDebtors,
-            transactions: mappedTransactions,
-          }
           setOverviewAppliedSpaceKey(wsData.activeWorkspace.type)
           setOverviewStatus(wsData.activeWorkspace.type, "success")
         }
@@ -586,14 +558,6 @@ function App() {
         if (isStale()) {
           return false
         }
-        overviewSnapshotBySpaceRef.current[targetSpaceKey] = {
-          accounts: mappedAccounts,
-          categories: mappedCategories,
-          incomeSources: mappedIncomeSources,
-          goals: mappedGoals,
-          debtors: mappedDebtors,
-          transactions: mappedTransactions,
-        }
         setOverviewAppliedSpaceKey(targetSpaceKey)
         setOverviewStatus(targetSpaceKey, "success")
         setOverviewError(null)
@@ -614,20 +578,12 @@ function App() {
   )
 
   useEffect(() => {
-    const cachedSnapshot = overviewSnapshotBySpaceRef.current[appActiveSpaceKey]
-    const currentStatus = overviewStatusBySpaceKey[appActiveSpaceKey]
-    if (!appToken) return
-    if (cachedSnapshot && overviewAppliedSpaceKey !== appActiveSpaceKey) {
-      applyOverviewSnapshot(cachedSnapshot)
-      setOverviewAppliedSpaceKey(appActiveSpaceKey)
-      setOverviewStatus(appActiveSpaceKey, "success")
-      return
-    }
-    if (currentStatus === "loading" && overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
+    if (!appToken || appLoading) return
+    if (activeOverviewStatus === "loading" && overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
     if (overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
-    if (overviewAppliedSpaceKey === appActiveSpaceKey && currentStatus === "success") return
-    void retryOverviewData({ spaceKey: appActiveSpaceKey, markLoading: !cachedSnapshot })
-  }, [appActiveSpaceKey, appToken, applyOverviewSnapshot, overviewAppliedSpaceKey, overviewStatusBySpaceKey, retryOverviewData, setOverviewStatus])
+    if (overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewStatus === "success") return
+    void retryOverviewData({ spaceKey: appActiveSpaceKey, markLoading: true })
+  }, [activeOverviewStatus, appActiveSpaceKey, appLoading, appToken, overviewAppliedSpaceKey, retryOverviewData])
 
   const prevScreen = useRef<ScreenKey>("overview")
   const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
@@ -772,23 +728,16 @@ function App() {
         setAppActiveWorkspace(data.activeWorkspace)
         setAppActiveSpaceKey(data.activeWorkspace.type)
         localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, data.activeWorkspace.type)
-        const cachedSnapshot = overviewSnapshotBySpaceRef.current[data.activeWorkspace.type]
-        if (cachedSnapshot) {
-          applyOverviewSnapshot(cachedSnapshot)
-          setOverviewAppliedSpaceKey(data.activeWorkspace.type)
-          setOverviewStatus(data.activeWorkspace.type, "success")
-        } else {
-          setOverviewStatus(data.activeWorkspace.type, "loading")
-          if (overviewAppliedSpaceKey !== data.activeWorkspace.type) {
-            setOverviewAppliedSpaceKey(null)
-          }
+        setOverviewStatus(data.activeWorkspace.type, "loading")
+        if (overviewAppliedSpaceKey !== data.activeWorkspace.type) {
+          setOverviewAppliedSpaceKey(null)
         }
         closeWorkspaceModal()
         setIsWorkspaceFamilySheetOpen(false)
         await retryOverviewData({
           spaceKey: data.activeWorkspace.type,
           requestId,
-          markLoading: !cachedSnapshot,
+          markLoading: false,
         })
       } catch {
         if (workspaceSwitchRequestRef.current !== requestId) return
@@ -800,7 +749,7 @@ function App() {
         setSwitchingToWorkspaceId(null)
       }
     },
-    [applyOverviewSnapshot, closeWorkspaceModal, overviewAppliedSpaceKey, retryOverviewData, setOverviewStatus],
+    [closeWorkspaceModal, overviewAppliedSpaceKey, retryOverviewData, setOverviewStatus],
   )
 
   const createFamilyWorkspace = useCallback(async () => {
@@ -854,9 +803,9 @@ function App() {
     [activeScreen],
   )
   const overviewDataReadyForActiveSpace =
-    overviewAppliedSpaceKey === appActiveSpaceKey && overviewStatusBySpaceKey[appActiveSpaceKey] === "success"
+    overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewStatus === "success"
   const overviewDataLoadingForActiveSpace =
-    overviewStatusBySpaceKey[appActiveSpaceKey] === "loading" || !overviewDataReadyForActiveSpace
+    activeOverviewStatus === "loading" || !overviewDataReadyForActiveSpace
 
   const renderScreen = () => {
     switch (activeScreen) {

@@ -2537,10 +2537,32 @@ function TransactionsPanel({
           <div className="overview__month">{monthLabel}</div>
         </div>
         <section className="summary">
-          <div className="summary__pill" style={{ minHeight: 72, display: "grid", placeItems: "center" }}>
-            <div style={{ fontSize: 13, color: "#6b7280" }}>Обновляем данные пространства…</div>
+          <div className="summary__pill overview-loading__summary" aria-live="polite" aria-busy="true">
+            <div className="overview-loading__cell">
+              <div className="overview-loading__line overview-loading__line--label" />
+              <div className="overview-loading__line overview-loading__line--value" />
+            </div>
+            <div className="overview-loading__cell">
+              <div className="overview-loading__line overview-loading__line--label" />
+              <div className="overview-loading__line overview-loading__line--value" />
+            </div>
+            <div className="overview-loading__cell">
+              <div className="overview-loading__line overview-loading__line--label" />
+              <div className="overview-loading__line overview-loading__line--value" />
+            </div>
           </div>
         </section>
+        <section className="overview-loading__sections" aria-hidden="true">
+          <div className="overview-loading__section-block" />
+          <div className="overview-loading__section-block" />
+          <div className="overview-loading__section-block" />
+          <div className="overview-loading__section-block" />
+        </section>
+        {isDataLoadingForActiveSpace ? (
+          <div className="overview-loading__hint" aria-live="polite">
+            Обновляем пространство
+          </div>
+        ) : null}
       </div>
     )
   }
