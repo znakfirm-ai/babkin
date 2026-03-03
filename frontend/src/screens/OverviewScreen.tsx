@@ -428,6 +428,8 @@ type OverviewScreenProps = {
   workspaceAccountIcon?: string
   canOpenWorkspaceSwitcher?: boolean
   onOpenWorkspaceSwitcher?: () => void
+  isDataReadyForActiveSpace?: boolean
+  isDataLoadingForActiveSpace?: boolean
 }
 
 function OverviewScreen({
@@ -460,6 +462,8 @@ function OverviewScreen({
   workspaceAccountIcon = "Л",
   canOpenWorkspaceSwitcher = false,
   onOpenWorkspaceSwitcher,
+  isDataReadyForActiveSpace = true,
+  isDataLoadingForActiveSpace = false,
 }: OverviewScreenProps) {
   const {
     accounts,
@@ -2507,6 +2511,36 @@ function TransactionsPanel({
             Повторить
           </button>
         ) : null}
+      </div>
+    )
+  }
+
+  if (!isDataReadyForActiveSpace && isDataLoadingForActiveSpace) {
+    return (
+      <div className="overview">
+        <div className="overview__header">
+          <button
+            type="button"
+            className="home-header__name-btn"
+            onClick={onOpenWorkspaceSwitcher}
+            aria-label={`Переключить аккаунт. Текущий: ${workspaceAccountLabel}`}
+            disabled={!canOpenWorkspaceSwitcher}
+          >
+            <span className="home-header__name-icon" aria-hidden="true">
+              {workspaceAccountIcon}
+            </span>
+            <span className="home-header__name-text">{workspaceAccountLabel}</span>
+            <span className="home-header__name-caret" aria-hidden="true">
+              ▾
+            </span>
+          </button>
+          <div className="overview__month">{monthLabel}</div>
+        </div>
+        <section className="summary">
+          <div className="summary__pill" style={{ minHeight: 72, display: "grid", placeItems: "center" }}>
+            <div style={{ fontSize: 13, color: "#6b7280" }}>Обновляем данные пространства…</div>
+          </div>
+        </section>
       </div>
     )
   }

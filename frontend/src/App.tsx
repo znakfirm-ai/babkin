@@ -23,6 +23,7 @@ import "./App.css"
 
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 type SpaceKey = Workspace["type"]
+type BannerLoadStatus = "idle" | "loading" | "success" | "error"
 type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add" | "icons-preview" | "receivables"
 type GoalsListMode = "goals" | "debtsReceivable" | "debtsPayable"
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
@@ -183,6 +184,12 @@ function App() {
   const [switchingToWorkspaceId, setSwitchingToWorkspaceId] = useState<string | null>(null)
   const workspaceSwitchRequestRef = useRef(0)
   const isSwitchingWorkspaceRef = useRef(false)
+  const activeSpaceKeyRef = useRef<SpaceKey>(appActiveSpaceKey)
+  const [overviewAppliedSpaceKey, setOverviewAppliedSpaceKey] = useState<SpaceKey | null>(null)
+  const [overviewStatusBySpaceKey, setOverviewStatusBySpaceKey] = useState<Record<SpaceKey, BannerLoadStatus>>({
+    personal: "idle",
+    family: "idle",
+  })
   const [pendingCategoryOpenId, setPendingCategoryOpenId] = useState<string | null>(null)
   const [pendingReturnToReport, setPendingReturnToReport] = useState(false)
   const [autoOpenExpensesSheet, setAutoOpenExpensesSheet] = useState(false)
@@ -294,6 +301,22 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    activeSpaceKeyRef.current = appActiveSpaceKey
+  }, [appActiveSpaceKey])
+
+  const setOverviewStatus = useCallback((spaceKey: SpaceKey, status: BannerLoadStatus) => {
+    setOverviewStatusBySpaceKey((prev) => {
+      if (prev[spaceKey] === status) return prev
+      return { ...prev, [spaceKey]: status }
+    })
+  }, [])
+
+  const isStaleOverviewReload = useCallback((spaceKey: SpaceKey, requestId?: number) => {
+    if (requestId !== undefined && workspaceSwitchRequestRef.current !== requestId) return true
+    return activeSpaceKeyRef.current !== spaceKey
+  }, [])
+
   const initApp = useCallback(async () => {
     if (initDone.current) return
     setAppLoading(true)
@@ -329,6 +352,7 @@ function App() {
       if (wsData.activeWorkspace?.type) {
         setAppActiveSpaceKey(wsData.activeWorkspace.type)
         localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, wsData.activeWorkspace.type)
+        setOverviewStatus(wsData.activeWorkspace.type, "loading")
       }
 
       try {
@@ -401,10 +425,17 @@ function App() {
           }))
         )
         setOverviewError(null)
+        if (wsData.activeWorkspace?.type) {
+          setOverviewAppliedSpaceKey(wsData.activeWorkspace.type)
+          setOverviewStatus(wsData.activeWorkspace.type, "success")
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
           setAppLoading(false)
           return
+        }
+        if (wsData.activeWorkspace?.type) {
+          setOverviewStatus(wsData.activeWorkspace.type, "error")
         }
         setOverviewError("Ошибка загрузки данных")
       }
@@ -415,7 +446,7 @@ function App() {
       setAppInitError(err instanceof Error ? err.message : "Init error")
       setAppLoading(false)
     }
-  }, [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setTransactions])
+  }, [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setTransactions])
 
   useEffect(() => {
     if (!initDone.current) {
@@ -423,86 +454,142 @@ function App() {
     }
   }, [initApp])
 
-  const retryOverviewData = useCallback(async () => {
-    if (!appToken) {
-      setOverviewError("Нет токена")
-      return
-    }
-    try {
-      const accData = await getAccounts(appToken)
-      setAccounts(
-        accData.accounts.map((a) => ({
-          id: a.id,
-          name: a.name,
-          balance: { amount: a.balance, currency: a.currency },
-          color: a.color ?? undefined,
-          icon: a.icon ?? null,
-        }))
-      )
+  const retryOverviewData = useCallback(
+    async (options?: { spaceKey?: SpaceKey; requestId?: number; markLoading?: boolean }) => {
+      const targetSpaceKey = options?.spaceKey ?? activeSpaceKeyRef.current
+      const requestId = options?.requestId
+      const markLoading = options?.markLoading ?? true
+      if (!appToken) {
+        setOverviewError("Нет токена")
+        setOverviewStatus(targetSpaceKey, "error")
+        return false
+      }
+      if (markLoading) {
+        setOverviewStatus(targetSpaceKey, "loading")
+      }
+      const isStale = () => isStaleOverviewReload(targetSpaceKey, requestId)
+      try {
+        const accData = await getAccounts(appToken)
+        if (isStale()) {
+          setOverviewStatus(targetSpaceKey, "idle")
+          return false
+        }
+        setAccounts(
+          accData.accounts.map((a) => ({
+            id: a.id,
+            name: a.name,
+            balance: { amount: a.balance, currency: a.currency },
+            color: a.color ?? undefined,
+            icon: a.icon ?? null,
+          })),
+        )
 
-      const catData = await getCategories(appToken)
-      setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null })))
+        const catData = await getCategories(appToken)
+        if (isStale()) {
+          setOverviewStatus(targetSpaceKey, "idle")
+          return false
+        }
+        setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null })))
 
-      const incData = await getIncomeSources(appToken)
-      setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })))
+        const incData = await getIncomeSources(appToken)
+        if (isStale()) {
+          setOverviewStatus(targetSpaceKey, "idle")
+          return false
+        }
+        setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })))
 
-      const goalsData = await getGoals(appToken)
-      setGoals(
-        goalsData.goals.map((g) => ({
-          id: g.id,
-          name: g.name,
-          icon: g.icon,
-          targetAmount: Number(g.targetAmount),
-          currentAmount: Number(g.currentAmount),
-          status: g.status,
-        }))
-      )
+        const goalsData = await getGoals(appToken)
+        if (isStale()) {
+          setOverviewStatus(targetSpaceKey, "idle")
+          return false
+        }
+        setGoals(
+          goalsData.goals.map((g) => ({
+            id: g.id,
+            name: g.name,
+            icon: g.icon,
+            targetAmount: Number(g.targetAmount),
+            currentAmount: Number(g.currentAmount),
+            status: g.status,
+          })),
+        )
 
-      const debtorsData = await getDebtors(appToken)
-      setDebtors(
-        debtorsData.debtors.map((d) => ({
-          id: d.id,
-          name: d.name,
-          icon: d.icon,
-          issuedDate: d.issuedAt.slice(0, 10),
-          loanAmount: Number(d.principalAmount),
-          dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
-          returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
-          status: d.status,
-          direction: d.direction ?? "receivable",
-        })),
-      )
+        const debtorsData = await getDebtors(appToken)
+        if (isStale()) {
+          setOverviewStatus(targetSpaceKey, "idle")
+          return false
+        }
+        setDebtors(
+          debtorsData.debtors.map((d) => ({
+            id: d.id,
+            name: d.name,
+            icon: d.icon,
+            issuedDate: d.issuedAt.slice(0, 10),
+            loanAmount: Number(d.principalAmount),
+            dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
+            returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
+            status: d.status,
+            direction: d.direction ?? "receivable",
+          })),
+        )
 
-      const txData = await getTransactions(appToken)
-      setTransactions(
-        txData.transactions.map((t) => ({
-          id: t.id,
-          type: t.kind,
-          amount: {
-            amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
-            currency: "RUB",
-          },
-          date: t.happenedAt,
-          accountId: t.accountId ?? t.fromAccountId ?? "",
-          accountName: t.accountName ?? null,
-          fromAccountId: t.fromAccountId ?? undefined,
-          fromAccountName: t.fromAccountName ?? null,
-          categoryId: t.categoryId ?? undefined,
-          incomeSourceId: t.incomeSourceId ?? undefined,
-          toAccountId: t.toAccountId ?? undefined,
-          toAccountName: t.toAccountName ?? null,
-          goalId: t.goalId ?? undefined,
-          goalName: t.goalName ?? null,
-          debtorId: t.debtorId ?? undefined,
-          debtorName: t.debtorName ?? null,
-        }))
-      )
-      setOverviewError(null)
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return
-      setOverviewError("Ошибка загрузки данных")
-    }
-  }, [appToken, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setTransactions])
+        const txData = await getTransactions(appToken)
+        if (isStale()) {
+          setOverviewStatus(targetSpaceKey, "idle")
+          return false
+        }
+        setTransactions(
+          txData.transactions.map((t) => ({
+            id: t.id,
+            type: t.kind,
+            amount: {
+              amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+              currency: "RUB",
+            },
+            date: t.happenedAt,
+            accountId: t.accountId ?? t.fromAccountId ?? "",
+            accountName: t.accountName ?? null,
+            fromAccountId: t.fromAccountId ?? undefined,
+            fromAccountName: t.fromAccountName ?? null,
+            categoryId: t.categoryId ?? undefined,
+            incomeSourceId: t.incomeSourceId ?? undefined,
+            toAccountId: t.toAccountId ?? undefined,
+            toAccountName: t.toAccountName ?? null,
+            goalId: t.goalId ?? undefined,
+            goalName: t.goalName ?? null,
+            debtorId: t.debtorId ?? undefined,
+            debtorName: t.debtorName ?? null,
+          })),
+        )
+        if (isStale()) {
+          setOverviewStatus(targetSpaceKey, "idle")
+          return false
+        }
+        setOverviewAppliedSpaceKey(targetSpaceKey)
+        setOverviewStatus(targetSpaceKey, "success")
+        setOverviewError(null)
+        return true
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return false
+        if (isStale()) {
+          setOverviewStatus(targetSpaceKey, "idle")
+          return false
+        }
+        setOverviewStatus(targetSpaceKey, "error")
+        setOverviewError("Ошибка загрузки данных")
+        return false
+      }
+    },
+    [appToken, isStaleOverviewReload, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setTransactions],
+  )
+
+  useEffect(() => {
+    const currentStatus = overviewStatusBySpaceKey[appActiveSpaceKey]
+    if (!appToken) return
+    if (currentStatus === "loading") return
+    if (overviewAppliedSpaceKey === appActiveSpaceKey && currentStatus === "success") return
+    void retryOverviewData({ spaceKey: appActiveSpaceKey, markLoading: true })
+  }, [appActiveSpaceKey, appToken, overviewAppliedSpaceKey, overviewStatusBySpaceKey, retryOverviewData])
 
   const prevScreen = useRef<ScreenKey>("overview")
   const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
@@ -647,11 +734,16 @@ function App() {
         setAppActiveWorkspace(data.activeWorkspace)
         setAppActiveSpaceKey(data.activeWorkspace.type)
         localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, data.activeWorkspace.type)
+        setOverviewStatus(data.activeWorkspace.type, "loading")
+        if (overviewAppliedSpaceKey !== data.activeWorkspace.type) {
+          setOverviewAppliedSpaceKey(null)
+        }
         closeWorkspaceModal()
         setIsWorkspaceFamilySheetOpen(false)
-        await retryOverviewData()
+        await retryOverviewData({ spaceKey: data.activeWorkspace.type, requestId, markLoading: false })
       } catch {
         if (workspaceSwitchRequestRef.current !== requestId) return
+        setOverviewStatus(workspace.type, "error")
       } finally {
         if (workspaceSwitchRequestRef.current !== requestId) return
         isSwitchingWorkspaceRef.current = false
@@ -659,7 +751,7 @@ function App() {
         setSwitchingToWorkspaceId(null)
       }
     },
-    [closeWorkspaceModal, retryOverviewData],
+    [closeWorkspaceModal, overviewAppliedSpaceKey, retryOverviewData, setOverviewStatus],
   )
 
   const createFamilyWorkspace = useCallback(async () => {
@@ -712,6 +804,10 @@ function App() {
     },
     [activeScreen],
   )
+  const overviewDataReadyForActiveSpace =
+    overviewAppliedSpaceKey === appActiveSpaceKey && overviewStatusBySpaceKey[appActiveSpaceKey] === "success"
+  const overviewDataLoadingForActiveSpace =
+    overviewStatusBySpaceKey[appActiveSpaceKey] === "loading" || !overviewDataReadyForActiveSpace
 
   const renderScreen = () => {
     switch (activeScreen) {
@@ -737,7 +833,9 @@ function App() {
         return (
           <OverviewScreen
             overviewError={overviewError}
-            onRetryOverview={retryOverviewData}
+            onRetryOverview={async () => {
+              await retryOverviewData()
+            }}
             externalCategoryId={pendingCategoryOpenId}
             onConsumeExternalCategory={() => setPendingCategoryOpenId(null)}
             returnToReport={pendingReturnToReport}
@@ -805,6 +903,8 @@ function App() {
             workspaceAccountIcon={accountIcon}
             canOpenWorkspaceSwitcher={canOpenWorkspaceSwitcher}
             onOpenWorkspaceSwitcher={openWorkspaceModal}
+            isDataReadyForActiveSpace={overviewDataReadyForActiveSpace}
+            isDataLoadingForActiveSpace={overviewDataLoadingForActiveSpace}
             key={`goals-list-${goalsListMode}`}
           />
         )
@@ -812,7 +912,9 @@ function App() {
         return (
           <OverviewScreen
             overviewError={overviewError}
-            onRetryOverview={retryOverviewData}
+            onRetryOverview={async () => {
+              await retryOverviewData()
+            }}
             externalCategoryId={pendingCategoryOpenId}
             onConsumeExternalCategory={() => setPendingCategoryOpenId(null)}
             returnToReport={pendingReturnToReport}
@@ -880,6 +982,8 @@ function App() {
             workspaceAccountIcon={accountIcon}
             canOpenWorkspaceSwitcher={canOpenWorkspaceSwitcher}
             onOpenWorkspaceSwitcher={openWorkspaceModal}
+            isDataReadyForActiveSpace={overviewDataReadyForActiveSpace}
+            isDataLoadingForActiveSpace={overviewDataLoadingForActiveSpace}
             key={`goals-list-${goalsListMode}`}
           />
         )
