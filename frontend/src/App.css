@@ -360,12 +360,12 @@
 .home-header__name-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border: none;
   background: transparent;
-  padding: 4px 8px;
+  padding: 4px 10px;
   margin: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   color: #0f172a;
   font-size: 18px;
   font-weight: 500;
@@ -388,13 +388,13 @@
 }
 
 .home-header__name-icon {
-  width: 20px;
-  height: 20px;
+  width: 38px;
+  height: 38px;
   border-radius: 9999px;
   background: rgba(15, 23, 42, 0.06);
   display: grid;
   place-items: center;
-  font-size: 12px;
+  font-size: 18px;
   font-weight: 600;
   line-height: 1;
 }

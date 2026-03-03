@@ -735,20 +735,6 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     ],
     [openHomeQuickAdd]
   )
-  const userDisplayName = useMemo(() => {
-    if (typeof window === "undefined") return "Пользователь"
-    const rawName = (window as unknown as TelegramUser).Telegram?.WebApp?.initDataUnsafe?.user?.first_name ?? ""
-    const normalized = rawName.trim()
-    return normalized.length > 0 ? normalized : "Пользователь"
-  }, [])
-  const userAvatarInitial = useMemo(() => {
-    const trimmed = userDisplayName.trim()
-    if (!trimmed) return "?"
-    const firstToken = trimmed.split(/\s+/)[0] ?? ""
-    const firstChar = firstToken.charAt(0)
-    return firstChar ? firstChar.toLocaleUpperCase("ru-RU") : "?"
-  }, [userDisplayName])
-
   const personalWorkspace = workspaces.find((w) => w.type === "personal") ?? null
   const familyWorkspace = workspaces.find((w) => w.type === "family") ?? null
   const activeWorkspace = activeSpaceKey === "personal" ? personalWorkspace : activeSpaceKey === "family" ? familyWorkspace : null
@@ -845,30 +831,11 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 12,
+          gap: 8,
           marginTop: 16,
           marginBottom: 16,
         }}
       >
-        <div
-          role="img"
-          aria-label={`Профиль: ${userDisplayName}`}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: "50%",
-            background: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
-            border: "1px solid rgba(15, 23, 42, 0.10)",
-            display: "grid",
-            placeItems: "center",
-            color: "#0f172a",
-            fontSize: 16,
-            fontWeight: 600,
-            lineHeight: 1,
-          }}
-        >
-          {userAvatarInitial}
-        </div>
         <button
           type="button"
           className="home-header__name-btn"
