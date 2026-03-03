@@ -21,6 +21,7 @@ const VIEWED_KEY = "home_stories_viewed"
 type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 type SpaceKey = Workspace["type"]
+type BannerLoadStatus = "idle" | "loading" | "success" | "error"
 type HomePeriodMode = "day" | "week" | "month" | "quarter" | "year" | "custom"
 
 const HOME_PERIOD_OPTIONS: Array<{ key: HomePeriodMode; label: string }> = [
@@ -32,6 +33,7 @@ const HOME_PERIOD_OPTIONS: Array<{ key: HomePeriodMode; label: string }> = [
 ]
 const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
 const isSpaceKey = (value: string | null): value is SpaceKey => value === "personal" || value === "family"
+const bannerStatusCache: Partial<Record<SpaceKey, BannerLoadStatus>> = {}
 
 const capitalizeFirst = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value)
 const formatDayMonth = (value: Date) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(value)
@@ -141,8 +143,15 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false)
   const [switchingToWorkspaceId, setSwitchingToWorkspaceId] = useState<string | null>(null)
   const [bannerReadyScopeKey, setBannerReadyScopeKey] = useState<SpaceKey | null>(initialActiveWorkspace?.type ?? null)
+  const [bannerStatusByScopeKey, setBannerStatusByScopeKey] = useState<Record<SpaceKey, BannerLoadStatus>>(() => ({
+    personal:
+      bannerStatusCache.personal ??
+      (initialActiveWorkspace?.type === "personal" ? "success" : "idle"),
+    family:
+      bannerStatusCache.family ??
+      (initialActiveWorkspace?.type === "family" ? "success" : "idle"),
+  }))
   const workspaceLoadRequestRef = useRef(0)
-  const bannerScopeSeededRef = useRef(Boolean(initialActiveWorkspace?.type))
   const isSwitchingWorkspaceRef = useRef(false)
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
   const [accountName, setAccountName] = useState("")
@@ -258,8 +267,8 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     const activeScopeKey = activeSpaceKey
     if (!activeScopeKey) return false
     if (isSwitchingWorkspace) return false
-    return bannerReadyScopeKey === activeScopeKey
-  }, [activeSpaceKey, bannerReadyScopeKey, isSwitchingWorkspace])
+    return bannerReadyScopeKey === activeScopeKey && bannerStatusByScopeKey[activeScopeKey] === "success"
+  }, [activeSpaceKey, bannerReadyScopeKey, bannerStatusByScopeKey, isSwitchingWorkspace])
   const getBannerValueLabel = useCallback(
     (value: number) => (isBannerDataReady ? formatMoney(value, baseCurrency) : "—"),
     [baseCurrency, isBannerDataReady],
@@ -317,6 +326,14 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     },
     [logSpaceDebug],
   )
+
+  const setBannerStatus = useCallback((spaceKey: SpaceKey, status: BannerLoadStatus) => {
+    bannerStatusCache[spaceKey] = status
+    setBannerStatusByScopeKey((prev) => {
+      if (prev[spaceKey] === status) return prev
+      return { ...prev, [spaceKey]: status }
+    })
+  }, [])
 
   const isStaleWorkspaceLoad = useCallback((requestId: number) => workspaceLoadRequestRef.current !== requestId, [])
 
@@ -486,6 +503,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
       setSwitchingToWorkspaceId(workspace.id)
       setActiveSpace(workspace.type)
       setBannerReadyScopeKey(null)
+      setBannerStatus(workspace.type, "loading")
       try {
         const res = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
           method: "PATCH",
@@ -517,6 +535,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         await fetchTransactions(token, requestId)
         if (isStaleWorkspaceLoad(requestId)) return
         setBannerReadyScopeKey(data.activeWorkspace.type)
+        setBannerStatus(data.activeWorkspace.type, "success")
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)
@@ -525,19 +544,24 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
         if (!didActivateTargetWorkspace && !isStaleWorkspaceLoad(requestId)) {
           setBannerReadyScopeKey(previousBannerScopeKey)
+          setBannerStatus(workspace.type, "error")
           if (previousSpaceKey) {
             setActiveSpace(previousSpaceKey)
           }
         }
       } finally {
-        if (!isStaleWorkspaceLoad(requestId)) {
-          isSwitchingWorkspaceRef.current = false
-          setIsSwitchingWorkspace(false)
-          setSwitchingToWorkspaceId(null)
+        if (isStaleWorkspaceLoad(requestId)) {
+          setBannerStatus(workspace.type, "idle")
+          logSpaceDebug(`[space] apply skip ${workspace.type}`)
+          return
         }
+        isSwitchingWorkspaceRef.current = false
+        setIsSwitchingWorkspace(false)
+        setSwitchingToWorkspaceId(null)
+        logSpaceDebug(`[space] apply ok ${workspace.type}`)
       }
     },
-    [activeSpaceKey, bannerReadyScopeKey, disableDataFetch, fetchAccounts, fetchCategories, fetchGoalsData, fetchIncomeSources, fetchTransactions, isStaleWorkspaceLoad, setActiveSpace]
+    [activeSpaceKey, bannerReadyScopeKey, disableDataFetch, fetchAccounts, fetchCategories, fetchGoalsData, fetchIncomeSources, fetchTransactions, isStaleWorkspaceLoad, logSpaceDebug, setActiveSpace, setBannerStatus]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -574,11 +598,38 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
   }, [activeSpaceKey, initialActiveWorkspace, initialWorkspaces, setActiveSpace])
 
   useEffect(() => {
-    if (bannerScopeSeededRef.current) return
     if (!activeSpaceKey) return
-    setBannerReadyScopeKey(activeSpaceKey)
-    bannerScopeSeededRef.current = true
-  }, [activeSpaceKey])
+    const bannerStatus = bannerStatusByScopeKey[activeSpaceKey]
+
+    if (bannerStatus === "success") {
+      if (bannerReadyScopeKey !== activeSpaceKey) {
+        setBannerReadyScopeKey(activeSpaceKey)
+      }
+      return
+    }
+
+    if (bannerStatus === "loading") {
+      if (!isSwitchingWorkspaceRef.current) {
+        setBannerStatus(activeSpaceKey, "idle")
+      }
+      return
+    }
+
+    if (disableDataFetch || isSwitchingWorkspaceRef.current) return
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+    if (!token) return
+    const targetWorkspace = workspaces.find((workspace) => workspace.type === activeSpaceKey) ?? null
+    if (!targetWorkspace) return
+    void setActiveWorkspaceRemote(targetWorkspace, token)
+  }, [
+    activeSpaceKey,
+    bannerReadyScopeKey,
+    bannerStatusByScopeKey,
+    disableDataFetch,
+    setBannerStatus,
+    setActiveWorkspaceRemote,
+    workspaces,
+  ])
 
   useEffect(() => {
     if (homePeriodMode !== "custom") return
