@@ -312,6 +312,11 @@ function App() {
     activeSpaceKeyRef.current = appActiveSpaceKey
   }, [appActiveSpaceKey])
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    console.debug("[nav] activeScreen", activeScreen)
+  }, [activeScreen])
+
   const setOverviewStatus = useCallback((spaceKey: SpaceKey, status: BannerLoadStatus) => {
     setOverviewStatusBySpaceKey((prev) => {
       if (prev[spaceKey] === status) return prev
@@ -948,7 +953,6 @@ function App() {
             onOpenWorkspaceSwitcher={openWorkspaceModal}
             isDataReadyForActiveSpace={overviewDataReadyForActiveSpace}
             isDataLoadingForActiveSpace={overviewDataLoadingForActiveSpace}
-            key={`goals-list-${goalsListMode}`}
           />
         )
       case "receivables":
@@ -1027,7 +1031,6 @@ function App() {
             onOpenWorkspaceSwitcher={openWorkspaceModal}
             isDataReadyForActiveSpace={overviewDataReadyForActiveSpace}
             isDataLoadingForActiveSpace={overviewDataLoadingForActiveSpace}
-            key={`goals-list-${goalsListMode}`}
           />
         )
       case "add":
