@@ -20,6 +20,7 @@ const VIEWED_KEY = "home_stories_viewed"
 
 type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { first_name?: string } } } } }
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
+type SpaceKey = Workspace["type"]
 type HomePeriodMode = "day" | "week" | "month" | "quarter" | "year" | "custom"
 
 const HOME_PERIOD_OPTIONS: Array<{ key: HomePeriodMode; label: string }> = [
@@ -29,6 +30,8 @@ const HOME_PERIOD_OPTIONS: Array<{ key: HomePeriodMode; label: string }> = [
   { key: "quarter", label: "Квартал" },
   { key: "year", label: "Год" },
 ]
+const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
+const isSpaceKey = (value: string | null): value is SpaceKey => value === "personal" || value === "family"
 
 const capitalizeFirst = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value)
 const formatDayMonth = (value: Date) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(value)
@@ -126,15 +129,21 @@ const getHomePeriodLabel = (mode: HomePeriodMode, customFrom: string, customTo: 
 
 function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace, onOpenQuickAdd }: HomeScreenProps) {
   const { accounts, goals, transactions, setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, currency } = useAppStore()
-  const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(initialActiveWorkspace ?? null)
+  const [activeSpaceKey, setActiveSpaceKeyState] = useState<SpaceKey | null>(() => {
+    if (typeof window === "undefined") return initialActiveWorkspace?.type ?? null
+    const stored = localStorage.getItem(ACTIVE_SPACE_KEY_STORAGE)
+    if (isSpaceKey(stored)) return stored
+    return initialActiveWorkspace?.type ?? null
+  })
   const [workspaces, setWorkspaces] = useState<Workspace[]>(initialWorkspaces ?? [])
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
   const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false)
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false)
   const [switchingToWorkspaceId, setSwitchingToWorkspaceId] = useState<string | null>(null)
-  const [bannerReadyScopeKey, setBannerReadyScopeKey] = useState<string | null>(initialActiveWorkspace?.id ?? null)
+  const [bannerReadyScopeKey, setBannerReadyScopeKey] = useState<SpaceKey | null>(initialActiveWorkspace?.type ?? null)
   const workspaceLoadRequestRef = useRef(0)
-  const bannerScopeSeededRef = useRef(Boolean(initialActiveWorkspace?.id))
+  const bannerScopeSeededRef = useRef(Boolean(initialActiveWorkspace?.type))
+  const isSwitchingWorkspaceRef = useRef(false)
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
   const [accountName, setAccountName] = useState("")
   const [accountType, setAccountType] = useState("cash")
@@ -246,11 +255,11 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     }
   }, [accounts, goals, homePeriodRange.end, homePeriodRange.start, transactions])
   const isBannerDataReady = useMemo(() => {
-    const activeScopeKey = activeWorkspace?.id ?? null
+    const activeScopeKey = activeSpaceKey
     if (!activeScopeKey) return false
     if (isSwitchingWorkspace) return false
     return bannerReadyScopeKey === activeScopeKey
-  }, [activeWorkspace?.id, bannerReadyScopeKey, isSwitchingWorkspace])
+  }, [activeSpaceKey, bannerReadyScopeKey, isSwitchingWorkspace])
   const getBannerValueLabel = useCallback(
     (value: number) => (isBannerDataReady ? formatMoney(value, baseCurrency) : "—"),
     [baseCurrency, isBannerDataReady],
@@ -292,6 +301,23 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     [markViewed, stories]
   )
 
+  const logSpaceDebug = useCallback((message: string) => {
+    if (!import.meta.env.DEV) return
+    // eslint-disable-next-line no-console
+    console.debug(message)
+  }, [])
+
+  const setActiveSpace = useCallback(
+    (nextKey: SpaceKey) => {
+      setActiveSpaceKeyState(nextKey)
+      if (typeof window !== "undefined") {
+        localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, nextKey)
+      }
+      logSpaceDebug(`[space] setActiveSpace ${nextKey}`)
+    },
+    [logSpaceDebug],
+  )
+
   const isStaleWorkspaceLoad = useCallback((requestId: number) => workspaceLoadRequestRef.current !== requestId, [])
 
   const fetchWorkspaces = useCallback(async (token: string) => {
@@ -301,19 +327,25 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
       })
       if (!res.ok) return null
       const data: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await res.json()
-      setActiveWorkspace(data.activeWorkspace)
+      if (data.activeWorkspace?.type) {
+        setActiveSpace(data.activeWorkspace.type)
+      }
       setWorkspaces(data.workspaces ?? [])
       return data
     } catch {
       return null
     }
-  }, [])
+  }, [setActiveSpace])
 
   const fetchAccounts = useCallback(
     async (token: string, requestId: number) => {
       try {
         const data = await getAccounts(token)
-        if (isStaleWorkspaceLoad(requestId)) return
+        if (isStaleWorkspaceLoad(requestId)) {
+          logSpaceDebug("[space] apply skip accounts")
+          return
+        }
+        logSpaceDebug("[space] apply ok accounts")
         const mapped = data.accounts.map((a) => ({
           id: a.id,
           name: a.name,
@@ -330,14 +362,18 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
       }
     },
-    [isStaleWorkspaceLoad, setAccounts]
+    [isStaleWorkspaceLoad, logSpaceDebug, setAccounts]
   )
 
   const fetchCategories = useCallback(
     async (token: string, requestId: number) => {
       try {
         const data = await getCategories(token)
-        if (isStaleWorkspaceLoad(requestId)) return
+        if (isStaleWorkspaceLoad(requestId)) {
+          logSpaceDebug("[space] apply skip categories")
+          return
+        }
+        logSpaceDebug("[space] apply ok categories")
         const mapped = data.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon }))
         setCategories(mapped)
       } catch (err) {
@@ -348,14 +384,18 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
       }
     },
-    [isStaleWorkspaceLoad, setCategories]
+    [isStaleWorkspaceLoad, logSpaceDebug, setCategories]
   )
 
   const fetchIncomeSources = useCallback(
     async (token: string, requestId: number) => {
       try {
         const data = await getIncomeSources(token)
-        if (isStaleWorkspaceLoad(requestId)) return
+        if (isStaleWorkspaceLoad(requestId)) {
+          logSpaceDebug("[space] apply skip income-sources")
+          return
+        }
+        logSpaceDebug("[space] apply ok income-sources")
         const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
         setIncomeSources(mapped)
       } catch (err) {
@@ -366,14 +406,18 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
       }
     },
-    [isStaleWorkspaceLoad, setIncomeSources]
+    [isStaleWorkspaceLoad, logSpaceDebug, setIncomeSources]
   )
 
   const fetchGoalsData = useCallback(
     async (token: string, requestId: number) => {
       try {
         const data = await getGoals(token)
-        if (isStaleWorkspaceLoad(requestId)) return
+        if (isStaleWorkspaceLoad(requestId)) {
+          logSpaceDebug("[space] apply skip goals")
+          return
+        }
+        logSpaceDebug("[space] apply ok goals")
         const mapped = data.goals.map((goal) => ({
           id: goal.id,
           name: goal.name,
@@ -391,14 +435,18 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
       }
     },
-    [isStaleWorkspaceLoad, setGoals]
+    [isStaleWorkspaceLoad, logSpaceDebug, setGoals]
   )
 
   const fetchTransactions = useCallback(
     async (token: string, requestId: number) => {
       try {
         const data = await getTransactions(token)
-        if (isStaleWorkspaceLoad(requestId)) return
+        if (isStaleWorkspaceLoad(requestId)) {
+          logSpaceDebug("[space] apply skip transactions")
+          return
+        }
+        logSpaceDebug("[space] apply ok transactions")
         const mapped = data.transactions.map((t) => ({
           id: t.id,
           type: t.kind,
@@ -421,19 +469,22 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
       }
     },
-    [isStaleWorkspaceLoad, setTransactions]
+    [isStaleWorkspaceLoad, logSpaceDebug, setTransactions]
   )
 
   const setActiveWorkspaceRemote = useCallback(
-    async (workspaceId: string, token: string) => {
+    async (workspace: Workspace, token: string) => {
       if (disableDataFetch) return
-      if (isSwitchingWorkspace) return
+      if (isSwitchingWorkspaceRef.current) return
       const requestId = workspaceLoadRequestRef.current + 1
       workspaceLoadRequestRef.current = requestId
       const previousBannerScopeKey = bannerReadyScopeKey
+      const previousSpaceKey = activeSpaceKey
       let didActivateTargetWorkspace = false
+      isSwitchingWorkspaceRef.current = true
       setIsSwitchingWorkspace(true)
-      setSwitchingToWorkspaceId(workspaceId)
+      setSwitchingToWorkspaceId(workspace.id)
+      setActiveSpace(workspace.type)
       setBannerReadyScopeKey(null)
       try {
         const res = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
@@ -442,7 +493,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ workspaceId }),
+          body: JSON.stringify({ workspaceId: workspace.id }),
         })
         if (!res.ok) {
           const text = await res.text().catch(() => "")
@@ -452,7 +503,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         const data: { activeWorkspaceId: string; activeWorkspace: Workspace } = await res.json()
         if (isStaleWorkspaceLoad(requestId)) return
         didActivateTargetWorkspace = true
-        setActiveWorkspace(data.activeWorkspace)
+        setActiveSpace(data.activeWorkspace.type)
         setIsWorkspaceSheetOpen(false)
         setIsFamilySheetOpen(false)
         await fetchAccounts(token, requestId)
@@ -465,7 +516,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         if (isStaleWorkspaceLoad(requestId)) return
         await fetchTransactions(token, requestId)
         if (isStaleWorkspaceLoad(requestId)) return
-        setBannerReadyScopeKey(workspaceId)
+        setBannerReadyScopeKey(data.activeWorkspace.type)
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)
@@ -474,15 +525,19 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
         if (!didActivateTargetWorkspace && !isStaleWorkspaceLoad(requestId)) {
           setBannerReadyScopeKey(previousBannerScopeKey)
+          if (previousSpaceKey) {
+            setActiveSpace(previousSpaceKey)
+          }
         }
       } finally {
         if (!isStaleWorkspaceLoad(requestId)) {
+          isSwitchingWorkspaceRef.current = false
           setIsSwitchingWorkspace(false)
           setSwitchingToWorkspaceId(null)
         }
       }
     },
-    [bannerReadyScopeKey, disableDataFetch, fetchAccounts, fetchCategories, fetchGoalsData, fetchIncomeSources, fetchTransactions, isStaleWorkspaceLoad, isSwitchingWorkspace]
+    [activeSpaceKey, bannerReadyScopeKey, disableDataFetch, fetchAccounts, fetchCategories, fetchGoalsData, fetchIncomeSources, fetchTransactions, isStaleWorkspaceLoad, setActiveSpace]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -503,7 +558,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
       const refreshed = await fetchWorkspaces(token)
       const family = refreshed?.workspaces.find((w) => w.type === "family") ?? null
       if (family) {
-        await setActiveWorkspaceRemote(family.id, token)
+        await setActiveWorkspaceRemote(family, token)
       } else {
         setIsFamilySheetOpen(false)
       }
@@ -513,15 +568,17 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
 
   useEffect(() => {
     if (initialWorkspaces) setWorkspaces(initialWorkspaces)
-    if (initialActiveWorkspace) setActiveWorkspace(initialActiveWorkspace)
-  }, [initialActiveWorkspace, initialWorkspaces])
+    if (!activeSpaceKey && initialActiveWorkspace?.type) {
+      setActiveSpace(initialActiveWorkspace.type)
+    }
+  }, [activeSpaceKey, initialActiveWorkspace, initialWorkspaces, setActiveSpace])
 
   useEffect(() => {
     if (bannerScopeSeededRef.current) return
-    if (!activeWorkspace?.id) return
-    setBannerReadyScopeKey(activeWorkspace.id)
+    if (!activeSpaceKey) return
+    setBannerReadyScopeKey(activeSpaceKey)
     bannerScopeSeededRef.current = true
-  }, [activeWorkspace?.id])
+  }, [activeSpaceKey])
 
   useEffect(() => {
     if (homePeriodMode !== "custom") return
@@ -540,6 +597,10 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
 
   const personalWorkspace = workspaces.find((w) => w.type === "personal") ?? null
   const familyWorkspace = workspaces.find((w) => w.type === "family") ?? null
+  const activeWorkspace =
+    (activeSpaceKey === "personal" ? personalWorkspace : activeSpaceKey === "family" ? familyWorkspace : null) ??
+    initialActiveWorkspace ??
+    null
 
   return (
     <div className="home-screen">
@@ -809,7 +870,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                     return
                   }
                   if (personalWorkspace) {
-                    void setActiveWorkspaceRemote(personalWorkspace.id, token)
+                    void setActiveWorkspaceRemote(personalWorkspace, token)
                   } else {
                     setIsWorkspaceSheetOpen(false)
                   }
@@ -822,11 +883,11 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                   padding: "12px 14px",
                   borderRadius: 12,
                   border:
-                    personalWorkspace && activeWorkspace?.id === personalWorkspace.id
+                    personalWorkspace && activeSpaceKey === "personal"
                       ? "1px solid rgba(59,130,246,0.4)"
                       : "1px solid rgba(15,23,42,0.08)",
                   background:
-                    personalWorkspace && activeWorkspace?.id === personalWorkspace.id
+                    personalWorkspace && activeSpaceKey === "personal"
                       ? "rgba(59,130,246,0.06)"
                       : "#fff",
                   color: personalWorkspace && !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
@@ -839,7 +900,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                 </div>
                 {switchingToWorkspaceId === personalWorkspace?.id && isSwitchingWorkspace ? (
                   <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
-                ) : personalWorkspace && activeWorkspace?.id === personalWorkspace.id ? (
+                ) : personalWorkspace && activeSpaceKey === "personal" ? (
                   <AppIcon name="more" size={16} />
                 ) : null}
               </button>
@@ -854,7 +915,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                     return
                   }
                   if (familyWorkspace) {
-                    void setActiveWorkspaceRemote(familyWorkspace.id, token)
+                    void setActiveWorkspaceRemote(familyWorkspace, token)
                     return
                   }
                   setIsWorkspaceSheetOpen(false)
@@ -867,11 +928,11 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                   padding: "12px 14px",
                   borderRadius: 12,
                   border:
-                    familyWorkspace && activeWorkspace?.id === familyWorkspace.id
+                    familyWorkspace && activeSpaceKey === "family"
                       ? "1px solid rgba(59,130,246,0.4)"
                       : "1px solid rgba(15,23,42,0.08)",
                   background:
-                    familyWorkspace && activeWorkspace?.id === familyWorkspace.id
+                    familyWorkspace && activeSpaceKey === "family"
                       ? "rgba(59,130,246,0.06)"
                       : "#fff",
                   color: !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
@@ -884,7 +945,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                 </div>
                 {switchingToWorkspaceId === familyWorkspace?.id && isSwitchingWorkspace ? (
                   <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
-                ) : familyWorkspace && activeWorkspace?.id === familyWorkspace.id ? (
+                ) : familyWorkspace && activeSpaceKey === "family" ? (
                   <AppIcon name="more" size={16} />
                 ) : null}
               </button>
