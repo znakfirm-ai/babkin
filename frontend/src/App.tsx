@@ -313,6 +313,7 @@ function App() {
     })
   }, [])
   const activeOverviewStatus = overviewStatusBySpaceKey[appActiveSpaceKey]
+  const isOverviewScreenActive = activeScreen === "overview" || activeScreen === "receivables"
 
   const isStaleOverviewReload = useCallback((spaceKey: SpaceKey, requestId?: number) => {
     if (requestId !== undefined && workspaceSwitchRequestRef.current !== requestId) return true
@@ -578,12 +579,16 @@ function App() {
   )
 
   useEffect(() => {
+    if (!isOverviewScreenActive) return
     if (!appToken || appLoading) return
-    if (activeOverviewStatus === "loading" && overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
     if (overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
+    if (activeOverviewStatus === "error") return
     if (overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewStatus === "success") return
-    void retryOverviewData({ spaceKey: appActiveSpaceKey, markLoading: true })
-  }, [activeOverviewStatus, appActiveSpaceKey, appLoading, appToken, overviewAppliedSpaceKey, retryOverviewData])
+    void retryOverviewData({
+      spaceKey: appActiveSpaceKey,
+      markLoading: activeOverviewStatus !== "loading",
+    })
+  }, [activeOverviewStatus, appActiveSpaceKey, appLoading, appToken, isOverviewScreenActive, overviewAppliedSpaceKey, retryOverviewData])
 
   const prevScreen = useRef<ScreenKey>("overview")
   const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
