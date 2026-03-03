@@ -661,10 +661,18 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
 
   const personalWorkspace = workspaces.find((w) => w.type === "personal") ?? null
   const familyWorkspace = workspaces.find((w) => w.type === "family") ?? null
-  const activeWorkspace =
-    (activeSpaceKey === "personal" ? personalWorkspace : activeSpaceKey === "family" ? familyWorkspace : null) ??
-    initialActiveWorkspace ??
-    null
+  const activeWorkspace = activeSpaceKey === "personal" ? personalWorkspace : activeSpaceKey === "family" ? familyWorkspace : null
+  const accountLabel = useMemo(() => {
+    if (activeSpaceKey === "family") {
+      const familyName = familyWorkspace?.name?.trim()
+      return familyName && familyName.length > 0 ? familyName : "Семейный"
+    }
+    if (activeSpaceKey === "personal") {
+      const personalName = personalWorkspace?.name?.trim()
+      return personalName && personalName.length > 0 ? personalName : "Личный"
+    }
+    return "Аккаунт"
+  }, [activeSpaceKey, familyWorkspace?.name, personalWorkspace?.name])
   const canOpenWorkspaceSwitcher = Boolean(activeWorkspace) && workspaces.length > 0
   const handleOpenWorkspaceSheet = useCallback(() => {
     if (!canOpenWorkspaceSwitcher) return
@@ -705,10 +713,10 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
           type="button"
           className="home-header__name-btn"
           onClick={handleOpenWorkspaceSheet}
-          aria-label="Переключить аккаунт"
+          aria-label={`Переключить аккаунт. Текущий: ${accountLabel}`}
           disabled={!canOpenWorkspaceSwitcher}
         >
-          <span className="home-header__name-text">{userDisplayName}</span>
+          <span className="home-header__name-text">{accountLabel}</span>
           <span className="home-header__name-caret" aria-hidden="true">
             ▾
           </span>
