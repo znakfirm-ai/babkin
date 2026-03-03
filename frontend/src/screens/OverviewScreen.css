@@ -5,9 +5,10 @@
 }
 
 .overview__header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 16px;
 }
 
@@ -39,7 +40,8 @@
   font-size: 13px;
   color: #6b7280;
   text-transform: capitalize;
-  justify-self: end;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .summary {

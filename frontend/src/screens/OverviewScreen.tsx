@@ -2514,7 +2514,6 @@ function TransactionsPanel({
   return (
     <div className="overview">
       <div className="overview__header">
-        <div className="overview__header-spacer" />
         <button
           type="button"
           className="home-header__name-btn"

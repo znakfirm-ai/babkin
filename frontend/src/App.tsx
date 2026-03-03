@@ -153,6 +153,7 @@ function App() {
   const [autoOpenGoalsList, setAutoOpenGoalsList] = useState(false)
   const [autoOpenGoalCreate, setAutoOpenGoalCreate] = useState(false)
   const [autoOpenWorkspaceSheet, setAutoOpenWorkspaceSheet] = useState(false)
+  const [workspaceSheetReturnTarget, setWorkspaceSheetReturnTarget] = useState<{ nav: NavItem; screen: ScreenKey } | null>(null)
   const [savedIncomeReportState, setSavedIncomeReportState] = useState<{
     periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
     monthOffset: number
@@ -457,11 +458,20 @@ function App() {
   }, [appToken, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setTransactions])
 
   const prevScreen = useRef<ScreenKey>("overview")
+  const handleWorkspaceSheetClosed = useCallback(() => {
+    setAutoOpenWorkspaceSheet(false)
+    if (!workspaceSheetReturnTarget) return
+    setActiveNav(workspaceSheetReturnTarget.nav)
+    setActiveScreen(workspaceSheetReturnTarget.screen)
+    setWorkspaceSheetReturnTarget(null)
+  }, [workspaceSheetReturnTarget])
+
   const openWorkspaceSwitcherFromOverview = useCallback(() => {
+    setWorkspaceSheetReturnTarget({ nav: activeNav, screen: activeScreen })
     setAutoOpenWorkspaceSheet(true)
     setActiveNav("home")
     setActiveScreen("home")
-  }, [])
+  }, [activeNav, activeScreen])
 
   const overviewWorkspacePresentation = useCallback(() => {
     const fallbackLabel = "Личный"
@@ -514,6 +524,7 @@ function App() {
             initialActiveWorkspace={appActiveWorkspace}
             autoOpenWorkspaceSheet={autoOpenWorkspaceSheet}
             onConsumeAutoOpenWorkspaceSheet={() => setAutoOpenWorkspaceSheet(false)}
+            onWorkspaceSheetClosed={handleWorkspaceSheetClosed}
             onOpenQuickAdd={(tab) => {
               if (tab === "debt") {
                 openQuickAddScreen("debt", null, null, "receivable")

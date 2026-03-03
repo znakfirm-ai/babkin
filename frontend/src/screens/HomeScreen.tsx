@@ -17,6 +17,7 @@ type HomeScreenProps = {
   onOpenQuickAdd?: (tab: "expense" | "income" | "debt" | "goal") => void
   autoOpenWorkspaceSheet?: boolean
   onConsumeAutoOpenWorkspaceSheet?: () => void
+  onWorkspaceSheetClosed?: () => void
 }
 const VIEWED_KEY = "home_stories_viewed"
 
@@ -195,6 +196,7 @@ function HomeScreen({
   onOpenQuickAdd,
   autoOpenWorkspaceSheet = false,
   onConsumeAutoOpenWorkspaceSheet,
+  onWorkspaceSheetClosed,
 }: HomeScreenProps) {
   const workspaceMetaStorageKey = getWorkspaceMetaStorageKey()
   const { accounts, goals, transactions, setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, currency } = useAppStore()
@@ -618,6 +620,7 @@ function HomeScreen({
         didActivateTargetWorkspace = true
         setActiveSpace(data.activeWorkspace.type)
         setIsWorkspaceSheetOpen(false)
+        onWorkspaceSheetClosed?.()
         setIsFamilySheetOpen(false)
         await fetchAccounts(token, requestId)
         if (isStaleWorkspaceLoad(requestId)) return
@@ -656,7 +659,7 @@ function HomeScreen({
         logSpaceDebug(`[space] apply ok ${workspace.type}`)
       }
     },
-    [activeSpaceKey, bannerReadyScopeKey, disableDataFetch, fetchAccounts, fetchCategories, fetchGoalsData, fetchIncomeSources, fetchTransactions, isStaleWorkspaceLoad, logSpaceDebug, setActiveSpace, setBannerStatus]
+    [activeSpaceKey, bannerReadyScopeKey, disableDataFetch, fetchAccounts, fetchCategories, fetchGoalsData, fetchIncomeSources, fetchTransactions, isStaleWorkspaceLoad, logSpaceDebug, onWorkspaceSheetClosed, setActiveSpace, setBannerStatus]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -793,7 +796,8 @@ function HomeScreen({
   const closeWorkspaceSheet = useCallback(() => {
     setWorkspaceModalView("list")
     setIsWorkspaceSheetOpen(false)
-  }, [])
+    onWorkspaceSheetClosed?.()
+  }, [onWorkspaceSheetClosed])
 
   const openWorkspaceSettings = useCallback((targetKey: SpaceKey) => {
     setWorkspaceSettingsTargetKey(targetKey)
