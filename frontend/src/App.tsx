@@ -220,9 +220,9 @@ function App() {
   } | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
-  const overviewRefreshRunRef = useRef(0)
   const appSettleInFlightRef = useRef(false)
   const appSettleDoneRef = useRef(false)
+  const initInFlightRef = useRef(false)
 
   interface TelegramWebApp {
     ready(): void
@@ -315,11 +315,6 @@ function App() {
     activeSpaceKeyRef.current = appActiveSpaceKey
   }, [appActiveSpaceKey])
 
-  useEffect(() => {
-    if (!import.meta.env.DEV) return
-    console.debug("[nav] activeScreen", activeScreen)
-  }, [activeScreen])
-
   const setOverviewStatus = useCallback((spaceKey: SpaceKey, status: BannerLoadStatus) => {
     setOverviewStatusBySpaceKey((prev) => {
       if (prev[spaceKey] === status) return prev
@@ -341,7 +336,11 @@ function App() {
   }, [])
 
   const initApp = useCallback(async () => {
-    if (initDone.current) return
+    if (initDone.current || initInFlightRef.current) return
+    initInFlightRef.current = true
+    if (import.meta.env.DEV) {
+      console.debug("[app-init] start")
+    }
     setAppLoading(true)
     setAppSettling(true)
     appSettleDoneRef.current = false
@@ -470,14 +469,24 @@ function App() {
       initDone.current = true
       setAppLoading(false)
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setAppLoading(false)
+        setAppSettling(false)
+        return
+      }
       setAppInitError(err instanceof Error ? err.message : "Init error")
       setAppLoading(false)
       setAppSettling(false)
+    } finally {
+      initInFlightRef.current = false
+      if (import.meta.env.DEV) {
+        console.debug("[app-init] done")
+      }
     }
   }, [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setOverviewUiPhase, setTransactions])
 
   useEffect(() => {
-    if (!initDone.current) {
+    if (!initDone.current && !initInFlightRef.current) {
       void initApp()
     }
   }, [initApp])
@@ -495,14 +504,6 @@ function App() {
         return false
       }
       overviewInFlightBySpaceRef.current[targetSpaceKey] = true
-      const refreshRunId = overviewRefreshRunRef.current + 1
-      overviewRefreshRunRef.current = refreshRunId
-      if (import.meta.env.DEV) {
-        console.debug("[overview] refresh:start", {
-          runId: refreshRunId,
-          spaceKey: targetSpaceKey,
-        })
-      }
       if (markLoading) {
         setOverviewStatus(targetSpaceKey, "loading")
         setOverviewUiPhase(targetSpaceKey, "loading")
@@ -612,13 +613,6 @@ function App() {
         return false
       } finally {
         overviewInFlightBySpaceRef.current[targetSpaceKey] = false
-        if (import.meta.env.DEV) {
-          console.debug("[overview] refresh:end", {
-            runId: refreshRunId,
-            spaceKey: targetSpaceKey,
-            status: overviewInFlightBySpaceRef.current[targetSpaceKey] ? "loading" : "idle",
-          })
-        }
       }
     },
     [appToken, isStaleOverviewReload, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setOverviewUiPhase, setTransactions],

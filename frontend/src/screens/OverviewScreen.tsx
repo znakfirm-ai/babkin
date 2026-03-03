@@ -1082,13 +1082,6 @@ function OverviewScreen({
   }, [goalSheetIntent, isGoalIconPickerOpen])
 
   const autoOpenGoalsListInFlightRef = useRef(false)
-  useEffect(() => {
-    if (!import.meta.env.DEV) return
-    console.debug("[overview] mount")
-    return () => {
-      console.debug("[overview] unmount")
-    }
-  }, [])
 
   useEffect(() => {
     if (!autoOpenGoalsList || autoOpenGoalsListInFlightRef.current) return
