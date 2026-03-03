@@ -323,6 +323,19 @@
   padding: var(--tile-pad-y) var(--tile-pad-x);
 }
 
+.overview-accounts-row .tile-card--account {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.overview-accounts-row .tile-card--account:focus {
+  outline: none;
+}
+
+.overview-accounts-row .tile-card--account:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.45);
+  outline-offset: 2px;
+}
+
 .overview-accounts-row .tile-card--add {
   flex: 0 0 var(--tile-w);
   width: var(--tile-w);
