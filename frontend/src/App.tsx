@@ -618,18 +618,30 @@ function App() {
     [appToken, isStaleOverviewReload, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setOverviewUiPhase, setTransactions],
   )
 
+  const ensureOverviewReady = useCallback(
+    async (options?: { spaceKey?: SpaceKey; requestId?: number }) => {
+      const targetSpaceKey = options?.spaceKey ?? activeSpaceKeyRef.current
+      const phase = overviewUiPhaseBySpaceKey[targetSpaceKey]
+      if (overviewInFlightBySpaceRef.current[targetSpaceKey]) return false
+      if (phase === "loading") return false
+      if (phase === "error") return false
+      if (overviewAppliedSpaceKey === targetSpaceKey && phase === "ready") return true
+      setOverviewStatus(targetSpaceKey, "loading")
+      setOverviewUiPhase(targetSpaceKey, "loading")
+      return retryOverviewData({
+        spaceKey: targetSpaceKey,
+        requestId: options?.requestId,
+        markLoading: false,
+      })
+    },
+    [overviewAppliedSpaceKey, overviewUiPhaseBySpaceKey, retryOverviewData, setOverviewStatus, setOverviewUiPhase],
+  )
+
   useEffect(() => {
     if (!isOverviewScreenActive) return
     if (!appToken || appLoading) return
-    if (activeOverviewUiPhase === "loading") return
-    if (overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
-    if (activeOverviewUiPhase === "error") return
-    if (overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewUiPhase === "ready") return
-    void retryOverviewData({
-      spaceKey: appActiveSpaceKey,
-      markLoading: true,
-    })
-  }, [activeOverviewUiPhase, appActiveSpaceKey, appLoading, appToken, isOverviewScreenActive, overviewAppliedSpaceKey, retryOverviewData])
+    void ensureOverviewReady({ spaceKey: appActiveSpaceKey })
+  }, [appActiveSpaceKey, appLoading, appToken, ensureOverviewReady, isOverviewScreenActive])
 
   const prevScreen = useRef<ScreenKey>("overview")
   const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
@@ -782,10 +794,9 @@ function App() {
         }
         closeWorkspaceModal()
         setIsWorkspaceFamilySheetOpen(false)
-        await retryOverviewData({
+        await ensureOverviewReady({
           spaceKey: data.activeWorkspace.type,
           requestId,
-          markLoading: false,
         })
       } catch {
         if (workspaceSwitchRequestRef.current !== requestId) return
@@ -798,7 +809,7 @@ function App() {
         setSwitchingToWorkspaceId(null)
       }
     },
-    [closeWorkspaceModal, overviewAppliedSpaceKey, retryOverviewData, setOverviewStatus, setOverviewUiPhase],
+    [closeWorkspaceModal, ensureOverviewReady, overviewAppliedSpaceKey, setOverviewStatus, setOverviewUiPhase],
   )
 
   const createFamilyWorkspace = useCallback(async () => {
