@@ -132,13 +132,6 @@
   animation: overview-loading-pulse 1.2s ease-in-out infinite;
 }
 
-.overview-loading__hint {
-  margin-top: 10px;
-  font-size: 12px;
-  color: #64748b;
-  text-align: center;
-}
-
 @keyframes overview-loading-pulse {
   0% {
     background-position: 200% 0;

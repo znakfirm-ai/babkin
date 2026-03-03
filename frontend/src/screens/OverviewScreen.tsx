@@ -428,8 +428,7 @@ type OverviewScreenProps = {
   workspaceAccountIcon?: string
   canOpenWorkspaceSwitcher?: boolean
   onOpenWorkspaceSwitcher?: () => void
-  isDataReadyForActiveSpace?: boolean
-  isDataLoadingForActiveSpace?: boolean
+  isOverviewLoading?: boolean
 }
 
 function OverviewScreen({
@@ -462,8 +461,7 @@ function OverviewScreen({
   workspaceAccountIcon = "Л",
   canOpenWorkspaceSwitcher = false,
   onOpenWorkspaceSwitcher,
-  isDataReadyForActiveSpace = true,
-  isDataLoadingForActiveSpace = false,
+  isOverviewLoading = false,
 }: OverviewScreenProps) {
   const {
     accounts,
@@ -2523,7 +2521,7 @@ function TransactionsPanel({
     )
   }
 
-  if (!isDataReadyForActiveSpace && isDataLoadingForActiveSpace) {
+  if (isOverviewLoading) {
     return (
       <div className="overview">
         <div className="overview__header">
@@ -2566,11 +2564,6 @@ function TransactionsPanel({
           <div className="overview-loading__section-block" />
           <div className="overview-loading__section-block" />
         </section>
-        {isDataLoadingForActiveSpace ? (
-          <div className="overview-loading__hint" aria-live="polite">
-            Обновляем пространство
-          </div>
-        ) : null}
       </div>
     )
   }

@@ -863,8 +863,6 @@ function App() {
     },
     [activeScreen],
   )
-  const overviewDataReadyForActiveSpace =
-    activeOverviewUiPhase === "ready" && overviewAppliedSpaceKey === appActiveSpaceKey
   const overviewDataLoadingForActiveSpace =
     activeOverviewUiPhase === "loading" || activeOverviewUiPhase === "idle"
 
@@ -963,8 +961,7 @@ function App() {
             workspaceAccountIcon={accountIcon}
             canOpenWorkspaceSwitcher={canOpenWorkspaceSwitcher}
             onOpenWorkspaceSwitcher={openWorkspaceModal}
-            isDataReadyForActiveSpace={overviewDataReadyForActiveSpace}
-            isDataLoadingForActiveSpace={overviewDataLoadingForActiveSpace}
+            isOverviewLoading={overviewDataLoadingForActiveSpace}
           />
         )
       case "receivables":
@@ -1041,8 +1038,7 @@ function App() {
             workspaceAccountIcon={accountIcon}
             canOpenWorkspaceSwitcher={canOpenWorkspaceSwitcher}
             onOpenWorkspaceSwitcher={openWorkspaceModal}
-            isDataReadyForActiveSpace={overviewDataReadyForActiveSpace}
-            isDataLoadingForActiveSpace={overviewDataLoadingForActiveSpace}
+            isOverviewLoading={overviewDataLoadingForActiveSpace}
           />
         )
       case "add":
