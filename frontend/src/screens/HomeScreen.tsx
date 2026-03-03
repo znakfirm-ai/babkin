@@ -38,6 +38,10 @@ const WORKSPACE_META_STORAGE_PREFIX = "workspaceMetaByKey"
 const isSpaceKey = (value: string | null): value is SpaceKey => value === "personal" || value === "family"
 const bannerStatusCache: Partial<Record<SpaceKey, BannerLoadStatus>> = {}
 const WORKSPACE_NAME_LIMIT = 32
+const DEFAULT_WORKSPACE_META: Record<SpaceKey, WorkspaceMeta> = {
+  personal: { name: "", icon: "" },
+  family: { name: "", icon: "" },
+}
 
 const capitalizeFirst = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value)
 const formatDayMonth = (value: Date) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(value)
@@ -143,13 +147,47 @@ const getWorkspaceMetaStorageKey = () => {
 const normalizeWorkspaceIcon = (value: string) => {
   const trimmed = value.trim()
   if (!trimmed) return ""
+  const SegmenterCtor =
+    typeof Intl !== "undefined"
+      ? (Intl as typeof Intl & {
+          Segmenter?: new (
+            locales?: string | string[],
+            options?: { granularity?: "grapheme" },
+          ) => { segment: (input: string) => Iterable<{ segment: string }> }
+        }).Segmenter
+      : undefined
+  if (SegmenterCtor) {
+    const firstSegment = Array.from(new SegmenterCtor("ru", { granularity: "grapheme" }).segment(trimmed))[0]?.segment
+    if (firstSegment) return firstSegment.trim()
+  }
   const symbol = Array.from(trimmed)[0]
   return symbol ? symbol.trim() : ""
 }
 
 const buildWorkspaceFallbackLabel = (spaceKey: SpaceKey) => (spaceKey === "family" ? "Семейный" : "Личный")
+const readWorkspaceMeta = (storageKey: string): Record<SpaceKey, WorkspaceMeta> => {
+  if (typeof window === "undefined") return DEFAULT_WORKSPACE_META
+  try {
+    const raw = localStorage.getItem(storageKey)
+    if (!raw) return DEFAULT_WORKSPACE_META
+    const parsed = JSON.parse(raw) as Partial<Record<SpaceKey, Partial<WorkspaceMeta>>>
+    return {
+      personal: {
+        name: typeof parsed.personal?.name === "string" ? parsed.personal.name : "",
+        icon: typeof parsed.personal?.icon === "string" ? parsed.personal.icon : "",
+      },
+      family: {
+        name: typeof parsed.family?.name === "string" ? parsed.family.name : "",
+        icon: typeof parsed.family?.icon === "string" ? parsed.family.icon : "",
+      },
+    }
+  } catch {
+    return DEFAULT_WORKSPACE_META
+  }
+}
 
 function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace, onOpenQuickAdd }: HomeScreenProps) {
+  const workspaceMetaStorageKey = getWorkspaceMetaStorageKey()
   const { accounts, goals, transactions, setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, currency } = useAppStore()
   const [activeSpaceKey, setActiveSpaceKeyState] = useState<SpaceKey | null>(() => {
     if (typeof window === "undefined") return initialActiveWorkspace?.type ?? null
@@ -163,31 +201,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
   const [workspaceSettingsTargetKey, setWorkspaceSettingsTargetKey] = useState<SpaceKey>("personal")
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState("")
   const [workspaceIconDraft, setWorkspaceIconDraft] = useState("")
-  const [workspaceMetaByKey, setWorkspaceMetaByKey] = useState<Record<SpaceKey, WorkspaceMeta>>(() => {
-    const defaults: Record<SpaceKey, WorkspaceMeta> = {
-      personal: { name: "", icon: "" },
-      family: { name: "", icon: "" },
-    }
-    if (typeof window === "undefined") return defaults
-    try {
-      const raw = localStorage.getItem(getWorkspaceMetaStorageKey())
-      if (!raw) return defaults
-      const parsed = JSON.parse(raw) as Partial<Record<SpaceKey, Partial<WorkspaceMeta>>>
-      const next: Record<SpaceKey, WorkspaceMeta> = {
-        personal: {
-          name: typeof parsed.personal?.name === "string" ? parsed.personal.name : "",
-          icon: typeof parsed.personal?.icon === "string" ? parsed.personal.icon : "",
-        },
-        family: {
-          name: typeof parsed.family?.name === "string" ? parsed.family.name : "",
-          icon: typeof parsed.family?.icon === "string" ? parsed.family.icon : "",
-        },
-      }
-      return next
-    } catch {
-      return defaults
-    }
-  })
+  const [workspaceMetaByKey, setWorkspaceMetaByKey] = useState<Record<SpaceKey, WorkspaceMeta>>(() => readWorkspaceMeta(workspaceMetaStorageKey))
   const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false)
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false)
   const [switchingToWorkspaceId, setSwitchingToWorkspaceId] = useState<string | null>(null)
@@ -378,8 +392,8 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
 
   const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
     if (typeof window === "undefined") return
-    localStorage.setItem(getWorkspaceMetaStorageKey(), JSON.stringify(next))
-  }, [])
+    localStorage.setItem(workspaceMetaStorageKey, JSON.stringify(next))
+  }, [workspaceMetaStorageKey])
 
   const updateWorkspaceMeta = useCallback(
     (spaceKey: SpaceKey, patch: Partial<WorkspaceMeta>) => {
@@ -668,6 +682,10 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
       setActiveSpace(initialActiveWorkspace.type)
     }
   }, [activeSpaceKey, initialActiveWorkspace, initialWorkspaces, setActiveSpace])
+
+  useEffect(() => {
+    setWorkspaceMetaByKey(readWorkspaceMeta(workspaceMetaStorageKey))
+  }, [workspaceMetaStorageKey])
 
   useEffect(() => {
     if (!activeSpaceKey) return
@@ -1067,15 +1085,17 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                 type="button"
                 onClick={goBackWorkspaceModal}
                 style={{
-                  width: 28,
-                  height: 28,
+                  width: 44,
+                  height: 44,
                   border: "none",
-                  background: "transparent",
-                  borderRadius: 8,
+                  background: workspaceModalView === "list" ? "transparent" : "rgba(15,23,42,0.05)",
+                  borderRadius: 12,
                   display: "grid",
                   placeItems: "center",
-                  color: workspaceModalView === "list" ? "transparent" : "#64748b",
+                  color: workspaceModalView === "list" ? "transparent" : "#334155",
                   cursor: workspaceModalView === "list" ? "default" : "pointer",
+                  fontSize: 24,
+                  lineHeight: 1,
                 }}
                 aria-label="Назад"
                 disabled={workspaceModalView === "list"}
@@ -1091,7 +1111,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                       ? "Изменить название"
                       : "Выбрать иконку"}
               </div>
-              <div style={{ width: 28, height: 28 }} />
+              <div style={{ width: 44, height: 44 }} />
             </div>
             {workspaceModalView === "list" ? (
               <div style={{ display: "grid", gap: 8 }}>
@@ -1161,7 +1181,10 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                       <div style={{ fontSize: 12, color: "#6b7280" }}>personal</div>
                     </div>
                   </button>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", flexShrink: 0 }}>
+                    {switchingToWorkspaceId === personalWorkspace?.id && isSwitchingWorkspace ? (
+                      <span style={{ fontSize: 12, color: "#6b7280", minWidth: 64, textAlign: "right" }}>Переключаем…</span>
+                    ) : null}
                     <button
                       type="button"
                       onClick={(event) => {
@@ -1183,13 +1206,6 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                     >
                       <AppIcon name="settings" size={20} />
                     </button>
-                    {switchingToWorkspaceId === personalWorkspace?.id && isSwitchingWorkspace ? (
-                      <span style={{ fontSize: 12, color: "#6b7280", minWidth: 64, textAlign: "right" }}>Переключаем…</span>
-                    ) : personalWorkspace && activeSpaceKey === "personal" ? (
-                      <span style={{ fontSize: 13, color: "#64748b", minWidth: 14, textAlign: "center" }}>✓</span>
-                    ) : (
-                      <span style={{ minWidth: 14 }} />
-                    )}
                   </div>
                 </div>
 
@@ -1259,7 +1275,10 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                       <div style={{ fontSize: 12, color: "#6b7280" }}>family</div>
                     </div>
                   </button>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", flexShrink: 0 }}>
+                    {switchingToWorkspaceId === familyWorkspace?.id && isSwitchingWorkspace ? (
+                      <span style={{ fontSize: 12, color: "#6b7280", minWidth: 64, textAlign: "right" }}>Переключаем…</span>
+                    ) : null}
                     <button
                       type="button"
                       onClick={(event) => {
@@ -1281,13 +1300,6 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                     >
                       <AppIcon name="settings" size={20} />
                     </button>
-                    {switchingToWorkspaceId === familyWorkspace?.id && isSwitchingWorkspace ? (
-                      <span style={{ fontSize: 12, color: "#6b7280", minWidth: 64, textAlign: "right" }}>Переключаем…</span>
-                    ) : familyWorkspace && activeSpaceKey === "family" ? (
-                      <span style={{ fontSize: 13, color: "#64748b", minWidth: 14, textAlign: "center" }}>✓</span>
-                    ) : (
-                      <span style={{ minWidth: 14 }} />
-                    )}
                   </div>
                 </div>
               </div>
