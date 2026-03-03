@@ -167,6 +167,7 @@ function App() {
   const [appInitError, setAppInitError] = useState<string | null>(null)
   const [overviewError, setOverviewError] = useState<string | null>(null)
   const [appToken, setAppToken] = useState<string | null>(null)
+  const [appSettling, setAppSettling] = useState(true)
   const [appWorkspaces, setAppWorkspaces] = useState<Workspace[]>([])
   const [appActiveWorkspace, setAppActiveWorkspace] = useState<Workspace | null>(null)
   const [appActiveSpaceKey, setAppActiveSpaceKey] = useState<SpaceKey>(() => {
@@ -220,6 +221,8 @@ function App() {
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
   const overviewRefreshRunRef = useRef(0)
+  const appSettleInFlightRef = useRef(false)
+  const appSettleDoneRef = useRef(false)
 
   interface TelegramWebApp {
     ready(): void
@@ -340,6 +343,8 @@ function App() {
   const initApp = useCallback(async () => {
     if (initDone.current) return
     setAppLoading(true)
+    setAppSettling(true)
+    appSettleDoneRef.current = false
     setAppInitError(null)
     try {
       let token = localStorage.getItem("auth_access_token")
@@ -467,6 +472,7 @@ function App() {
     } catch (err) {
       setAppInitError(err instanceof Error ? err.message : "Init error")
       setAppLoading(false)
+      setAppSettling(false)
     }
   }, [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setOverviewUiPhase, setTransactions])
 
@@ -640,8 +646,34 @@ function App() {
   useEffect(() => {
     if (!isOverviewScreenActive) return
     if (!appToken || appLoading) return
+    if (appSettling) return
     void ensureOverviewReady({ spaceKey: appActiveSpaceKey })
-  }, [appActiveSpaceKey, appLoading, appToken, ensureOverviewReady, isOverviewScreenActive])
+  }, [appActiveSpaceKey, appLoading, appSettling, appToken, ensureOverviewReady, isOverviewScreenActive])
+
+  useEffect(() => {
+    if (appSettleDoneRef.current) return
+    if (appLoading || !appToken) return
+    if (overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewUiPhase === "ready") {
+      appSettleDoneRef.current = true
+      setAppSettling(false)
+      return
+    }
+    if (appSettleInFlightRef.current) return
+    appSettleInFlightRef.current = true
+    void ensureOverviewReady({ spaceKey: appActiveSpaceKey })
+      .catch(() => {
+        // ignore; phase is handled by ensureOverviewReady
+      })
+      .finally(() => {
+        appSettleInFlightRef.current = false
+        const currentSpaceKey = activeSpaceKeyRef.current
+        const currentPhase = overviewUiPhaseBySpaceKey[currentSpaceKey]
+        if (currentPhase === "ready" || currentPhase === "error") {
+          appSettleDoneRef.current = true
+          setAppSettling(false)
+        }
+      })
+  }, [activeOverviewUiPhase, appActiveSpaceKey, appLoading, appToken, ensureOverviewReady, overviewAppliedSpaceKey, overviewUiPhaseBySpaceKey])
 
   const prevScreen = useRef<ScreenKey>("overview")
   const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
@@ -961,7 +993,7 @@ function App() {
             workspaceAccountIcon={accountIcon}
             canOpenWorkspaceSwitcher={canOpenWorkspaceSwitcher}
             onOpenWorkspaceSwitcher={openWorkspaceModal}
-            isOverviewLoading={overviewDataLoadingForActiveSpace}
+            isOverviewLoading={appSettling || overviewDataLoadingForActiveSpace}
           />
         )
       case "receivables":
@@ -1038,7 +1070,7 @@ function App() {
             workspaceAccountIcon={accountIcon}
             canOpenWorkspaceSwitcher={canOpenWorkspaceSwitcher}
             onOpenWorkspaceSwitcher={openWorkspaceModal}
-            isOverviewLoading={overviewDataLoadingForActiveSpace}
+            isOverviewLoading={appSettling || overviewDataLoadingForActiveSpace}
           />
         )
       case "add":
