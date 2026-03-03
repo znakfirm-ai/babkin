@@ -24,6 +24,7 @@ import "./App.css"
 type Workspace = { id: string; type: "personal" | "family"; name: string | null }
 type SpaceKey = Workspace["type"]
 type BannerLoadStatus = "idle" | "loading" | "success" | "error"
+type OverviewUiPhase = "idle" | "loading" | "ready" | "error"
 type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "quick-add" | "icons-preview" | "receivables"
 type GoalsListMode = "goals" | "debtsReceivable" | "debtsPayable"
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
@@ -186,7 +187,11 @@ function App() {
   const isSwitchingWorkspaceRef = useRef(false)
   const activeSpaceKeyRef = useRef<SpaceKey>(appActiveSpaceKey)
   const [overviewAppliedSpaceKey, setOverviewAppliedSpaceKey] = useState<SpaceKey | null>(null)
-  const [overviewStatusBySpaceKey, setOverviewStatusBySpaceKey] = useState<Record<SpaceKey, BannerLoadStatus>>({
+  const [, setOverviewStatusBySpaceKey] = useState<Record<SpaceKey, BannerLoadStatus>>({
+    personal: "idle",
+    family: "idle",
+  })
+  const [overviewUiPhaseBySpaceKey, setOverviewUiPhaseBySpaceKey] = useState<Record<SpaceKey, OverviewUiPhase>>({
     personal: "idle",
     family: "idle",
   })
@@ -313,7 +318,13 @@ function App() {
       return { ...prev, [spaceKey]: status }
     })
   }, [])
-  const activeOverviewStatus = overviewStatusBySpaceKey[appActiveSpaceKey]
+  const setOverviewUiPhase = useCallback((spaceKey: SpaceKey, phase: OverviewUiPhase) => {
+    setOverviewUiPhaseBySpaceKey((prev) => {
+      if (prev[spaceKey] === phase) return prev
+      return { ...prev, [spaceKey]: phase }
+    })
+  }, [])
+  const activeOverviewUiPhase = overviewUiPhaseBySpaceKey[appActiveSpaceKey]
   const isOverviewScreenActive = activeScreen === "overview" || activeScreen === "receivables"
 
   const isStaleOverviewReload = useCallback((spaceKey: SpaceKey, requestId?: number) => {
@@ -358,6 +369,7 @@ function App() {
         setAppActiveSpaceKey(wsData.activeWorkspace.type)
         localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, wsData.activeWorkspace.type)
         setOverviewStatus(wsData.activeWorkspace.type, "loading")
+        setOverviewUiPhase(wsData.activeWorkspace.type, "loading")
       }
 
       try {
@@ -431,6 +443,7 @@ function App() {
         if (wsData.activeWorkspace?.type) {
           setOverviewAppliedSpaceKey(wsData.activeWorkspace.type)
           setOverviewStatus(wsData.activeWorkspace.type, "success")
+          setOverviewUiPhase(wsData.activeWorkspace.type, "ready")
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
@@ -439,6 +452,7 @@ function App() {
         }
         if (wsData.activeWorkspace?.type) {
           setOverviewStatus(wsData.activeWorkspace.type, "error")
+          setOverviewUiPhase(wsData.activeWorkspace.type, "error")
         }
         setOverviewError("Ошибка загрузки данных")
       }
@@ -449,7 +463,7 @@ function App() {
       setAppInitError(err instanceof Error ? err.message : "Init error")
       setAppLoading(false)
     }
-  }, [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setTransactions])
+  }, [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setOverviewUiPhase, setTransactions])
 
   useEffect(() => {
     if (!initDone.current) {
@@ -466,6 +480,7 @@ function App() {
       if (!appToken) {
         setOverviewError("Нет токена")
         setOverviewStatus(targetSpaceKey, "error")
+        setOverviewUiPhase(targetSpaceKey, "error")
         return false
       }
       overviewInFlightBySpaceRef.current[targetSpaceKey] = true
@@ -479,6 +494,7 @@ function App() {
       }
       if (markLoading) {
         setOverviewStatus(targetSpaceKey, "loading")
+        setOverviewUiPhase(targetSpaceKey, "loading")
       }
       const isStale = () => isStaleOverviewReload(targetSpaceKey, requestId)
       try {
@@ -571,6 +587,7 @@ function App() {
         }
         setOverviewAppliedSpaceKey(targetSpaceKey)
         setOverviewStatus(targetSpaceKey, "success")
+        setOverviewUiPhase(targetSpaceKey, "ready")
         setOverviewError(null)
         return true
       } catch (err) {
@@ -579,6 +596,7 @@ function App() {
           return false
         }
         setOverviewStatus(targetSpaceKey, "error")
+        setOverviewUiPhase(targetSpaceKey, "error")
         setOverviewError("Ошибка загрузки данных")
         return false
       } finally {
@@ -592,21 +610,21 @@ function App() {
         }
       }
     },
-    [appToken, isStaleOverviewReload, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setTransactions],
+    [appToken, isStaleOverviewReload, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setOverviewUiPhase, setTransactions],
   )
 
   useEffect(() => {
     if (!isOverviewScreenActive) return
     if (!appToken || appLoading) return
-    if (activeOverviewStatus === "loading") return
+    if (activeOverviewUiPhase === "loading") return
     if (overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
-    if (activeOverviewStatus === "error") return
-    if (overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewStatus === "success") return
+    if (activeOverviewUiPhase === "error") return
+    if (overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewUiPhase === "ready") return
     void retryOverviewData({
       spaceKey: appActiveSpaceKey,
       markLoading: true,
     })
-  }, [activeOverviewStatus, appActiveSpaceKey, appLoading, appToken, isOverviewScreenActive, overviewAppliedSpaceKey, retryOverviewData])
+  }, [activeOverviewUiPhase, appActiveSpaceKey, appLoading, appToken, isOverviewScreenActive, overviewAppliedSpaceKey, retryOverviewData])
 
   const prevScreen = useRef<ScreenKey>("overview")
   const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
@@ -753,6 +771,7 @@ function App() {
         setAppActiveSpaceKey(data.activeWorkspace.type)
         localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, data.activeWorkspace.type)
         setOverviewStatus(data.activeWorkspace.type, "loading")
+        setOverviewUiPhase(data.activeWorkspace.type, "loading")
         if (overviewAppliedSpaceKey !== data.activeWorkspace.type) {
           setOverviewAppliedSpaceKey(null)
         }
@@ -766,6 +785,7 @@ function App() {
       } catch {
         if (workspaceSwitchRequestRef.current !== requestId) return
         setOverviewStatus(workspace.type, "error")
+        setOverviewUiPhase(workspace.type, "error")
       } finally {
         if (workspaceSwitchRequestRef.current !== requestId) return
         isSwitchingWorkspaceRef.current = false
@@ -773,7 +793,7 @@ function App() {
         setSwitchingToWorkspaceId(null)
       }
     },
-    [closeWorkspaceModal, overviewAppliedSpaceKey, retryOverviewData, setOverviewStatus],
+    [closeWorkspaceModal, overviewAppliedSpaceKey, retryOverviewData, setOverviewStatus, setOverviewUiPhase],
   )
 
   const createFamilyWorkspace = useCallback(async () => {
@@ -828,9 +848,9 @@ function App() {
     [activeScreen],
   )
   const overviewDataReadyForActiveSpace =
-    overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewStatus === "success"
+    activeOverviewUiPhase === "ready" && overviewAppliedSpaceKey === appActiveSpaceKey
   const overviewDataLoadingForActiveSpace =
-    activeOverviewStatus === "loading" || !overviewDataReadyForActiveSpace
+    activeOverviewUiPhase === "loading" || activeOverviewUiPhase === "idle"
 
   const renderScreen = () => {
     switch (activeScreen) {
