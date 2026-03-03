@@ -893,24 +893,25 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             inset: 0,
             background: "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "flex-end",
+            alignItems: "center",
             justifyContent: "center",
+            paddingLeft: 16,
+            paddingRight: 16,
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)",
+            paddingBottom: "calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 12px)",
             zIndex: 30,
           }}
           onClick={() => setIsWorkspaceSheetOpen(false)}
         >
           <div
             style={{
-              width: "100%",
-              maxWidth: 540,
+              width: "min(420px, 100%)",
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
+              borderRadius: 18,
               padding: "14px 16px 20px",
-              boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
-              maxHeight: "70vh",
+              boxShadow: "0 12px 28px rgba(15,23,42,0.16)",
+              maxHeight: "78vh",
               overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
