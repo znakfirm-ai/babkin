@@ -834,7 +834,8 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
   }, [canSaveWorkspaceName, normalizedWorkspaceNameDraft, updateWorkspaceMeta, workspaceSettingsTargetKey])
 
   const handleSaveWorkspaceIcon = useCallback(() => {
-    updateWorkspaceMeta(workspaceSettingsTargetKey, { icon: normalizeWorkspaceIcon(workspaceIconDraft) })
+    const normalizedIcon = normalizeWorkspaceIcon(workspaceIconDraft)
+    updateWorkspaceMeta(workspaceSettingsTargetKey, { icon: normalizedIcon })
     setWorkspaceModalView("settings")
   }, [updateWorkspaceMeta, workspaceIconDraft, workspaceSettingsTargetKey])
 
@@ -1393,18 +1394,46 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             ) : null}
             {workspaceModalView === "edit-icon" ? (
               <div style={{ display: "grid", gap: 10 }}>
-                <input
-                  value={workspaceIconDraft}
-                  onChange={(event) => setWorkspaceIconDraft(event.target.value)}
-                  placeholder="🙂"
-                  style={{
-                    width: "100%",
-                    borderRadius: 12,
-                    border: "1px solid rgba(15,23,42,0.12)",
-                    padding: "12px 14px",
-                    fontSize: 16,
-                  }}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    value={workspaceIconDraft}
+                    onChange={(event) => setWorkspaceIconDraft(event.target.value)}
+                    placeholder="Введите emoji или оставьте пустым"
+                    style={{
+                      width: "100%",
+                      borderRadius: 12,
+                      border: "1px solid rgba(15,23,42,0.12)",
+                      padding: "12px 44px 12px 14px",
+                      fontSize: 16,
+                    }}
+                  />
+                  {workspaceIconDraft.trim().length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceIconDraft("")}
+                      aria-label="Очистить иконку"
+                      style={{
+                        position: "absolute",
+                        top: "50%",
+                        right: 8,
+                        transform: "translateY(-50%)",
+                        width: 30,
+                        height: 30,
+                        border: "none",
+                        borderRadius: 9999,
+                        background: "rgba(15,23,42,0.06)",
+                        color: "#475569",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: 16,
+                        lineHeight: 1,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ×
+                    </button>
+                  ) : null}
+                </div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <button
                     type="button"
