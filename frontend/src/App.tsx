@@ -214,6 +214,7 @@ function App() {
   } | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
+  const overviewRefreshRunRef = useRef(0)
 
   interface TelegramWebApp {
     ready(): void
@@ -353,6 +354,7 @@ function App() {
       setAppWorkspaces(wsData.workspaces ?? [])
       setAppActiveWorkspace(wsData.activeWorkspace ?? null)
       if (wsData.activeWorkspace?.type) {
+        activeSpaceKeyRef.current = wsData.activeWorkspace.type
         setAppActiveSpaceKey(wsData.activeWorkspace.type)
         localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, wsData.activeWorkspace.type)
         setOverviewStatus(wsData.activeWorkspace.type, "loading")
@@ -467,6 +469,14 @@ function App() {
         return false
       }
       overviewInFlightBySpaceRef.current[targetSpaceKey] = true
+      const refreshRunId = overviewRefreshRunRef.current + 1
+      overviewRefreshRunRef.current = refreshRunId
+      if (import.meta.env.DEV) {
+        console.debug("[overview] refresh:start", {
+          runId: refreshRunId,
+          spaceKey: targetSpaceKey,
+        })
+      }
       if (markLoading) {
         setOverviewStatus(targetSpaceKey, "loading")
       }
@@ -573,6 +583,13 @@ function App() {
         return false
       } finally {
         overviewInFlightBySpaceRef.current[targetSpaceKey] = false
+        if (import.meta.env.DEV) {
+          console.debug("[overview] refresh:end", {
+            runId: refreshRunId,
+            spaceKey: targetSpaceKey,
+            status: overviewInFlightBySpaceRef.current[targetSpaceKey] ? "loading" : "idle",
+          })
+        }
       }
     },
     [appToken, isStaleOverviewReload, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setTransactions],
@@ -581,12 +598,13 @@ function App() {
   useEffect(() => {
     if (!isOverviewScreenActive) return
     if (!appToken || appLoading) return
+    if (activeOverviewStatus === "loading") return
     if (overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
     if (activeOverviewStatus === "error") return
     if (overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewStatus === "success") return
     void retryOverviewData({
       spaceKey: appActiveSpaceKey,
-      markLoading: activeOverviewStatus !== "loading",
+      markLoading: true,
     })
   }, [activeOverviewStatus, appActiveSpaceKey, appLoading, appToken, isOverviewScreenActive, overviewAppliedSpaceKey, retryOverviewData])
 
@@ -731,6 +749,7 @@ function App() {
         const data: { activeWorkspace: Workspace } = await response.json()
         if (workspaceSwitchRequestRef.current !== requestId) return
         setAppActiveWorkspace(data.activeWorkspace)
+        activeSpaceKeyRef.current = data.activeWorkspace.type
         setAppActiveSpaceKey(data.activeWorkspace.type)
         localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, data.activeWorkspace.type)
         setOverviewStatus(data.activeWorkspace.type, "loading")
@@ -776,6 +795,7 @@ function App() {
       const data: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await refreshed.json()
       setAppWorkspaces(data.workspaces ?? [])
       if (data.activeWorkspace) {
+        activeSpaceKeyRef.current = data.activeWorkspace.type
         setAppActiveWorkspace(data.activeWorkspace)
         setAppActiveSpaceKey(data.activeWorkspace.type)
         localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, data.activeWorkspace.type)
