@@ -776,13 +776,12 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     setIsWorkspaceSheetOpen(false)
   }, [])
 
-  const openWorkspaceSettings = useCallback(() => {
-    const targetKey: SpaceKey = activeSpaceKey === "family" ? "family" : "personal"
+  const openWorkspaceSettings = useCallback((targetKey: SpaceKey) => {
     setWorkspaceSettingsTargetKey(targetKey)
     setWorkspaceNameDraft(targetKey === "family" ? familyAccountLabel : personalAccountLabel)
     setWorkspaceIconDraft(targetKey === "family" ? workspaceMetaByKey.family.icon : workspaceMetaByKey.personal.icon)
     setWorkspaceModalView("settings")
-  }, [activeSpaceKey, familyAccountLabel, personalAccountLabel, workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon])
+  }, [familyAccountLabel, personalAccountLabel, workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon])
 
   const openWorkspaceNameEditor = useCallback(() => {
     const currentLabel = workspaceSettingsTargetKey === "family" ? familyAccountLabel : personalAccountLabel
@@ -1092,46 +1091,16 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                       ? "Изменить название"
                       : "Выбрать иконку"}
               </div>
-              <button
-                type="button"
-                onClick={openWorkspaceSettings}
-                style={{
-                  width: 28,
-                  height: 28,
-                  border: "none",
-                  background: "transparent",
-                  borderRadius: 8,
-                  display: "grid",
-                  placeItems: "center",
-                  color: workspaceModalView === "list" ? "#64748b" : "transparent",
-                  cursor: workspaceModalView === "list" ? "pointer" : "default",
-                }}
-                aria-label="Настройки аккаунта"
-                disabled={workspaceModalView !== "list"}
-              >
-                <AppIcon name="settings" size={16} />
-              </button>
+              <div style={{ width: 28, height: 28 }} />
             </div>
             {workspaceModalView === "list" ? (
               <div style={{ display: "grid", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isSwitchingWorkspace) return
-                    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-                    if (!token) return
-                    if (personalWorkspace) {
-                      void setActiveWorkspaceRemote(personalWorkspace, token)
-                    } else {
-                      closeWorkspaceSheet()
-                    }
-                  }}
-                  disabled={!personalWorkspace}
+                <div
                   style={{
                     display: "flex",
-                    justifyContent: "space-between",
                     alignItems: "center",
-                    padding: "12px 14px",
+                    gap: 6,
+                    padding: "6px 8px",
                     borderRadius: 12,
                     border:
                       personalWorkspace && activeSpaceKey === "personal"
@@ -1141,11 +1110,35 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                       personalWorkspace && activeSpaceKey === "personal"
                         ? "rgba(59,130,246,0.06)"
                         : "#fff",
-                    color: personalWorkspace && !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
-                    cursor: personalWorkspace && !isSwitchingWorkspace ? "pointer" : "not-allowed",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isSwitchingWorkspace) return
+                      const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                      if (!token) return
+                      if (personalWorkspace) {
+                        void setActiveWorkspaceRemote(personalWorkspace, token)
+                      } else {
+                        closeWorkspaceSheet()
+                      }
+                    }}
+                    disabled={!personalWorkspace}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      minWidth: 0,
+                      flex: 1,
+                      border: "none",
+                      background: "transparent",
+                      padding: "6px",
+                      color: personalWorkspace && !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
+                      textAlign: "left",
+                      cursor: personalWorkspace && !isSwitchingWorkspace ? "pointer" : "not-allowed",
+                    }}
+                  >
                     <div
                       style={{
                         width: 24,
@@ -1167,32 +1160,45 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                       </div>
                       <div style={{ fontSize: 12, color: "#6b7280" }}>personal</div>
                     </div>
+                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        openWorkspaceSettings("personal")
+                      }}
+                      aria-label={`Настройки аккаунта: ${personalAccountLabel}`}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        border: "none",
+                        background: "rgba(15,23,42,0.06)",
+                        borderRadius: 12,
+                        color: "#475569",
+                        display: "grid",
+                        placeItems: "center",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <AppIcon name="settings" size={20} />
+                    </button>
+                    {switchingToWorkspaceId === personalWorkspace?.id && isSwitchingWorkspace ? (
+                      <span style={{ fontSize: 12, color: "#6b7280", minWidth: 64, textAlign: "right" }}>Переключаем…</span>
+                    ) : personalWorkspace && activeSpaceKey === "personal" ? (
+                      <span style={{ fontSize: 13, color: "#64748b", minWidth: 14, textAlign: "center" }}>✓</span>
+                    ) : (
+                      <span style={{ minWidth: 14 }} />
+                    )}
                   </div>
-                  {switchingToWorkspaceId === personalWorkspace?.id && isSwitchingWorkspace ? (
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
-                  ) : personalWorkspace && activeSpaceKey === "personal" ? (
-                    <span style={{ fontSize: 13, color: "#64748b" }}>✓</span>
-                  ) : null}
-                </button>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isSwitchingWorkspace) return
-                    const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-                    if (!token) return
-                    if (familyWorkspace) {
-                      void setActiveWorkspaceRemote(familyWorkspace, token)
-                      return
-                    }
-                    closeWorkspaceSheet()
-                    setIsFamilySheetOpen(true)
-                  }}
+                <div
                   style={{
                     display: "flex",
-                    justifyContent: "space-between",
                     alignItems: "center",
-                    padding: "12px 14px",
+                    gap: 6,
+                    padding: "6px 8px",
                     borderRadius: 12,
                     border:
                       familyWorkspace && activeSpaceKey === "family"
@@ -1202,11 +1208,35 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                       familyWorkspace && activeSpaceKey === "family"
                         ? "rgba(59,130,246,0.06)"
                         : "#fff",
-                    color: !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
-                    cursor: !isSwitchingWorkspace ? "pointer" : "not-allowed",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isSwitchingWorkspace) return
+                      const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
+                      if (!token) return
+                      if (familyWorkspace) {
+                        void setActiveWorkspaceRemote(familyWorkspace, token)
+                        return
+                      }
+                      closeWorkspaceSheet()
+                      setIsFamilySheetOpen(true)
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      minWidth: 0,
+                      flex: 1,
+                      border: "none",
+                      background: "transparent",
+                      padding: "6px",
+                      color: !isSwitchingWorkspace ? "#0f172a" : "#9ca3af",
+                      textAlign: "left",
+                      cursor: !isSwitchingWorkspace ? "pointer" : "not-allowed",
+                    }}
+                  >
                     <div
                       style={{
                         width: 24,
@@ -1228,13 +1258,38 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
                       </div>
                       <div style={{ fontSize: 12, color: "#6b7280" }}>family</div>
                     </div>
+                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        openWorkspaceSettings("family")
+                      }}
+                      aria-label={`Настройки аккаунта: ${familyAccountLabel}`}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        border: "none",
+                        background: "rgba(15,23,42,0.06)",
+                        borderRadius: 12,
+                        color: "#475569",
+                        display: "grid",
+                        placeItems: "center",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <AppIcon name="settings" size={20} />
+                    </button>
+                    {switchingToWorkspaceId === familyWorkspace?.id && isSwitchingWorkspace ? (
+                      <span style={{ fontSize: 12, color: "#6b7280", minWidth: 64, textAlign: "right" }}>Переключаем…</span>
+                    ) : familyWorkspace && activeSpaceKey === "family" ? (
+                      <span style={{ fontSize: 13, color: "#64748b", minWidth: 14, textAlign: "center" }}>✓</span>
+                    ) : (
+                      <span style={{ minWidth: 14 }} />
+                    )}
                   </div>
-                  {switchingToWorkspaceId === familyWorkspace?.id && isSwitchingWorkspace ? (
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>Переключаем…</span>
-                  ) : familyWorkspace && activeSpaceKey === "family" ? (
-                    <span style={{ fontSize: 13, color: "#64748b" }}>✓</span>
-                  ) : null}
-                </button>
+                </div>
               </div>
             ) : null}
             {workspaceModalView === "settings" ? (
