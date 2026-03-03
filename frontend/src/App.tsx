@@ -213,6 +213,16 @@ function App() {
     singleDay: string
   } | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
+  type OverviewSnapshot = {
+    accounts: Parameters<typeof setAccounts>[0]
+    categories: Parameters<typeof setCategories>[0]
+    incomeSources: Parameters<typeof setIncomeSources>[0]
+    goals: Parameters<typeof setGoals>[0]
+    debtors: Parameters<typeof setDebtors>[0]
+    transactions: Parameters<typeof setTransactions>[0]
+  }
+  const overviewSnapshotBySpaceRef = useRef<Partial<Record<SpaceKey, OverviewSnapshot>>>({})
+  const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
 
   interface TelegramWebApp {
     ready(): void
@@ -317,6 +327,18 @@ function App() {
     return activeSpaceKeyRef.current !== spaceKey
   }, [])
 
+  const applyOverviewSnapshot = useCallback(
+    (snapshot: OverviewSnapshot) => {
+      setAccounts(snapshot.accounts)
+      setCategories(snapshot.categories)
+      setIncomeSources(snapshot.incomeSources)
+      setGoals(snapshot.goals)
+      setDebtors(snapshot.debtors)
+      setTransactions(snapshot.transactions)
+    },
+    [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setTransactions],
+  )
+
   const initApp = useCallback(async () => {
     if (initDone.current) return
     setAppLoading(true)
@@ -357,25 +379,25 @@ function App() {
 
       try {
         const accData = await getAccounts(token)
-        setAccounts(
-          accData.accounts.map((a) => ({
-            id: a.id,
-            name: a.name,
-            balance: { amount: a.balance, currency: a.currency },
-            color: a.color ?? undefined,
-            icon: a.icon ?? null,
-          }))
-        )
+        const mappedAccounts = accData.accounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: { amount: a.balance, currency: a.currency },
+          color: a.color ?? undefined,
+          icon: a.icon ?? null,
+        }))
+        setAccounts(mappedAccounts)
 
         const catData = await getCategories(token)
-        setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null })))
+        const mappedCategories = catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null }))
+        setCategories(mappedCategories)
 
-      const incData = await getIncomeSources(token)
-      setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })))
+        const incData = await getIncomeSources(token)
+        const mappedIncomeSources = incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
+        setIncomeSources(mappedIncomeSources)
 
-      const goalsData = await getGoals(token)
-      setGoals(
-        goalsData.goals.map((g) => ({
+        const goalsData = await getGoals(token)
+        const mappedGoals = goalsData.goals.map((g) => ({
           id: g.id,
           name: g.name,
           icon: g.icon,
@@ -383,11 +405,10 @@ function App() {
           currentAmount: Number(g.currentAmount),
           status: g.status,
         }))
-      )
+        setGoals(mappedGoals)
 
-      const debtorsData = await getDebtors(token)
-      setDebtors(
-        debtorsData.debtors.map((d) => ({
+        const debtorsData = await getDebtors(token)
+        const mappedDebtors = debtorsData.debtors.map((d) => ({
           id: d.id,
           name: d.name,
           icon: d.icon,
@@ -397,12 +418,11 @@ function App() {
           returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
           status: d.status,
           direction: d.direction ?? "receivable",
-        })),
-      )
+        }))
+        setDebtors(mappedDebtors)
 
-      const txData = await getTransactions(token)
-      setTransactions(
-        txData.transactions.map((t) => ({
+        const txData = await getTransactions(token)
+        const mappedTransactions = txData.transactions.map((t) => ({
           id: t.id,
           type: t.kind,
             amount: {
@@ -423,9 +443,17 @@ function App() {
             debtorId: t.debtorId ?? undefined,
             debtorName: t.debtorName ?? null,
           }))
-        )
+        setTransactions(mappedTransactions)
         setOverviewError(null)
         if (wsData.activeWorkspace?.type) {
+          overviewSnapshotBySpaceRef.current[wsData.activeWorkspace.type] = {
+            accounts: mappedAccounts,
+            categories: mappedCategories,
+            incomeSources: mappedIncomeSources,
+            goals: mappedGoals,
+            debtors: mappedDebtors,
+            transactions: mappedTransactions,
+          }
           setOverviewAppliedSpaceKey(wsData.activeWorkspace.type)
           setOverviewStatus(wsData.activeWorkspace.type, "success")
         }
@@ -459,11 +487,13 @@ function App() {
       const targetSpaceKey = options?.spaceKey ?? activeSpaceKeyRef.current
       const requestId = options?.requestId
       const markLoading = options?.markLoading ?? true
+      if (overviewInFlightBySpaceRef.current[targetSpaceKey]) return false
       if (!appToken) {
         setOverviewError("Нет токена")
         setOverviewStatus(targetSpaceKey, "error")
         return false
       }
+      overviewInFlightBySpaceRef.current[targetSpaceKey] = true
       if (markLoading) {
         setOverviewStatus(targetSpaceKey, "loading")
       }
@@ -471,99 +501,98 @@ function App() {
       try {
         const accData = await getAccounts(appToken)
         if (isStale()) {
-          setOverviewStatus(targetSpaceKey, "idle")
           return false
         }
-        setAccounts(
-          accData.accounts.map((a) => ({
-            id: a.id,
-            name: a.name,
-            balance: { amount: a.balance, currency: a.currency },
-            color: a.color ?? undefined,
-            icon: a.icon ?? null,
-          })),
-        )
+        const mappedAccounts = accData.accounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: { amount: a.balance, currency: a.currency },
+          color: a.color ?? undefined,
+          icon: a.icon ?? null,
+        }))
+        setAccounts(mappedAccounts)
 
         const catData = await getCategories(appToken)
         if (isStale()) {
-          setOverviewStatus(targetSpaceKey, "idle")
           return false
         }
-        setCategories(catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null })))
+        const mappedCategories = catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null }))
+        setCategories(mappedCategories)
 
         const incData = await getIncomeSources(appToken)
         if (isStale()) {
-          setOverviewStatus(targetSpaceKey, "idle")
           return false
         }
-        setIncomeSources(incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })))
+        const mappedIncomeSources = incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
+        setIncomeSources(mappedIncomeSources)
 
         const goalsData = await getGoals(appToken)
         if (isStale()) {
-          setOverviewStatus(targetSpaceKey, "idle")
           return false
         }
-        setGoals(
-          goalsData.goals.map((g) => ({
-            id: g.id,
-            name: g.name,
-            icon: g.icon,
-            targetAmount: Number(g.targetAmount),
-            currentAmount: Number(g.currentAmount),
-            status: g.status,
-          })),
-        )
+        const mappedGoals = goalsData.goals.map((g) => ({
+          id: g.id,
+          name: g.name,
+          icon: g.icon,
+          targetAmount: Number(g.targetAmount),
+          currentAmount: Number(g.currentAmount),
+          status: g.status,
+        }))
+        setGoals(mappedGoals)
 
         const debtorsData = await getDebtors(appToken)
         if (isStale()) {
-          setOverviewStatus(targetSpaceKey, "idle")
           return false
         }
-        setDebtors(
-          debtorsData.debtors.map((d) => ({
-            id: d.id,
-            name: d.name,
-            icon: d.icon,
-            issuedDate: d.issuedAt.slice(0, 10),
-            loanAmount: Number(d.principalAmount),
-            dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
-            returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
-            status: d.status,
-            direction: d.direction ?? "receivable",
-          })),
-        )
+        const mappedDebtors = debtorsData.debtors.map((d) => ({
+          id: d.id,
+          name: d.name,
+          icon: d.icon,
+          issuedDate: d.issuedAt.slice(0, 10),
+          loanAmount: Number(d.principalAmount),
+          dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
+          returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
+          status: d.status,
+          direction: d.direction ?? "receivable",
+        }))
+        setDebtors(mappedDebtors)
 
         const txData = await getTransactions(appToken)
         if (isStale()) {
-          setOverviewStatus(targetSpaceKey, "idle")
           return false
         }
-        setTransactions(
-          txData.transactions.map((t) => ({
-            id: t.id,
-            type: t.kind,
-            amount: {
-              amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
-              currency: "RUB",
-            },
-            date: t.happenedAt,
-            accountId: t.accountId ?? t.fromAccountId ?? "",
-            accountName: t.accountName ?? null,
-            fromAccountId: t.fromAccountId ?? undefined,
-            fromAccountName: t.fromAccountName ?? null,
-            categoryId: t.categoryId ?? undefined,
-            incomeSourceId: t.incomeSourceId ?? undefined,
-            toAccountId: t.toAccountId ?? undefined,
-            toAccountName: t.toAccountName ?? null,
-            goalId: t.goalId ?? undefined,
-            goalName: t.goalName ?? null,
-            debtorId: t.debtorId ?? undefined,
-            debtorName: t.debtorName ?? null,
-          })),
-        )
+        const mappedTransactions = txData.transactions.map((t) => ({
+          id: t.id,
+          type: t.kind,
+          amount: {
+            amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+            currency: "RUB",
+          },
+          date: t.happenedAt,
+          accountId: t.accountId ?? t.fromAccountId ?? "",
+          accountName: t.accountName ?? null,
+          fromAccountId: t.fromAccountId ?? undefined,
+          fromAccountName: t.fromAccountName ?? null,
+          categoryId: t.categoryId ?? undefined,
+          incomeSourceId: t.incomeSourceId ?? undefined,
+          toAccountId: t.toAccountId ?? undefined,
+          toAccountName: t.toAccountName ?? null,
+          goalId: t.goalId ?? undefined,
+          goalName: t.goalName ?? null,
+          debtorId: t.debtorId ?? undefined,
+          debtorName: t.debtorName ?? null,
+        }))
+        setTransactions(mappedTransactions)
         if (isStale()) {
-          setOverviewStatus(targetSpaceKey, "idle")
           return false
+        }
+        overviewSnapshotBySpaceRef.current[targetSpaceKey] = {
+          accounts: mappedAccounts,
+          categories: mappedCategories,
+          incomeSources: mappedIncomeSources,
+          goals: mappedGoals,
+          debtors: mappedDebtors,
+          transactions: mappedTransactions,
         }
         setOverviewAppliedSpaceKey(targetSpaceKey)
         setOverviewStatus(targetSpaceKey, "success")
@@ -572,24 +601,33 @@ function App() {
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return false
         if (isStale()) {
-          setOverviewStatus(targetSpaceKey, "idle")
           return false
         }
         setOverviewStatus(targetSpaceKey, "error")
         setOverviewError("Ошибка загрузки данных")
         return false
+      } finally {
+        overviewInFlightBySpaceRef.current[targetSpaceKey] = false
       }
     },
     [appToken, isStaleOverviewReload, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setTransactions],
   )
 
   useEffect(() => {
+    const cachedSnapshot = overviewSnapshotBySpaceRef.current[appActiveSpaceKey]
     const currentStatus = overviewStatusBySpaceKey[appActiveSpaceKey]
     if (!appToken) return
-    if (currentStatus === "loading") return
+    if (cachedSnapshot && overviewAppliedSpaceKey !== appActiveSpaceKey) {
+      applyOverviewSnapshot(cachedSnapshot)
+      setOverviewAppliedSpaceKey(appActiveSpaceKey)
+      setOverviewStatus(appActiveSpaceKey, "success")
+      return
+    }
+    if (currentStatus === "loading" && overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
+    if (overviewInFlightBySpaceRef.current[appActiveSpaceKey]) return
     if (overviewAppliedSpaceKey === appActiveSpaceKey && currentStatus === "success") return
-    void retryOverviewData({ spaceKey: appActiveSpaceKey, markLoading: true })
-  }, [appActiveSpaceKey, appToken, overviewAppliedSpaceKey, overviewStatusBySpaceKey, retryOverviewData])
+    void retryOverviewData({ spaceKey: appActiveSpaceKey, markLoading: !cachedSnapshot })
+  }, [appActiveSpaceKey, appToken, applyOverviewSnapshot, overviewAppliedSpaceKey, overviewStatusBySpaceKey, retryOverviewData, setOverviewStatus])
 
   const prevScreen = useRef<ScreenKey>("overview")
   const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
@@ -734,13 +772,24 @@ function App() {
         setAppActiveWorkspace(data.activeWorkspace)
         setAppActiveSpaceKey(data.activeWorkspace.type)
         localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, data.activeWorkspace.type)
-        setOverviewStatus(data.activeWorkspace.type, "loading")
-        if (overviewAppliedSpaceKey !== data.activeWorkspace.type) {
-          setOverviewAppliedSpaceKey(null)
+        const cachedSnapshot = overviewSnapshotBySpaceRef.current[data.activeWorkspace.type]
+        if (cachedSnapshot) {
+          applyOverviewSnapshot(cachedSnapshot)
+          setOverviewAppliedSpaceKey(data.activeWorkspace.type)
+          setOverviewStatus(data.activeWorkspace.type, "success")
+        } else {
+          setOverviewStatus(data.activeWorkspace.type, "loading")
+          if (overviewAppliedSpaceKey !== data.activeWorkspace.type) {
+            setOverviewAppliedSpaceKey(null)
+          }
         }
         closeWorkspaceModal()
         setIsWorkspaceFamilySheetOpen(false)
-        await retryOverviewData({ spaceKey: data.activeWorkspace.type, requestId, markLoading: false })
+        await retryOverviewData({
+          spaceKey: data.activeWorkspace.type,
+          requestId,
+          markLoading: !cachedSnapshot,
+        })
       } catch {
         if (workspaceSwitchRequestRef.current !== requestId) return
         setOverviewStatus(workspace.type, "error")
@@ -751,7 +800,7 @@ function App() {
         setSwitchingToWorkspaceId(null)
       }
     },
-    [closeWorkspaceModal, overviewAppliedSpaceKey, retryOverviewData, setOverviewStatus],
+    [applyOverviewSnapshot, closeWorkspaceModal, overviewAppliedSpaceKey, retryOverviewData, setOverviewStatus],
   )
 
   const createFamilyWorkspace = useCallback(async () => {
