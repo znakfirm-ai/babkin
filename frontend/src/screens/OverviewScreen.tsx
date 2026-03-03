@@ -426,6 +426,7 @@ type OverviewScreenProps = {
   skipGoalsListRefetch?: boolean
   workspaceAccountLabel?: string
   workspaceAccountIcon?: string
+  activeSpaceKey?: "personal" | "family"
   canOpenWorkspaceSwitcher?: boolean
   onOpenWorkspaceSwitcher?: () => void
   isOverviewLoading?: boolean
@@ -459,6 +460,7 @@ function OverviewScreen({
   skipGoalsListRefetch = false,
   workspaceAccountLabel = "Личный",
   workspaceAccountIcon = "Л",
+  activeSpaceKey = "personal",
   canOpenWorkspaceSwitcher = false,
   onOpenWorkspaceSwitcher,
   isOverviewLoading = false,
@@ -698,6 +700,20 @@ function OverviewScreen({
     const now = new Date()
     return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(now).replace(/\s*г\.$/u, "")
   }, [])
+  const overviewRenderKey = useMemo(() => `${activeSpaceKey}:${monthLabel}`, [activeSpaceKey, monthLabel])
+  const [latchedReadyKey, setLatchedReadyKey] = useState<string | null>(null)
+  const lastOverviewRenderKeyRef = useRef(overviewRenderKey)
+  useEffect(() => {
+    if (lastOverviewRenderKeyRef.current === overviewRenderKey) return
+    lastOverviewRenderKeyRef.current = overviewRenderKey
+    setLatchedReadyKey(null)
+  }, [overviewRenderKey])
+  useEffect(() => {
+    if (isOverviewLoading) return
+    if (latchedReadyKey === overviewRenderKey) return
+    setLatchedReadyKey(overviewRenderKey)
+  }, [isOverviewLoading, latchedReadyKey, overviewRenderKey])
+  const showOverviewSkeleton = latchedReadyKey !== overviewRenderKey
 
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
@@ -2521,7 +2537,7 @@ function TransactionsPanel({
     )
   }
 
-  if (isOverviewLoading) {
+  if (showOverviewSkeleton) {
     return (
       <div className="overview">
         <div className="overview__header">

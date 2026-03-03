@@ -991,6 +991,7 @@ function App() {
             skipGoalsListRefetch={skipGoalsListRefetch}
             workspaceAccountLabel={accountLabel}
             workspaceAccountIcon={accountIcon}
+            activeSpaceKey={appActiveSpaceKey}
             canOpenWorkspaceSwitcher={canOpenWorkspaceSwitcher}
             onOpenWorkspaceSwitcher={openWorkspaceModal}
             isOverviewLoading={appSettling || overviewDataLoadingForActiveSpace}
@@ -1068,6 +1069,7 @@ function App() {
             skipGoalsListRefetch={skipGoalsListRefetch}
             workspaceAccountLabel={accountLabel}
             workspaceAccountIcon={accountIcon}
+            activeSpaceKey={appActiveSpaceKey}
             canOpenWorkspaceSwitcher={canOpenWorkspaceSwitcher}
             onOpenWorkspaceSwitcher={openWorkspaceModal}
             isOverviewLoading={appSettling || overviewDataLoadingForActiveSpace}
