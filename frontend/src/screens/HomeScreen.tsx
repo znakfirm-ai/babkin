@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AppIcon } from "../components/AppIcon"
 import type { IconName } from "../components/AppIcon"
 import { createAccount, getAccounts } from "../api/accounts"
 import { getCategories } from "../api/categories"
 import { getTransactions } from "../api/transactions"
 import { getIncomeSources } from "../api/incomeSources"
+import { getGoals } from "../api/goals"
 import { useAppStore } from "../store/useAppStore"
 import { CURRENCIES, formatMoney, normalizeCurrency } from "../utils/formatMoney"
 
@@ -124,13 +125,16 @@ const getHomePeriodLabel = (mode: HomePeriodMode, customFrom: string, customTo: 
 }
 
 function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActiveWorkspace, onOpenQuickAdd }: HomeScreenProps) {
-  const { accounts, goals, transactions, setAccounts, setCategories, setIncomeSources, setTransactions, currency } = useAppStore()
+  const { accounts, goals, transactions, setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, currency } = useAppStore()
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(initialActiveWorkspace ?? null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>(initialWorkspaces ?? [])
   const [isWorkspaceSheetOpen, setIsWorkspaceSheetOpen] = useState(false)
   const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false)
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false)
   const [switchingToWorkspaceId, setSwitchingToWorkspaceId] = useState<string | null>(null)
+  const [bannerReadyScopeKey, setBannerReadyScopeKey] = useState<string | null>(initialActiveWorkspace?.id ?? null)
+  const workspaceLoadRequestRef = useRef(0)
+  const bannerScopeSeededRef = useRef(Boolean(initialActiveWorkspace?.id))
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
   const [accountName, setAccountName] = useState("")
   const [accountType, setAccountType] = useState("cash")
@@ -241,6 +245,16 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
       balance,
     }
   }, [accounts, goals, homePeriodRange.end, homePeriodRange.start, transactions])
+  const isBannerDataReady = useMemo(() => {
+    const activeScopeKey = activeWorkspace?.id ?? null
+    if (!activeScopeKey) return false
+    if (isSwitchingWorkspace) return false
+    return bannerReadyScopeKey === activeScopeKey
+  }, [activeWorkspace?.id, bannerReadyScopeKey, isSwitchingWorkspace])
+  const getBannerValueLabel = useCallback(
+    (value: number) => (isBannerDataReady ? formatMoney(value, baseCurrency) : "—"),
+    [baseCurrency, isBannerDataReady],
+  )
   const handleHomePeriodSelect = useCallback(
     (nextMode: HomePeriodMode) => {
       setHomePeriodMode(nextMode)
@@ -278,6 +292,8 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     [markViewed, stories]
   )
 
+  const isStaleWorkspaceLoad = useCallback((requestId: number) => workspaceLoadRequestRef.current !== requestId, [])
+
   const fetchWorkspaces = useCallback(async (token: string) => {
     try {
       const res = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
@@ -294,9 +310,10 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
   }, [])
 
   const fetchAccounts = useCallback(
-    async (token: string) => {
+    async (token: string, requestId: number) => {
       try {
         const data = await getAccounts(token)
+        if (isStaleWorkspaceLoad(requestId)) return
         const mapped = data.accounts.map((a) => ({
           id: a.id,
           name: a.name,
@@ -313,13 +330,14 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
       }
     },
-    [setAccounts]
+    [isStaleWorkspaceLoad, setAccounts]
   )
 
   const fetchCategories = useCallback(
-    async (token: string) => {
+    async (token: string, requestId: number) => {
       try {
         const data = await getCategories(token)
+        if (isStaleWorkspaceLoad(requestId)) return
         const mapped = data.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon }))
         setCategories(mapped)
       } catch (err) {
@@ -330,13 +348,14 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
       }
     },
-    [setCategories]
+    [isStaleWorkspaceLoad, setCategories]
   )
 
   const fetchIncomeSources = useCallback(
-    async (token: string) => {
+    async (token: string, requestId: number) => {
       try {
         const data = await getIncomeSources(token)
+        if (isStaleWorkspaceLoad(requestId)) return
         const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
         setIncomeSources(mapped)
       } catch (err) {
@@ -347,13 +366,39 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
       }
     },
-    [setIncomeSources]
+    [isStaleWorkspaceLoad, setIncomeSources]
+  )
+
+  const fetchGoalsData = useCallback(
+    async (token: string, requestId: number) => {
+      try {
+        const data = await getGoals(token)
+        if (isStaleWorkspaceLoad(requestId)) return
+        const mapped = data.goals.map((goal) => ({
+          id: goal.id,
+          name: goal.name,
+          icon: goal.icon,
+          targetAmount: Number(goal.targetAmount),
+          currentAmount: Number(goal.currentAmount),
+          status: goal.status,
+        }))
+        setGoals(mapped)
+      } catch (err) {
+        if (err instanceof Error) {
+          alert(err.message)
+        } else {
+          alert("Не удалось загрузить цели")
+        }
+      }
+    },
+    [isStaleWorkspaceLoad, setGoals]
   )
 
   const fetchTransactions = useCallback(
-    async (token: string) => {
+    async (token: string, requestId: number) => {
       try {
         const data = await getTransactions(token)
+        if (isStaleWorkspaceLoad(requestId)) return
         const mapped = data.transactions.map((t) => ({
           id: t.id,
           type: t.kind,
@@ -376,15 +421,20 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
         }
       }
     },
-    [setTransactions]
+    [isStaleWorkspaceLoad, setTransactions]
   )
 
   const setActiveWorkspaceRemote = useCallback(
     async (workspaceId: string, token: string) => {
       if (disableDataFetch) return
       if (isSwitchingWorkspace) return
+      const requestId = workspaceLoadRequestRef.current + 1
+      workspaceLoadRequestRef.current = requestId
+      const previousBannerScopeKey = bannerReadyScopeKey
+      let didActivateTargetWorkspace = false
       setIsSwitchingWorkspace(true)
       setSwitchingToWorkspaceId(workspaceId)
+      setBannerReadyScopeKey(null)
       try {
         const res = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
           method: "PATCH",
@@ -398,26 +448,41 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
           const text = await res.text().catch(() => "")
           throw new Error(`Не удалось переключить пространство: ${res.status} ${text}`)
         }
+        if (isStaleWorkspaceLoad(requestId)) return
         const data: { activeWorkspaceId: string; activeWorkspace: Workspace } = await res.json()
+        if (isStaleWorkspaceLoad(requestId)) return
+        didActivateTargetWorkspace = true
         setActiveWorkspace(data.activeWorkspace)
         setIsWorkspaceSheetOpen(false)
         setIsFamilySheetOpen(false)
-        await fetchAccounts(token)
-        await fetchCategories(token)
-        await fetchIncomeSources(token)
-        await fetchTransactions(token)
+        await fetchAccounts(token, requestId)
+        if (isStaleWorkspaceLoad(requestId)) return
+        await fetchCategories(token, requestId)
+        if (isStaleWorkspaceLoad(requestId)) return
+        await fetchIncomeSources(token, requestId)
+        if (isStaleWorkspaceLoad(requestId)) return
+        await fetchGoalsData(token, requestId)
+        if (isStaleWorkspaceLoad(requestId)) return
+        await fetchTransactions(token, requestId)
+        if (isStaleWorkspaceLoad(requestId)) return
+        setBannerReadyScopeKey(workspaceId)
       } catch (err) {
         if (err instanceof Error) {
           alert(err.message)
         } else {
           alert("Не удалось переключить пространство")
         }
+        if (!didActivateTargetWorkspace && !isStaleWorkspaceLoad(requestId)) {
+          setBannerReadyScopeKey(previousBannerScopeKey)
+        }
       } finally {
-        setIsSwitchingWorkspace(false)
-        setSwitchingToWorkspaceId(null)
+        if (!isStaleWorkspaceLoad(requestId)) {
+          setIsSwitchingWorkspace(false)
+          setSwitchingToWorkspaceId(null)
+        }
       }
     },
-    [fetchAccounts, fetchCategories, fetchIncomeSources, fetchTransactions, isSwitchingWorkspace]
+    [bannerReadyScopeKey, disableDataFetch, fetchAccounts, fetchCategories, fetchGoalsData, fetchIncomeSources, fetchTransactions, isStaleWorkspaceLoad, isSwitchingWorkspace]
   )
 
   const createFamilyWorkspace = useCallback(
@@ -450,6 +515,13 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
     if (initialWorkspaces) setWorkspaces(initialWorkspaces)
     if (initialActiveWorkspace) setActiveWorkspace(initialActiveWorkspace)
   }, [initialActiveWorkspace, initialWorkspaces])
+
+  useEffect(() => {
+    if (bannerScopeSeededRef.current) return
+    if (!activeWorkspace?.id) return
+    setBannerReadyScopeKey(activeWorkspace.id)
+    bannerScopeSeededRef.current = true
+  }, [activeWorkspace?.id])
 
   useEffect(() => {
     if (homePeriodMode !== "custom") return
@@ -614,7 +686,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             <div className="home-split-banner__metric home-split-banner__metric--top-shift">
               <div className="home-split-banner__metric-title">РАСХОДЫ</div>
               <div className="home-split-banner__metric-value home-split-banner__metric-value--expense">
-                {formatMoney(homeBannerStats.expenses, baseCurrency)}
+                {getBannerValueLabel(homeBannerStats.expenses)}
               </div>
             </div>
           </div>
@@ -622,7 +694,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             <div className="home-split-banner__metric home-split-banner__metric--top-shift">
               <div className="home-split-banner__metric-title">ДОХОДЫ</div>
               <div className="home-split-banner__metric-value home-split-banner__metric-value--income">
-                {formatMoney(homeBannerStats.income, baseCurrency)}
+                {getBannerValueLabel(homeBannerStats.income)}
               </div>
             </div>
           </div>
@@ -630,7 +702,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             <div className="home-split-banner__metric">
               <div className="home-split-banner__metric-title">НА СЧЕТАХ</div>
               <div className="home-split-banner__metric-value">
-                {formatMoney(homeBannerStats.onAccounts, baseCurrency)}
+                {getBannerValueLabel(homeBannerStats.onAccounts)}
               </div>
             </div>
           </div>
@@ -638,7 +710,7 @@ function HomeScreen({ disableDataFetch = false, initialWorkspaces, initialActive
             <div className="home-split-banner__metric">
               <div className="home-split-banner__metric-title">БАЛАНС</div>
               <div className="home-split-banner__metric-value">
-                {formatMoney(homeBannerStats.balance, baseCurrency)}
+                {getBannerValueLabel(homeBannerStats.balance)}
               </div>
             </div>
           </div>
