@@ -64,17 +64,29 @@ async function accountsRoutes(fastify, _opts) {
         }
         const accounts = await prisma_1.prisma.accounts.findMany({
             where: { workspace_id: user.active_workspace_id, archived_at: null, is_archived: false },
-            select: { id: true, name: true, type: true, currency: true, balance: true, color: true, icon: true },
+            select: {
+                id: true,
+                name: true,
+                display_name: true,
+                type: true,
+                currency: true,
+                balance: true,
+                color: true,
+                icon: true,
+                icon_emoji: true,
+            },
         });
         const payload = {
             accounts: accounts.map((a) => ({
                 id: a.id,
                 name: a.name,
+                displayName: a.display_name,
                 type: a.type,
                 currency: a.currency,
                 balance: Number(a.balance),
                 color: a.color,
                 icon: a.icon ?? null,
+                iconEmoji: a.icon_emoji ?? null,
             })),
         };
         return reply.send(payload);
@@ -98,21 +110,25 @@ async function accountsRoutes(fastify, _opts) {
             data: {
                 workspace_id: user.active_workspace_id,
                 name: body.name,
+                display_name: body.displayName?.trim() ? body.displayName.trim() : null,
                 type: body.type,
                 currency: body.currency,
                 balance: body.balance ?? 0,
                 color: body.color ?? null,
                 icon: body.icon ?? null,
+                icon_emoji: body.iconEmoji?.trim() ? Array.from(body.iconEmoji.trim())[0] ?? null : null,
             },
         });
         const account = {
             id: created.id,
             name: created.name,
+            displayName: created.display_name,
             type: created.type,
             currency: created.currency,
             balance: Number(created.balance),
             color: created.color,
             icon: created.icon ?? null,
+            iconEmoji: created.icon_emoji ?? null,
         };
         return reply.send({ account });
     });
@@ -136,10 +152,20 @@ async function accountsRoutes(fastify, _opts) {
             where: { id: accountId, workspace_id: user.active_workspace_id },
             data: {
                 name: body?.name ?? undefined,
+                display_name: body?.displayName !== undefined
+                    ? body.displayName?.trim()
+                        ? body.displayName.trim()
+                        : null
+                    : undefined,
                 type: body?.type ?? undefined,
                 currency: body?.currency ?? undefined,
                 color: body?.color !== undefined ? body.color : undefined,
                 icon: body?.icon !== undefined ? body.icon : undefined,
+                icon_emoji: body?.iconEmoji !== undefined
+                    ? body.iconEmoji?.trim()
+                        ? (Array.from(body.iconEmoji.trim())[0] ?? null)
+                        : null
+                    : undefined,
             },
         });
         if (updated.count === 0) {
@@ -147,7 +173,17 @@ async function accountsRoutes(fastify, _opts) {
         }
         const account = await prisma_1.prisma.accounts.findUnique({
             where: { id: accountId },
-            select: { id: true, name: true, type: true, currency: true, balance: true, color: true, icon: true },
+            select: {
+                id: true,
+                name: true,
+                display_name: true,
+                type: true,
+                currency: true,
+                balance: true,
+                color: true,
+                icon: true,
+                icon_emoji: true,
+            },
         });
         if (!account)
             return reply.status(404).send({ error: "Not Found" });
@@ -155,11 +191,13 @@ async function accountsRoutes(fastify, _opts) {
             account: {
                 id: account.id,
                 name: account.name,
+                displayName: account.display_name,
                 type: account.type,
                 currency: account.currency,
                 balance: Number(account.balance),
                 color: account.color,
                 icon: account.icon ?? null,
+                iconEmoji: account.icon_emoji ?? null,
             },
         };
         return reply.send(payload);

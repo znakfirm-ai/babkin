@@ -23,11 +23,13 @@ type BootstrapResponse = {
   accounts: Array<{
     id: string
     name: string
+    displayName: string | null
     type: string
     currency: string
     balance: number
     color: string | null
     icon: string | null
+    iconEmoji: string | null
   }>
   categories: Array<{
     id: string
@@ -184,7 +186,17 @@ export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPl
 
     const accounts = await prisma.accounts.findMany({
       where: { workspace_id: workspaceId, archived_at: null, is_archived: false },
-      select: { id: true, name: true, type: true, currency: true, balance: true, color: true, icon: true },
+      select: {
+        id: true,
+        name: true,
+        display_name: true,
+        type: true,
+        currency: true,
+        balance: true,
+        color: true,
+        icon: true,
+        icon_emoji: true,
+      },
     })
 
     const existingCategories = await prisma.categories.findMany({
@@ -258,11 +270,13 @@ export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPl
       accounts: accounts.map((account) => ({
         id: account.id,
         name: account.name,
+        displayName: account.display_name,
         type: account.type,
         currency: account.currency,
         balance: Number(account.balance),
         color: account.color,
         icon: account.icon ?? null,
+        iconEmoji: account.icon_emoji ?? null,
       })),
       categories: categories.map((category) => ({
         id: category.id,

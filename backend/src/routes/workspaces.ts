@@ -89,6 +89,7 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
       id: m.workspace_id,
       type: m.workspaces.type,
       name: m.workspaces.name,
+      iconEmoji: m.workspaces.icon_emoji ?? null,
     }))
 
     const active = workspaces.find((w) => w.id === user.active_workspace_id) ?? null
@@ -186,6 +187,7 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
         id: workspace.id,
         type: workspace.type,
         name: workspace.name,
+        iconEmoji: workspace.icon_emoji ?? null,
       },
     })
   })
@@ -265,6 +267,92 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
         id: workspace.id,
         type: workspace.type,
         name: workspace.name,
+        iconEmoji: workspace.icon_emoji ?? null,
+      },
+    })
+  })
+
+  fastify.patch("/workspaces/:id", async (request, reply) => {
+    const authHeader = request.headers.authorization
+    let userId: string | null = null
+    let reason: string | null = null
+
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.slice("Bearer ".length)
+      try {
+        const payload = jwt.verify(token, env.JWT_SECRET) as { sub: string }
+        userId = payload.sub
+      } catch {
+        reason = "invalid_jwt"
+        return reply.status(401).send({ error: "Unauthorized", reason })
+      }
+    }
+
+    if (!userId) {
+      const initDataRaw = request.headers[TELEGRAM_INITDATA_HEADER] as string | undefined
+      const hasInitData = Boolean(initDataRaw && initDataRaw.length > 0)
+      const authDate = (() => {
+        const params = initDataRaw ? new URLSearchParams(initDataRaw) : null
+        const ad = params?.get("auth_date")
+        return ad ? Number(ad) : undefined
+      })()
+
+      if (!env.BOT_TOKEN) {
+        reason = "missing_bot_token"
+        request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason })
+        return reply.status(401).send({ error: "Unauthorized", reason })
+      }
+
+      const auth = await validateInitData(initDataRaw)
+      if (!auth) {
+        reason = hasInitData ? "invalid_initdata" : "missing_initdata"
+        request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason })
+        return reply.status(401).send({ error: "Unauthorized", reason })
+      }
+      userId = auth.userId
+    }
+
+    const workspaceId = (request.params as { id?: string }).id
+    if (!workspaceId) {
+      return reply.status(400).send({ error: "Bad Request", reason: "missing_workspace_id" })
+    }
+
+    const membership = await prisma.workspace_members.findUnique({
+      where: {
+        workspace_id_user_id: {
+          workspace_id: workspaceId,
+          user_id: userId as string,
+        },
+      },
+    })
+    if (!membership) {
+      return reply.status(403).send({ error: "Forbidden", reason: "not_a_member" })
+    }
+
+    const body = request.body as { displayName?: string | null; iconEmoji?: string | null }
+    const displayName =
+      body.displayName !== undefined ? (body.displayName?.trim() ? body.displayName.trim() : null) : undefined
+    const normalizedIcon =
+      body.iconEmoji !== undefined
+        ? body.iconEmoji?.trim()
+          ? (Array.from(body.iconEmoji.trim())[0] ?? null)
+          : null
+        : undefined
+
+    const updatedWorkspace = await prisma.workspaces.update({
+      where: { id: workspaceId },
+      data: {
+        name: displayName,
+        icon_emoji: normalizedIcon,
+      },
+    })
+
+    return reply.send({
+      workspace: {
+        id: updatedWorkspace.id,
+        type: updatedWorkspace.type,
+        name: updatedWorkspace.name,
+        iconEmoji: updatedWorkspace.icon_emoji ?? null,
       },
     })
   })

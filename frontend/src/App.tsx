@@ -22,10 +22,11 @@ import ExpensesByCategoryScreen from "./screens/ExpensesByCategoryScreen"
 import BottomNav from "./BottomNav"
 import type { NavItem } from "./BottomNav"
 import { AppIcon } from "./components/AppIcon"
+import { useSingleFlight } from "./hooks/useSingleFlight"
 import "./BottomNav.css"
 import "./App.css"
 
-type Workspace = { id: string; type: "personal" | "family"; name: string | null }
+type Workspace = { id: string; type: "personal" | "family"; name: string | null; iconEmoji: string | null }
 type SpaceKey = Workspace["type"]
 type BannerLoadStatus = "idle" | "loading" | "success" | "error"
 type OverviewUiPhase = "idle" | "loading" | "ready" | "error"
@@ -33,24 +34,10 @@ type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "q
 type GoalsListMode = "goals" | "debtsReceivable" | "debtsPayable"
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 type QuickAddDebtAction = "receivable" | "payable"
-type TelegramUser = { Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: number | string } } } } }
-type WorkspaceMeta = { name?: string; icon?: string }
 type WorkspaceModalView = "list" | "settings" | "edit-name" | "edit-icon"
 
 const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
-const WORKSPACE_META_STORAGE_PREFIX = "workspaceMetaByKey"
 const WORKSPACE_NAME_LIMIT = 32
-const DEFAULT_WORKSPACE_META: Record<SpaceKey, WorkspaceMeta> = {
-  personal: { name: "", icon: "" },
-  family: { name: "", icon: "" },
-}
-
-const getWorkspaceMetaStorageKey = () => {
-  if (typeof window === "undefined") return `${WORKSPACE_META_STORAGE_PREFIX}:guest`
-  const userId = (window as unknown as TelegramUser).Telegram?.WebApp?.initDataUnsafe?.user?.id
-  const normalizedUserId = typeof userId === "number" || typeof userId === "string" ? String(userId) : "guest"
-  return `${WORKSPACE_META_STORAGE_PREFIX}:${normalizedUserId}`
-}
 
 const normalizeWorkspaceIcon = (value: string) => {
   const trimmed = value.trim()
@@ -58,27 +45,18 @@ const normalizeWorkspaceIcon = (value: string) => {
   const symbol = Array.from(trimmed)[0]
   return symbol ? symbol.trim() : ""
 }
+const normalizeWorkspace = (workspace: {
+  id: string
+  type: "personal" | "family"
+  name: string | null
+  iconEmoji?: string | null
+}): Workspace => ({
+  id: workspace.id,
+  type: workspace.type,
+  name: workspace.name,
+  iconEmoji: workspace.iconEmoji ?? null,
+})
 const buildWorkspaceFallbackLabel = (spaceKey: SpaceKey) => (spaceKey === "family" ? "Семейный" : "Личный")
-const readWorkspaceMeta = (storageKey: string): Record<SpaceKey, WorkspaceMeta> => {
-  if (typeof window === "undefined") return DEFAULT_WORKSPACE_META
-  try {
-    const raw = localStorage.getItem(storageKey)
-    if (!raw) return DEFAULT_WORKSPACE_META
-    const parsed = JSON.parse(raw) as Partial<Record<SpaceKey, WorkspaceMeta>>
-    return {
-      personal: {
-        name: typeof parsed.personal?.name === "string" ? parsed.personal.name : "",
-        icon: typeof parsed.personal?.icon === "string" ? parsed.personal.icon : "",
-      },
-      family: {
-        name: typeof parsed.family?.name === "string" ? parsed.family.name : "",
-        icon: typeof parsed.family?.icon === "string" ? parsed.family.icon : "",
-      },
-    }
-  } catch {
-    return DEFAULT_WORKSPACE_META
-  }
-}
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
 type ErrorBoundaryState = { hasError: boolean; error: Error | null }
@@ -156,7 +134,6 @@ class AppErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState>
 }
 
 function App() {
-  const workspaceMetaStorageKey = getWorkspaceMetaStorageKey()
   const telegramAvailable =
     typeof window !== "undefined" &&
     Boolean((window as typeof window & { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp)
@@ -179,7 +156,6 @@ function App() {
     const stored = localStorage.getItem(ACTIVE_SPACE_KEY_STORAGE)
     return stored === "family" ? "family" : "personal"
   })
-  const [workspaceMetaByKey, setWorkspaceMetaByKey] = useState<Record<SpaceKey, WorkspaceMeta>>(() => readWorkspaceMeta(workspaceMetaStorageKey))
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false)
   const [workspaceModalView, setWorkspaceModalView] = useState<WorkspaceModalView>("list")
   const [workspaceSettingsTargetKey, setWorkspaceSettingsTargetKey] = useState<SpaceKey>("personal")
@@ -223,6 +199,7 @@ function App() {
     singleDay: string
   } | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
+  const { run: runWorkspaceMetaSave, isRunning: isWorkspaceMetaSaveRunning } = useSingleFlight()
   const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
   const appSettleInFlightRef = useRef(false)
   const appSettleDoneRef = useRef(false)
@@ -389,14 +366,16 @@ function App() {
       )
       if (!wsRes.ok) throw new Error(`Workspaces error: ${wsRes.status}`)
       const wsData: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await wsRes.json()
-      setAppWorkspaces(wsData.workspaces ?? [])
-      setAppActiveWorkspace(wsData.activeWorkspace ?? null)
-      if (wsData.activeWorkspace?.type) {
-        activeSpaceKeyRef.current = wsData.activeWorkspace.type
-        setAppActiveSpaceKey(wsData.activeWorkspace.type)
-        localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, wsData.activeWorkspace.type)
-        setOverviewStatus(wsData.activeWorkspace.type, "loading")
-        setOverviewUiPhase(wsData.activeWorkspace.type, "loading")
+      const normalizedWorkspaces = (wsData.workspaces ?? []).map((workspace) => normalizeWorkspace(workspace))
+      const normalizedActiveWorkspace = wsData.activeWorkspace ? normalizeWorkspace(wsData.activeWorkspace) : null
+      setAppWorkspaces(normalizedWorkspaces)
+      setAppActiveWorkspace(normalizedActiveWorkspace)
+      if (normalizedActiveWorkspace?.type) {
+        activeSpaceKeyRef.current = normalizedActiveWorkspace.type
+        setAppActiveSpaceKey(normalizedActiveWorkspace.type)
+        localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, normalizedActiveWorkspace.type)
+        setOverviewStatus(normalizedActiveWorkspace.type, "loading")
+        setOverviewUiPhase(normalizedActiveWorkspace.type, "loading")
       }
 
       try {
@@ -468,19 +447,19 @@ function App() {
         }))
         setTransactions(mappedTransactions)
         setOverviewError(null)
-        if (wsData.activeWorkspace?.type) {
-          setOverviewAppliedSpaceKey(wsData.activeWorkspace.type)
-          setOverviewStatus(wsData.activeWorkspace.type, "success")
-          setOverviewUiPhase(wsData.activeWorkspace.type, "ready")
+        if (normalizedActiveWorkspace?.type) {
+          setOverviewAppliedSpaceKey(normalizedActiveWorkspace.type)
+          setOverviewStatus(normalizedActiveWorkspace.type, "success")
+          setOverviewUiPhase(normalizedActiveWorkspace.type, "ready")
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
           setAppLoading(false)
           return
         }
-        if (wsData.activeWorkspace?.type) {
-          setOverviewStatus(wsData.activeWorkspace.type, "error")
-          setOverviewUiPhase(wsData.activeWorkspace.type, "error")
+        if (normalizedActiveWorkspace?.type) {
+          setOverviewStatus(normalizedActiveWorkspace.type, "error")
+          setOverviewUiPhase(normalizedActiveWorkspace.type, "error")
         }
         setOverviewError("Ошибка загрузки данных")
       }
@@ -687,62 +666,59 @@ function App() {
   }, [activeOverviewUiPhase, appActiveSpaceKey, appLoading, appToken, ensureOverviewReady, overviewAppliedSpaceKey, overviewUiPhaseBySpaceKey])
 
   const prevScreen = useRef<ScreenKey>("overview")
-  const persistWorkspaceMeta = useCallback((next: Record<SpaceKey, WorkspaceMeta>) => {
-    if (typeof window === "undefined") return
-    localStorage.setItem(workspaceMetaStorageKey, JSON.stringify(next))
-  }, [workspaceMetaStorageKey])
-
-  const updateWorkspaceMeta = useCallback(
-    (spaceKey: SpaceKey, patch: Partial<WorkspaceMeta>) => {
-      setWorkspaceMetaByKey((prev) => {
-        const next: Record<SpaceKey, WorkspaceMeta> = {
-          personal: { ...prev.personal },
-          family: { ...prev.family },
-        }
-        next[spaceKey] = {
-          name: typeof patch.name === "string" ? patch.name : prev[spaceKey].name ?? "",
-          icon: typeof patch.icon === "string" ? patch.icon : prev[spaceKey].icon ?? "",
-        }
-        persistWorkspaceMeta(next)
-        return next
-      })
-    },
-    [persistWorkspaceMeta],
-  )
-
-  useEffect(() => {
-    setWorkspaceMetaByKey(readWorkspaceMeta(workspaceMetaStorageKey))
-  }, [workspaceMetaStorageKey])
-
   const personalWorkspace = appWorkspaces.find((workspace) => workspace.type === "personal") ?? null
   const familyWorkspace = appWorkspaces.find((workspace) => workspace.type === "family") ?? null
   const personalAccountLabel = useMemo(() => {
-    const customName = workspaceMetaByKey.personal.name?.trim() ?? ""
-    if (customName) return customName
     const workspaceName = personalWorkspace?.name?.trim()
     if (workspaceName) return workspaceName
     return buildWorkspaceFallbackLabel("personal")
-  }, [personalWorkspace?.name, workspaceMetaByKey.personal.name])
+  }, [personalWorkspace?.name])
   const familyAccountLabel = useMemo(() => {
-    const customName = workspaceMetaByKey.family.name?.trim() ?? ""
-    if (customName) return customName
     const workspaceName = familyWorkspace?.name?.trim()
     if (workspaceName) return workspaceName
     return buildWorkspaceFallbackLabel("family")
-  }, [familyWorkspace?.name, workspaceMetaByKey.family.name])
+  }, [familyWorkspace?.name])
   const personalAccountIcon = useMemo(() => {
-    const customIcon = normalizeWorkspaceIcon(workspaceMetaByKey.personal.icon ?? "")
+    const customIcon = normalizeWorkspaceIcon(personalWorkspace?.iconEmoji ?? "")
     if (customIcon) return customIcon
     return Array.from(personalAccountLabel.trim())[0]?.toLocaleUpperCase("ru-RU") ?? "Л"
-  }, [personalAccountLabel, workspaceMetaByKey.personal.icon])
+  }, [personalAccountLabel, personalWorkspace?.iconEmoji])
   const familyAccountIcon = useMemo(() => {
-    const customIcon = normalizeWorkspaceIcon(workspaceMetaByKey.family.icon ?? "")
+    const customIcon = normalizeWorkspaceIcon(familyWorkspace?.iconEmoji ?? "")
     if (customIcon) return customIcon
     return Array.from(familyAccountLabel.trim())[0]?.toLocaleUpperCase("ru-RU") ?? "С"
-  }, [familyAccountLabel, workspaceMetaByKey.family.icon])
+  }, [familyAccountLabel, familyWorkspace?.iconEmoji])
   const accountLabel = appActiveSpaceKey === "family" ? familyAccountLabel : personalAccountLabel
   const accountIcon = appActiveSpaceKey === "family" ? familyAccountIcon : personalAccountIcon
   const canOpenWorkspaceSwitcher = appWorkspaces.length > 0
+
+  const applyWorkspaceMetaUpdate = useCallback(
+    async (spaceKey: SpaceKey, patch: { displayName?: string | null; iconEmoji?: string | null }) => {
+      if (!appToken) return false
+      const targetWorkspace = spaceKey === "family" ? familyWorkspace : personalWorkspace
+      if (!targetWorkspace) return false
+      const response = await timedFetch(
+        `https://babkin.onrender.com/api/v1/workspaces/${targetWorkspace.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${appToken}`,
+          },
+          body: JSON.stringify(patch),
+        },
+        { label: "workspaces" },
+      )
+      if (!response.ok) return false
+      const data = (await response.json()) as { workspace?: Workspace }
+      if (!data.workspace) return false
+      const nextWorkspace = normalizeWorkspace(data.workspace)
+      setAppWorkspaces((prev) => prev.map((workspace) => (workspace.id === nextWorkspace.id ? nextWorkspace : workspace)))
+      setAppActiveWorkspace((prev) => (prev?.id === nextWorkspace.id ? nextWorkspace : prev))
+      return true
+    },
+    [appToken, familyWorkspace, personalWorkspace],
+  )
 
   const closeWorkspaceModal = useCallback(() => {
     setWorkspaceModalView("list")
@@ -752,21 +728,25 @@ function App() {
   const openWorkspaceModal = useCallback(() => {
     if (!canOpenWorkspaceSwitcher) return
     const targetKey: SpaceKey = appActiveSpaceKey === "family" ? "family" : "personal"
+    const targetWorkspace = targetKey === "family" ? familyWorkspace : personalWorkspace
+    const targetLabel = targetKey === "family" ? familyAccountLabel : personalAccountLabel
     setWorkspaceSettingsTargetKey(targetKey)
-    setWorkspaceNameDraft(targetKey === "family" ? familyAccountLabel : personalAccountLabel)
-    setWorkspaceIconDraft(targetKey === "family" ? workspaceMetaByKey.family.icon ?? "" : workspaceMetaByKey.personal.icon ?? "")
+    setWorkspaceNameDraft(targetLabel)
+    setWorkspaceIconDraft(targetWorkspace?.iconEmoji ?? "")
     setWorkspaceModalView("list")
     setIsWorkspaceModalOpen(true)
-  }, [appActiveSpaceKey, canOpenWorkspaceSwitcher, familyAccountLabel, personalAccountLabel, workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon])
+  }, [appActiveSpaceKey, canOpenWorkspaceSwitcher, familyAccountLabel, familyWorkspace, personalAccountLabel, personalWorkspace])
 
   const openWorkspaceSettings = useCallback(
     (targetKey: SpaceKey) => {
+      const targetWorkspace = targetKey === "family" ? familyWorkspace : personalWorkspace
+      const targetLabel = targetKey === "family" ? familyAccountLabel : personalAccountLabel
       setWorkspaceSettingsTargetKey(targetKey)
-      setWorkspaceNameDraft(targetKey === "family" ? familyAccountLabel : personalAccountLabel)
-      setWorkspaceIconDraft(targetKey === "family" ? workspaceMetaByKey.family.icon ?? "" : workspaceMetaByKey.personal.icon ?? "")
+      setWorkspaceNameDraft(targetLabel)
+      setWorkspaceIconDraft(targetWorkspace?.iconEmoji ?? "")
       setWorkspaceModalView("settings")
     },
-    [familyAccountLabel, personalAccountLabel, workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon],
+    [familyAccountLabel, familyWorkspace, personalAccountLabel, personalWorkspace],
   )
 
   const openWorkspaceNameEditor = useCallback(() => {
@@ -776,10 +756,10 @@ function App() {
   }, [familyAccountLabel, personalAccountLabel, workspaceSettingsTargetKey])
 
   const openWorkspaceIconEditor = useCallback(() => {
-    const currentIcon = workspaceSettingsTargetKey === "family" ? workspaceMetaByKey.family.icon ?? "" : workspaceMetaByKey.personal.icon ?? ""
+    const currentIcon = workspaceSettingsTargetKey === "family" ? familyWorkspace?.iconEmoji ?? "" : personalWorkspace?.iconEmoji ?? ""
     setWorkspaceIconDraft(currentIcon)
     setWorkspaceModalView("edit-icon")
-  }, [workspaceMetaByKey.family.icon, workspaceMetaByKey.personal.icon, workspaceSettingsTargetKey])
+  }, [familyWorkspace?.iconEmoji, personalWorkspace?.iconEmoji, workspaceSettingsTargetKey])
 
   const goBackWorkspaceModal = useCallback(() => {
     if (workspaceModalView === "edit-name" || workspaceModalView === "edit-icon") {
@@ -797,14 +777,20 @@ function App() {
 
   const handleSaveWorkspaceName = useCallback(() => {
     if (!canSaveWorkspaceName) return
-    updateWorkspaceMeta(workspaceSettingsTargetKey, { name: normalizedWorkspaceNameDraft })
-    setWorkspaceModalView("settings")
-  }, [canSaveWorkspaceName, normalizedWorkspaceNameDraft, updateWorkspaceMeta, workspaceSettingsTargetKey])
+    void runWorkspaceMetaSave(async () => {
+      const applied = await applyWorkspaceMetaUpdate(workspaceSettingsTargetKey, { displayName: normalizedWorkspaceNameDraft })
+      if (applied) setWorkspaceModalView("settings")
+      return applied
+    })
+  }, [applyWorkspaceMetaUpdate, canSaveWorkspaceName, normalizedWorkspaceNameDraft, runWorkspaceMetaSave, workspaceSettingsTargetKey])
 
   const handleSaveWorkspaceIcon = useCallback(() => {
-    updateWorkspaceMeta(workspaceSettingsTargetKey, { icon: normalizeWorkspaceIcon(workspaceIconDraft) })
-    setWorkspaceModalView("settings")
-  }, [updateWorkspaceMeta, workspaceIconDraft, workspaceSettingsTargetKey])
+    void runWorkspaceMetaSave(async () => {
+      const applied = await applyWorkspaceMetaUpdate(workspaceSettingsTargetKey, { iconEmoji: normalizeWorkspaceIcon(workspaceIconDraft) || null })
+      if (applied) setWorkspaceModalView("settings")
+      return applied
+    })
+  }, [applyWorkspaceMetaUpdate, runWorkspaceMetaSave, workspaceIconDraft, workspaceSettingsTargetKey])
 
   const setActiveWorkspaceRemote = useCallback(
     async (workspace: Workspace, token: string) => {
@@ -830,19 +816,23 @@ function App() {
         if (!response.ok) return
         const data: { activeWorkspace: Workspace } = await response.json()
         if (workspaceSwitchRequestRef.current !== requestId) return
-        setAppActiveWorkspace(data.activeWorkspace)
-        activeSpaceKeyRef.current = data.activeWorkspace.type
-        setAppActiveSpaceKey(data.activeWorkspace.type)
-        localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, data.activeWorkspace.type)
-        setOverviewStatus(data.activeWorkspace.type, "loading")
-        setOverviewUiPhase(data.activeWorkspace.type, "loading")
-        if (overviewAppliedSpaceKey !== data.activeWorkspace.type) {
+        const normalizedWorkspace = normalizeWorkspace(data.activeWorkspace)
+        setAppActiveWorkspace(normalizedWorkspace)
+        setAppWorkspaces((prev) =>
+          prev.map((currentWorkspace) => (currentWorkspace.id === normalizedWorkspace.id ? normalizedWorkspace : currentWorkspace)),
+        )
+        activeSpaceKeyRef.current = normalizedWorkspace.type
+        setAppActiveSpaceKey(normalizedWorkspace.type)
+        localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, normalizedWorkspace.type)
+        setOverviewStatus(normalizedWorkspace.type, "loading")
+        setOverviewUiPhase(normalizedWorkspace.type, "loading")
+        if (overviewAppliedSpaceKey !== normalizedWorkspace.type) {
           setOverviewAppliedSpaceKey(null)
         }
         closeWorkspaceModal()
         setIsWorkspaceFamilySheetOpen(false)
         await ensureOverviewReady({
-          spaceKey: data.activeWorkspace.type,
+          spaceKey: normalizedWorkspace.type,
           requestId,
         })
       } catch {
@@ -884,14 +874,16 @@ function App() {
       )
       if (!refreshed.ok) return
       const data: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await refreshed.json()
-      setAppWorkspaces(data.workspaces ?? [])
-      if (data.activeWorkspace) {
-        activeSpaceKeyRef.current = data.activeWorkspace.type
-        setAppActiveWorkspace(data.activeWorkspace)
-        setAppActiveSpaceKey(data.activeWorkspace.type)
-        localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, data.activeWorkspace.type)
+      const normalizedWorkspaces = (data.workspaces ?? []).map((workspace) => normalizeWorkspace(workspace))
+      const normalizedActiveWorkspace = data.activeWorkspace ? normalizeWorkspace(data.activeWorkspace) : null
+      setAppWorkspaces(normalizedWorkspaces)
+      if (normalizedActiveWorkspace) {
+        activeSpaceKeyRef.current = normalizedActiveWorkspace.type
+        setAppActiveWorkspace(normalizedActiveWorkspace)
+        setAppActiveSpaceKey(normalizedActiveWorkspace.type)
+        localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, normalizedActiveWorkspace.type)
       }
-      const family = (data.workspaces ?? []).find((workspace) => workspace.type === "family")
+      const family = normalizedWorkspaces.find((workspace) => workspace.type === "family")
       if (family) {
         await setActiveWorkspaceRemote(family, appToken)
       } else {
@@ -1546,13 +1538,13 @@ const appShell = appLoading ? (
                     <button
                       type="button"
                       onClick={handleSaveWorkspaceName}
-                      disabled={!canSaveWorkspaceName}
+                      disabled={!canSaveWorkspaceName || isWorkspaceMetaSaveRunning}
                       style={{
                         flex: 1,
                         padding: "11px 12px",
                         borderRadius: 12,
                         border: "none",
-                        background: canSaveWorkspaceName ? "#0f172a" : "rgba(15,23,42,0.3)",
+                        background: canSaveWorkspaceName && !isWorkspaceMetaSaveRunning ? "#0f172a" : "rgba(15,23,42,0.3)",
                         color: "#fff",
                         fontSize: 14,
                       }}
@@ -1622,12 +1614,13 @@ const appShell = appLoading ? (
                     <button
                       type="button"
                       onClick={handleSaveWorkspaceIcon}
+                      disabled={isWorkspaceMetaSaveRunning}
                       style={{
                         flex: 1,
                         padding: "11px 12px",
                         borderRadius: 12,
                         border: "none",
-                        background: "#0f172a",
+                        background: isWorkspaceMetaSaveRunning ? "rgba(15,23,42,0.3)" : "#0f172a",
                         color: "#fff",
                         fontSize: 14,
                       }}

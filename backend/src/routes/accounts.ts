@@ -8,11 +8,13 @@ import { env } from "../env"
 type AccountResponse = {
   id: string
   name: string
+  displayName: string | null
   type: string
   currency: string
   balance: number
   color: string | null
   icon: string | null
+  iconEmoji: string | null
 }
 
 export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -77,18 +79,30 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
 
     const accounts = await prisma.accounts.findMany({
       where: { workspace_id: user.active_workspace_id, archived_at: null, is_archived: false },
-      select: { id: true, name: true, type: true, currency: true, balance: true, color: true, icon: true },
+      select: {
+        id: true,
+        name: true,
+        display_name: true,
+        type: true,
+        currency: true,
+        balance: true,
+        color: true,
+        icon: true,
+        icon_emoji: true,
+      },
     })
 
     const payload: { accounts: AccountResponse[] } = {
       accounts: accounts.map((a) => ({
         id: a.id,
         name: a.name,
+        displayName: a.display_name,
         type: a.type,
         currency: a.currency,
         balance: Number(a.balance),
         color: a.color,
         icon: a.icon ?? null,
+        iconEmoji: a.icon_emoji ?? null,
       })),
     }
 
@@ -110,11 +124,13 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
 
     const body = request.body as {
       name?: string
+      displayName?: string | null
       type?: string
       currency?: string
       balance?: number
       color?: string | null
       icon?: string | null
+      iconEmoji?: string | null
     }
 
     if (!body?.name || !body.type || !body.currency) {
@@ -125,22 +141,26 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       data: {
         workspace_id: user.active_workspace_id,
         name: body.name,
+        display_name: body.displayName?.trim() ? body.displayName.trim() : null,
         type: body.type,
         currency: body.currency,
         balance: body.balance ?? 0,
         color: body.color ?? null,
         icon: body.icon ?? null,
+        icon_emoji: body.iconEmoji?.trim() ? Array.from(body.iconEmoji.trim())[0] ?? null : null,
       },
     })
 
     const account: AccountResponse = {
       id: created.id,
       name: created.name,
+      displayName: created.display_name,
       type: created.type,
       currency: created.currency,
       balance: Number(created.balance),
       color: created.color,
       icon: created.icon ?? null,
+      iconEmoji: created.icon_emoji ?? null,
     }
 
     return reply.send({ account })
@@ -164,16 +184,36 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" })
     }
 
-    const body = request.body as { name?: string; type?: string; currency?: string; color?: string | null; icon?: string | null }
+    const body = request.body as {
+      name?: string
+      displayName?: string | null
+      type?: string
+      currency?: string
+      color?: string | null
+      icon?: string | null
+      iconEmoji?: string | null
+    }
 
     const updated = await prisma.accounts.updateMany({
       where: { id: accountId, workspace_id: user.active_workspace_id },
       data: {
         name: body?.name ?? undefined,
+        display_name:
+          body?.displayName !== undefined
+            ? body.displayName?.trim()
+              ? body.displayName.trim()
+              : null
+            : undefined,
         type: body?.type ?? undefined,
         currency: body?.currency ?? undefined,
         color: body?.color !== undefined ? body.color : undefined,
         icon: body?.icon !== undefined ? body.icon : undefined,
+        icon_emoji:
+          body?.iconEmoji !== undefined
+            ? body.iconEmoji?.trim()
+              ? (Array.from(body.iconEmoji.trim())[0] ?? null)
+              : null
+            : undefined,
       },
     })
 
@@ -183,7 +223,17 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
 
     const account = await prisma.accounts.findUnique({
       where: { id: accountId },
-      select: { id: true, name: true, type: true, currency: true, balance: true, color: true, icon: true },
+      select: {
+        id: true,
+        name: true,
+        display_name: true,
+        type: true,
+        currency: true,
+        balance: true,
+        color: true,
+        icon: true,
+        icon_emoji: true,
+      },
     })
 
     if (!account) return reply.status(404).send({ error: "Not Found" })
@@ -192,11 +242,13 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       account: {
         id: account.id,
         name: account.name,
+        displayName: account.display_name,
         type: account.type,
         currency: account.currency,
         balance: Number(account.balance),
         color: account.color,
         icon: account.icon ?? null,
+        iconEmoji: account.icon_emoji ?? null,
       },
     }
 

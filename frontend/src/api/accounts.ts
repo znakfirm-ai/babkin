@@ -3,11 +3,13 @@ import { timedFetch } from "../utils/debugTimings"
 export type ApiAccount = {
   id: string
   name: string
+  displayName?: string | null
   type: string
   currency: string
   balance: number
   color?: string | null
   icon?: string | null
+  iconEmoji?: string | null
 }
 
 export type GetAccountsResponse = {
@@ -65,11 +67,13 @@ export async function getAccounts(token: string): Promise<GetAccountsResponse> {
 
 export type CreateAccountBody = {
   name: string
+  displayName?: string | null
   type: string
   currency: string
   balance?: number
   color?: string | null
   icon?: string | null
+  iconEmoji?: string | null
 }
 
 export type UpdateAccountBody = Partial<CreateAccountBody>
