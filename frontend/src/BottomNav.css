@@ -65,7 +65,8 @@
   display: grid;
   place-items: center;
   transform: translateY(-16px);
-  box-shadow: 0 14px 26px rgba(47, 84, 235, 0.28);
+  position: relative;
+  box-shadow: 0 0 0 5px #f5f6f8, 0 14px 26px rgba(47, 84, 235, 0.28);
   z-index: 1;
 }
 
