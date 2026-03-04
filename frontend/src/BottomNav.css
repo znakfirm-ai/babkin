@@ -56,7 +56,22 @@
   gap: 3px;
   cursor: pointer;
   outline: none;
+  -webkit-tap-highlight-color: transparent;
   transition: color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bottom-nav__item:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.bottom-nav__item:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.45);
+  outline-offset: 2px;
+}
+
+.bottom-nav__item:active {
+  opacity: 0.86;
 }
 
 .bottom-nav__item--active {
