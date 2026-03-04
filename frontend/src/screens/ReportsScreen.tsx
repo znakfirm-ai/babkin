@@ -89,22 +89,21 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
 
   if (mode === "day") {
     const baseStart = toDayStart(now)
-    return buildSequence(7, (offset) => {
+    return buildSequence(6, (offset) => {
       const start = addDays(baseStart, -offset)
       const end = toDayEnd(start)
-      const label = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(start)
       return {
         key: `day:${toIsoDate(start)}`,
         start,
         end,
-        label,
+        label: formatDdMm(start),
         isCurrentMonth: false,
       }
     })
   }
   if (mode === "week") {
     const baseStart = getWeekStartMonday(now)
-    return buildSequence(7, (offset) => {
+    return buildSequence(6, (offset) => {
       const start = addDays(baseStart, -offset * 7)
       const end = toDayEnd(addDays(start, 6))
       return {
@@ -354,23 +353,24 @@ const ReportsScreen: React.FC<Props> = ({
     () => buildCompareBins(comparePeriodMode, compareCustomFrom, compareCustomTo, new Date()),
     [compareCustomFrom, compareCustomTo, comparePeriodMode],
   )
+  const compareMainBins = useMemo(() => compareBins.slice(-5), [compareBins])
 
   useEffect(() => {
-    if (compareBins.length === 0) {
+    if (compareMainBins.length === 0) {
       if (compareActiveBinKey !== null) setCompareActiveBinKey(null)
       return
     }
-    const hasActiveKey = compareActiveBinKey !== null && compareBins.some((bin) => bin.key === compareActiveBinKey)
+    const hasActiveKey = compareActiveBinKey !== null && compareMainBins.some((bin) => bin.key === compareActiveBinKey)
     if (!hasActiveKey) {
-      setCompareActiveBinKey(compareBins[compareBins.length - 1]?.key ?? null)
+      setCompareActiveBinKey(compareMainBins[compareMainBins.length - 1]?.key ?? null)
     }
-  }, [compareActiveBinKey, compareBins])
+  }, [compareActiveBinKey, compareMainBins])
 
   const compareActiveBin = useMemo(() => {
-    if (compareBins.length === 0) return null
-    if (!compareActiveBinKey) return compareBins[compareBins.length - 1] ?? null
-    return compareBins.find((bin) => bin.key === compareActiveBinKey) ?? compareBins[compareBins.length - 1] ?? null
-  }, [compareActiveBinKey, compareBins])
+    if (compareMainBins.length === 0) return null
+    if (!compareActiveBinKey) return compareMainBins[compareMainBins.length - 1] ?? null
+    return compareMainBins.find((bin) => bin.key === compareActiveBinKey) ?? compareMainBins[compareMainBins.length - 1] ?? null
+  }, [compareActiveBinKey, compareMainBins])
 
   const compareSeries = useMemo(() => {
     return compareBins.map((bin) => {
@@ -389,6 +389,12 @@ const ReportsScreen: React.FC<Props> = ({
       return { ...bin, income, expense }
     })
   }, [compareBins, transactions])
+
+  const compareMainSeries = useMemo(() => compareSeries.slice(-5), [compareSeries])
+  const comparePreviewSeries = useMemo(
+    () => (compareSeries.length > compareMainSeries.length ? compareSeries[0] : null),
+    [compareMainSeries.length, compareSeries],
+  )
 
   const compareChartMax = useMemo(() => {
     const values = compareSeries.flatMap((item) => [item.income, item.expense])
@@ -1862,25 +1868,31 @@ const ReportsScreen: React.FC<Props> = ({
                             const chartTop = 10
                             const chartBottom = 130
                             const chartHeight = chartBottom - chartTop
-                            const pointsCount = compareSeries.length
-                            const spacing = pointsCount > 1 ? chartWidth / (pointsCount - 1) : chartWidth
-                            const xPositions = Array.from({ length: Math.max(pointsCount, 1) }, (_, index) => paddingX + spacing * index)
-                            const activeIdxRaw = compareSeries.findIndex((bin) => bin.key === compareActiveBin?.key)
-                            const activeIdx = activeIdxRaw >= 0 ? activeIdxRaw : Math.max(compareSeries.length - 1, 0)
+                            const mainCount = compareMainSeries.length
+                            if (mainCount === 0) return null
+                            const mainStep = mainCount > 1 ? chartWidth / (mainCount - 1) : chartWidth
+                            const xMain = Array.from({ length: mainCount }, (_, index) => paddingX + mainStep * index)
+                            const hasPreview = Boolean(comparePreviewSeries)
+                            const xPreview = xMain[0] - mainStep * 0.75
+                            const chartSeries = hasPreview && comparePreviewSeries ? [comparePreviewSeries, ...compareMainSeries] : compareMainSeries
+                            const chartX = hasPreview ? [xPreview, ...xMain] : xMain
+                            const activeMainIdxRaw = compareMainSeries.findIndex((bin) => bin.key === compareActiveBin?.key)
+                            const activeMainIdx = activeMainIdxRaw >= 0 ? activeMainIdxRaw : Math.max(compareMainSeries.length - 1, 0)
+                            const activeIdx = activeMainIdx + (hasPreview ? 1 : 0)
                             const maxVal = compareChartMax > 0 ? compareChartMax : 1
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
-                            const guideLines = xPositions.map((xPos, idx) => ({
+                            const guideLines = xMain.map((xPos, idx) => ({
                               x: xPos,
-                              opacity: idx === activeIdx ? 0.35 : 0.25,
+                              opacity: idx === activeMainIdx ? 0.35 : 0.25,
                             }))
-                            const incomePoints = compareSeries.map((bin, idx) => ({
-                              x: xPositions[idx],
+                            const incomePoints = chartSeries.map((bin, idx) => ({
+                              x: chartX[idx],
                               y: toY(bin.income),
                               val: bin.income,
                               idx,
                             }))
-                            const expensePoints = compareSeries.map((bin, idx) => ({
-                              x: xPositions[idx],
+                            const expensePoints = chartSeries.map((bin, idx) => ({
+                              x: chartX[idx],
                               y: toY(bin.expense),
                               val: bin.expense,
                               idx,
@@ -1914,15 +1926,6 @@ const ReportsScreen: React.FC<Props> = ({
                             const expenseColor = "#f7b2a4"
                             const activeIncome = incomePoints[activeIdx]
                             const activeExpense = expensePoints[activeIdx]
-                            const yearBoundaryIndex = compareSeries.findIndex(
-                              (bin, index) =>
-                                index < compareSeries.length - 1 &&
-                                bin.start.getFullYear() !== compareSeries[index + 1]?.start.getFullYear(),
-                            )
-                            const yearSeparatorX =
-                              yearBoundaryIndex >= 0 && xPositions[yearBoundaryIndex] !== undefined && xPositions[yearBoundaryIndex + 1] !== undefined
-                                ? (xPositions[yearBoundaryIndex] + xPositions[yearBoundaryIndex + 1]) / 2
-                                : null
                             const svgWidth = 300
                             const svgHeight = 160
                             const badgeSafePadding = 25
@@ -1997,7 +2000,7 @@ const ReportsScreen: React.FC<Props> = ({
                             if (activeIncome && activeExpense) {
                               const incomeLabel = `+ ${formatMoney(activeIncome.val, currency ?? "RUB")}`
                               const expenseLabel = `- ${formatMoney(activeExpense.val, currency ?? "RUB")}`
-                              const activeComparePoint = compareSeries[activeIdx]
+                              const activeComparePoint = chartSeries[activeIdx]
                               const isCurrentMonthPoint =
                                 comparePeriodMode === "month" && Boolean(activeComparePoint?.isCurrentMonth)
                               const markerLineX = activeIncome.x
@@ -2037,17 +2040,6 @@ const ReportsScreen: React.FC<Props> = ({
                                     opacity={line.opacity}
                                   />
                                 ))}
-                                {yearSeparatorX !== null ? (
-                                  <line
-                                    x1={yearSeparatorX}
-                                    y1={chartTop - 10}
-                                    x2={yearSeparatorX}
-                                    y2={chartBottom + 10}
-                                    stroke="#e5e7eb"
-                                    strokeWidth={1}
-                                    opacity={0.8}
-                                  />
-                                ) : null}
                                 <path d={incomePath} stroke={incomeColor} strokeWidth="4" fill="none" />
                                 <path d={expensePath} stroke={expenseColor} strokeWidth="3" fill="none" strokeDasharray="6 6" />
                                 {incomePoints.map((p) => (
@@ -2125,15 +2117,14 @@ const ReportsScreen: React.FC<Props> = ({
                         <div style={{ position: "relative", overflow: "hidden", padding: "2px 4px 0" }}>
                           <div
                             style={{
-                              display: "flex",
+                              display: "grid",
+                              gridTemplateColumns: `repeat(${Math.max(compareMainSeries.length, 1)}, minmax(0, 1fr))`,
                               alignItems: "center",
-                              justifyContent: "space-between",
                               gap: 10,
-                              width: "110%",
-                              marginLeft: "-10%",
+                              width: "100%",
                             }}
                           >
-                            {compareSeries.map((bin) => {
+                            {compareMainSeries.map((bin) => {
                               const isActive = bin.key === compareActiveBin?.key
                               return (
                                 <button
@@ -2149,9 +2140,12 @@ const ReportsScreen: React.FC<Props> = ({
                                     color: isActive ? "#0f172a" : "#475569",
                                     cursor: "pointer",
                                     fontWeight: isActive ? 700 : 500,
-                                    fontSize: 12,
+                                    fontSize: 10,
                                     minWidth: 0,
                                     whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    width: "100%",
                                   }}
                                 >
                                   {bin.label}
