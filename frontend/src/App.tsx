@@ -924,6 +924,9 @@ function App() {
   const renderScreen = () => {
     switch (activeScreen) {
       case "home":
+        if (isSwitchingWorkspace) {
+          return <CenteredLoader message="Наводим порядок в финансах" />
+        }
         return (
           <HomeScreen
             disableDataFetch
@@ -943,6 +946,9 @@ function App() {
           />
         )
       case "overview":
+        if (isSwitchingWorkspace) {
+          return <CenteredLoader message="Наводим порядок в финансах" />
+        }
         return (
           <OverviewScreen
             overviewError={overviewError}
@@ -1021,6 +1027,9 @@ function App() {
           />
         )
       case "receivables":
+        if (isSwitchingWorkspace) {
+          return <CenteredLoader message="Наводим порядок в финансах" />
+        }
         return (
           <OverviewScreen
             overviewError={overviewError}
@@ -1169,7 +1178,7 @@ function App() {
 
 const appShell = appLoading ? (
     <div className="app-shell">
-      <CenteredLoader label="Загрузка…" />
+      <CenteredLoader message="Раскладываем финансы по полочкам" />
     </div>
   ) : appInitError ? (
     <div className="app-shell" style={{ padding: 24 }}>
