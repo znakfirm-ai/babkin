@@ -8,6 +8,7 @@ import { getGoals } from "./api/goals"
 import { getDebtors } from "./api/debtors"
 import { getBootstrap } from "./api/bootstrap"
 import DebugTimingsOverlay from "./components/DebugTimingsOverlay"
+import CenteredLoader from "./components/CenteredLoader"
 import { markTimingStage, timedFetch } from "./utils/debugTimings"
 import HomeScreen from "./screens/HomeScreen"
 import OverviewScreen from "./screens/OverviewScreen"
@@ -1166,10 +1167,9 @@ function App() {
     }
   }
 
-  const appShell = appLoading ? (
-    <div className="app-shell" style={{ padding: 24 }}>
-      <h1 style={{ fontSize: 18 }}>Загрузка...</h1>
-      {appInitError ? <div style={{ color: "#b91c1c", marginTop: 8 }}>{appInitError}</div> : null}
+const appShell = appLoading ? (
+    <div className="app-shell">
+      <CenteredLoader label="Загрузка…" />
     </div>
   ) : appInitError ? (
     <div className="app-shell" style={{ padding: 24 }}>
