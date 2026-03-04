@@ -1586,6 +1586,97 @@ const ReportsScreen: React.FC<Props> = ({
                             const expenseColor = "#f7b2a4"
                             const activeIncome = incomePoints[activeIdx]
                             const activeExpense = expensePoints[activeIdx]
+                            const svgWidth = 300
+                            const svgHeight = 160
+                            const badgeSafePadding = 24
+                            const badgeGap = 5
+                            const badgeHeight = 20
+                            const badgeHorizontalShift = 10
+                            const badgeVerticalShift = 6
+                            const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+                            const estimateBadgeWidth = (label: string) => Math.max(54, Math.round(label.length * 6.4 + 14))
+                            type BadgeSide = "above" | "below"
+                            type BadgeLayout = { x: number; y: number; width: number; height: number; label: string; color: string; side: BadgeSide }
+                            const chooseBadgeSide = (point: { y: number }, preferred: BadgeSide): BadgeSide => {
+                              const minY = badgeSafePadding
+                              const maxY = svgHeight - badgeSafePadding - badgeHeight
+                              const aboveY = point.y - badgeGap - badgeHeight
+                              const belowY = point.y + badgeGap
+                              if (preferred === "above") {
+                                if (aboveY >= minY) return "above"
+                                if (belowY <= maxY) return "below"
+                                return "above"
+                              }
+                              if (belowY <= maxY) return "below"
+                              if (aboveY >= minY) return "above"
+                              return "below"
+                            }
+                            const buildBadgeLayout = (point: { x: number; y: number }, label: string, color: string, side: BadgeSide): BadgeLayout => {
+                              const width = estimateBadgeWidth(label)
+                              const minX = badgeSafePadding
+                              const maxX = svgWidth - badgeSafePadding - width
+                              const minY = badgeSafePadding
+                              const maxY = svgHeight - badgeSafePadding - badgeHeight
+                              const baseY = side === "above" ? point.y - badgeGap - badgeHeight : point.y + badgeGap
+                              return {
+                                x: clamp(point.x - width / 2, minX, maxX),
+                                y: clamp(baseY, minY, maxY),
+                                width,
+                                height: badgeHeight,
+                                label,
+                                color,
+                                side,
+                              }
+                            }
+                            const intersects = (a: BadgeLayout, b: BadgeLayout) =>
+                              !(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y)
+                            const shiftBadgeX = (badge: BadgeLayout, delta: number): BadgeLayout => {
+                              const minX = badgeSafePadding
+                              const maxX = svgWidth - badgeSafePadding - badge.width
+                              return { ...badge, x: clamp(badge.x + delta, minX, maxX) }
+                            }
+                            const shiftBadgeY = (badge: BadgeLayout, delta: number): BadgeLayout => {
+                              const minY = badgeSafePadding
+                              const maxY = svgHeight - badgeSafePadding - badge.height
+                              return { ...badge, y: clamp(badge.y + delta, minY, maxY) }
+                            }
+                            let incomeBadge: BadgeLayout | null = null
+                            let expenseBadge: BadgeLayout | null = null
+                            if (chartMax > 0 && activeIncome && activeExpense) {
+                              const incomeLabel = `+ ${formatMoney(activeIncome.val, currency ?? "RUB")}`
+                              const expenseLabel = `- ${formatMoney(activeExpense.val, currency ?? "RUB")}`
+                              const incomeSide = chooseBadgeSide(activeIncome, "above")
+                              const expenseSide = chooseBadgeSide(activeExpense, "below")
+                              incomeBadge = buildBadgeLayout(activeIncome, incomeLabel, incomeColor, incomeSide)
+                              expenseBadge = buildBadgeLayout(activeExpense, expenseLabel, expenseColor, expenseSide)
+
+                              if (intersects(incomeBadge, expenseBadge)) {
+                                const alternateIncome = buildBadgeLayout(activeIncome, incomeLabel, incomeColor, chooseBadgeSide(activeIncome, "below"))
+                                const alternateExpense = buildBadgeLayout(activeExpense, expenseLabel, expenseColor, chooseBadgeSide(activeExpense, "above"))
+                                if (!intersects(alternateIncome, alternateExpense)) {
+                                  incomeBadge = alternateIncome
+                                  expenseBadge = alternateExpense
+                                }
+                              }
+
+                              if (intersects(incomeBadge, expenseBadge)) {
+                                const shiftedIncomeLeft = shiftBadgeX(incomeBadge, -badgeHorizontalShift)
+                                const shiftedExpenseRight = shiftBadgeX(expenseBadge, badgeHorizontalShift)
+                                if (!intersects(shiftedIncomeLeft, shiftedExpenseRight)) {
+                                  incomeBadge = shiftedIncomeLeft
+                                  expenseBadge = shiftedExpenseRight
+                                }
+                              }
+
+                              if (intersects(incomeBadge, expenseBadge)) {
+                                const shiftedIncomeUp = shiftBadgeY(incomeBadge, -badgeVerticalShift)
+                                const shiftedExpenseDown = shiftBadgeY(expenseBadge, badgeVerticalShift)
+                                if (!intersects(shiftedIncomeUp, shiftedExpenseDown)) {
+                                  incomeBadge = shiftedIncomeUp
+                                  expenseBadge = shiftedExpenseDown
+                                }
+                              }
+                            }
                             return (
                               <>
                                 {guideLines.map((line) => (
@@ -1625,14 +1716,52 @@ const ReportsScreen: React.FC<Props> = ({
                                     opacity={p.idx === activeIdx ? 0.9 : 0.7}
                                   />
                                 ))}
-                                {chartMax > 0 && activeIncome && activeExpense ? (
+                                {incomeBadge && expenseBadge ? (
                                   <>
-                                    <text x={activeIncome.x} y={activeIncome.y - 10} textAnchor="middle" fontSize={11} fill={incomeColor} fontWeight={600}>
-                                      + {formatMoney(activeIncome.val, currency ?? "RUB")}
-                                    </text>
-                                    <text x={activeExpense.x} y={activeExpense.y + 18} textAnchor="middle" fontSize={11} fill={expenseColor} fontWeight={600}>
-                                      - {formatMoney(activeExpense.val, currency ?? "RUB")}
-                                    </text>
+                                    <g>
+                                      <rect
+                                        x={incomeBadge.x}
+                                        y={incomeBadge.y}
+                                        width={incomeBadge.width}
+                                        height={incomeBadge.height}
+                                        rx={8}
+                                        fill="rgba(248,250,252,0.82)"
+                                        stroke="rgba(148,163,184,0.24)"
+                                      />
+                                      <text
+                                        x={incomeBadge.x + incomeBadge.width / 2}
+                                        y={incomeBadge.y + incomeBadge.height / 2}
+                                        textAnchor="middle"
+                                        dominantBaseline="middle"
+                                        fontSize={11}
+                                        fill={incomeBadge.color}
+                                        fontWeight={600}
+                                      >
+                                        {incomeBadge.label}
+                                      </text>
+                                    </g>
+                                    <g>
+                                      <rect
+                                        x={expenseBadge.x}
+                                        y={expenseBadge.y}
+                                        width={expenseBadge.width}
+                                        height={expenseBadge.height}
+                                        rx={8}
+                                        fill="rgba(248,250,252,0.82)"
+                                        stroke="rgba(148,163,184,0.24)"
+                                      />
+                                      <text
+                                        x={expenseBadge.x + expenseBadge.width / 2}
+                                        y={expenseBadge.y + expenseBadge.height / 2}
+                                        textAnchor="middle"
+                                        dominantBaseline="middle"
+                                        fontSize={11}
+                                        fill={expenseBadge.color}
+                                        fontWeight={600}
+                                      >
+                                        {expenseBadge.label}
+                                      </text>
+                                    </g>
                                   </>
                                 ) : null}
                               </>
