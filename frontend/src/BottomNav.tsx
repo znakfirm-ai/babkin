@@ -10,11 +10,11 @@ interface BottomNavProps {
 }
 
 const navItems: { key: NavItem; label: string; icon: React.ReactNode; isAdd?: boolean }[] = [
-  { key: "home", label: "Главная", icon: <AppIcon name="home" size={20} /> },
-  { key: "overview", label: "Обзор", icon: <AppIcon name="grid" size={20} /> },
-  { key: "add", label: "Добавить", icon: <AppIcon name="plus" size={22} />, isAdd: true },
-  { key: "reports", label: "Отчёты", icon: <AppIcon name="report" size={20} /> },
-  { key: "settings", label: "Настройки", icon: <AppIcon name="settings" size={20} /> },
+  { key: "home", label: "Главная", icon: <AppIcon name="home" size={18} /> },
+  { key: "overview", label: "Обзор", icon: <AppIcon name="grid" size={18} /> },
+  { key: "add", label: "Добавить", icon: <AppIcon name="plus" size={19} />, isAdd: true },
+  { key: "reports", label: "Отчёты", icon: <AppIcon name="report" size={18} /> },
+  { key: "settings", label: "Настройки", icon: <AppIcon name="settings" size={18} /> },
 ];
 
 const BottomNav: React.FC<BottomNavProps> = ({ active, onSelect }) => {
