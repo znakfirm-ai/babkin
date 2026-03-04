@@ -56,15 +56,15 @@
 }
 
 .bottom-nav__item--add .bottom-nav__icon {
-  width: 52px;
-  height: 52px;
+  width: 57px;
+  height: 57px;
   border-radius: 50%;
   font-size: 18px;
   background: linear-gradient(135deg, #2f54eb, #5b8def);
   color: #fff;
   display: grid;
   place-items: center;
-  transform: translateY(-10px);
+  transform: translateY(-19px);
   box-shadow: 0 14px 26px rgba(47, 84, 235, 0.28);
   z-index: 1;
 }
