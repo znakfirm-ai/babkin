@@ -1621,20 +1621,24 @@ const ReportsScreen: React.FC<Props> = ({
                             const intersects = (a: BadgeLayout, b: BadgeLayout) =>
                               !(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y)
                             const applyDividerConstraint = (badge: BadgeLayout, side: BadgeHorizontalSide, lineX: number): BadgeLayout => {
-                              const globalMaxX = svgWidth - badgeSafePadding - badge.width
+                              const safeMaxX = svgWidth - badgeSafePadding - badge.width
+                              let nextX = badge.x
                               if (side === "left") {
-                                const sideMaxX = lineX - badgeDividerGap - badge.width
-                                const cappedMaxX = Math.min(globalMaxX, sideMaxX)
-                                if (cappedMaxX >= badgeMinX) {
-                                  return { ...badge, x: clamp(badge.x, badgeMinX, cappedMaxX) }
+                                const dividerMaxX = lineX - badgeDividerGap - badge.width
+                                nextX = Math.min(nextX, dividerMaxX)
+                                nextX = clamp(nextX, badgeMinX, safeMaxX)
+                                if (nextX + badge.width > lineX - badgeDividerGap) {
+                                  nextX = lineX - badgeDividerGap - badge.width
                                 }
-                                return { ...badge, x: clamp(badge.x, badgeMinX, globalMaxX) }
+                                return { ...badge, x: nextX }
                               }
-                              const sideMinX = lineX + badgeDividerGap
-                              if (sideMinX <= globalMaxX) {
-                                return { ...badge, x: clamp(badge.x, sideMinX, globalMaxX) }
+                              const dividerMinX = lineX + badgeDividerGap
+                              nextX = Math.max(nextX, dividerMinX)
+                              nextX = clamp(nextX, badgeMinX, safeMaxX)
+                              if (nextX < dividerMinX) {
+                                nextX = dividerMinX
                               }
-                              return { ...badge, x: clamp(badge.x, badgeMinX, globalMaxX) }
+                              return { ...badge, x: nextX }
                             }
                             const buildStackedLayouts = (incomeBase: BadgeLayout, expenseBase: BadgeLayout): { income: BadgeLayout; expense: BadgeLayout } => {
                               const maxTopY = badgeMaxY - (badgeHeight + badgeStackGap)
