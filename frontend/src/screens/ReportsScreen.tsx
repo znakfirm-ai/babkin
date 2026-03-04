@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
@@ -36,6 +36,15 @@ type Props = {
 }
 
 const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
+type ComparePeriodMode = "day" | "week" | "month" | "quarter" | "year" | "custom"
+type CompareListMode = "income" | "expense"
+type CompareBin = {
+  key: string
+  start: Date
+  end: Date
+  label: string
+  isCurrentMonth: boolean
+}
 const REPORT_GROUP_GOALS_ID = "__report_goals__"
 const REPORT_GROUP_DEBTS_ID = "__report_debts__"
 const REPORT_GROUP_UNCATEGORIZED_ID = "uncategorized"
@@ -57,6 +66,125 @@ const getMonthRange = (offset: number) => {
       ? now
       : new Date(target.getFullYear(), target.getMonth() + 1, 0, 23, 59, 59, 999)
   return { start, end, label: `${MONTHS[target.getMonth()]} ${target.getFullYear()}` }
+}
+
+const toDayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
+const toDayEnd = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
+const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
+const toIsoDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+const parseIsoDate = (value: string) => {
+  const parsed = new Date(`${value}T00:00:00`)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+const formatDdMm = (date: Date) => `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}`
+const getWeekStartMonday = (date: Date) => {
+  const start = toDayStart(date)
+  const weekDay = start.getDay() === 0 ? 7 : start.getDay()
+  return addDays(start, 1 - weekDay)
+}
+const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo: string, now: Date): CompareBin[] => {
+  const buildSequence = (count: number, resolver: (offset: number) => CompareBin) =>
+    Array.from({ length: count }, (_, idx) => resolver(count - 1 - idx))
+
+  if (mode === "day") {
+    const baseStart = toDayStart(now)
+    return buildSequence(7, (offset) => {
+      const start = addDays(baseStart, -offset)
+      const end = toDayEnd(start)
+      const label = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(start)
+      return {
+        key: `day:${toIsoDate(start)}`,
+        start,
+        end,
+        label,
+        isCurrentMonth: false,
+      }
+    })
+  }
+  if (mode === "week") {
+    const baseStart = getWeekStartMonday(now)
+    return buildSequence(7, (offset) => {
+      const start = addDays(baseStart, -offset * 7)
+      const end = toDayEnd(addDays(start, 6))
+      return {
+        key: `week:${toIsoDate(start)}`,
+        start,
+        end,
+        label: `${formatDdMm(start)} - ${formatDdMm(end)}`,
+        isCurrentMonth: false,
+      }
+    })
+  }
+  if (mode === "month") {
+    const nowYear = now.getFullYear()
+    const nowMonth = now.getMonth()
+    const baseStart = new Date(nowYear, nowMonth, 1, 0, 0, 0, 0)
+    return buildSequence(6, (offset) => {
+      const start = new Date(baseStart.getFullYear(), baseStart.getMonth() - offset, 1, 0, 0, 0, 0)
+      const end = toDayEnd(new Date(start.getFullYear(), start.getMonth() + 1, 0))
+      const monthName = MONTHS[start.getMonth()]
+      const label = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)}`
+      return {
+        key: `month:${start.getFullYear()}-${start.getMonth() + 1}`,
+        start,
+        end,
+        label,
+        isCurrentMonth: start.getFullYear() === nowYear && start.getMonth() === nowMonth,
+      }
+    })
+  }
+  if (mode === "quarter") {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3
+    const baseStart = new Date(now.getFullYear(), quarterStartMonth, 1, 0, 0, 0, 0)
+    return buildSequence(6, (offset) => {
+      const start = new Date(baseStart.getFullYear(), baseStart.getMonth() - offset * 3, 1, 0, 0, 0, 0)
+      const end = toDayEnd(new Date(start.getFullYear(), start.getMonth() + 3, 0))
+      return {
+        key: `quarter:${toIsoDate(start)}`,
+        start,
+        end,
+        label: `${formatDdMm(start)} - ${formatDdMm(end)}`,
+        isCurrentMonth: false,
+      }
+    })
+  }
+  if (mode === "year") {
+    return buildSequence(6, (offset) => {
+      const year = now.getFullYear() - offset
+      const start = new Date(year, 0, 1, 0, 0, 0, 0)
+      const end = toDayEnd(new Date(year, 11, 31))
+      return {
+        key: `year:${year}`,
+        start,
+        end,
+        label: String(year),
+        isCurrentMonth: false,
+      }
+    })
+  }
+
+  const customFromDate = parseIsoDate(customFrom)
+  const customToDate = parseIsoDate(customTo)
+  const fallbackStart = toDayStart(now)
+  const fallbackEnd = toDayEnd(now)
+  const selectedStartRaw = customFromDate ?? fallbackStart
+  const selectedEndRaw = customToDate ?? fallbackEnd
+  const selectedStart = selectedStartRaw <= selectedEndRaw ? toDayStart(selectedStartRaw) : toDayStart(selectedEndRaw)
+  const selectedEnd = selectedStartRaw <= selectedEndRaw ? toDayEnd(selectedEndRaw) : toDayEnd(selectedStartRaw)
+  const intervalDays = Math.max(1, Math.floor((selectedEnd.getTime() - selectedStart.getTime()) / (24 * 60 * 60 * 1000)) + 1)
+
+  return buildSequence(6, (offset) => {
+    const start = toDayStart(addDays(selectedStart, -offset * intervalDays))
+    const end = toDayEnd(addDays(start, intervalDays - 1))
+    return {
+      key: `custom:${toIsoDate(start)}:${toIsoDate(end)}`,
+      start,
+      end,
+      label: `${formatDdMm(start)} - ${formatDdMm(end)}`,
+      isCurrentMonth: false,
+    }
+  })
 }
 
 const ReportsScreen: React.FC<Props> = ({
@@ -83,10 +211,13 @@ const ReportsScreen: React.FC<Props> = ({
   const [isCompareSheetOpen, setIsCompareSheetOpen] = useState(false)
   const [selectedLegendIndex, setSelectedLegendIndex] = useState<number | null>(null)
   const [bannerOffset, setBannerOffset] = useState(0)
-  const [activeCompareMonth, setActiveCompareMonth] = useState(() => {
-    const now = new Date()
-    return now.getFullYear() * 12 + now.getMonth()
-  })
+  const [comparePeriodMode, setComparePeriodMode] = useState<ComparePeriodMode>("month")
+  const [isComparePeriodMenuOpen, setIsComparePeriodMenuOpen] = useState(false)
+  const [compareCustomFrom, setCompareCustomFrom] = useState("")
+  const [compareCustomTo, setCompareCustomTo] = useState("")
+  const [isCompareCustomRangeOpen, setIsCompareCustomRangeOpen] = useState(false)
+  const [compareActiveBinKey, setCompareActiveBinKey] = useState<string | null>(null)
+  const [compareListMode, setCompareListMode] = useState<CompareListMode>("income")
   const todayDate = useMemo(() => format(new Date()), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
@@ -207,77 +338,117 @@ const ReportsScreen: React.FC<Props> = ({
 
   const canNextBanner = bannerOffset < 0
 
-  const minCompareMonth = 2022 * 12 + 1
-  const maxCompareMonth = useMemo(() => {
-    const now = new Date()
-    return now.getFullYear() * 12 + now.getMonth()
-  }, [])
-  const windowMonths = useMemo(() => {
-    const todayAbs = maxCompareMonth
-    if (activeCompareMonth < todayAbs) {
-      return [
-        activeCompareMonth - 3,
-        activeCompareMonth - 2,
-        activeCompareMonth - 1,
-        activeCompareMonth,
-        Math.min(activeCompareMonth + 1, todayAbs),
-      ]
-    }
-    return [
-      todayAbs - 4,
-      todayAbs - 3,
-      todayAbs - 2,
-      todayAbs - 1,
-      todayAbs,
-    ]
-  }, [activeCompareMonth, maxCompareMonth])
-  const monthLabel = (monthIndex: number) => {
-    const month = monthIndex % 12
-    const name = MONTHS[month]
-    return `${name.charAt(0).toUpperCase()}${name.slice(1)}`
-  }
-  const showYearSeparator =
-    windowMonths.some((m, idx) => idx < windowMonths.length - 1 && m % 12 === 11 && windowMonths[idx + 1] % 12 === 0)
-
-  const monthAggregates = useMemo(() => {
-    const buckets = new Map<number, { income: number; expense: number }>()
-    transactions.forEach((t) => {
-      const date = new Date(t.date)
-      const absMonth = date.getFullYear() * 12 + date.getMonth()
-      const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
-      if (kind !== "income" && kind !== "expense") return
-      if (kind === "expense" && (t as { kind?: string }).kind === "adjustment") return
-      const amt = t.amount?.amount ?? 0
-      const entry = buckets.get(absMonth) ?? { income: 0, expense: 0 }
-      if (kind === "income") entry.income += amt
-      else entry.expense += amt
-      buckets.set(absMonth, entry)
-    })
-    return buckets
-  }, [transactions])
-
-  const getMonthValue = useCallback(
-    (absMonth: number) => monthAggregates.get(absMonth) ?? { income: 0, expense: 0 },
-    [monthAggregates],
+  const comparePeriodOptions = useMemo(
+    () => [
+      { key: "day" as const, label: "День" },
+      { key: "week" as const, label: "Неделя" },
+      { key: "month" as const, label: "Месяц" },
+      { key: "quarter" as const, label: "Квартал" },
+      { key: "year" as const, label: "Год" },
+      { key: "custom" as const, label: "Свой" },
+    ],
+    [],
   )
 
-  const todayAbsMonth = useMemo(() => {
-    const now = new Date()
-    return now.getFullYear() * 12 + now.getMonth()
-  }, [])
+  const compareBins = useMemo(
+    () => buildCompareBins(comparePeriodMode, compareCustomFrom, compareCustomTo, new Date()),
+    [compareCustomFrom, compareCustomTo, comparePeriodMode],
+  )
 
-  const rollingMonths = useMemo(() => {
-    const start = todayAbsMonth - 11
-    return Array.from({ length: 12 }, (_, i) => start + i)
-  }, [todayAbsMonth])
+  useEffect(() => {
+    if (compareBins.length === 0) {
+      if (compareActiveBinKey !== null) setCompareActiveBinKey(null)
+      return
+    }
+    const hasActiveKey = compareActiveBinKey !== null && compareBins.some((bin) => bin.key === compareActiveBinKey)
+    if (!hasActiveKey) {
+      setCompareActiveBinKey(compareBins[compareBins.length - 1]?.key ?? null)
+    }
+  }, [compareActiveBinKey, compareBins])
 
-  const chartMax = useMemo(() => {
-    const relevant = rollingMonths.flatMap((m) => {
-      const v = getMonthValue(m)
-      return [v.income, v.expense]
+  const compareActiveBin = useMemo(() => {
+    if (compareBins.length === 0) return null
+    if (!compareActiveBinKey) return compareBins[compareBins.length - 1] ?? null
+    return compareBins.find((bin) => bin.key === compareActiveBinKey) ?? compareBins[compareBins.length - 1] ?? null
+  }, [compareActiveBinKey, compareBins])
+
+  const compareSeries = useMemo(() => {
+    return compareBins.map((bin) => {
+      let income = 0
+      let expense = 0
+      transactions.forEach((transaction) => {
+        const date = new Date(transaction.date)
+        if (date < bin.start || date > bin.end) return
+        const kind = (transaction as { type?: string }).type ?? (transaction as { kind?: string }).kind
+        if (kind !== "income" && kind !== "expense") return
+        if (kind === "expense" && (transaction as { kind?: string }).kind === "adjustment") return
+        const amount = transaction.amount?.amount ?? 0
+        if (kind === "income") income += amount
+        else expense += amount
+      })
+      return { ...bin, income, expense }
     })
-    return Math.max(...(relevant.length ? relevant : [0]), 0)
-  }, [getMonthValue, rollingMonths])
+  }, [compareBins, transactions])
+
+  const compareChartMax = useMemo(() => {
+    const values = compareSeries.flatMap((item) => [item.income, item.expense])
+    return Math.max(...(values.length ? values : [0]), 0)
+  }, [compareSeries])
+
+  const comparePeriodRangeLabel = useMemo(() => {
+    if (comparePeriodMode !== "custom") return ""
+    const fromDate = parseIsoDate(compareCustomFrom || todayDate)
+    const toDate = parseIsoDate(compareCustomTo || todayDate)
+    if (!fromDate || !toDate) return ""
+    const start = fromDate <= toDate ? fromDate : toDate
+    const end = fromDate <= toDate ? toDate : fromDate
+    return `${format(new Date(start))} — ${format(new Date(end))}`
+  }, [compareCustomFrom, compareCustomTo, comparePeriodMode, todayDate])
+
+  const compareIncomeList = useMemo(() => {
+    if (!compareActiveBin) return []
+    const totals = new Map<string, number>()
+    transactions.forEach((transaction) => {
+      const date = new Date(transaction.date)
+      if (date < compareActiveBin.start || date > compareActiveBin.end) return
+      const kind = (transaction as { type?: string }).type ?? (transaction as { kind?: string }).kind
+      if (kind !== "income") return
+      const sourceId = (transaction as { incomeSourceId?: string | null }).incomeSourceId ?? REPORT_GROUP_UNCATEGORIZED_ID
+      const amount = transaction.amount?.amount ?? 0
+      totals.set(sourceId, (totals.get(sourceId) ?? 0) + amount)
+    })
+    return Array.from(totals.entries())
+      .filter(([, amount]) => amount > 0)
+      .map(([id, amount]) => ({
+        id,
+        title: incomeSources.find((source) => source.id === id)?.name ?? "Без источника",
+        amount,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [compareActiveBin, incomeSources, transactions])
+
+  const compareExpenseList = useMemo(() => {
+    if (!compareActiveBin) return []
+    const totals = new Map<string, number>()
+    transactions.forEach((transaction) => {
+      const date = new Date(transaction.date)
+      if (date < compareActiveBin.start || date > compareActiveBin.end) return
+      const kind = (transaction as { type?: string }).type ?? (transaction as { kind?: string }).kind
+      if (kind !== "expense") return
+      if ((transaction as { kind?: string }).kind === "adjustment") return
+      const categoryId = (transaction as { categoryId?: string | null }).categoryId ?? REPORT_GROUP_UNCATEGORIZED_ID
+      const amount = transaction.amount?.amount ?? 0
+      totals.set(categoryId, (totals.get(categoryId) ?? 0) + amount)
+    })
+    return Array.from(totals.entries())
+      .filter(([, amount]) => amount > 0)
+      .map(([id, amount]) => ({
+        id,
+        title: categories.find((category) => category.id === id)?.name ?? "Без категории",
+        amount,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [categories, compareActiveBin, transactions])
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
@@ -551,6 +722,8 @@ const ReportsScreen: React.FC<Props> = ({
             setIsCompareSheetOpen(true)
             setIsExpensesSheetOpen(false)
             setIsIncomeSheetOpen(false)
+            setIsComparePeriodMenuOpen(false)
+            setIsCompareCustomRangeOpen(false)
           }}
           style={{
             padding: 14,
@@ -1424,7 +1597,11 @@ const ReportsScreen: React.FC<Props> = ({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => setIsCompareSheetOpen(false)}
+          onClick={() => {
+            setIsCompareSheetOpen(false)
+            setIsComparePeriodMenuOpen(false)
+            setIsCompareCustomRangeOpen(false)
+          }}
           className="tx-modal__backdrop"
           style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
         >
@@ -1449,7 +1626,11 @@ const ReportsScreen: React.FC<Props> = ({
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Доходы vs Расходы</div>
                 <button
                   type="button"
-                  onClick={() => setIsCompareSheetOpen(false)}
+                  onClick={() => {
+                    setIsCompareSheetOpen(false)
+                    setIsComparePeriodMenuOpen(false)
+                    setIsCompareCustomRangeOpen(false)
+                  }}
                   style={{
                     padding: "8px 12px",
                     borderRadius: 10,
@@ -1485,6 +1666,10 @@ const ReportsScreen: React.FC<Props> = ({
                       fontWeight: 600,
                       cursor: "pointer",
                     }}
+                    onClick={() => {
+                      setIsCompareCustomRangeOpen(false)
+                      setIsComparePeriodMenuOpen((prev) => !prev)
+                    }}
                   >
                     Период
                   </button>
@@ -1501,8 +1686,150 @@ const ReportsScreen: React.FC<Props> = ({
                       textAlign: "right",
                     }}
                   >
-                    {/* заглушка периода */}Период не выбран
+                    {comparePeriodMode === "custom" ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsComparePeriodMenuOpen(false)
+                          setIsCompareCustomRangeOpen((prev) => !prev)
+                        }}
+                        style={{
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          background: "#fff",
+                          padding: "8px 10px",
+                          fontSize: 13,
+                          color: "#475569",
+                          cursor: "pointer",
+                          maxWidth: "100%",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {comparePeriodRangeLabel || "Выбрать даты"}
+                      </button>
+                    ) : null}
                   </div>
+                  {isComparePeriodMenuOpen ? (
+                    <>
+                      <div
+                        style={{ position: "fixed", inset: 0, zIndex: 4 }}
+                        onClick={() => setIsComparePeriodMenuOpen(false)}
+                      />
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          marginTop: 6,
+                          background: "#fff",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                          zIndex: 5,
+                          width: 196,
+                          display: "grid",
+                          gap: 4,
+                          padding: 8,
+                        }}
+                      >
+                        {comparePeriodOptions.map((option) => (
+                          <button
+                            key={option.key}
+                            type="button"
+                            onClick={() => {
+                              setComparePeriodMode(option.key)
+                              setIsComparePeriodMenuOpen(false)
+                              setCompareActiveBinKey(null)
+                              if (option.key === "custom") {
+                                const nextFrom = compareCustomFrom || todayDate
+                                const nextTo = compareCustomTo || todayDate
+                                setCompareCustomFrom(nextFrom)
+                                setCompareCustomTo(nextTo)
+                                setIsCompareCustomRangeOpen(true)
+                              } else {
+                                setIsCompareCustomRangeOpen(false)
+                              }
+                            }}
+                            style={{
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "8px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #e5e7eb",
+                              background: comparePeriodMode === option.key ? "#f1f5f9" : "#fff",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : null}
+                  {comparePeriodMode === "custom" && isCompareCustomRangeOpen ? (
+                    <>
+                      <div
+                        style={{ position: "fixed", inset: 0, zIndex: 4 }}
+                        onClick={() => setIsCompareCustomRangeOpen(false)}
+                      />
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          right: 0,
+                          marginTop: 6,
+                          background: "#fff",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                          zIndex: 5,
+                          width: 260,
+                          display: "grid",
+                          gap: 8,
+                          padding: 10,
+                        }}
+                      >
+                        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6, alignItems: "center" }}>
+                          <span style={{ fontSize: 13, color: "#6b7280" }}>с</span>
+                          <input
+                            type="date"
+                            value={compareCustomFrom || todayDate}
+                            onChange={(event) => {
+                              setCompareCustomFrom(event.target.value)
+                              setCompareActiveBinKey(null)
+                            }}
+                            style={{
+                              width: "100%",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 10,
+                              padding: "8px 10px",
+                              fontSize: 16,
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6, alignItems: "center" }}>
+                          <span style={{ fontSize: 13, color: "#6b7280" }}>по</span>
+                          <input
+                            type="date"
+                            value={compareCustomTo || todayDate}
+                            onChange={(event) => {
+                              setCompareCustomTo(event.target.value)
+                              setCompareActiveBinKey(null)
+                            }}
+                            style={{
+                              width: "100%",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 10,
+                              padding: "8px 10px",
+                              fontSize: 16,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
 
                 <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
@@ -1525,7 +1852,7 @@ const ReportsScreen: React.FC<Props> = ({
                       }}
                     >
                       <div style={{ position: "absolute", right: 20, top: 12, fontSize: 11, color: "#94a3b8" }}>
-                        {Math.floor(activeCompareMonth / 12)}
+                        {compareActiveBin ? compareActiveBin.end.getFullYear() : ""}
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
@@ -1535,26 +1862,27 @@ const ReportsScreen: React.FC<Props> = ({
                             const chartTop = 10
                             const chartBottom = 130
                             const chartHeight = chartBottom - chartTop
-                            const spacing = chartWidth / 4
-                            const xPositions = [0, 1, 2, 3, 4].map((i) => paddingX + spacing * i)
-                            const activeIdxRaw = windowMonths.findIndex((m) => m === activeCompareMonth)
-                            const activeIdx = activeIdxRaw >= 0 ? activeIdxRaw : 2
-                            const maxVal = chartMax > 0 ? chartMax : 1
+                            const pointsCount = compareSeries.length
+                            const spacing = pointsCount > 1 ? chartWidth / (pointsCount - 1) : chartWidth
+                            const xPositions = Array.from({ length: Math.max(pointsCount, 1) }, (_, index) => paddingX + spacing * index)
+                            const activeIdxRaw = compareSeries.findIndex((bin) => bin.key === compareActiveBin?.key)
+                            const activeIdx = activeIdxRaw >= 0 ? activeIdxRaw : Math.max(compareSeries.length - 1, 0)
+                            const maxVal = compareChartMax > 0 ? compareChartMax : 1
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
                             const guideLines = xPositions.map((xPos, idx) => ({
                               x: xPos,
                               opacity: idx === activeIdx ? 0.35 : 0.25,
                             }))
-                            const incomePoints = windowMonths.map((m, idx) => ({
+                            const incomePoints = compareSeries.map((bin, idx) => ({
                               x: xPositions[idx],
-                              y: toY(m >= minCompareMonth && m <= maxCompareMonth ? getMonthValue(m).income : 0),
-                              val: m >= minCompareMonth && m <= maxCompareMonth ? getMonthValue(m).income : 0,
+                              y: toY(bin.income),
+                              val: bin.income,
                               idx,
                             }))
-                            const expensePoints = windowMonths.map((m, idx) => ({
+                            const expensePoints = compareSeries.map((bin, idx) => ({
                               x: xPositions[idx],
-                              y: toY(m >= minCompareMonth && m <= maxCompareMonth ? getMonthValue(m).expense : 0),
-                              val: m >= minCompareMonth && m <= maxCompareMonth ? getMonthValue(m).expense : 0,
+                              y: toY(bin.expense),
+                              val: bin.expense,
                               idx,
                             }))
                             const toSmoothPath = (pts: { x: number; y: number }[]) => {
@@ -1586,6 +1914,15 @@ const ReportsScreen: React.FC<Props> = ({
                             const expenseColor = "#f7b2a4"
                             const activeIncome = incomePoints[activeIdx]
                             const activeExpense = expensePoints[activeIdx]
+                            const yearBoundaryIndex = compareSeries.findIndex(
+                              (bin, index) =>
+                                index < compareSeries.length - 1 &&
+                                bin.start.getFullYear() !== compareSeries[index + 1]?.start.getFullYear(),
+                            )
+                            const yearSeparatorX =
+                              yearBoundaryIndex >= 0 && xPositions[yearBoundaryIndex] !== undefined && xPositions[yearBoundaryIndex + 1] !== undefined
+                                ? (xPositions[yearBoundaryIndex] + xPositions[yearBoundaryIndex + 1]) / 2
+                                : null
                             const svgWidth = 300
                             const svgHeight = 160
                             const badgeSafePadding = 25
@@ -1660,7 +1997,9 @@ const ReportsScreen: React.FC<Props> = ({
                             if (activeIncome && activeExpense) {
                               const incomeLabel = `+ ${formatMoney(activeIncome.val, currency ?? "RUB")}`
                               const expenseLabel = `- ${formatMoney(activeExpense.val, currency ?? "RUB")}`
-                              const isCurrentMonthPoint = activeCompareMonth === maxCompareMonth
+                              const activeComparePoint = compareSeries[activeIdx]
+                              const isCurrentMonthPoint =
+                                comparePeriodMode === "month" && Boolean(activeComparePoint?.isCurrentMonth)
                               const markerLineX = activeIncome.x
                               const incomeBaseRaw = buildBadgeLayout(activeIncome, incomeLabel, incomeColor, isCurrentMonthPoint ? "left" : "right")
                               const expenseBaseRaw = buildBadgeLayout(activeExpense, expenseLabel, expenseColor, "left")
@@ -1698,8 +2037,16 @@ const ReportsScreen: React.FC<Props> = ({
                                     opacity={line.opacity}
                                   />
                                 ))}
-                                {showYearSeparator ? (
-                                  <line x1={150} y1={chartTop - 10} x2={150} y2={chartBottom + 10} stroke="#e5e7eb" strokeWidth={1} opacity={0.8} />
+                                {yearSeparatorX !== null ? (
+                                  <line
+                                    x1={yearSeparatorX}
+                                    y1={chartTop - 10}
+                                    x2={yearSeparatorX}
+                                    y2={chartBottom + 10}
+                                    stroke="#e5e7eb"
+                                    strokeWidth={1}
+                                    opacity={0.8}
+                                  />
                                 ) : null}
                                 <path d={incomePath} stroke={incomeColor} strokeWidth="4" fill="none" />
                                 <path d={expensePath} stroke={expenseColor} strokeWidth="3" fill="none" strokeDasharray="6 6" />
@@ -1786,31 +2133,28 @@ const ReportsScreen: React.FC<Props> = ({
                               marginLeft: "-10%",
                             }}
                           >
-                            {windowMonths.map((m) => {
-                              const disabled = m < minCompareMonth || m > maxCompareMonth
-                              const isActive = m === activeCompareMonth
+                            {compareSeries.map((bin) => {
+                              const isActive = bin.key === compareActiveBin?.key
                               return (
                                 <button
-                                  key={m}
+                                  key={bin.key}
                                   type="button"
                                   onClick={() => {
-                                    if (disabled) return
-                                    setActiveCompareMonth(m)
+                                    setCompareActiveBinKey(bin.key)
                                   }}
-                                  disabled={disabled}
                                   style={{
                                     background: "none",
                                     border: "none",
                                     padding: 0,
-                                    color: disabled ? "#cbd5e1" : isActive ? "#0f172a" : "#475569",
-                                    cursor: disabled ? "default" : "pointer",
+                                    color: isActive ? "#0f172a" : "#475569",
+                                    cursor: "pointer",
                                     fontWeight: isActive ? 700 : 500,
                                     fontSize: 12,
                                     minWidth: 0,
                                     whiteSpace: "nowrap",
                                   }}
                                 >
-                                  {monthLabel(m)}
+                                  {bin.label}
                                 </button>
                               )
                             })}
@@ -1824,14 +2168,15 @@ const ReportsScreen: React.FC<Props> = ({
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <button
                     type="button"
+                    onClick={() => setCompareListMode("income")}
                     style={{
                       flex: 1,
                       padding: "10px 12px",
                       borderRadius: 10,
-                      border: "1px solid #0f172a",
-                      background: "#0f172a",
-                      color: "#fff",
-                      fontWeight: 700,
+                      border: compareListMode === "income" ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                      background: compareListMode === "income" ? "#0f172a" : "#fff",
+                      color: compareListMode === "income" ? "#fff" : "#0f172a",
+                      fontWeight: compareListMode === "income" ? 700 : 600,
                       cursor: "pointer",
                     }}
                   >
@@ -1839,14 +2184,15 @@ const ReportsScreen: React.FC<Props> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={() => setCompareListMode("expense")}
                     style={{
                       flex: 1,
                       padding: "10px 12px",
                       borderRadius: 10,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      color: "#0f172a",
-                      fontWeight: 600,
+                      border: compareListMode === "expense" ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                      background: compareListMode === "expense" ? "#0f172a" : "#fff",
+                      color: compareListMode === "expense" ? "#fff" : "#0f172a",
+                      fontWeight: compareListMode === "expense" ? 700 : 600,
                       cursor: "pointer",
                     }}
                   >
@@ -1858,14 +2204,49 @@ const ReportsScreen: React.FC<Props> = ({
                   style={{
                     flex: 1,
                     minHeight: 0,
-                    border: "1px dashed #e5e7eb",
+                    border: "1px solid #e5e7eb",
                     borderRadius: 12,
                     padding: 12,
-                    color: "#94a3b8",
-                    fontSize: 14,
+                    overflowY: "auto",
+                    display: "grid",
+                    gap: 8,
                   }}
                 >
-                  Список появится позже
+                  {(compareListMode === "income" ? compareIncomeList : compareExpenseList).length === 0 ? (
+                    <div style={{ color: "#94a3b8", fontSize: 14 }}>Нет данных за выбранный период</div>
+                  ) : (
+                    (compareListMode === "income" ? compareIncomeList : compareExpenseList).map((item) => (
+                      <div
+                        key={`${compareListMode}-${item.id}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          padding: "10px 12px",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          background: "#fff",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: "#0f172a",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", flexShrink: 0 }}>
+                          {formatMoney(item.amount, currency ?? "RUB")}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
