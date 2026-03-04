@@ -37,7 +37,9 @@ export default function DebugTimingsOverlay() {
   }, [])
 
   const requestRows = snapshot.requests
-    .filter((item) => ["accounts", "transactions", "categories", "incomeSources", "goals", "debtors"].includes(item.label))
+    .filter((item) =>
+      ["bootstrap", "accounts", "transactions", "categories", "incomeSources", "goals", "debtors"].includes(item.label),
+    )
     .slice(-24)
 
   const appStart = snapshot.stages.appStart

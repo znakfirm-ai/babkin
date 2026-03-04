@@ -6,6 +6,7 @@ import { getIncomeSources } from "./api/incomeSources"
 import { getTransactions } from "./api/transactions"
 import { getGoals } from "./api/goals"
 import { getDebtors } from "./api/debtors"
+import { getBootstrap } from "./api/bootstrap"
 import DebugTimingsOverlay from "./components/DebugTimingsOverlay"
 import { markTimingStage, timedFetch } from "./utils/debugTimings"
 import HomeScreen from "./screens/HomeScreen"
@@ -398,8 +399,8 @@ function App() {
       }
 
       try {
-        const accData = await getAccounts(token)
-        const mappedAccounts = accData.accounts.map((a) => ({
+        const bootstrapData = await getBootstrap(token)
+        const mappedAccounts = bootstrapData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
           balance: { amount: a.balance, currency: a.currency },
@@ -408,16 +409,19 @@ function App() {
         }))
         setAccounts(mappedAccounts)
 
-        const catData = await getCategories(token)
-        const mappedCategories = catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null }))
+        const mappedCategories = bootstrapData.categories.map((c) => ({
+          id: c.id,
+          name: c.name,
+          type: c.kind,
+          icon: c.icon,
+          budget: c.budget ?? null,
+        }))
         setCategories(mappedCategories)
 
-        const incData = await getIncomeSources(token)
-        const mappedIncomeSources = incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
+        const mappedIncomeSources = bootstrapData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
         setIncomeSources(mappedIncomeSources)
 
-        const goalsData = await getGoals(token)
-        const mappedGoals = goalsData.goals.map((g) => ({
+        const mappedGoals = bootstrapData.goals.map((g) => ({
           id: g.id,
           name: g.name,
           icon: g.icon,
@@ -427,8 +431,7 @@ function App() {
         }))
         setGoals(mappedGoals)
 
-        const debtorsData = await getDebtors(token)
-        const mappedDebtors = debtorsData.debtors.map((d) => ({
+        const mappedDebtors = bootstrapData.debtors.map((d) => ({
           id: d.id,
           name: d.name,
           icon: d.icon,
@@ -441,28 +444,27 @@ function App() {
         }))
         setDebtors(mappedDebtors)
 
-        const txData = await getTransactions(token)
-        const mappedTransactions = txData.transactions.map((t) => ({
+        const mappedTransactions = bootstrapData.transactions.map((t) => ({
           id: t.id,
           type: t.kind,
-            amount: {
-              amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
-              currency: "RUB",
-            },
-            date: t.happenedAt,
-            accountId: t.accountId ?? t.fromAccountId ?? "",
-            accountName: t.accountName ?? null,
-            fromAccountId: t.fromAccountId ?? undefined,
-            fromAccountName: t.fromAccountName ?? null,
-            categoryId: t.categoryId ?? undefined,
-            incomeSourceId: t.incomeSourceId ?? undefined,
-            toAccountId: t.toAccountId ?? undefined,
-            toAccountName: t.toAccountName ?? null,
-            goalId: t.goalId ?? undefined,
-            goalName: t.goalName ?? null,
-            debtorId: t.debtorId ?? undefined,
-            debtorName: t.debtorName ?? null,
-          }))
+          amount: {
+            amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+            currency: "RUB",
+          },
+          date: t.happenedAt,
+          accountId: t.accountId ?? t.fromAccountId ?? "",
+          accountName: t.accountName ?? null,
+          fromAccountId: t.fromAccountId ?? undefined,
+          fromAccountName: t.fromAccountName ?? null,
+          categoryId: t.categoryId ?? undefined,
+          incomeSourceId: t.incomeSourceId ?? undefined,
+          toAccountId: t.toAccountId ?? undefined,
+          toAccountName: t.toAccountName ?? null,
+          goalId: t.goalId ?? undefined,
+          goalName: t.goalName ?? null,
+          debtorId: t.debtorId ?? undefined,
+          debtorName: t.debtorName ?? null,
+        }))
         setTransactions(mappedTransactions)
         setOverviewError(null)
         if (wsData.activeWorkspace?.type) {
