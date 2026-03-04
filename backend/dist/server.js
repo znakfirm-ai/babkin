@@ -22,6 +22,28 @@ const telegramWebhook_1 = require("./routes/telegramWebhook");
 const fastify = (0, fastify_1.default)({
     logger: true,
 });
+const debugTimingsEnabled = process.env.DEBUG_TIMINGS === "1";
+const requestTimings = new WeakMap();
+let debugRequestCounter = 0;
+const createDebugRequestId = () => {
+    debugRequestCounter += 1;
+    return `dbg-${Date.now().toString(36)}-${debugRequestCounter.toString(36)}`;
+};
+if (debugTimingsEnabled) {
+    fastify.addHook("onRequest", async (request) => {
+        const requestId = request.id ? String(request.id) : createDebugRequestId();
+        requestTimings.set(request, { startedAtMs: Date.now(), requestId });
+    });
+    fastify.addHook("onResponse", async (request, reply) => {
+        const timing = requestTimings.get(request);
+        if (!timing)
+            return;
+        requestTimings.delete(request);
+        const durationMs = Date.now() - timing.startedAtMs;
+        const urlPath = request.url.split("?")[0];
+        fastify.log.info(`[timing][http] requestId=${timing.requestId} method=${request.method} url=${urlPath} status=${reply.statusCode} durationMs=${durationMs}`);
+    });
+}
 fastify.register(cors_1.default, { origin: true });
 fastify.register(health_1.healthRoutes);
 fastify.register(auth_1.authRoutes, { prefix: "/api/v1" });

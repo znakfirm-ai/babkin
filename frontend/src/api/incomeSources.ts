@@ -1,3 +1,5 @@
+import { timedFetch } from "../utils/debugTimings"
+
 export type IncomeSourceDto = {
   id: string
   name: string
@@ -9,11 +11,15 @@ export type GetIncomeSourcesResponse = {
 }
 
 export async function getIncomeSources(token: string): Promise<GetIncomeSourcesResponse> {
-  const res = await fetch("https://babkin.onrender.com/api/v1/income-sources", {
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const res = await timedFetch(
+    "https://babkin.onrender.com/api/v1/income-sources",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  })
+    { label: "incomeSources" },
+  )
   if (!res.ok) {
     const text = await res.text().catch(() => "")
     throw new Error(`GET /income-sources failed: ${res.status} ${res.statusText} ${text}`)

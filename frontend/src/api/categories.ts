@@ -1,3 +1,5 @@
+import { timedFetch } from "../utils/debugTimings"
+
 export type CategoryDto = {
   id: string
   name: string
@@ -11,11 +13,15 @@ export type GetCategoriesResponse = {
 }
 
 export async function getCategories(token: string): Promise<GetCategoriesResponse> {
-  const res = await fetch("https://babkin.onrender.com/api/v1/categories", {
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const res = await timedFetch(
+    "https://babkin.onrender.com/api/v1/categories",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  })
+    { label: "categories" },
+  )
   if (!res.ok) {
     const text = await res.text().catch(() => "")
     throw new Error(`GET /categories failed: ${res.status} ${res.statusText} ${text}`)

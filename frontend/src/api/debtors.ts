@@ -1,3 +1,5 @@
+import { timedFetch } from "../utils/debugTimings"
+
 export type DebtorDto = {
   id: string
   name: string
@@ -24,11 +26,15 @@ export async function getDebtors(
   if (params?.status) search.set("status", params.status)
   if (params?.direction) search.set("direction", params.direction)
   const query = search.toString() ? `?${search.toString()}` : ""
-  const res = await fetch(`https://babkin.onrender.com/api/v1/debtors${query}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const res = await timedFetch(
+    `https://babkin.onrender.com/api/v1/debtors${query}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  })
+    { label: "debtors" },
+  )
   if (!res.ok) {
     const text = await res.text().catch(() => "")
     throw new Error(`GET /debtors failed: ${res.status} ${res.statusText} ${text}`)

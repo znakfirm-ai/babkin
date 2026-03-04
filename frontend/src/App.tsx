@@ -6,6 +6,8 @@ import { getIncomeSources } from "./api/incomeSources"
 import { getTransactions } from "./api/transactions"
 import { getGoals } from "./api/goals"
 import { getDebtors } from "./api/debtors"
+import DebugTimingsOverlay from "./components/DebugTimingsOverlay"
+import { markTimingStage, timedFetch } from "./utils/debugTimings"
 import HomeScreen from "./screens/HomeScreen"
 import OverviewScreen from "./screens/OverviewScreen"
 import AddScreen from "./screens/AddScreen"
@@ -223,6 +225,7 @@ function App() {
   const appSettleInFlightRef = useRef(false)
   const appSettleDoneRef = useRef(false)
   const initInFlightRef = useRef(false)
+  const appStartMarkedRef = useRef(false)
 
   interface TelegramWebApp {
     ready(): void
@@ -230,6 +233,12 @@ function App() {
     setHeaderColor?: (color: string) => void
     setBackgroundColor?: (color: string) => void
   }
+
+  useEffect(() => {
+    if (appStartMarkedRef.current) return
+    markTimingStage("appStart")
+    appStartMarkedRef.current = true
+  }, [])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -266,6 +275,7 @@ function App() {
         tg.expand()
         tg.setHeaderColor?.("#f5f6f8")
         tg.setBackgroundColor?.("#f5f6f8")
+        markTimingStage("telegramReady")
       } catch {
         // ignore
       }
@@ -338,9 +348,7 @@ function App() {
   const initApp = useCallback(async () => {
     if (initDone.current || initInFlightRef.current) return
     initInFlightRef.current = true
-    if (import.meta.env.DEV) {
-      console.debug("[app-init] start")
-    }
+    markTimingStage("initBegin")
     setAppLoading(true)
     setAppSettling(true)
     appSettleDoneRef.current = false
@@ -350,14 +358,18 @@ function App() {
       if (!token) {
         const initData = window.Telegram?.WebApp?.initData ?? ""
         if (!initData) throw new Error("Нет Telegram initData")
-        const res = await fetch("https://babkin.onrender.com/api/v1/auth/telegram", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Telegram-InitData": initData,
+        const res = await timedFetch(
+          "https://babkin.onrender.com/api/v1/auth/telegram",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Telegram-InitData": initData,
+            },
+            body: "{}",
           },
-          body: "{}",
-        })
+          { label: "auth" },
+        )
         if (!res.ok) throw new Error(`Auth error: ${res.status}`)
         const data: { accessToken?: string } = await res.json()
         if (!data.accessToken) throw new Error("Auth error")
@@ -366,9 +378,13 @@ function App() {
       }
       setAppToken(token)
 
-      const wsRes = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const wsRes = await timedFetch(
+        "https://babkin.onrender.com/api/v1/workspaces",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+        { label: "workspaces" },
+      )
       if (!wsRes.ok) throw new Error(`Workspaces error: ${wsRes.status}`)
       const wsData: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await wsRes.json()
       setAppWorkspaces(wsData.workspaces ?? [])
@@ -479,9 +495,7 @@ function App() {
       setAppSettling(false)
     } finally {
       initInFlightRef.current = false
-      if (import.meta.env.DEV) {
-        console.debug("[app-init] done")
-      }
+      markTimingStage("initEnd")
     }
   }, [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setOverviewUiPhase, setTransactions])
 
@@ -798,14 +812,18 @@ function App() {
       setIsSwitchingWorkspace(true)
       setSwitchingToWorkspaceId(workspace.id)
       try {
-        const response = await fetch("https://babkin.onrender.com/api/v1/workspaces/active", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+        const response = await timedFetch(
+          "https://babkin.onrender.com/api/v1/workspaces/active",
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ workspaceId: workspace.id }),
           },
-          body: JSON.stringify({ workspaceId: workspace.id }),
-        })
+          { label: "workspaces" },
+        )
         if (!response.ok) return
         const data: { activeWorkspace: Workspace } = await response.json()
         if (workspaceSwitchRequestRef.current !== requestId) return
@@ -841,18 +859,26 @@ function App() {
   const createFamilyWorkspace = useCallback(async () => {
     if (!appToken) return
     try {
-      const response = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${appToken}`,
+      const response = await timedFetch(
+        "https://babkin.onrender.com/api/v1/workspaces",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${appToken}`,
+          },
+          body: JSON.stringify({ type: "family", name: null }),
         },
-        body: JSON.stringify({ type: "family", name: null }),
-      })
+        { label: "workspaces" },
+      )
       if (!response.ok) return
-      const refreshed = await fetch("https://babkin.onrender.com/api/v1/workspaces", {
-        headers: { Authorization: `Bearer ${appToken}` },
-      })
+      const refreshed = await timedFetch(
+        "https://babkin.onrender.com/api/v1/workspaces",
+        {
+          headers: { Authorization: `Bearer ${appToken}` },
+        },
+        { label: "workspaces" },
+      )
       if (!refreshed.ok) return
       const data: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await refreshed.json()
       setAppWorkspaces(data.workspaces ?? [])
@@ -1677,7 +1703,10 @@ function App() {
       externalError={globalError}
       onClearExternalError={() => setGlobalError(null)}
     >
-      {appShell}
+      <>
+        {appShell}
+        <DebugTimingsOverlay />
+      </>
     </AppErrorBoundary>
   )
 }

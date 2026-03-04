@@ -18,6 +18,32 @@ import { telegramWebhookRoutes } from "./routes/telegramWebhook"
 const fastify = Fastify({
   logger: true,
 })
+const debugTimingsEnabled = process.env.DEBUG_TIMINGS === "1"
+const requestTimings = new WeakMap<object, { startedAtMs: number; requestId: string }>()
+let debugRequestCounter = 0
+
+const createDebugRequestId = () => {
+  debugRequestCounter += 1
+  return `dbg-${Date.now().toString(36)}-${debugRequestCounter.toString(36)}`
+}
+
+if (debugTimingsEnabled) {
+  fastify.addHook("onRequest", async (request) => {
+    const requestId = request.id ? String(request.id) : createDebugRequestId()
+    requestTimings.set(request, { startedAtMs: Date.now(), requestId })
+  })
+
+  fastify.addHook("onResponse", async (request, reply) => {
+    const timing = requestTimings.get(request)
+    if (!timing) return
+    requestTimings.delete(request)
+    const durationMs = Date.now() - timing.startedAtMs
+    const urlPath = request.url.split("?")[0]
+    fastify.log.info(
+      `[timing][http] requestId=${timing.requestId} method=${request.method} url=${urlPath} status=${reply.statusCode} durationMs=${durationMs}`,
+    )
+  })
+}
 
 fastify.register(cors, { origin: true })
 fastify.register(healthRoutes)

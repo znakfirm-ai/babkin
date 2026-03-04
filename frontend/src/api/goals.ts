@@ -1,3 +1,5 @@
+import { timedFetch } from "../utils/debugTimings"
+
 export type GoalDto = {
   id: string
   name: string
@@ -13,11 +15,15 @@ export type GetGoalsResponse = {
 
 export async function getGoals(token: string, status?: "active" | "completed"): Promise<GetGoalsResponse> {
   const query = status ? `?status=${status}` : ""
-  const res = await fetch(`https://babkin.onrender.com/api/v1/goals${query}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const res = await timedFetch(
+    `https://babkin.onrender.com/api/v1/goals${query}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  })
+    { label: "goals" },
+  )
   if (!res.ok) {
     const text = await res.text().catch(() => "")
     throw new Error(`GET /goals failed: ${res.status} ${res.statusText} ${text}`)

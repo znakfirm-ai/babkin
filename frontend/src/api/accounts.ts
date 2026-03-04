@@ -1,3 +1,5 @@
+import { timedFetch } from "../utils/debugTimings"
+
 export type ApiAccount = {
   id: string
   name: string
@@ -23,11 +25,15 @@ export async function getAccounts(token: string): Promise<GetAccountsResponse> {
   while (true) {
     let res: Response
     try {
-      res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      res = await timedFetch(
+        url,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      })
+        { label: "accounts" },
+      )
     } catch (err) {
       if (attempt === 0) {
         attempt += 1
