@@ -1591,17 +1591,19 @@ const ReportsScreen: React.FC<Props> = ({
                             const badgeSafePadding = 25
                             const badgeGap = 5
                             const badgeStackGap = 7
+                            const badgeDividerGap = 8
                             const badgeHeight = 20
                             const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
                             const estimateBadgeWidth = (label: string) => Math.max(54, Math.round(label.length * 6.4 + 14))
                             const badgeMinX = badgeSafePadding
                             const badgeMaxY = svgHeight - badgeSafePadding - badgeHeight
                             type BadgeLayout = { x: number; y: number; width: number; height: number; label: string; color: string }
+                            type BadgeHorizontalSide = "left" | "right"
                             const buildBadgeLayout = (
                               point: { x: number; y: number },
                               label: string,
                               color: string,
-                              horizontalSide: "left" | "right",
+                              horizontalSide: BadgeHorizontalSide,
                             ): BadgeLayout => {
                               const width = estimateBadgeWidth(label)
                               const maxX = svgWidth - badgeSafePadding - width
@@ -1618,6 +1620,22 @@ const ReportsScreen: React.FC<Props> = ({
                             }
                             const intersects = (a: BadgeLayout, b: BadgeLayout) =>
                               !(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y)
+                            const applyDividerConstraint = (badge: BadgeLayout, side: BadgeHorizontalSide, lineX: number): BadgeLayout => {
+                              const globalMaxX = svgWidth - badgeSafePadding - badge.width
+                              if (side === "left") {
+                                const sideMaxX = lineX - badgeDividerGap - badge.width
+                                const cappedMaxX = Math.min(globalMaxX, sideMaxX)
+                                if (cappedMaxX >= badgeMinX) {
+                                  return { ...badge, x: clamp(badge.x, badgeMinX, cappedMaxX) }
+                                }
+                                return { ...badge, x: clamp(badge.x, badgeMinX, globalMaxX) }
+                              }
+                              const sideMinX = lineX + badgeDividerGap
+                              if (sideMinX <= globalMaxX) {
+                                return { ...badge, x: clamp(badge.x, sideMinX, globalMaxX) }
+                              }
+                              return { ...badge, x: clamp(badge.x, badgeMinX, globalMaxX) }
+                            }
                             const buildStackedLayouts = (incomeBase: BadgeLayout, expenseBase: BadgeLayout): { income: BadgeLayout; expense: BadgeLayout } => {
                               const maxTopY = badgeMaxY - (badgeHeight + badgeStackGap)
                               const topY = clamp(Math.min(incomeBase.y, expenseBase.y), badgeSafePadding, maxTopY)
@@ -1638,15 +1656,27 @@ const ReportsScreen: React.FC<Props> = ({
                               const incomeLabel = `+ ${formatMoney(activeIncome.val, currency ?? "RUB")}`
                               const expenseLabel = `- ${formatMoney(activeExpense.val, currency ?? "RUB")}`
                               const isCurrentMonthPoint = activeCompareMonth === maxCompareMonth
-                              const incomeBase = buildBadgeLayout(activeIncome, incomeLabel, incomeColor, isCurrentMonthPoint ? "left" : "right")
-                              const expenseBase = buildBadgeLayout(activeExpense, expenseLabel, expenseColor, "left")
+                              const markerLineX = activeIncome.x
+                              const incomeBaseRaw = buildBadgeLayout(activeIncome, incomeLabel, incomeColor, isCurrentMonthPoint ? "left" : "right")
+                              const expenseBaseRaw = buildBadgeLayout(activeExpense, expenseLabel, expenseColor, "left")
+                              const incomeBase = isCurrentMonthPoint
+                                ? incomeBaseRaw
+                                : applyDividerConstraint(incomeBaseRaw, "right", markerLineX)
+                              const expenseBase = isCurrentMonthPoint
+                                ? expenseBaseRaw
+                                : applyDividerConstraint(expenseBaseRaw, "left", markerLineX)
                               if (!intersects(incomeBase, expenseBase)) {
                                 incomeBadge = incomeBase
                                 expenseBadge = expenseBase
                               } else {
                                 const stacked = buildStackedLayouts(incomeBase, expenseBase)
-                                incomeBadge = stacked.income
-                                expenseBadge = stacked.expense
+                                if (isCurrentMonthPoint) {
+                                  incomeBadge = stacked.income
+                                  expenseBadge = stacked.expense
+                                } else {
+                                  incomeBadge = applyDividerConstraint(stacked.income, "right", markerLineX)
+                                  expenseBadge = applyDividerConstraint(stacked.expense, "left", markerLineX)
+                                }
                               }
                             }
                             return (
