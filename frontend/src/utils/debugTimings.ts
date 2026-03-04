@@ -74,6 +74,21 @@ export const isDebugTimingsEnabled = () => {
   return fromStorage || fromQuery || import.meta.env.VITE_DEBUG_TIMINGS === "1"
 }
 
+export const isDebugTimingsStorageEnabled = () => {
+  if (typeof window === "undefined") return false
+  return window.localStorage.getItem(DEBUG_STORAGE_KEY) === "1"
+}
+
+export const setDebugTimingsStorageEnabled = (enabled: boolean) => {
+  if (typeof window === "undefined") return
+  if (enabled) {
+    window.localStorage.setItem(DEBUG_STORAGE_KEY, "1")
+  } else {
+    window.localStorage.removeItem(DEBUG_STORAGE_KEY)
+  }
+  emit()
+}
+
 export const registerDebugTimingsTap = () => {
   if (typeof window === "undefined") return null
   const nowMs = Date.now()
@@ -86,12 +101,7 @@ export const registerDebugTimingsTap = () => {
   debugTapCount = 0
 
   const currentlyEnabled = window.localStorage.getItem(DEBUG_STORAGE_KEY) === "1"
-  if (currentlyEnabled) {
-    window.localStorage.removeItem(DEBUG_STORAGE_KEY)
-  } else {
-    window.localStorage.setItem(DEBUG_STORAGE_KEY, "1")
-  }
-  emit()
+  setDebugTimingsStorageEnabled(!currentlyEnabled)
   return !currentlyEnabled
 }
 

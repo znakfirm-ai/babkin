@@ -1,5 +1,6 @@
-import React from "react"
+import React, { useCallback, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
+import { isDebugTimingsStorageEnabled, setDebugTimingsStorageEnabled } from "../utils/debugTimings"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
 type Props = {
@@ -10,6 +11,12 @@ type Props = {
 const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview }) => {
   const { currency, setCurrency } = useAppStore()
   const current = normalizeCurrency(currency)
+  const [debugTimingsEnabled, setDebugTimingsEnabledState] = useState(() => isDebugTimingsStorageEnabled())
+  const handleToggleDebugTimings = useCallback(() => {
+    const nextValue = !debugTimingsEnabled
+    setDebugTimingsStorageEnabled(nextValue)
+    setDebugTimingsEnabledState(nextValue)
+  }, [debugTimingsEnabled])
 
   return (
     <div style={{ padding: 16, display: "grid", gap: 12 }}>
@@ -61,6 +68,44 @@ const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview 
       >
         Иконки (preview)
       </button>
+
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 10,
+          background: "#fff",
+          padding: 12,
+          display: "grid",
+          gap: 6,
+        }}
+      >
+        <button
+          type="button"
+          onClick={handleToggleDebugTimings}
+          style={{
+            width: "100%",
+            border: "none",
+            background: "transparent",
+            padding: 0,
+            fontSize: 14,
+            color: "#0f172a",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+          aria-pressed={debugTimingsEnabled}
+        >
+          <span>Debug timings</span>
+          <span style={{ fontSize: 12, color: debugTimingsEnabled ? "#0369a1" : "#6b7280" }}>
+            {debugTimingsEnabled ? "ON" : "OFF"}
+          </span>
+        </button>
+        {debugTimingsEnabled ? (
+          <div style={{ fontSize: 12, color: "#0369a1" }}>Enabled. Restart app to measure cold start.</div>
+        ) : null}
+      </div>
     </div>
   )
 }
