@@ -1593,8 +1593,9 @@ const ReportsScreen: React.FC<Props> = ({
                             const badgeStackGap = 7
                             const badgeDividerGap = 8
                             const badgeHeight = 20
+                            const badgeHorizontalPadding = 9
                             const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
-                            const estimateBadgeWidth = (label: string) => Math.max(54, Math.round(label.length * 6.4 + 14))
+                            const estimateBadgeWidth = (label: string) => Math.max(54, Math.round(label.length * 6.4 + badgeHorizontalPadding * 2))
                             const badgeMinX = badgeSafePadding
                             const badgeMaxY = svgHeight - badgeSafePadding - badgeHeight
                             type BadgeLayout = { x: number; y: number; width: number; height: number; label: string; color: string }
@@ -1730,7 +1731,7 @@ const ReportsScreen: React.FC<Props> = ({
                                         y={incomeBadge.y}
                                         width={incomeBadge.width}
                                         height={incomeBadge.height}
-                                        rx={8}
+                                        rx={7}
                                         fill="rgba(248,250,252,0.82)"
                                         stroke="rgba(148,163,184,0.24)"
                                       />
@@ -1752,7 +1753,7 @@ const ReportsScreen: React.FC<Props> = ({
                                         y={expenseBadge.y}
                                         width={expenseBadge.width}
                                         height={expenseBadge.height}
-                                        rx={8}
+                                        rx={7}
                                         fill="rgba(248,250,252,0.82)"
                                         stroke="rgba(148,163,184,0.24)"
                                       />
