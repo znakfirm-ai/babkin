@@ -35,6 +35,14 @@ type GoalsListMode = "goals" | "debtsReceivable" | "debtsPayable"
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 type QuickAddDebtAction = "receivable" | "payable"
 type WorkspaceModalView = "list" | "settings" | "edit-name" | "edit-icon"
+type CompareReportState = {
+  periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
+  customFrom: string
+  customTo: string
+  activeBinKey: string | null
+  listMode: "income" | "expense"
+  historyOffset: number
+}
 
 const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
 const WORKSPACE_NAME_LIMIT = 32
@@ -178,10 +186,12 @@ function App() {
   })
   const [pendingCategoryOpenId, setPendingCategoryOpenId] = useState<string | null>(null)
   const [pendingReturnToReport, setPendingReturnToReport] = useState(false)
+  const [pendingReturnToCompareReport, setPendingReturnToCompareReport] = useState(false)
   const [autoOpenExpensesSheet, setAutoOpenExpensesSheet] = useState(false)
   const [pendingIncomeSourceOpenId, setPendingIncomeSourceOpenId] = useState<string | null>(null)
   const [pendingReturnToIncomeReport, setPendingReturnToIncomeReport] = useState(false)
   const [autoOpenIncomeSheet, setAutoOpenIncomeSheet] = useState(false)
+  const [autoOpenCompareSheet, setAutoOpenCompareSheet] = useState(false)
   const [skipGoalsListRefetch, setSkipGoalsListRefetch] = useState(false)
   const [goalsListMode, setGoalsListMode] = useState<GoalsListMode>("goals")
   const [quickAddInitialTab, setQuickAddInitialTab] = useState<QuickAddTab>("expense")
@@ -198,6 +208,7 @@ function App() {
     customTo: string
     singleDay: string
   } | null>(null)
+  const [savedCompareReportState, setSavedCompareReportState] = useState<CompareReportState | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const { run: runWorkspaceMetaSave, isRunning: isWorkspaceMetaSaveRunning } = useSingleFlight()
   const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
@@ -954,13 +965,19 @@ function App() {
               setPendingReturnToReport(false)
               setActiveNav("reports")
               setActiveScreen("reports")
-              setAutoOpenExpensesSheet(true)
+              if (pendingReturnToCompareReport) {
+                setPendingReturnToCompareReport(false)
+                setAutoOpenCompareSheet(true)
+              } else {
+                setAutoOpenExpensesSheet(true)
+              }
             }}
             externalIncomeSourceId={pendingIncomeSourceOpenId}
             onConsumeExternalIncomeSource={() => setPendingIncomeSourceOpenId(null)}
             returnToIncomeReport={pendingReturnToIncomeReport}
             onReturnToIncomeReport={() => {
               setPendingReturnToIncomeReport(false)
+              setPendingReturnToCompareReport(false)
               setActiveNav("reports")
               setActiveScreen("reports")
               setAutoOpenIncomeSheet(true)
@@ -1035,13 +1052,19 @@ function App() {
               setPendingReturnToReport(false)
               setActiveNav("reports")
               setActiveScreen("reports")
-              setAutoOpenExpensesSheet(true)
+              if (pendingReturnToCompareReport) {
+                setPendingReturnToCompareReport(false)
+                setAutoOpenCompareSheet(true)
+              } else {
+                setAutoOpenExpensesSheet(true)
+              }
             }}
             externalIncomeSourceId={pendingIncomeSourceOpenId}
             onConsumeExternalIncomeSource={() => setPendingIncomeSourceOpenId(null)}
             returnToIncomeReport={pendingReturnToIncomeReport}
             onReturnToIncomeReport={() => {
               setPendingReturnToIncomeReport(false)
+              setPendingReturnToCompareReport(false)
               setActiveNav("reports")
               setActiveScreen("reports")
               setAutoOpenIncomeSheet(true)
@@ -1125,6 +1148,8 @@ function App() {
             onOpenExpensesByCategory={() => setActiveScreen("report-expenses-by-category")}
             onOpenCategorySheet={(id) => {
               setPendingCategoryOpenId(id)
+              setPendingReturnToCompareReport(false)
+              setPendingReturnToIncomeReport(false)
               setActiveNav("overview")
               setActiveScreen("overview")
               setPendingReturnToReport(true)
@@ -1134,9 +1159,24 @@ function App() {
             onOpenIncomeSourceSheet={(id, state) => {
               setPendingIncomeSourceOpenId(id)
               setSavedIncomeReportState(state)
+              setPendingReturnToCompareReport(false)
+              setPendingReturnToReport(false)
               setActiveNav("overview")
               setActiveScreen("overview")
               setPendingReturnToIncomeReport(true)
+            }}
+            onOpenCompareDrilldown={(kind, id, state) => {
+              if (kind === "income") {
+                setPendingIncomeSourceOpenId(id)
+              } else {
+                setPendingCategoryOpenId(id)
+              }
+              setSavedCompareReportState(state)
+              setPendingReturnToCompareReport(true)
+              setPendingReturnToIncomeReport(false)
+              setActiveNav("overview")
+              setActiveScreen("overview")
+              setPendingReturnToReport(true)
             }}
             onOpenPayableDebtsSheet={() => {
               setGoalsListMode("debtsPayable")
@@ -1148,6 +1188,9 @@ function App() {
             }}
             autoOpenIncomeSheet={autoOpenIncomeSheet}
             onConsumeAutoOpenIncome={() => setAutoOpenIncomeSheet(false)}
+            autoOpenCompareSheet={autoOpenCompareSheet}
+            onConsumeAutoOpenCompare={() => setAutoOpenCompareSheet(false)}
+            compareReportState={savedCompareReportState}
             incomeReportState={savedIncomeReportState}
           />
         )

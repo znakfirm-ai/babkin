@@ -24,6 +24,10 @@ type Props = {
   ) => void
   autoOpenIncomeSheet?: boolean
   onConsumeAutoOpenIncome?: () => void
+  onOpenCompareDrilldown?: (kind: CompareListMode, id: string, state: CompareReportState) => void
+  autoOpenCompareSheet?: boolean
+  onConsumeAutoOpenCompare?: () => void
+  compareReportState?: CompareReportState | null
   onOpenPayableDebtsSheet?: () => void
   incomeReportState?: {
     periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
@@ -38,6 +42,14 @@ type Props = {
 const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
 type ComparePeriodMode = "day" | "week" | "month" | "quarter" | "year" | "custom"
 type CompareListMode = "income" | "expense"
+type CompareReportState = {
+  periodMode: ComparePeriodMode
+  customFrom: string
+  customTo: string
+  activeBinKey: string | null
+  listMode: CompareListMode
+  historyOffset: number
+}
 type CompareBin = {
   key: string
   start: Date
@@ -83,9 +95,9 @@ const getWeekStartMonday = (date: Date) => {
   const weekDay = start.getDay() === 0 ? 7 : start.getDay()
   return addDays(start, 1 - weekDay)
 }
-const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo: string, now: Date): CompareBin[] => {
+const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo: string, now: Date, historyOffset: number): CompareBin[] => {
   const buildSequence = (count: number, resolver: (offset: number) => CompareBin) =>
-    Array.from({ length: count }, (_, idx) => resolver(count - 1 - idx))
+    Array.from({ length: count }, (_, idx) => resolver(historyOffset + (count - 1 - idx)))
 
   if (mode === "day") {
     const baseStart = toDayStart(now)
@@ -110,7 +122,7 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
         key: `week:${toIsoDate(start)}`,
         start,
         end,
-        label: `${formatDdMm(start)} - ${formatDdMm(end)}`,
+        label: `${formatDdMm(start)}-${formatDdMm(end)}`,
         isCurrentMonth: false,
       }
     })
@@ -143,7 +155,7 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
         key: `quarter:${toIsoDate(start)}`,
         start,
         end,
-        label: `${formatDdMm(start)} - ${formatDdMm(end)}`,
+        label: `${formatDdMm(start)}-${formatDdMm(end)}`,
         isCurrentMonth: false,
       }
     })
@@ -180,7 +192,7 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
       key: `custom:${toIsoDate(start)}:${toIsoDate(end)}`,
       start,
       end,
-      label: `${formatDdMm(start)} - ${formatDdMm(end)}`,
+      label: `${formatDdMm(start)}-${formatDdMm(end)}`,
       isCurrentMonth: false,
     }
   })
@@ -194,6 +206,10 @@ const ReportsScreen: React.FC<Props> = ({
   onOpenIncomeSourceSheet,
   autoOpenIncomeSheet,
   onConsumeAutoOpenIncome,
+  onOpenCompareDrilldown,
+  autoOpenCompareSheet,
+  onConsumeAutoOpenCompare,
+  compareReportState,
   onOpenPayableDebtsSheet,
   incomeReportState,
 }) => {
@@ -217,6 +233,7 @@ const ReportsScreen: React.FC<Props> = ({
   const [isCompareCustomRangeOpen, setIsCompareCustomRangeOpen] = useState(false)
   const [compareActiveBinKey, setCompareActiveBinKey] = useState<string | null>(null)
   const [compareListMode, setCompareListMode] = useState<CompareListMode>("income")
+  const [compareHistoryOffset, setCompareHistoryOffset] = useState(0)
   const todayDate = useMemo(() => format(new Date()), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
@@ -348,12 +365,31 @@ const ReportsScreen: React.FC<Props> = ({
     ],
     [],
   )
+  const comparePeriodLabelByKey = useMemo(
+    () =>
+      comparePeriodOptions.reduce<Record<ComparePeriodMode, string>>((acc, option) => {
+        acc[option.key] = option.label
+        return acc
+      }, {} as Record<ComparePeriodMode, string>),
+    [comparePeriodOptions],
+  )
 
+  const compareMinDate = useMemo(() => new Date(2022, 1, 1, 0, 0, 0, 0), [])
   const compareBins = useMemo(
-    () => buildCompareBins(comparePeriodMode, compareCustomFrom, compareCustomTo, new Date()),
-    [compareCustomFrom, compareCustomTo, comparePeriodMode],
+    () =>
+      buildCompareBins(comparePeriodMode, compareCustomFrom, compareCustomTo, new Date(), compareHistoryOffset).filter(
+        (bin) => bin.end >= compareMinDate,
+      ),
+    [compareCustomFrom, compareCustomTo, compareHistoryOffset, compareMinDate, comparePeriodMode],
   )
   const compareMainBins = useMemo(() => compareBins.slice(-5), [compareBins])
+  const canComparePrev = useMemo(() => {
+    const nextBins = buildCompareBins(comparePeriodMode, compareCustomFrom, compareCustomTo, new Date(), compareHistoryOffset + 1).filter(
+      (bin) => bin.end >= compareMinDate,
+    )
+    return nextBins.length >= 5
+  }, [compareCustomFrom, compareCustomTo, compareHistoryOffset, compareMinDate, comparePeriodMode])
+  const canCompareNext = compareHistoryOffset > 0
 
   useEffect(() => {
     if (compareMainBins.length === 0) {
@@ -410,6 +446,7 @@ const ReportsScreen: React.FC<Props> = ({
     const end = fromDate <= toDate ? toDate : fromDate
     return `${format(new Date(start))} — ${format(new Date(end))}`
   }, [compareCustomFrom, compareCustomTo, comparePeriodMode, todayDate])
+  const comparePeriodButtonLabel = comparePeriodLabelByKey[comparePeriodMode]
 
   const compareIncomeList = useMemo(() => {
     if (!compareActiveBin) return []
@@ -455,6 +492,21 @@ const ReportsScreen: React.FC<Props> = ({
       }))
       .sort((a, b) => b.amount - a.amount)
   }, [categories, compareActiveBin, transactions])
+  const compareIncomeTotal = useMemo(() => compareIncomeList.reduce((sum, item) => sum + item.amount, 0), [compareIncomeList])
+  const compareExpenseTotal = useMemo(() => compareExpenseList.reduce((sum, item) => sum + item.amount, 0), [compareExpenseList])
+  const compareDrilldownState = useMemo<CompareReportState>(
+    () => ({
+      periodMode: comparePeriodMode,
+      customFrom: compareCustomFrom,
+      customTo: compareCustomTo,
+      activeBinKey: compareActiveBinKey,
+      listMode: compareListMode,
+      historyOffset: compareHistoryOffset,
+    }),
+    [compareActiveBinKey, compareCustomFrom, compareCustomTo, compareHistoryOffset, compareListMode, comparePeriodMode],
+  )
+  const compareActiveList = compareListMode === "income" ? compareIncomeList : compareExpenseList
+  const compareActiveTotal = compareListMode === "income" ? compareIncomeTotal : compareExpenseTotal
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
@@ -675,6 +727,25 @@ const ReportsScreen: React.FC<Props> = ({
       onConsumeAutoOpenIncome?.()
     }
   }, [autoOpenIncomeSheet, incomeReportState, onConsumeAutoOpenIncome])
+
+  useEffect(() => {
+    if (autoOpenCompareSheet) {
+      if (compareReportState) {
+        setComparePeriodMode(compareReportState.periodMode)
+        setCompareCustomFrom(compareReportState.customFrom)
+        setCompareCustomTo(compareReportState.customTo)
+        setCompareActiveBinKey(compareReportState.activeBinKey)
+        setCompareListMode(compareReportState.listMode)
+        setCompareHistoryOffset(compareReportState.historyOffset)
+      }
+      setIsCompareSheetOpen(true)
+      setIsExpensesSheetOpen(false)
+      setIsIncomeSheetOpen(false)
+      setIsComparePeriodMenuOpen(false)
+      setIsCompareCustomRangeOpen(false)
+      onConsumeAutoOpenCompare?.()
+    }
+  }, [autoOpenCompareSheet, compareReportState, onConsumeAutoOpenCompare])
 
 
   return (
@@ -1677,8 +1748,52 @@ const ReportsScreen: React.FC<Props> = ({
                       setIsComparePeriodMenuOpen((prev) => !prev)
                     }}
                   >
-                    Период
+                    {comparePeriodButtonLabel}
                   </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canComparePrev) return
+                        setCompareHistoryOffset((prev) => prev + 1)
+                        setCompareActiveBinKey(null)
+                      }}
+                      disabled={!canComparePrev}
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        color: canComparePrev ? "#0f172a" : "#cbd5e1",
+                        cursor: canComparePrev ? "pointer" : "default",
+                        fontWeight: 700,
+                      }}
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canCompareNext) return
+                        setCompareHistoryOffset((prev) => Math.max(0, prev - 1))
+                        setCompareActiveBinKey(null)
+                      }}
+                      disabled={!canCompareNext}
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        color: canCompareNext ? "#0f172a" : "#cbd5e1",
+                        cursor: canCompareNext ? "pointer" : "default",
+                        fontWeight: 700,
+                      }}
+                    >
+                      →
+                    </button>
+                  </div>
                   <div
                     style={{
                       flex: 1,
@@ -1748,6 +1863,7 @@ const ReportsScreen: React.FC<Props> = ({
                               setComparePeriodMode(option.key)
                               setIsComparePeriodMenuOpen(false)
                               setCompareActiveBinKey(null)
+                              setCompareHistoryOffset(0)
                               if (option.key === "custom") {
                                 const nextFrom = compareCustomFrom || todayDate
                                 const nextTo = compareCustomTo || todayDate
@@ -1805,6 +1921,7 @@ const ReportsScreen: React.FC<Props> = ({
                             onChange={(event) => {
                               setCompareCustomFrom(event.target.value)
                               setCompareActiveBinKey(null)
+                              setCompareHistoryOffset(0)
                             }}
                             style={{
                               width: "100%",
@@ -1823,6 +1940,7 @@ const ReportsScreen: React.FC<Props> = ({
                             onChange={(event) => {
                               setCompareCustomTo(event.target.value)
                               setCompareActiveBinKey(null)
+                              setCompareHistoryOffset(0)
                             }}
                             style={{
                               width: "100%",
@@ -1873,7 +1991,7 @@ const ReportsScreen: React.FC<Props> = ({
                             const mainStep = mainCount > 1 ? chartWidth / (mainCount - 1) : chartWidth
                             const xMain = Array.from({ length: mainCount }, (_, index) => paddingX + mainStep * index)
                             const hasPreview = Boolean(comparePreviewSeries)
-                            const xPreview = xMain[0] - mainStep * 0.75
+                            const xPreview = xMain[0] - mainStep * 0.16
                             const chartSeries = hasPreview && comparePreviewSeries ? [comparePreviewSeries, ...compareMainSeries] : compareMainSeries
                             const chartX = hasPreview ? [xPreview, ...xMain] : xMain
                             const activeMainIdxRaw = compareMainSeries.findIndex((bin) => bin.key === compareActiveBin?.key)
@@ -1885,6 +2003,7 @@ const ReportsScreen: React.FC<Props> = ({
                               x: xPos,
                               opacity: idx === activeMainIdx ? 0.35 : 0.25,
                             }))
+                            const previewGuideLine = hasPreview ? { x: xPreview, opacity: 0.2 } : null
                             const incomePoints = chartSeries.map((bin, idx) => ({
                               x: chartX[idx],
                               y: toY(bin.income),
@@ -2001,15 +2120,15 @@ const ReportsScreen: React.FC<Props> = ({
                               const incomeLabel = `+ ${formatMoney(activeIncome.val, currency ?? "RUB")}`
                               const expenseLabel = `- ${formatMoney(activeExpense.val, currency ?? "RUB")}`
                               const activeComparePoint = chartSeries[activeIdx]
-                              const isCurrentMonthPoint =
-                                comparePeriodMode === "month" && Boolean(activeComparePoint?.isCurrentMonth)
+                              const currentRightmostKey = compareMainSeries[compareMainSeries.length - 1]?.key ?? null
+                              const isCurrentIntervalPoint = Boolean(activeComparePoint && activeComparePoint.key === currentRightmostKey)
                               const markerLineX = activeIncome.x
-                              const incomeBaseRaw = buildBadgeLayout(activeIncome, incomeLabel, incomeColor, isCurrentMonthPoint ? "left" : "right")
+                              const incomeBaseRaw = buildBadgeLayout(activeIncome, incomeLabel, incomeColor, isCurrentIntervalPoint ? "left" : "right")
                               const expenseBaseRaw = buildBadgeLayout(activeExpense, expenseLabel, expenseColor, "left")
-                              const incomeBase = isCurrentMonthPoint
+                              const incomeBase = isCurrentIntervalPoint
                                 ? incomeBaseRaw
                                 : applyDividerConstraint(incomeBaseRaw, "right", markerLineX)
-                              const expenseBase = isCurrentMonthPoint
+                              const expenseBase = isCurrentIntervalPoint
                                 ? expenseBaseRaw
                                 : applyDividerConstraint(expenseBaseRaw, "left", markerLineX)
                               if (!intersects(incomeBase, expenseBase)) {
@@ -2017,7 +2136,7 @@ const ReportsScreen: React.FC<Props> = ({
                                 expenseBadge = expenseBase
                               } else {
                                 const stacked = buildStackedLayouts(incomeBase, expenseBase)
-                                if (isCurrentMonthPoint) {
+                                if (isCurrentIntervalPoint) {
                                   incomeBadge = stacked.income
                                   expenseBadge = stacked.expense
                                 } else {
@@ -2028,6 +2147,17 @@ const ReportsScreen: React.FC<Props> = ({
                             }
                             return (
                               <>
+                                {previewGuideLine ? (
+                                  <line
+                                    x1={previewGuideLine.x}
+                                    y1={chartTop - 10}
+                                    x2={previewGuideLine.x}
+                                    y2={chartBottom + 10}
+                                    stroke="rgba(148,163,184,1)"
+                                    strokeWidth={1}
+                                    opacity={previewGuideLine.opacity}
+                                  />
+                                ) : null}
                                 {guideLines.map((line) => (
                                   <line
                                     key={line.x}
@@ -2115,6 +2245,22 @@ const ReportsScreen: React.FC<Props> = ({
                           })()}
                         </svg>
                         <div style={{ position: "relative", overflow: "hidden", padding: "2px 4px 0" }}>
+                          {comparePreviewSeries ? (
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: -26,
+                                top: 2,
+                                fontSize: 9,
+                                fontWeight: 500,
+                                color: "#94a3b8",
+                                whiteSpace: "nowrap",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              {comparePreviewSeries.label}
+                            </div>
+                          ) : null}
                           <div
                             style={{
                               display: "grid",
@@ -2140,11 +2286,9 @@ const ReportsScreen: React.FC<Props> = ({
                                     color: isActive ? "#0f172a" : "#475569",
                                     cursor: "pointer",
                                     fontWeight: isActive ? 700 : 500,
-                                    fontSize: 10,
+                                    fontSize: 9,
                                     minWidth: 0,
                                     whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
                                     width: "100%",
                                   }}
                                 >
@@ -2206,26 +2350,40 @@ const ReportsScreen: React.FC<Props> = ({
                     gap: 8,
                   }}
                 >
-                  {(compareListMode === "income" ? compareIncomeList : compareExpenseList).length === 0 ? (
+                  {compareActiveList.length === 0 ? (
                     <div style={{ color: "#94a3b8", fontSize: 14 }}>Нет данных за выбранный период</div>
                   ) : (
-                    (compareListMode === "income" ? compareIncomeList : compareExpenseList).map((item) => (
-                      <div
+                    compareActiveList.map((item) => {
+                      const percent = compareActiveTotal > 0 ? Math.round((item.amount / compareActiveTotal) * 100) : 0
+                      const isIncomeMode = compareListMode === "income"
+                      const isOpenable = item.id !== REPORT_GROUP_UNCATEGORIZED_ID && !!onOpenCompareDrilldown
+                      return (
+                      <button
                         key={`${compareListMode}-${item.id}`}
+                        type="button"
+                        onClick={() => {
+                          if (!isOpenable) return
+                          onOpenCompareDrilldown?.(compareListMode, item.id, compareDrilldownState)
+                          setIsCompareSheetOpen(false)
+                          setIsComparePeriodMenuOpen(false)
+                          setIsCompareCustomRangeOpen(false)
+                        }}
                         style={{
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
                           gap: 10,
-                          padding: "10px 12px",
+                          padding: "8px 10px",
                           border: "1px solid #e5e7eb",
                           borderRadius: 10,
                           background: "#fff",
+                          textAlign: "left",
+                          cursor: isOpenable ? "pointer" : "default",
                         }}
                       >
                         <div
                           style={{
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: 500,
                             color: "#0f172a",
                             whiteSpace: "nowrap",
@@ -2235,11 +2393,12 @@ const ReportsScreen: React.FC<Props> = ({
                         >
                           {item.title}
                         </div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", flexShrink: 0 }}>
-                          {formatMoney(item.amount, currency ?? "RUB")}
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", flexShrink: 0, display: "flex", gap: 6, alignItems: "center" }}>
+                          <span>{formatMoney(item.amount, currency ?? "RUB")}</span>
+                          <span style={{ color: isIncomeMode ? "#16a34a" : "#ef4444", fontWeight: 600 }}>· {percent}%</span>
                         </div>
-                      </div>
-                    ))
+                      </button>
+                    )})
                   )}
                 </div>
               </div>
