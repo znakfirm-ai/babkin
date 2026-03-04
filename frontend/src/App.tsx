@@ -925,7 +925,7 @@ function App() {
     switch (activeScreen) {
       case "home":
         if (isSwitchingWorkspace) {
-          return <CenteredLoader message="Наводим порядок в финансах" />
+          return <CenteredLoader message="Приводим финансы в порядок" />
         }
         return (
           <HomeScreen
@@ -947,7 +947,7 @@ function App() {
         )
       case "overview":
         if (isSwitchingWorkspace) {
-          return <CenteredLoader message="Наводим порядок в финансах" />
+          return <CenteredLoader message="Приводим финансы в порядок" />
         }
         return (
           <OverviewScreen
@@ -1028,7 +1028,7 @@ function App() {
         )
       case "receivables":
         if (isSwitchingWorkspace) {
-          return <CenteredLoader message="Наводим порядок в финансах" />
+          return <CenteredLoader message="Приводим финансы в порядок" />
         }
         return (
           <OverviewScreen
