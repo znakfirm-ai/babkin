@@ -14,8 +14,8 @@ export type DebugTimingRequestRecord = {
 }
 
 export type DebugTimingSnapshot = {
-  stages: Partial<Record<StartupTimingLabel, number>>
-  requests: DebugTimingRequestRecord[]
+  stages: Readonly<Partial<Record<StartupTimingLabel, number>>>
+  requests: readonly DebugTimingRequestRecord[]
 }
 
 const DEBUG_STORAGE_KEY = "__debug_timings__"
@@ -56,7 +56,13 @@ const getPathWithoutQuery = (input: RequestInfo | URL) => {
 }
 
 const emit = () => {
-  for (const listener of listeners) listener()
+  for (const listener of listeners) {
+    try {
+      listener()
+    } catch {
+      // ignore listener errors in debug-only stream
+    }
+  }
 }
 
 export const isDebugTimingsEnabled = () => {
@@ -80,17 +86,20 @@ export const markTimingStage = (label: StartupTimingLabel) => {
   emit()
 }
 
-export const getDebugTimingsSnapshot = (): DebugTimingSnapshot => ({
-  stages: { ...stageTimes },
-  requests: requests.slice(),
+export const getSnapshot = (): DebugTimingSnapshot => ({
+  stages: stageTimes,
+  requests,
 })
 
-export const subscribeDebugTimings = (listener: () => void) => {
+export const subscribe = (listener: () => void) => {
   listeners.add(listener)
   return () => {
     listeners.delete(listener)
   }
 }
+
+export const getDebugTimingsSnapshot = getSnapshot
+export const subscribeDebugTimings = subscribe
 
 const formatMs = (value: number) => `${Math.round(value)}ms`
 

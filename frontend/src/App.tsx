@@ -6,6 +6,7 @@ import { getIncomeSources } from "./api/incomeSources"
 import { getTransactions } from "./api/transactions"
 import { getGoals } from "./api/goals"
 import { getDebtors } from "./api/debtors"
+import DebugTimingsOverlay from "./components/DebugTimingsOverlay"
 import { markTimingStage, timedFetch } from "./utils/debugTimings"
 import HomeScreen from "./screens/HomeScreen"
 import OverviewScreen from "./screens/OverviewScreen"
@@ -1702,7 +1703,10 @@ function App() {
       externalError={globalError}
       onClearExternalError={() => setGlobalError(null)}
     >
-      {appShell}
+      <>
+        {appShell}
+        <DebugTimingsOverlay />
+      </>
     </AppErrorBoundary>
   )
 }

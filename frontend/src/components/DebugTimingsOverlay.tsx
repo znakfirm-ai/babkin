@@ -1,10 +1,9 @@
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   formatDebugTimingsReport,
-  getDebugTimingsSnapshot,
+  getSnapshot,
   isDebugTimingsEnabled,
-  subscribeDebugTimings,
-  type DebugTimingSnapshot,
+  subscribe,
 } from "../utils/debugTimings"
 
 const copyText = async (value: string) => {
@@ -25,30 +24,30 @@ const copyText = async (value: string) => {
   document.body.removeChild(textarea)
 }
 
-const getSnapshot = (): DebugTimingSnapshot => getDebugTimingsSnapshot()
-
 export default function DebugTimingsOverlay() {
   const debugEnabled = isDebugTimingsEnabled()
-  const snapshot = useSyncExternalStore(subscribeDebugTimings, getSnapshot, getSnapshot)
+  const [, setVersion] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
+  const snapshot = getSnapshot()
 
-  const requestRows = useMemo(() => {
-    return snapshot.requests
-      .filter((item) =>
-        ["accounts", "transactions", "categories", "incomeSources", "goals", "debtors"].includes(item.label),
-      )
-      .slice(-24)
-  }, [snapshot.requests])
-
-  const stageRows = useMemo(() => {
-    const appStart = snapshot.stages.appStart
-    return (["appStart", "telegramReady", "initBegin", "initEnd"] as const).map((label) => {
-      const value = snapshot.stages[label]
-      if (value === undefined) return { label, value: "n/a" }
-      if (appStart === undefined) return { label, value: `${Math.round(value)}ms` }
-      return { label, value: `+${Math.round(value - appStart)}ms` }
+  useEffect(() => {
+    if (!debugEnabled) return
+    return subscribe(() => {
+      setVersion((value) => value + 1)
     })
-  }, [snapshot.stages])
+  }, [debugEnabled])
+
+  const requestRows = snapshot.requests
+    .filter((item) => ["accounts", "transactions", "categories", "incomeSources", "goals", "debtors"].includes(item.label))
+    .slice(-24)
+
+  const appStart = snapshot.stages.appStart
+  const stageRows = (["appStart", "telegramReady", "initBegin", "initEnd"] as const).map((label) => {
+    const value = snapshot.stages[label]
+    if (value === undefined) return { label, value: "n/a" }
+    if (appStart === undefined) return { label, value: `${Math.round(value)}ms` }
+    return { label, value: `+${Math.round(value - appStart)}ms` }
+  })
 
   const handleCopy = useCallback(() => {
     void copyText(formatDebugTimingsReport(snapshot))
