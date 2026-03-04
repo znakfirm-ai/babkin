@@ -31,11 +31,10 @@ export default function DebugTimingsOverlay() {
   const snapshot = getSnapshot()
 
   useEffect(() => {
-    if (!debugEnabled) return
     return subscribe(() => {
       setVersion((value) => value + 1)
     })
-  }, [debugEnabled])
+  }, [])
 
   const requestRows = snapshot.requests
     .filter((item) => ["accounts", "transactions", "categories", "incomeSources", "goals", "debtors"].includes(item.label))

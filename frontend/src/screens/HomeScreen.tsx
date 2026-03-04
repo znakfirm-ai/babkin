@@ -7,6 +7,7 @@ import { getTransactions } from "../api/transactions"
 import { getIncomeSources } from "../api/incomeSources"
 import { getGoals } from "../api/goals"
 import { useAppStore } from "../store/useAppStore"
+import { registerDebugTimingsTap } from "../utils/debugTimings"
 import { CURRENCIES, formatMoney, normalizeCurrency } from "../utils/formatMoney"
 
 type Story = { id: string; title: string; image: string }
@@ -865,6 +866,9 @@ function HomeScreen({
           gap: 8,
           marginTop: 16,
           marginBottom: 16,
+        }}
+        onPointerDownCapture={() => {
+          registerDebugTimingsTap()
         }}
       >
         <button

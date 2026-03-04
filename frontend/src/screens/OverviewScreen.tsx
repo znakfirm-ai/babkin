@@ -18,6 +18,7 @@ import { getReadableTextColor } from "../utils/getReadableTextColor"
 import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint } from "../utils/monthlyTransactionMetrics"
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import { buildTransactionDaySections, sortTransactionsDesc } from "../utils/sortTransactions"
+import { registerDebugTimingsTap } from "../utils/debugTimings"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -2533,7 +2534,12 @@ function TransactionsPanel({
   if (showOverviewSkeleton) {
     return (
       <div className="overview">
-        <div className="overview__header">
+        <div
+          className="overview__header"
+          onPointerDownCapture={() => {
+            registerDebugTimingsTap()
+          }}
+        >
           <button
             type="button"
             className="home-header__name-btn"
@@ -2579,7 +2585,12 @@ function TransactionsPanel({
 
   return (
     <div className="overview">
-      <div className="overview__header">
+      <div
+        className="overview__header"
+        onPointerDownCapture={() => {
+          registerDebugTimingsTap()
+        }}
+      >
         <button
           type="button"
           className="home-header__name-btn"

@@ -25,6 +25,8 @@ const marks = new Map<string, number>()
 const stageTimes: Partial<Record<StartupTimingLabel, number>> = {}
 const requests: DebugTimingRequestRecord[] = []
 let requestCounter = 0
+let debugTapCount = 0
+let debugLastTapAtMs = 0
 
 const getNow = () => {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -70,6 +72,27 @@ export const isDebugTimingsEnabled = () => {
   const fromStorage = window.localStorage.getItem(DEBUG_STORAGE_KEY) === "1"
   const fromQuery = new URLSearchParams(window.location.search).get("debugTimings") === "1"
   return fromStorage || fromQuery || import.meta.env.VITE_DEBUG_TIMINGS === "1"
+}
+
+export const registerDebugTimingsTap = () => {
+  if (typeof window === "undefined") return null
+  const nowMs = Date.now()
+  if (nowMs - debugLastTapAtMs > 1200) {
+    debugTapCount = 0
+  }
+  debugLastTapAtMs = nowMs
+  debugTapCount += 1
+  if (debugTapCount < 7) return null
+  debugTapCount = 0
+
+  const currentlyEnabled = window.localStorage.getItem(DEBUG_STORAGE_KEY) === "1"
+  if (currentlyEnabled) {
+    window.localStorage.removeItem(DEBUG_STORAGE_KEY)
+  } else {
+    window.localStorage.setItem(DEBUG_STORAGE_KEY, "1")
+  }
+  emit()
+  return !currentlyEnabled
 }
 
 const addRequestRecord = (record: DebugTimingRequestRecord) => {
