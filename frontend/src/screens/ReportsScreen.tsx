@@ -1590,91 +1590,120 @@ const ReportsScreen: React.FC<Props> = ({
                             const svgHeight = 160
                             const badgeSafePadding = 24
                             const badgeGap = 5
+                            const badgePairGap = 7
                             const badgeHeight = 20
-                            const badgeHorizontalShift = 10
-                            const badgeVerticalShift = 6
                             const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
                             const estimateBadgeWidth = (label: string) => Math.max(54, Math.round(label.length * 6.4 + 14))
+                            const badgeMinY = badgeSafePadding
+                            const badgeMaxY = svgHeight - badgeSafePadding - badgeHeight
                             type BadgeSide = "above" | "below"
-                            type BadgeLayout = { x: number; y: number; width: number; height: number; label: string; color: string; side: BadgeSide }
-                            const chooseBadgeSide = (point: { y: number }, preferred: BadgeSide): BadgeSide => {
+                            type BadgeLayout = { x: number; y: number; width: number; height: number; label: string; color: string }
+                            const resolveBadgeSide = (point: { y: number }, preferred: BadgeSide): BadgeSide => {
                               const minY = badgeSafePadding
                               const maxY = svgHeight - badgeSafePadding - badgeHeight
                               const aboveY = point.y - badgeGap - badgeHeight
                               const belowY = point.y + badgeGap
+                              const fitsAbove = aboveY >= minY
+                              const fitsBelow = belowY <= maxY
                               if (preferred === "above") {
-                                if (aboveY >= minY) return "above"
-                                if (belowY <= maxY) return "below"
-                                return "above"
+                                if (fitsAbove) return "above"
+                                if (fitsBelow) return "below"
                               }
-                              if (belowY <= maxY) return "below"
-                              if (aboveY >= minY) return "above"
-                              return "below"
+                              if (preferred === "below") {
+                                if (fitsBelow) return "below"
+                                if (fitsAbove) return "above"
+                              }
+                              const roomAbove = aboveY - minY
+                              const roomBelow = maxY - belowY
+                              return roomAbove >= roomBelow ? "above" : "below"
                             }
-                            const buildBadgeLayout = (point: { x: number; y: number }, label: string, color: string, side: BadgeSide): BadgeLayout => {
+                            const buildBadgeLayout = (point: { x: number; y: number }, label: string, color: string, preferredSide: BadgeSide): BadgeLayout => {
                               const width = estimateBadgeWidth(label)
                               const minX = badgeSafePadding
                               const maxX = svgWidth - badgeSafePadding - width
-                              const minY = badgeSafePadding
-                              const maxY = svgHeight - badgeSafePadding - badgeHeight
+                              const side = resolveBadgeSide(point, preferredSide)
                               const baseY = side === "above" ? point.y - badgeGap - badgeHeight : point.y + badgeGap
                               return {
                                 x: clamp(point.x - width / 2, minX, maxX),
-                                y: clamp(baseY, minY, maxY),
+                                y: clamp(baseY, badgeMinY, badgeMaxY),
                                 width,
                                 height: badgeHeight,
                                 label,
                                 color,
-                                side,
                               }
                             }
                             const intersects = (a: BadgeLayout, b: BadgeLayout) =>
                               !(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y)
-                            const shiftBadgeX = (badge: BadgeLayout, delta: number): BadgeLayout => {
-                              const minX = badgeSafePadding
-                              const maxX = svgWidth - badgeSafePadding - badge.width
-                              return { ...badge, x: clamp(badge.x + delta, minX, maxX) }
-                            }
-                            const shiftBadgeY = (badge: BadgeLayout, delta: number): BadgeLayout => {
-                              const minY = badgeSafePadding
-                              const maxY = svgHeight - badgeSafePadding - badge.height
-                              return { ...badge, y: clamp(badge.y + delta, minY, maxY) }
+                            const buildBadgeRowLayout = (
+                              incomeLabel: string,
+                              expenseLabel: string,
+                              incomeColorLabel: string,
+                              expenseColorLabel: string,
+                            ): { income: BadgeLayout; expense: BadgeLayout } => {
+                              const incomeWidth = estimateBadgeWidth(incomeLabel)
+                              const expenseWidth = estimateBadgeWidth(expenseLabel)
+                              const totalWidth = incomeWidth + badgePairGap + expenseWidth
+                              const rowCenterX = (activeIncome.x + activeExpense.x) / 2
+                              const rowMinX = badgeSafePadding
+                              const rowMaxX = svgWidth - badgeSafePadding - totalWidth
+                              const rowStartX = clamp(rowCenterX - totalWidth / 2, rowMinX, rowMaxX)
+                              const rowAboveY = Math.min(activeIncome.y, activeExpense.y) - badgeGap - badgeHeight
+                              const rowBelowY = Math.max(activeIncome.y, activeExpense.y) + badgeGap
+                              const canPlaceAbove = rowAboveY >= badgeMinY
+                              const canPlaceBelow = rowBelowY <= badgeMaxY
+                              let rowY = rowAboveY
+                              if (canPlaceAbove) {
+                                rowY = rowAboveY
+                              } else if (canPlaceBelow) {
+                                rowY = rowBelowY
+                              } else {
+                                const aboveOverflow = Math.abs(rowAboveY - badgeMinY)
+                                const belowOverflow = Math.abs(rowBelowY - badgeMaxY)
+                                rowY = aboveOverflow <= belowOverflow ? rowAboveY : rowBelowY
+                              }
+                              const clampedRowY = clamp(rowY, badgeMinY, badgeMaxY)
+                              return {
+                                income: {
+                                  x: rowStartX,
+                                  y: clampedRowY,
+                                  width: incomeWidth,
+                                  height: badgeHeight,
+                                  label: incomeLabel,
+                                  color: incomeColorLabel,
+                                },
+                                expense: {
+                                  x: rowStartX + incomeWidth + badgePairGap,
+                                  y: clampedRowY,
+                                  width: expenseWidth,
+                                  height: badgeHeight,
+                                  label: expenseLabel,
+                                  color: expenseColorLabel,
+                                },
+                              }
                             }
                             let incomeBadge: BadgeLayout | null = null
                             let expenseBadge: BadgeLayout | null = null
-                            if (chartMax > 0 && activeIncome && activeExpense) {
+                            if (activeIncome && activeExpense) {
                               const incomeLabel = `+ ${formatMoney(activeIncome.val, currency ?? "RUB")}`
                               const expenseLabel = `- ${formatMoney(activeExpense.val, currency ?? "RUB")}`
-                              const incomeSide = chooseBadgeSide(activeIncome, "above")
-                              const expenseSide = chooseBadgeSide(activeExpense, "below")
-                              incomeBadge = buildBadgeLayout(activeIncome, incomeLabel, incomeColor, incomeSide)
-                              expenseBadge = buildBadgeLayout(activeExpense, expenseLabel, expenseColor, expenseSide)
-
-                              if (intersects(incomeBadge, expenseBadge)) {
-                                const alternateIncome = buildBadgeLayout(activeIncome, incomeLabel, incomeColor, chooseBadgeSide(activeIncome, "below"))
-                                const alternateExpense = buildBadgeLayout(activeExpense, expenseLabel, expenseColor, chooseBadgeSide(activeExpense, "above"))
-                                if (!intersects(alternateIncome, alternateExpense)) {
-                                  incomeBadge = alternateIncome
-                                  expenseBadge = alternateExpense
-                                }
+                              const verticalAttemptA = {
+                                income: buildBadgeLayout(activeIncome, incomeLabel, incomeColor, "above"),
+                                expense: buildBadgeLayout(activeExpense, expenseLabel, expenseColor, "below"),
                               }
-
-                              if (intersects(incomeBadge, expenseBadge)) {
-                                const shiftedIncomeLeft = shiftBadgeX(incomeBadge, -badgeHorizontalShift)
-                                const shiftedExpenseRight = shiftBadgeX(expenseBadge, badgeHorizontalShift)
-                                if (!intersects(shiftedIncomeLeft, shiftedExpenseRight)) {
-                                  incomeBadge = shiftedIncomeLeft
-                                  expenseBadge = shiftedExpenseRight
-                                }
+                              const verticalAttemptB = {
+                                income: buildBadgeLayout(activeIncome, incomeLabel, incomeColor, "below"),
+                                expense: buildBadgeLayout(activeExpense, expenseLabel, expenseColor, "above"),
                               }
-
-                              if (intersects(incomeBadge, expenseBadge)) {
-                                const shiftedIncomeUp = shiftBadgeY(incomeBadge, -badgeVerticalShift)
-                                const shiftedExpenseDown = shiftBadgeY(expenseBadge, badgeVerticalShift)
-                                if (!intersects(shiftedIncomeUp, shiftedExpenseDown)) {
-                                  incomeBadge = shiftedIncomeUp
-                                  expenseBadge = shiftedExpenseDown
-                                }
+                              if (!intersects(verticalAttemptA.income, verticalAttemptA.expense)) {
+                                incomeBadge = verticalAttemptA.income
+                                expenseBadge = verticalAttemptA.expense
+                              } else if (!intersects(verticalAttemptB.income, verticalAttemptB.expense)) {
+                                incomeBadge = verticalAttemptB.income
+                                expenseBadge = verticalAttemptB.expense
+                              } else {
+                                const rowLayout = buildBadgeRowLayout(incomeLabel, expenseLabel, incomeColor, expenseColor)
+                                incomeBadge = rowLayout.income
+                                expenseBadge = rowLayout.expense
                               }
                             }
                             return (
