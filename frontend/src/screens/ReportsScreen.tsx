@@ -2252,9 +2252,9 @@ const ReportsScreen: React.FC<Props> = ({
                                 {axisLabels.map((label) => (
                                   <text
                                     key={`axis-label-${label.key}`}
-                                    x={label.x}
+                                    x={label.isPreview ? plotLeft + 4 : label.x}
                                     y={labelY}
-                                    textAnchor="middle"
+                                    textAnchor={label.isPreview ? "end" : "middle"}
                                     dominantBaseline="middle"
                                     fontSize={8}
                                     fill={label.isPreview ? "#94a3b8" : label.isActive ? "#0f172a" : "#475569"}
