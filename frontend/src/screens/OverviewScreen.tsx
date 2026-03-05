@@ -2830,7 +2830,7 @@ function TransactionsPanel({
                   />
                 </label>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative", flexWrap: "nowrap", minWidth: 0 }}>
                   <div style={{ position: "relative" }}>
                     <button
                       type="button"
@@ -2844,8 +2844,10 @@ function TransactionsPanel({
                         color: "#fff",
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "center",
                         gap: 6,
-                        width: "fit-content",
+                        minWidth: 96,
+                        flex: "0 0 auto",
                       }}
                     >
                       {hasAccountPeriodSelection
@@ -2928,13 +2930,12 @@ function TransactionsPanel({
                   </div>
 
                   {accountPeriodType === "custom" ? (
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0 }}>
-                      <div style={{ position: "relative", width: "fit-content" }} onClick={() => openAccountCustomDatePicker("from")}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                      <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("from")}>
                         <button
                           type="button"
                           style={{
-                            width: "fit-content",
-                            minWidth: 136,
+                            width: "100%",
                             padding: "8px 10px",
                             borderRadius: 10,
                             border: "1px solid #e5e7eb",
@@ -2943,6 +2944,8 @@ function TransactionsPanel({
                             fontSize: 13,
                             textAlign: "center",
                             whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
                             display: "inline-flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -2972,12 +2975,11 @@ function TransactionsPanel({
                         />
                       </div>
                       <span style={{ color: "#64748b", fontSize: 12 }}>—</span>
-                      <div style={{ position: "relative", width: "fit-content" }} onClick={() => openAccountCustomDatePicker("to")}>
+                      <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("to")}>
                         <button
                           type="button"
                           style={{
-                            width: "fit-content",
-                            minWidth: 136,
+                            width: "100%",
                             padding: "8px 10px",
                             borderRadius: 10,
                             border: "1px solid #e5e7eb",
@@ -2986,6 +2988,8 @@ function TransactionsPanel({
                             fontSize: 13,
                             textAlign: "center",
                             whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
                             display: "inline-flex",
                             alignItems: "center",
                             justifyContent: "center",
