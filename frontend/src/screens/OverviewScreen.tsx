@@ -4376,23 +4376,6 @@ function TransactionsPanel({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
               <div style={{ fontSize: isGoalsMode || isDebtsMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
               <div style={{ display: "flex", gap: 8 }}>
-                {isDebtsMode && !isDebtsReceivableMode ? (
-                  <button
-                    type="button"
-                    onClick={openPayableDebtOperationFromGoalsList}
-                    style={{
-                      padding: "8px 10px",
-                      borderRadius: 10,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      fontWeight: 600,
-                      color: "#0f172a",
-                      cursor: "pointer",
-                    }}
-                  >
-                    + Операция
-                  </button>
-                ) : null}
                 <button
                   type="button"
                   onClick={isDebtsMode ? openCreateDebtor : openCreateGoal}
@@ -4525,7 +4508,7 @@ function TransactionsPanel({
                 )}
               </div>
             </div>
-            {isGoalsMode || isDebtsReceivableMode ? (
+            {isGoalsMode || isDebtsMode ? (
               <div
                 style={{
                   borderTop: "1px solid #e5e7eb",
@@ -4535,7 +4518,13 @@ function TransactionsPanel({
               >
                 <button
                   type="button"
-                  onClick={isGoalsMode ? openGoalOperationFromGoalsList : openReceivableDebtOperationFromGoalsList}
+                  onClick={
+                    isGoalsMode
+                      ? openGoalOperationFromGoalsList
+                      : isDebtsReceivableMode
+                      ? openReceivableDebtOperationFromGoalsList
+                      : openPayableDebtOperationFromGoalsList
+                  }
                   style={{
                     width: "100%",
                     padding: "12px 14px",
