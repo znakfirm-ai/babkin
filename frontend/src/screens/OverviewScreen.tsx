@@ -506,7 +506,6 @@ function OverviewScreen({
   const [incomeSourceSheetMode, setIncomeSourceSheetMode] = useState<"create" | "edit" | null>(null)
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState<string | null>(null)
   const [incomeSourceName, setIncomeSourceName] = useState("")
-  const [incomeSourceBudget, setIncomeSourceBudget] = useState("")
   const [incomeSourceIcon, setIncomeSourceIcon] = useState<string | null>(null)
   const [incomeSourceError, setIncomeSourceError] = useState<string | null>(null)
   const [isSavingIncomeSource, setIsSavingIncomeSource] = useState(false)
@@ -1178,7 +1177,6 @@ function OverviewScreen({
     lastIncomeSourceModeRef.current = "create"
     setEditingIncomeSourceId(null)
     setIncomeSourceName("")
-    setIncomeSourceBudget("")
     setIncomeSourceIcon(null)
   }, [])
 
@@ -1208,7 +1206,6 @@ function OverviewScreen({
   const resetIncomeSourceForm = useCallback(() => {
     setEditingIncomeSourceId(null)
     setIncomeSourceName("")
-    setIncomeSourceBudget("")
     setIncomeSourceIcon(null)
     setIncomeSourceError(null)
     setIsSavingIncomeSource(false)
@@ -6063,10 +6060,13 @@ function TransactionsPanel({
             inset: 0,
             background: "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "flex-end",
+            alignItems: "center",
             justifyContent: "center",
             zIndex: 45,
-            padding: "0 12px 12px",
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
+            paddingLeft: 16,
+            paddingRight: 16,
+            paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
           }}
           onClick={() => closeIncomeSourceSheet()}
         >
@@ -6075,13 +6075,12 @@ function TransactionsPanel({
               width: "100%",
               maxWidth: 540,
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
+              borderRadius: 16,
               padding: 16,
               boxShadow: "none",
-              maxHeight: "70vh",
+              maxHeight: "calc(100vh - 120px)",
               overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -6096,13 +6095,6 @@ function TransactionsPanel({
                 value={incomeSourceName}
                 onChange={(e) => setIncomeSourceName(e.target.value)}
                 placeholder="Название"
-                style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
-              />
-              <input
-                value={incomeSourceBudget}
-                onChange={(e) => setIncomeSourceBudget(e.target.value)}
-                placeholder="Бюджет"
-                inputMode="decimal"
                 style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
               />
               <div style={{ display: "grid", gap: 6 }}>
@@ -6138,7 +6130,14 @@ function TransactionsPanel({
               {incomeSourceError ? (
                 <div style={{ color: "#b91c1c", fontSize: 13 }}>{incomeSourceError}</div>
               ) : null}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    incomeSourceSheetMode === "edit" && editingIncomeSourceId ? "1fr 1fr 1fr" : "1fr 1fr",
+                  gap: 10,
+                }}
+              >
                 {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
                     <button
                   type="button"
@@ -6158,9 +6157,7 @@ function TransactionsPanel({
                 >
                   {deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "Удаляем…" : "Удалить"}
                 </button>
-                ) : (
-                  <div />
-                )}
+                ) : null}
                 <button
                   type="button"
                   onClick={() => closeIncomeSourceSheet()}
