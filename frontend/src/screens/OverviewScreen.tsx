@@ -539,8 +539,6 @@ function OverviewScreen({
   const [debtorReturnAmount, setDebtorReturnAmount] = useState("")
   const [debtorError, setDebtorError] = useState<string | null>(null)
   const [isDebtorIconPickerOpen, setIsDebtorIconPickerOpen] = useState(false)
-  const debtorIssuedDateInputRef = useRef<HTMLInputElement | null>(null)
-  const debtorReturnDateInputRef = useRef<HTMLInputElement | null>(null)
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
   const [goalSheetMode, setGoalSheetMode] = useState<"create" | "edit">("create")
@@ -815,21 +813,6 @@ function OverviewScreen({
   }, [])
   const debtorIssuedDateLabel = useMemo(() => formatDebtorDate(debtorIssuedDate), [debtorIssuedDate, formatDebtorDate])
   const debtorReturnDateLabel = useMemo(() => formatDebtorDate(debtorReturnDate), [debtorReturnDate, formatDebtorDate])
-  const openDebtorDatePicker = useCallback((field: "issued" | "return") => {
-    const input = field === "issued" ? debtorIssuedDateInputRef.current : debtorReturnDateInputRef.current
-    if (!input) return
-    const pickerInput = input as HTMLInputElement & { showPicker?: () => void }
-    if (typeof pickerInput.showPicker === "function") {
-      try {
-        pickerInput.showPicker()
-        return
-      } catch {
-        // Fallback to focus/click for environments without showPicker support.
-      }
-    }
-    pickerInput.focus()
-    pickerInput.click()
-  }, [])
 
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
 
@@ -3684,62 +3667,78 @@ function TransactionsPanel({
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6, position: "relative" }}>
+            <label style={{ display: "grid", gap: 6 }}>
               <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
-              <button
-                type="button"
-                onClick={() => openDebtorDatePicker("issued")}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  fontSize: 16,
-                  background: "#fff",
-                  color: "#0f172a",
-                  textAlign: "left",
-                  cursor: "pointer",
-                }}
-              >
-                {debtorIssuedDateLabel}
-              </button>
-              <input
-                ref={debtorIssuedDateInputRef}
-                type="date"
-                value={debtorIssuedDate}
-                onChange={(e) => setDebtorIssuedDate(e.target.value)}
-                tabIndex={-1}
-                aria-hidden="true"
-                style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 0, height: 0 }}
-              />
+              <div style={{ position: "relative" }}>
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    background: "#fff",
+                    color: "#0f172a",
+                    textAlign: "left",
+                  }}
+                >
+                  {debtorIssuedDateLabel}
+                </div>
+                <input
+                  type="date"
+                  value={debtorIssuedDate}
+                  onChange={(e) => setDebtorIssuedDate(e.target.value)}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    opacity: 0,
+                    width: "100%",
+                    height: "100%",
+                    border: 0,
+                    background: "transparent",
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    zIndex: 1,
+                    cursor: "pointer",
+                  }}
+                />
+              </div>
             </label>
 
-            <label style={{ display: "grid", gap: 6, position: "relative" }}>
+            <label style={{ display: "grid", gap: 6 }}>
               <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
-              <button
-                type="button"
-                onClick={() => openDebtorDatePicker("return")}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  fontSize: 16,
-                  background: "#fff",
-                  color: "#0f172a",
-                  textAlign: "left",
-                  cursor: "pointer",
-                }}
-              >
-                {debtorReturnDateLabel}
-              </button>
-              <input
-                ref={debtorReturnDateInputRef}
-                type="date"
-                value={debtorReturnDate}
-                onChange={(e) => setDebtorReturnDate(e.target.value)}
-                tabIndex={-1}
-                aria-hidden="true"
-                style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 0, height: 0 }}
-              />
+              <div style={{ position: "relative" }}>
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 16,
+                    background: "#fff",
+                    color: "#0f172a",
+                    textAlign: "left",
+                  }}
+                >
+                  {debtorReturnDateLabel}
+                </div>
+                <input
+                  type="date"
+                  value={debtorReturnDate}
+                  onChange={(e) => setDebtorReturnDate(e.target.value)}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    opacity: 0,
+                    width: "100%",
+                    height: "100%",
+                    border: 0,
+                    background: "transparent",
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    zIndex: 1,
+                    cursor: "pointer",
+                  }}
+                />
+              </div>
             </label>
 
             <label style={{ display: "grid", gap: 6 }}>
