@@ -2739,16 +2739,30 @@ function TransactionsPanel({
                 {detailTitle || detailGoal?.name || detailDebtor?.name || "Детали"}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {detailAccountId || detailIncomeSourceId || detailCategoryId ? (
+                {detailAccountId ? (
                   <button
                     type="button"
-                    onClick={
-                      detailAccountId
-                        ? openTransferFromAccountDetails
-                        : detailIncomeSourceId
-                        ? openIncomeFromSourceDetails
-                        : openExpenseFromCategoryDetails
-                    }
+                    onClick={() => {
+                      if (detailAccountId) {
+                        openEditAccountFromDetails(detailAccountId)
+                      }
+                    }}
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      borderRadius: 10,
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      color: "#0f172a",
+                      fontWeight: 600,
+                    }}
+                  >
+                    + Редактировать
+                  </button>
+                ) : detailIncomeSourceId || detailCategoryId ? (
+                  <button
+                    type="button"
+                    onClick={detailIncomeSourceId ? openIncomeFromSourceDetails : openExpenseFromCategoryDetails}
                     style={{
                       border: "1px solid #e5e7eb",
                       background: "#fff",
@@ -3449,13 +3463,9 @@ function TransactionsPanel({
                   marginTop: 12,
                   marginBottom: 12,
                 }}
-                onClick={() => {
-                  if (detailAccountId) {
-                    openEditAccountFromDetails(detailAccountId)
-                  }
-                }}
+                onClick={openTransferFromAccountDetails}
               >
-                Редактировать счет
+                Добавить операцию
               </button>
             )}
           </div>
