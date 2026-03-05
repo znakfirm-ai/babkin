@@ -5815,10 +5815,13 @@ function TransactionsPanel({
             inset: 0,
             background: "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "flex-end",
+            alignItems: "center",
             justifyContent: "center",
             zIndex: 45,
-            padding: "0 12px 12px",
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
+            paddingLeft: 16,
+            paddingRight: 16,
+            paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
           }}
           onClick={() => closeCategorySheet()}
         >
@@ -5828,13 +5831,12 @@ function TransactionsPanel({
               maxWidth: 520,
               margin: "0 auto",
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
+              borderRadius: 16,
               padding: 16,
               boxShadow: "none",
-              maxHeight: "70vh",
+              maxHeight: "calc(100vh - 120px)",
               overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -5878,13 +5880,17 @@ function TransactionsPanel({
                     borderRadius: 12,
                     border: "1px solid #e5e7eb",
                     background: "#fff",
+                    color: "#0f172a",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: 12,
+                    boxShadow: "none",
+                    outline: "none",
+                    WebkitTapHighlightColor: "transparent",
                   }}
                 >
-                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 10, color: "#0f172a" }}>
                     {categoryIcon && isFinanceIconKey(categoryIcon) ? <FinanceIcon iconKey={categoryIcon} size={16} /> : null}
                     <span style={{ fontSize: 15 }}>
                       {categoryIcon && isFinanceIconKey(categoryIcon) ? categoryIcon : "Не выбрано"}
@@ -5896,7 +5902,13 @@ function TransactionsPanel({
             {categorySaveError ? (
               <div style={{ color: "#b91c1c", fontSize: 12, marginTop: -4 }}>{categorySaveError}</div>
             ) : null}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: categorySheetMode === "edit" && editingCategoryId ? "1fr 1fr 1fr" : "1fr 1fr",
+                gap: 10,
+              }}
+            >
               {categorySheetMode === "edit" && editingCategoryId ? (
                 <button
                   type="button"
@@ -5914,9 +5926,7 @@ function TransactionsPanel({
                 >
                   {deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "Удаляем…" : "Удалить"}
                 </button>
-              ) : (
-                <div />
-              )}
+              ) : null}
                 <button
                   type="button"
                   onClick={() => closeCategorySheet()}
