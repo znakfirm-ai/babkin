@@ -752,6 +752,38 @@ const ReportsScreen: React.FC<Props> = ({
   )
   const compareActiveList = compareListMode === "income" ? compareIncomeList : compareExpenseList
   const compareActiveTotal = compareListMode === "income" ? compareIncomeTotal : compareExpenseTotal
+  const resetCategoryReportsPeriodState = () => {
+    setPeriodMode("month")
+    setHasPeriodSelection(false)
+    setMonthOffset(0)
+    setBannerOffset(0)
+    setCustomFrom("")
+    setCustomTo("")
+    setSingleDay("")
+    setIsPeriodMenuOpen(false)
+  }
+  const resetCompareReportState = () => {
+    setComparePeriodMode("month")
+    setHasComparePeriodSelection(false)
+    setCompareHistoryOffset(0)
+    setCompareActiveBinKey(null)
+    setCompareCustomFrom(todayDate)
+    setCompareCustomTo(todayDate)
+    setCompareListMode("income")
+    setIsComparePeriodMenuOpen(false)
+  }
+  const closeExpensesReport = () => {
+    setIsExpensesSheetOpen(false)
+    resetCategoryReportsPeriodState()
+  }
+  const closeIncomeReport = () => {
+    setIsIncomeSheetOpen(false)
+    resetCategoryReportsPeriodState()
+  }
+  const closeCompareReport = () => {
+    setIsCompareSheetOpen(false)
+    resetCompareReportState()
+  }
   const shiftCompareBackFromPreview = () => {
     if (!canComparePrev) return
     const previewKey = comparePreviewSeries?.key ?? null
@@ -769,25 +801,20 @@ const ReportsScreen: React.FC<Props> = ({
     setCompareActiveBinKey(rightEdgeKey)
   }
   const openCompareReportDefault = () => {
-    setComparePeriodMode("month")
-    setHasComparePeriodSelection(false)
-    setCompareHistoryOffset(0)
-    setCompareActiveBinKey(null)
-    setCompareCustomFrom(todayDate)
-    setCompareCustomTo(todayDate)
-    setCompareListMode("income")
-    setIsComparePeriodMenuOpen(false)
+    resetCompareReportState()
     setIsCompareSheetOpen(true)
     setIsExpensesSheetOpen(false)
     setIsIncomeSheetOpen(false)
   }
   const openExpenseReport = () => {
+    resetCategoryReportsPeriodState()
     setIsExpensesSheetOpen(true)
     setIsIncomeSheetOpen(false)
     setIsCompareSheetOpen(false)
     setIsComparePeriodMenuOpen(false)
   }
   const openIncomeReport = () => {
+    resetCategoryReportsPeriodState()
     setIsIncomeSheetOpen(true)
     setIsExpensesSheetOpen(false)
     setIsCompareSheetOpen(false)
@@ -1098,7 +1125,7 @@ const ReportsScreen: React.FC<Props> = ({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => setIsExpensesSheetOpen(false)}
+          onClick={closeExpensesReport}
           className="tx-modal__backdrop"
           style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
         >
@@ -1123,7 +1150,7 @@ const ReportsScreen: React.FC<Props> = ({
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Расходы по категориям</div>
                 <button
                   type="button"
-                  onClick={() => setIsExpensesSheetOpen(false)}
+                  onClick={closeExpensesReport}
                   style={{
                     padding: "8px 12px",
                     borderRadius: 10,
@@ -1547,7 +1574,7 @@ const ReportsScreen: React.FC<Props> = ({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => setIsIncomeSheetOpen(false)}
+          onClick={closeIncomeReport}
           className="tx-modal__backdrop"
           style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
         >
@@ -1572,7 +1599,7 @@ const ReportsScreen: React.FC<Props> = ({
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Доходы по категориям</div>
                 <button
                   type="button"
-                  onClick={() => setIsIncomeSheetOpen(false)}
+                  onClick={closeIncomeReport}
                   style={{
                     padding: "8px 12px",
                     borderRadius: 10,
@@ -1996,10 +2023,7 @@ const ReportsScreen: React.FC<Props> = ({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => {
-            setIsCompareSheetOpen(false)
-            setIsComparePeriodMenuOpen(false)
-          }}
+          onClick={closeCompareReport}
           className="tx-modal__backdrop"
           style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
         >
@@ -2024,10 +2048,7 @@ const ReportsScreen: React.FC<Props> = ({
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Доходы vs Расходы</div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsCompareSheetOpen(false)
-                    setIsComparePeriodMenuOpen(false)
-                  }}
+                  onClick={closeCompareReport}
                   style={{
                     padding: "8px 12px",
                     borderRadius: 10,
