@@ -90,8 +90,6 @@ type OpenPicker =
     }
   | null
 
-type DebtorDateField = "issued" | "return"
-
 type PopoverListProps = {
   items: string[]
   selectedIndex: number
@@ -541,8 +539,8 @@ function OverviewScreen({
   const [debtorReturnAmount, setDebtorReturnAmount] = useState("")
   const [debtorError, setDebtorError] = useState<string | null>(null)
   const [isDebtorIconPickerOpen, setIsDebtorIconPickerOpen] = useState(false)
-  const [debtorDateField, setDebtorDateField] = useState<DebtorDateField | null>(null)
-  const [debtorDatePart, setDebtorDatePart] = useState<"day" | "month" | "year" | null>(null)
+  const debtorIssuedDateInputRef = useRef<HTMLInputElement | null>(null)
+  const debtorReturnDateInputRef = useRef<HTMLInputElement | null>(null)
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
   const [goalSheetMode, setGoalSheetMode] = useState<"create" | "edit">("create")
@@ -805,16 +803,6 @@ function OverviewScreen({
     const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "debts")
     return section ? section.keys : []
   }, [])
-  const activeDebtorDate = debtorDateField === "return" ? debtorReturnDate : debtorIssuedDate
-  const debtorDateParts = useMemo(() => {
-    const [rawYear, rawMonth, rawDay] = activeDebtorDate.split("-").map((value) => Number(value))
-    const now = new Date()
-    const year = Number.isFinite(rawYear) && rawYear > 0 ? rawYear : now.getFullYear()
-    const month = Number.isFinite(rawMonth) && rawMonth >= 1 && rawMonth <= 12 ? rawMonth : now.getMonth() + 1
-    const maxDay = daysInMonth(year, month - 1)
-    const day = Number.isFinite(rawDay) && rawDay >= 1 && rawDay <= maxDay ? rawDay : now.getDate()
-    return { year, month, day, maxDay }
-  }, [activeDebtorDate])
   const formatDebtorDate = useCallback((iso: string) => {
     const [year, month, day] = iso.split("-").map((value) => Number(value))
     if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return iso
@@ -827,68 +815,21 @@ function OverviewScreen({
   }, [])
   const debtorIssuedDateLabel = useMemo(() => formatDebtorDate(debtorIssuedDate), [debtorIssuedDate, formatDebtorDate])
   const debtorReturnDateLabel = useMemo(() => formatDebtorDate(debtorReturnDate), [debtorReturnDate, formatDebtorDate])
-  const debtorDateLabel = useMemo(() => {
-    if (!activeDebtorDate) return ""
-    return formatDebtorDate(activeDebtorDate)
-  }, [activeDebtorDate, formatDebtorDate])
-  const applyDebtorDateChange = useCallback(
-    (nextYear: number, nextMonth: number, nextDay: number) => {
-      if (!debtorDateField) return
-      const day = Math.min(nextDay, daysInMonth(nextYear, nextMonth - 1))
-      const iso = `${nextYear}-${pad2(nextMonth)}-${pad2(day)}`
-      if (debtorDateField === "issued") {
-        setDebtorIssuedDate(iso)
-      } else {
-        setDebtorReturnDate(iso)
+  const openDebtorDatePicker = useCallback((field: "issued" | "return") => {
+    const input = field === "issued" ? debtorIssuedDateInputRef.current : debtorReturnDateInputRef.current
+    if (!input) return
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void }
+    if (typeof pickerInput.showPicker === "function") {
+      try {
+        pickerInput.showPicker()
+        return
+      } catch {
+        // Fallback to focus/click for environments without showPicker support.
       }
-    },
-    [debtorDateField],
-  )
-  const debtorDateYears = useMemo(() => {
-    const list: number[] = []
-    for (let yy = debtorDateParts.year - 10; yy <= debtorDateParts.year + 10; yy += 1) {
-      list.push(yy)
     }
-    return list
-  }, [debtorDateParts.year])
-  const debtorDateDays = useMemo(
-    () => Array.from({ length: debtorDateParts.maxDay }, (_, idx) => String(idx + 1)),
-    [debtorDateParts.maxDay],
-  )
-  const renderDebtorDatePopover = useCallback(
-    (part: "day" | "month" | "year") => {
-      if (!debtorDateField || debtorDatePart !== part) return null
-      if (part === "day") {
-        return (
-          <PopoverList
-            items={debtorDateDays}
-            selectedIndex={Math.max(0, Math.min(debtorDateDays.length - 1, debtorDateParts.day - 1))}
-            onSelect={(value) => applyDebtorDateChange(debtorDateParts.year, debtorDateParts.month, Number(value))}
-            onClose={() => setDebtorDatePart(null)}
-          />
-        )
-      }
-      if (part === "month") {
-        return (
-          <PopoverList
-            items={MONTH_NAMES}
-            selectedIndex={Math.max(0, Math.min(11, debtorDateParts.month - 1))}
-            onSelect={(value) => applyDebtorDateChange(debtorDateParts.year, MONTH_NAMES.indexOf(value) + 1, debtorDateParts.day)}
-            onClose={() => setDebtorDatePart(null)}
-          />
-        )
-      }
-      return (
-        <PopoverList
-          items={debtorDateYears.map(String)}
-          selectedIndex={Math.max(0, debtorDateYears.indexOf(debtorDateParts.year))}
-          onSelect={(value) => applyDebtorDateChange(Number(value), debtorDateParts.month, debtorDateParts.day)}
-          onClose={() => setDebtorDatePart(null)}
-        />
-      )
-    },
-    [applyDebtorDateChange, debtorDateDays, debtorDateField, debtorDatePart, debtorDateParts.day, debtorDateParts.month, debtorDateParts.year, debtorDateYears],
-  )
+    pickerInput.focus()
+    pickerInput.click()
+  }, [])
 
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
 
@@ -1729,8 +1670,6 @@ function OverviewScreen({
     setDebtorSheetMode("create")
     setEditingDebtorId(null)
     setIsDebtorIconPickerOpen(false)
-    setDebtorDateField(null)
-    setDebtorDatePart(null)
     setDebtorError(null)
     setDebtorName("")
     setDebtorIcon(null)
@@ -1744,8 +1683,6 @@ function OverviewScreen({
     setDebtorSheetMode("create")
     setEditingDebtorId(null)
     setIsDebtorIconPickerOpen(false)
-    setDebtorDateField(null)
-    setDebtorDatePart(null)
     setDebtorError(null)
     setDebtorName("")
     setDebtorIcon(null)
@@ -3747,14 +3684,11 @@ function TransactionsPanel({
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
+            <label style={{ display: "grid", gap: 6, position: "relative" }}>
               <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
               <button
                 type="button"
-                onClick={() => {
-                  setDebtorDatePart(null)
-                  setDebtorDateField("issued")
-                }}
+                onClick={() => openDebtorDatePicker("issued")}
                 style={{
                   padding: 12,
                   borderRadius: 12,
@@ -3768,16 +3702,22 @@ function TransactionsPanel({
               >
                 {debtorIssuedDateLabel}
               </button>
+              <input
+                ref={debtorIssuedDateInputRef}
+                type="date"
+                value={debtorIssuedDate}
+                onChange={(e) => setDebtorIssuedDate(e.target.value)}
+                tabIndex={-1}
+                aria-hidden="true"
+                style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 0, height: 0 }}
+              />
             </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
+            <label style={{ display: "grid", gap: 6, position: "relative" }}>
               <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
               <button
                 type="button"
-                onClick={() => {
-                  setDebtorDatePart(null)
-                  setDebtorDateField("return")
-                }}
+                onClick={() => openDebtorDatePicker("return")}
                 style={{
                   padding: 12,
                   borderRadius: 12,
@@ -3791,6 +3731,15 @@ function TransactionsPanel({
               >
                 {debtorReturnDateLabel}
               </button>
+              <input
+                ref={debtorReturnDateInputRef}
+                type="date"
+                value={debtorReturnDate}
+                onChange={(e) => setDebtorReturnDate(e.target.value)}
+                tabIndex={-1}
+                aria-hidden="true"
+                style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 0, height: 0 }}
+              />
             </label>
 
             <label style={{ display: "grid", gap: 6 }}>
@@ -3959,140 +3908,6 @@ function TransactionsPanel({
               }}
             >
               Назад
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {isDebtsMode && debtorDateField ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => {
-            setDebtorDatePart(null)
-            setDebtorDateField(null)
-          }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 61,
-            padding: "12px",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 460,
-              background: "#fff",
-              borderRadius: 16,
-              padding: 14,
-              boxShadow: "none",
-              display: "grid",
-              gap: 10,
-            }}
-          >
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", textAlign: "center" }}>
-              {debtorDateField === "issued" ? "Дата выдачи" : "Дата возврата"}
-            </div>
-            <div style={{ fontSize: 13, color: "#64748b", textAlign: "center" }}>{debtorDateLabel}</div>
-            <div
-              onClick={() => setDebtorDatePart(null)}
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                justifyContent: "space-between",
-                position: "relative",
-              }}
-            >
-              <div style={{ position: "relative", flex: 1 }}>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setDebtorDatePart("day")
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: "#f8fafc",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {debtorDateParts.day}
-                </button>
-                {renderDebtorDatePopover("day")}
-              </div>
-              <div style={{ position: "relative", flex: 1 }}>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setDebtorDatePart("year")
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: "#f8fafc",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {debtorDateParts.year}
-                </button>
-                {renderDebtorDatePopover("year")}
-              </div>
-              <div style={{ position: "relative", flex: 1 }}>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setDebtorDatePart("month")
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: "#f8fafc",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {MONTH_NAMES[debtorDateParts.month - 1]}
-                </button>
-                {renderDebtorDatePopover("month")}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setDebtorDatePart(null)
-                setDebtorDateField(null)
-              }}
-              style={{
-                marginTop: 4,
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid #0f172a",
-                background: "#0f172a",
-                color: "#fff",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              Готово
             </button>
           </div>
         </div>
