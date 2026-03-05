@@ -2006,6 +2006,11 @@ const ReportsScreen: React.FC<Props> = ({
                               opacity: 0.25,
                             }))
                             const previewGuideLine = hasPreview ? { x: xPreview, opacity: 0.2 } : null
+                            const previewLabelClipLeft = 0
+                            const previewLabelClipRight = Math.max(previewLabelClipLeft, xMain[0] - 8)
+                            const previewLabelClipY = labelY - 8
+                            const previewLabelClipHeight = 16
+                            const hasPreviewLabelClip = hasPreview && previewLabelClipRight > previewLabelClipLeft
                             const axisLabels = chartSeries.map((bin, idx) => ({
                               key: bin.key,
                               label: bin.label,
@@ -2156,6 +2161,18 @@ const ReportsScreen: React.FC<Props> = ({
                             }
                             return (
                               <>
+                                {hasPreviewLabelClip ? (
+                                  <defs>
+                                    <clipPath id="compare-preview-label-clip">
+                                      <rect
+                                        x={previewLabelClipLeft}
+                                        y={previewLabelClipY}
+                                        width={previewLabelClipRight - previewLabelClipLeft}
+                                        height={previewLabelClipHeight}
+                                      />
+                                    </clipPath>
+                                  </defs>
+                                ) : null}
                                 {previewGuideLine ? (
                                   <line
                                     x1={previewGuideLine.x}
@@ -2250,26 +2267,42 @@ const ReportsScreen: React.FC<Props> = ({
                                   </>
                                 ) : null}
                                 {axisLabels.map((label) => (
-                                  <text
-                                    key={`axis-label-${label.key}`}
-                                    x={label.isPreview ? plotLeft + 4 : label.x}
-                                    y={labelY}
-                                    textAnchor={label.isPreview ? "end" : "middle"}
-                                    dominantBaseline="middle"
-                                    fontSize={8}
-                                    fill={label.isPreview ? "#94a3b8" : label.isActive ? "#0f172a" : "#475569"}
-                                    fontWeight={label.isPreview ? 500 : label.isActive ? 700 : 500}
-                                    cursor={label.isPreview ? "default" : "pointer"}
-                                    onClick={
-                                      label.isPreview
-                                        ? undefined
-                                        : () => {
-                                            setCompareActiveBinKey(label.key)
-                                          }
-                                    }
-                                  >
-                                    {label.label}
-                                  </text>
+                                  label.isPreview && hasPreviewLabelClip ? (
+                                    <g key={`axis-label-${label.key}`} clipPath="url(#compare-preview-label-clip)">
+                                      <text
+                                        x={label.x}
+                                        y={labelY}
+                                        textAnchor="middle"
+                                        dominantBaseline="middle"
+                                        fontSize={8}
+                                        fill="#94a3b8"
+                                        fontWeight={500}
+                                      >
+                                        {label.label}
+                                      </text>
+                                    </g>
+                                  ) : (
+                                    <text
+                                      key={`axis-label-${label.key}`}
+                                      x={label.x}
+                                      y={labelY}
+                                      textAnchor="middle"
+                                      dominantBaseline="middle"
+                                      fontSize={8}
+                                      fill={label.isPreview ? "#94a3b8" : label.isActive ? "#0f172a" : "#475569"}
+                                      fontWeight={label.isPreview ? 500 : label.isActive ? 700 : 500}
+                                      cursor={label.isPreview ? "default" : "pointer"}
+                                      onClick={
+                                        label.isPreview
+                                          ? undefined
+                                          : () => {
+                                              setCompareActiveBinKey(label.key)
+                                            }
+                                      }
+                                    >
+                                      {label.label}
+                                    </text>
+                                  )
                                 ))}
                               </>
                             )
