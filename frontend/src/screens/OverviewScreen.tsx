@@ -559,6 +559,7 @@ function OverviewScreen({
   const [customToDraft, setCustomToDraft] = useState("")
   const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
   const [isAccountPeriodMenuOpen, setIsAccountPeriodMenuOpen] = useState(false)
+  const [hasAccountPeriodSelection, setHasAccountPeriodSelection] = useState(false)
   const [openPicker, setOpenPicker] = useState<OpenPicker>(null)
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const accountCustomFromInputRef = useRef<HTMLInputElement | null>(null)
@@ -1239,7 +1240,11 @@ function OverviewScreen({
     setIncomeSourceSearch("")
     setGoalSearch("")
     setDebtorSearch("")
+    setAccountPeriodType("month")
+    setCustomFrom("")
+    setCustomTo("")
     setIsAccountPeriodMenuOpen(false)
+    setHasAccountPeriodSelection(false)
     setSearchFocused(false)
     closeTxSheet()
     if (returnToReport) {
@@ -2343,6 +2348,7 @@ function TransactionsPanel({
         setCustomTo(nextIso)
       }
       setAccountPeriodType("custom")
+      setHasAccountPeriodSelection(true)
     },
     [customFrom, customTo],
   )
@@ -2824,25 +2830,26 @@ function TransactionsPanel({
                   />
                 </label>
 
-                <div style={{ display: "grid", gap: 8, position: "relative" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                  <div style={{ position: "relative" }}>
                     <button
                       type="button"
                       onClick={() => setIsAccountPeriodMenuOpen((prev) => !prev)}
                       style={{
                         padding: "8px 10px",
                         borderRadius: 10,
-                        border: "1px solid #e5e7eb",
-                        background: "#f8fafc",
+                        border: "1px solid #0f172a",
+                        background: "#0f172a",
                         fontWeight: 600,
-                        color: "#0f172a",
+                        color: "#fff",
                         display: "flex",
                         alignItems: "center",
                         gap: 6,
                         width: "fit-content",
                       }}
                     >
-                      {accountPeriodType === "day"
+                      {hasAccountPeriodSelection
+                        ? accountPeriodType === "day"
                         ? "День"
                         : accountPeriodType === "week"
                         ? "Неделя"
@@ -2852,98 +2859,93 @@ function TransactionsPanel({
                         ? "Квартал"
                         : accountPeriodType === "year"
                         ? "Год"
-                        : "Свой"}
-                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
+                        : "Свой"
+                        : "Период"}
+                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>▾</span>
                     </button>
                     {isAccountPeriodMenuOpen ? (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "calc(100% + 8px)",
-                          left: 0,
-                          zIndex: 64,
-                          width: 180,
-                          background: "#fff",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 12,
-                          padding: 6,
-                          boxShadow: "none",
-                          display: "grid",
-                          gap: 4,
-                        }}
-                      >
-                        {(["day", "week", "month", "quarter", "year", "custom"] as const).map((p) => (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => {
-                              if (p === "custom") {
-                                const today = getTodayLocalDate()
-                                if (!customFrom) setCustomFrom(today)
-                                if (!customTo) setCustomTo(today)
-                              }
-                              setAccountPeriodType(p)
-                              setIsAccountPeriodMenuOpen(false)
-                            }}
-                            style={{
-                              padding: "8px 10px",
-                              borderRadius: 10,
-                              border: "1px solid " + (accountPeriodType === p ? "#0f172a" : "#e5e7eb"),
-                              background: accountPeriodType === p ? "#0f172a" : "#fff",
-                              color: accountPeriodType === p ? "#fff" : "#0f172a",
-                              fontWeight: 600,
-                              fontSize: 14,
-                              textAlign: "left",
-                              cursor: "pointer",
-                            }}
-                          >
-                            {p === "day"
-                              ? "День"
-                              : p === "week"
-                              ? "Неделя"
-                              : p === "month"
-                              ? "Месяц"
-                              : p === "quarter"
-                              ? "Квартал"
-                              : p === "year"
-                              ? "Год"
-                              : "Свой"}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {accountPeriodType !== "custom" ? (
-                      <div
-                        style={{
-                          fontSize: 12.5,
-                          color: "#6b7280",
-                          maxWidth: "100%",
-                          flex: 1,
-                          textAlign: "right",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "clip",
-                        }}
-                      >
-                        {accountPeriod.label}
-                      </div>
+                      <>
+                        <div style={{ position: "fixed", inset: 0, zIndex: 63 }} onClick={() => setIsAccountPeriodMenuOpen(false)} />
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "100%",
+                            left: 0,
+                            marginTop: 6,
+                            background: "#fff",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 10,
+                            boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                            zIndex: 64,
+                            width: 196,
+                            display: "grid",
+                            gap: 4,
+                            padding: 8,
+                          }}
+                        >
+                          {(["day", "week", "month", "quarter", "year", "custom"] as const).map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => {
+                                if (p === "custom") {
+                                  const today = getTodayLocalDate()
+                                  if (!customFrom) setCustomFrom(today)
+                                  if (!customTo) setCustomTo(today)
+                                }
+                                setHasAccountPeriodSelection(true)
+                                setAccountPeriodType(p)
+                                setIsAccountPeriodMenuOpen(false)
+                              }}
+                              style={{
+                                width: "100%",
+                                textAlign: "left",
+                                padding: "8px 10px",
+                                borderRadius: 8,
+                                border: "1px solid #e5e7eb",
+                                background: accountPeriodType === p ? "#f1f5f9" : "#fff",
+                                color: accountPeriodType === p ? "#1d4ed8" : "#2563eb",
+                                fontWeight: 500,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {p === "day"
+                                ? "День"
+                                : p === "week"
+                                ? "Неделя"
+                                : p === "month"
+                                ? "Месяц"
+                                : p === "quarter"
+                                ? "Квартал"
+                                : p === "year"
+                                ? "Год"
+                                : "Свой"}
+                            </button>
+                          ))}
+                        </div>
+                      </>
                     ) : null}
                   </div>
+
                   {accountPeriodType === "custom" ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ position: "relative", flex: 1 }} onClick={() => openAccountCustomDatePicker("from")}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0 }}>
+                      <div style={{ position: "relative", width: "fit-content" }} onClick={() => openAccountCustomDatePicker("from")}>
                         <button
                           type="button"
                           style={{
-                            width: "100%",
+                            width: "fit-content",
+                            minWidth: 136,
                             padding: "8px 10px",
                             borderRadius: 10,
                             border: "1px solid #e5e7eb",
                             background: "#fff",
                             color: "#0f172a",
                             fontSize: 13,
-                            textAlign: "left",
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                             cursor: "pointer",
                           }}
                         >
@@ -2970,18 +2972,23 @@ function TransactionsPanel({
                         />
                       </div>
                       <span style={{ color: "#64748b", fontSize: 12 }}>—</span>
-                      <div style={{ position: "relative", flex: 1 }} onClick={() => openAccountCustomDatePicker("to")}>
+                      <div style={{ position: "relative", width: "fit-content" }} onClick={() => openAccountCustomDatePicker("to")}>
                         <button
                           type="button"
                           style={{
-                            width: "100%",
+                            width: "fit-content",
+                            minWidth: 136,
                             padding: "8px 10px",
                             borderRadius: 10,
                             border: "1px solid #e5e7eb",
                             background: "#fff",
                             color: "#0f172a",
                             fontSize: 13,
-                            textAlign: "left",
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                             cursor: "pointer",
                           }}
                         >
@@ -3008,7 +3015,22 @@ function TransactionsPanel({
                         />
                       </div>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: "#6b7280",
+                        minWidth: 0,
+                        flex: 1,
+                        textAlign: "right",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "clip",
+                      }}
+                    >
+                      {accountPeriod.label}
+                    </div>
+                  )}
                 </div>
 
                 <TransactionsPanel
