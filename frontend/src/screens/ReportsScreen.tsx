@@ -512,6 +512,12 @@ const ReportsScreen: React.FC<Props> = ({
     setCompareHistoryOffset((prev) => prev + 1)
     setCompareActiveBinKey(null)
   }
+  const shiftCompareBackFromPreview = () => {
+    if (!canComparePrev) return
+    const previewKey = comparePreviewSeries?.key ?? null
+    setCompareHistoryOffset((prev) => prev + 1)
+    setCompareActiveBinKey(previewKey)
+  }
   const shiftCompareForwardOneStep = () => {
     if (!canCompareNext) return
     setCompareHistoryOffset((prev) => Math.max(0, prev - 1))
@@ -2194,7 +2200,7 @@ const ReportsScreen: React.FC<Props> = ({
                                     height={labelY - chartTop + 20}
                                     fill="transparent"
                                     style={{ cursor: canComparePrev ? "pointer" : "default" }}
-                                    onClick={shiftCompareBackOneStep}
+                                    onClick={shiftCompareBackFromPreview}
                                   />
                                 ) : null}
                                 {guideLines.map((line) => (
@@ -2285,7 +2291,7 @@ const ReportsScreen: React.FC<Props> = ({
                                       key={`axis-label-${label.key}`}
                                       clipPath="url(#compare-preview-label-clip)"
                                       style={{ cursor: canComparePrev ? "pointer" : "default" }}
-                                      onClick={shiftCompareBackOneStep}
+                                      onClick={shiftCompareBackFromPreview}
                                       opacity={canComparePrev ? 1 : 0.55}
                                     >
                                       <text
