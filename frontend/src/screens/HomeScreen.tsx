@@ -948,23 +948,23 @@ function HomeScreen({
                 className="home-split-banner__period-btn"
                 onClick={toggleHomePeriodMenu}
                 style={{
-                  padding: "8px 10px",
+                  padding: "4px 8px",
                   borderRadius: 10,
                   border: "1px solid #0f172a",
                   background: "#0f172a",
                   color: "#fff",
                   fontWeight: 600,
-                  fontSize: 14,
-                  lineHeight: 1.2,
-                  minWidth: 96,
+                  fontSize: 13,
+                  lineHeight: 1.1,
+                  minWidth: 86,
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 6,
+                  gap: 5,
                 }}
               >
                 {homePeriodButtonLabel}
-                <span className="home-split-banner__period-caret" style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>
+                <span className="home-split-banner__period-caret" style={{ fontSize: 10, color: "rgba(255,255,255,0.85)" }}>
                   ▾
                 </span>
               </button>
