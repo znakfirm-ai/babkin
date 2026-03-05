@@ -234,6 +234,8 @@ const ReportsScreen: React.FC<Props> = ({
   const [compareActiveBinKey, setCompareActiveBinKey] = useState<string | null>(null)
   const [compareListMode, setCompareListMode] = useState<CompareListMode>("income")
   const [compareHistoryOffset, setCompareHistoryOffset] = useState(0)
+  const compareChartMainCompress = 0.92
+  const compareChartPreviewFactor = 0.6
   const todayDate = useMemo(() => format(new Date()), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
@@ -1988,10 +1990,12 @@ const ReportsScreen: React.FC<Props> = ({
                             const chartHeight = chartBottom - chartTop
                             const mainCount = compareMainSeries.length
                             if (mainCount === 0) return null
-                            const mainStep = mainCount > 1 ? chartWidth / (mainCount - 1) : chartWidth
-                            const xMain = Array.from({ length: mainCount }, (_, index) => paddingX + mainStep * index)
+                            const chartRight = paddingX + chartWidth
+                            const baseStep = mainCount > 1 ? chartWidth / (mainCount - 1) : chartWidth
+                            const mainStep = baseStep * compareChartMainCompress
+                            const xMain = Array.from({ length: mainCount }, (_, index) => chartRight - mainStep * (mainCount - 1 - index))
                             const hasPreview = Boolean(comparePreviewSeries)
-                            const xPreview = xMain[0] - mainStep * 0.16
+                            const xPreview = Math.max(6, xMain[0] - mainStep * compareChartPreviewFactor)
                             const chartSeries = hasPreview && comparePreviewSeries ? [comparePreviewSeries, ...compareMainSeries] : compareMainSeries
                             const chartX = hasPreview ? [xPreview, ...xMain] : xMain
                             const activeMainIdxRaw = compareMainSeries.findIndex((bin) => bin.key === compareActiveBin?.key)
@@ -2249,13 +2253,14 @@ const ReportsScreen: React.FC<Props> = ({
                             <div
                               style={{
                                 position: "absolute",
-                                left: -26,
+                                left: 0,
                                 top: 2,
                                 fontSize: 9,
                                 fontWeight: 500,
                                 color: "#94a3b8",
                                 whiteSpace: "nowrap",
                                 pointerEvents: "none",
+                                transform: "translateX(-45%)",
                               }}
                             >
                               {comparePreviewSeries.label}
@@ -2266,8 +2271,9 @@ const ReportsScreen: React.FC<Props> = ({
                               display: "grid",
                               gridTemplateColumns: `repeat(${Math.max(compareMainSeries.length, 1)}, minmax(0, 1fr))`,
                               alignItems: "center",
-                              gap: 10,
-                              width: "100%",
+                              gap: 4,
+                              width: `${compareChartMainCompress * 100}%`,
+                              marginLeft: `${(1 - compareChartMainCompress) * 100}%`,
                             }}
                           >
                             {compareMainSeries.map((bin) => {
@@ -2286,7 +2292,7 @@ const ReportsScreen: React.FC<Props> = ({
                                     color: isActive ? "#0f172a" : "#475569",
                                     cursor: "pointer",
                                     fontWeight: isActive ? 700 : 500,
-                                    fontSize: 9,
+                                    fontSize: 8,
                                     minWidth: 0,
                                     whiteSpace: "nowrap",
                                     width: "100%",
