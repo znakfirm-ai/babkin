@@ -334,6 +334,8 @@ const ReportsScreen: React.FC<Props> = ({
   const [hasComparePeriodSelection, setHasComparePeriodSelection] = useState(false)
   const comparePeriodButtonRef = useRef<HTMLButtonElement | null>(null)
   const [comparePeriodPopoverWidth, setComparePeriodPopoverWidth] = useState<number | null>(null)
+  const customFromInputRef = useRef<HTMLInputElement | null>(null)
+  const customToInputRef = useRef<HTMLInputElement | null>(null)
   const [compareCustomFrom, setCompareCustomFrom] = useState("")
   const [compareCustomTo, setCompareCustomTo] = useState("")
   const [compareActiveBinKey, setCompareActiveBinKey] = useState<string | null>(null)
@@ -342,6 +344,11 @@ const ReportsScreen: React.FC<Props> = ({
   const compareIncomeLineColor = "#9ddfc5"
   const compareExpenseLineColor = "#f7b2a4"
   const todayDate = useMemo(() => format(new Date()), [])
+  const formatLongRuDate = (value: string) =>
+    new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+      .format(new Date(`${value}T00:00:00`))
+      .replace(/\s*г\.$/u, "")
+      .trim()
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
 
@@ -569,6 +576,40 @@ const ReportsScreen: React.FC<Props> = ({
       setMonthOffset(0)
     }
     setBannerOffset(0)
+  }
+  const periodCustomFromValue = customFrom || todayDate
+  const periodCustomToValue = customTo || todayDate
+  const periodCustomFromLabel = formatLongRuDate(periodCustomFromValue)
+  const periodCustomToLabel = formatLongRuDate(periodCustomToValue)
+  const openPeriodCustomDatePicker = (target: "from" | "to") => {
+    const input = target === "from" ? customFromInputRef.current : customToInputRef.current
+    if (!input) return
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void }
+    if (typeof pickerInput.showPicker === "function") {
+      try {
+        pickerInput.showPicker()
+        return
+      } catch {
+        // Fallback for webviews without showPicker.
+      }
+    }
+    pickerInput.focus()
+    pickerInput.click()
+  }
+  const applyPeriodCustomDate = (target: "from" | "to", nextValue: string) => {
+    const value = nextValue || todayDate
+    const fromValue = target === "from" ? value : periodCustomFromValue
+    const toValue = target === "to" ? value : periodCustomToValue
+    if (fromValue <= toValue) {
+      setCustomFrom(fromValue)
+      setCustomTo(toValue)
+    } else if (target === "from") {
+      setCustomFrom(fromValue)
+      setCustomTo(fromValue)
+    } else {
+      setCustomFrom(toValue)
+      setCustomTo(toValue)
+    }
   }
   const toggleComparePeriodMenu = () => {
     if (!isComparePeriodMenuOpen) {
@@ -1078,21 +1119,113 @@ const ReportsScreen: React.FC<Props> = ({
                     onClose={closePeriodMenu}
                     onSelect={selectPeriodMode}
                   />
-                  <div
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      fontWeight: 500,
-                      fontSize: 14,
-                      color: "#6b7280",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      textAlign: "right",
-                    }}
-                  >
-                    {periodDisplayText}
-                  </div>
+                  {periodMode === "custom" ? (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                      <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openPeriodCustomDatePicker("from")}>
+                        <button
+                          type="button"
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            color: "#0f172a",
+                            fontSize: 13,
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {periodCustomFromLabel}
+                        </button>
+                        <input
+                          ref={customFromInputRef}
+                          type="date"
+                          value={periodCustomFromValue}
+                          onChange={(event) => applyPeriodCustomDate("from", event.target.value)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: 0,
+                            background: "transparent",
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            zIndex: 1,
+                            cursor: "pointer",
+                          }}
+                        />
+                      </div>
+                      <span style={{ color: "#6b7280", fontWeight: 600, flex: "0 0 auto" }}>—</span>
+                      <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openPeriodCustomDatePicker("to")}>
+                        <button
+                          type="button"
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            color: "#0f172a",
+                            fontSize: 13,
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {periodCustomToLabel}
+                        </button>
+                        <input
+                          ref={customToInputRef}
+                          type="date"
+                          value={periodCustomToValue}
+                          onChange={(event) => applyPeriodCustomDate("to", event.target.value)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: 0,
+                            background: "transparent",
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            zIndex: 1,
+                            cursor: "pointer",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontWeight: 500,
+                        fontSize: 14,
+                        color: "#6b7280",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        textAlign: "right",
+                      }}
+                    >
+                      {periodDisplayText}
+                    </div>
+                  )}
                 </div>
 
                 {periodMode === "day" ? (
@@ -1109,41 +1242,6 @@ const ReportsScreen: React.FC<Props> = ({
                         fontSize: 14,
                       }}
                     />
-                  </div>
-                ) : null}
-
-                {periodMode === "custom" ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>с</span>
-                      <input
-                        type="date"
-                        value={customFrom || todayDate}
-                        onChange={(e) => setCustomFrom(e.target.value)}
-                        style={{
-                          width: "100%",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 10,
-                          padding: "8px 10px",
-                          fontSize: 14,
-                        }}
-                      />
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>по</span>
-                      <input
-                        type="date"
-                        value={customTo || todayDate}
-                        onChange={(e) => setCustomTo(e.target.value)}
-                        style={{
-                          width: "100%",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 10,
-                          padding: "8px 10px",
-                          fontSize: 14,
-                        }}
-                      />
-                    </div>
                   </div>
                 ) : null}
 
@@ -1441,21 +1539,113 @@ const ReportsScreen: React.FC<Props> = ({
                     onClose={closePeriodMenu}
                     onSelect={selectPeriodMode}
                   />
-                  <div
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      fontWeight: 500,
-                      fontSize: 14,
-                      color: "#6b7280",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      textAlign: "right",
-                    }}
-                  >
-                    {periodDisplayText}
-                  </div>
+                  {periodMode === "custom" ? (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                      <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openPeriodCustomDatePicker("from")}>
+                        <button
+                          type="button"
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            color: "#0f172a",
+                            fontSize: 13,
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {periodCustomFromLabel}
+                        </button>
+                        <input
+                          ref={customFromInputRef}
+                          type="date"
+                          value={periodCustomFromValue}
+                          onChange={(event) => applyPeriodCustomDate("from", event.target.value)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: 0,
+                            background: "transparent",
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            zIndex: 1,
+                            cursor: "pointer",
+                          }}
+                        />
+                      </div>
+                      <span style={{ color: "#6b7280", fontWeight: 600, flex: "0 0 auto" }}>—</span>
+                      <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openPeriodCustomDatePicker("to")}>
+                        <button
+                          type="button"
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            color: "#0f172a",
+                            fontSize: 13,
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {periodCustomToLabel}
+                        </button>
+                        <input
+                          ref={customToInputRef}
+                          type="date"
+                          value={periodCustomToValue}
+                          onChange={(event) => applyPeriodCustomDate("to", event.target.value)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: 0,
+                            background: "transparent",
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            zIndex: 1,
+                            cursor: "pointer",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontWeight: 500,
+                        fontSize: 14,
+                        color: "#6b7280",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        textAlign: "right",
+                      }}
+                    >
+                      {periodDisplayText}
+                    </div>
+                  )}
                 </div>
 
                 {periodMode === "day" ? (
@@ -1472,41 +1662,6 @@ const ReportsScreen: React.FC<Props> = ({
                         fontSize: 14,
                       }}
                     />
-                  </div>
-                ) : null}
-
-                {periodMode === "custom" ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>с</span>
-                      <input
-                        type="date"
-                        value={customFrom || todayDate}
-                        onChange={(e) => setCustomFrom(e.target.value)}
-                        style={{
-                          width: "100%",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 10,
-                          padding: "8px 10px",
-                          fontSize: 14,
-                        }}
-                      />
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13, color: "#6b7280", whiteSpace: "nowrap" }}>по</span>
-                      <input
-                        type="date"
-                        value={customTo || todayDate}
-                        onChange={(e) => setCustomTo(e.target.value)}
-                        style={{
-                          width: "100%",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 10,
-                          padding: "8px 10px",
-                          fontSize: 14,
-                        }}
-                      />
-                    </div>
                   </div>
                 ) : null}
 
