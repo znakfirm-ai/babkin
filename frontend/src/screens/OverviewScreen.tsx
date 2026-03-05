@@ -2178,6 +2178,7 @@ const txScrollableStyle = {
   flex: 1,
   minHeight: 0,
   overflowY: "auto" as const,
+  WebkitOverflowScrolling: "touch" as const,
   paddingRight: 2,
 }
 
@@ -4375,13 +4376,11 @@ function TransactionsPanel({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
               <div style={{ fontSize: isGoalsMode || isDebtsMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
               <div style={{ display: "flex", gap: 8 }}>
-                {isGoalsMode || isDebtsMode ? (
+                {isDebtsMode ? (
                   <button
                     type="button"
                     onClick={
-                      isGoalsMode
-                        ? openGoalOperationFromGoalsList
-                        : isDebtsReceivableMode
+                      isDebtsReceivableMode
                         ? openReceivableDebtOperationFromGoalsList
                         : openPayableDebtOperationFromGoalsList
                     }
@@ -4530,6 +4529,32 @@ function TransactionsPanel({
                 )}
               </div>
             </div>
+            {isGoalsMode ? (
+              <div
+                style={{
+                  borderTop: "1px solid #e5e7eb",
+                  paddingTop: 10,
+                  paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 4px)",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={openGoalOperationFromGoalsList}
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #0f172a",
+                    background: "#0f172a",
+                    color: "#fff",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Добавить операцию
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
