@@ -532,13 +532,14 @@ const ReportsScreen: React.FC<Props> = ({
     setCompareActiveBinKey(getCompareRightMainKeyForOffset(targetOffset))
   }
   const shiftCompareForwardFromRightEdge = () => {
+    const rightEdgeKey = compareMainSeries[compareMainSeries.length - 1]?.key ?? null
     if (canCompareNext) {
       const targetOffset = Math.max(0, compareHistoryOffset - 1)
       setCompareHistoryOffset(targetOffset)
-      setCompareActiveBinKey(getCompareRightMainKeyForOffset(targetOffset))
+      setCompareActiveBinKey(rightEdgeKey)
       return
     }
-    setCompareActiveBinKey(compareMainSeries[compareMainSeries.length - 1]?.key ?? null)
+    setCompareActiveBinKey(rightEdgeKey)
   }
 
   const expenseData = useMemo(() => {
