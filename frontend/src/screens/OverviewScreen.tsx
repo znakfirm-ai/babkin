@@ -585,6 +585,7 @@ function OverviewScreen({
   const isGoalsMode = goalsListMode === "goals"
   const currentDebtorDirection: "receivable" | "payable" = isDebtsPayableMode ? "payable" : "receivable"
   const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : isDebtsPayableMode ? "Я должен" : "Список целей"
+  const accountPreviewColor = accountColor || accountColorOptions[0]
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
   const { run: runCategorySave, isRunning: isCategorySaveRunning } = useSingleFlight()
@@ -5385,16 +5386,16 @@ function TransactionsPanel({
                 <div style={{ display: "grid", gap: 16 }}>
                   <div
                     style={{
-                      background: "#f8fafc",
+                      background: accountPreviewColor,
                       borderRadius: 18,
                       padding: 16,
                       display: "grid",
                       gap: 12,
-                      border: "1px solid #e5e7eb",
+                      border: "none",
                       boxShadow: "none",
                     }}
                   >
-                    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "rgba(255,255,255,0.92)" }}>
                       Название
                       <input
                         value={name}
@@ -5403,16 +5404,16 @@ function TransactionsPanel({
                         style={{
                           padding: 12,
                           borderRadius: 10,
-                          border: "1px solid #e5e7eb",
+                          border: "1px solid rgba(255,255,255,0.35)",
                           fontSize: 16,
                           outline: "none",
                           boxShadow: "none",
-                          background: "#fff",
+                          background: "rgba(255,255,255,0.97)",
                           color: "#0f172a",
                         }}
                       />
                     </label>
-                    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "#4b5563" }}>
+                    <label style={{ display: "grid", gap: 6, fontSize: 13, color: "rgba(255,255,255,0.92)" }}>
                       {editingAccountId ? "Баланс" : "Стартовый баланс"}
                       <input
                         value={balance}
@@ -5421,17 +5422,17 @@ function TransactionsPanel({
                         style={{
                           padding: 12,
                           borderRadius: 10,
-                          border: "1px solid #e5e7eb",
+                          border: "1px solid rgba(255,255,255,0.35)",
                           fontSize: 16,
-                          background: editingAccountId ? "#fff" : "#f1f5f9",
+                          background: "rgba(255,255,255,0.97)",
                           outline: "none",
                           boxShadow: "none",
                           color: "#0f172a",
                         }}
                       />
                     </label>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Иконка</div>
+                    <div style={{ display: "grid", gap: 6, color: "rgba(255,255,255,0.92)" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>Иконка</div>
                       <button
                         type="button"
                         onClick={() => {
@@ -5441,8 +5442,8 @@ function TransactionsPanel({
                         style={{
                           padding: 12,
                           borderRadius: 10,
-                          border: "1px solid #e5e7eb",
-                          background: "#fff",
+                          border: "1px solid rgba(255,255,255,0.35)",
+                          background: "rgba(255,255,255,0.97)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
@@ -5615,7 +5616,7 @@ function TransactionsPanel({
                 <div style={{ display: "grid", gap: 16 }}>
                   <div
                     style={{
-                      background: accountColor,
+                      background: accountPreviewColor,
                       borderRadius: 18,
                       padding: 16,
                       display: "grid",
