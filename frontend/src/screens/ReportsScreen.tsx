@@ -1981,7 +1981,7 @@ const ReportsScreen: React.FC<Props> = ({
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
                           {(() => {
-                            const plotLeft = 58
+                            const plotLeft = 78
                             const plotRight = 288
                             const chartWidth = plotRight - plotLeft
                             const chartTop = 10
