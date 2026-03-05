@@ -334,6 +334,8 @@ const ReportsScreen: React.FC<Props> = ({
   const [hasComparePeriodSelection, setHasComparePeriodSelection] = useState(false)
   const comparePeriodButtonRef = useRef<HTMLButtonElement | null>(null)
   const [comparePeriodPopoverWidth, setComparePeriodPopoverWidth] = useState<number | null>(null)
+  const compareCustomFromInputRef = useRef<HTMLInputElement | null>(null)
+  const compareCustomToInputRef = useRef<HTMLInputElement | null>(null)
   const customFromInputRef = useRef<HTMLInputElement | null>(null)
   const customToInputRef = useRef<HTMLInputElement | null>(null)
   const [compareCustomFrom, setCompareCustomFrom] = useState("")
@@ -650,6 +652,25 @@ const ReportsScreen: React.FC<Props> = ({
     }
     setCompareActiveBinKey(null)
     setCompareHistoryOffset(0)
+  }
+  const compareCustomFromValue = compareCustomFrom || todayDate
+  const compareCustomToValue = compareCustomTo || todayDate
+  const compareCustomFromLabel = formatLongRuDate(compareCustomFromValue)
+  const compareCustomToLabel = formatLongRuDate(compareCustomToValue)
+  const openCompareCustomDatePicker = (target: "from" | "to") => {
+    const input = target === "from" ? compareCustomFromInputRef.current : compareCustomToInputRef.current
+    if (!input) return
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void }
+    if (typeof pickerInput.showPicker === "function") {
+      try {
+        pickerInput.showPicker()
+        return
+      } catch {
+        // Fallback for webviews without showPicker.
+      }
+    }
+    pickerInput.focus()
+    pickerInput.click()
   }
 
   const compareIncomeList = useMemo(() => {
@@ -1979,44 +2000,100 @@ const ReportsScreen: React.FC<Props> = ({
                     }}
                   >
                     {comparePeriodMode === "custom" ? (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%" }}>
-                        <input
-                          type="date"
-                          value={compareCustomFrom || todayDate}
-                          onChange={(event) => {
-                            setIsComparePeriodMenuOpen(false)
-                            applyCompareCustomDate("from", event.target.value)
-                          }}
-                          style={{
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 10,
-                            background: "#fff",
-                            padding: "8px 9px",
-                            fontSize: 13,
-                            color: "#475569",
-                            cursor: "pointer",
-                            whiteSpace: "nowrap",
-                          }}
-                        />
-                        <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
-                        <input
-                          type="date"
-                          value={compareCustomTo || todayDate}
-                          onChange={(event) => {
-                            setIsComparePeriodMenuOpen(false)
-                            applyCompareCustomDate("to", event.target.value)
-                          }}
-                          style={{
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 10,
-                            background: "#fff",
-                            padding: "8px 9px",
-                            fontSize: 13,
-                            color: "#475569",
-                            cursor: "pointer",
-                            whiteSpace: "nowrap",
-                          }}
-                        />
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openCompareCustomDatePicker("from")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {compareCustomFromLabel}
+                          </button>
+                          <input
+                            ref={compareCustomFromInputRef}
+                            type="date"
+                            value={compareCustomFromValue}
+                            onChange={(event) => {
+                              setIsComparePeriodMenuOpen(false)
+                              applyCompareCustomDate("from", event.target.value)
+                            }}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                        <span style={{ color: "#6b7280", fontWeight: 600, flex: "0 0 auto" }}>—</span>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openCompareCustomDatePicker("to")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {compareCustomToLabel}
+                          </button>
+                          <input
+                            ref={compareCustomToInputRef}
+                            type="date"
+                            value={compareCustomToValue}
+                            onChange={(event) => {
+                              setIsComparePeriodMenuOpen(false)
+                              applyCompareCustomDate("to", event.target.value)
+                            }}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
                       </div>
                     ) : null}
                   </div>
