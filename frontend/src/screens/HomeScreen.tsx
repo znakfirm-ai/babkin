@@ -950,9 +950,9 @@ function HomeScreen({
                 style={{
                   padding: "2px 6px",
                   borderRadius: 8,
-                  border: "1px solid #6b7280",
-                  background: "#6b7280",
-                  color: "#fff",
+                  border: "1px solid #e5e7eb",
+                  background: "var(--tg-theme-bg-color, #f5f6f8)",
+                  color: "#0f172a",
                   fontWeight: 600,
                   fontSize: 9,
                   lineHeight: 1,
@@ -964,7 +964,7 @@ function HomeScreen({
                 }}
               >
                 {homePeriodButtonLabel}
-                <span className="home-split-banner__period-caret" style={{ fontSize: 8, color: "rgba(255,255,255,0.85)" }}>
+                <span className="home-split-banner__period-caret" style={{ fontSize: 8, color: "#475569" }}>
                   ▾
                 </span>
               </button>
