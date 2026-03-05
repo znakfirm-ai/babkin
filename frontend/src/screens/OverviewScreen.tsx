@@ -90,6 +90,17 @@ type OpenPicker =
     }
   | null
 
+type AccountPeriodType = "day" | "week" | "month" | "quarter" | "year" | "custom"
+
+const ACCOUNT_PERIOD_OPTIONS: Array<{ key: AccountPeriodType; label: string }> = [
+  { key: "day", label: "День" },
+  { key: "week", label: "Неделя" },
+  { key: "month", label: "Месяц" },
+  { key: "quarter", label: "Квартал" },
+  { key: "year", label: "Год" },
+  { key: "custom", label: "Свой" },
+]
+
 type PopoverListProps = {
   items: string[]
   selectedIndex: number
@@ -160,6 +171,97 @@ const PopoverList: React.FC<PopoverListProps> = ({ items, selectedIndex, alignRi
           )
         })}
       </div>
+    </div>
+  )
+}
+
+type PeriodPickerTriggerProps = {
+  buttonLabel: string
+  isOpen: boolean
+  selectedPeriod: AccountPeriodType
+  buttonRef: { current: HTMLButtonElement | null }
+  popoverWidth: number | null
+  onToggle: () => void
+  onClose: () => void
+  onSelect: (period: AccountPeriodType) => void
+}
+
+const PeriodPickerTrigger: React.FC<PeriodPickerTriggerProps> = ({
+  buttonLabel,
+  isOpen,
+  selectedPeriod,
+  buttonRef,
+  popoverWidth,
+  onToggle,
+  onClose,
+  onSelect,
+}) => {
+  return (
+    <div style={{ position: "relative", flex: "0 0 auto" }}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={onToggle}
+        style={{
+          padding: "8px 10px",
+          borderRadius: 10,
+          border: "1px solid #0f172a",
+          background: "#0f172a",
+          fontWeight: 600,
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          minWidth: 96,
+          flex: "0 0 auto",
+        }}
+      >
+        {buttonLabel}
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>▾</span>
+      </button>
+      {isOpen ? (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 63 }} onClick={onClose} />
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              marginTop: 6,
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 10,
+              boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+              zIndex: 64,
+              width: popoverWidth ?? "100%",
+              display: "grid",
+              gap: 4,
+              padding: 8,
+            }}
+          >
+            {ACCOUNT_PERIOD_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => onSelect(option.key)}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: selectedPeriod === option.key ? "#f1f5f9" : "#fff",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   )
 }
@@ -552,7 +654,7 @@ function OverviewScreen({
   const [accountSearch, setAccountSearch] = useState("")
   const [categorySearch, setCategorySearch] = useState("")
   const [incomeSourceSearch, setIncomeSourceSearch] = useState("")
-  const [accountPeriodType, setAccountPeriodType] = useState<"day" | "week" | "month" | "quarter" | "year" | "custom">("month")
+  const [accountPeriodType, setAccountPeriodType] = useState<AccountPeriodType>("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [customFromDraft, setCustomFromDraft] = useState("")
@@ -2354,6 +2456,38 @@ function TransactionsPanel({
     },
     [customFrom, customTo],
   )
+  const accountPeriodButtonLabel = useMemo(() => {
+    if (!hasAccountPeriodSelection) return "Период"
+    if (accountPeriodType === "day") return "День"
+    if (accountPeriodType === "week") return "Неделя"
+    if (accountPeriodType === "month") return "Месяц"
+    if (accountPeriodType === "quarter") return "Квартал"
+    if (accountPeriodType === "year") return "Год"
+    return "Свой"
+  }, [accountPeriodType, hasAccountPeriodSelection])
+  const closeAccountPeriodMenu = useCallback(() => setIsAccountPeriodMenuOpen(false), [])
+  const toggleAccountPeriodMenu = useCallback(() => {
+    if (!isAccountPeriodMenuOpen) {
+      const buttonWidth = accountPeriodButtonRef.current?.getBoundingClientRect().width
+      if (buttonWidth) {
+        setAccountPeriodPopoverWidth(buttonWidth)
+      }
+    }
+    setIsAccountPeriodMenuOpen((prev) => !prev)
+  }, [isAccountPeriodMenuOpen])
+  const selectAccountPeriod = useCallback(
+    (period: AccountPeriodType) => {
+      if (period === "custom") {
+        const today = getTodayLocalDate()
+        if (!customFrom) setCustomFrom(today)
+        if (!customTo) setCustomTo(today)
+      }
+      setHasAccountPeriodSelection(true)
+      setAccountPeriodType(period)
+      setIsAccountPeriodMenuOpen(false)
+    },
+    [customFrom, customTo],
+  )
 
   const filteredAccountTx = useMemo(() => {
     if (!detailAccountId) return []
@@ -2833,111 +2967,16 @@ function TransactionsPanel({
                 </label>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative", flexWrap: "nowrap", minWidth: 0 }}>
-                  <div style={{ position: "relative" }}>
-                    <button
-                      ref={accountPeriodButtonRef}
-                      type="button"
-                      onClick={() => {
-                        if (!isAccountPeriodMenuOpen) {
-                          const buttonWidth = accountPeriodButtonRef.current?.getBoundingClientRect().width
-                          if (buttonWidth) {
-                            setAccountPeriodPopoverWidth(buttonWidth)
-                          }
-                        }
-                        setIsAccountPeriodMenuOpen((prev) => !prev)
-                      }}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        border: "1px solid #0f172a",
-                        background: "#0f172a",
-                        fontWeight: 600,
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        minWidth: 96,
-                        flex: "0 0 auto",
-                      }}
-                    >
-                      {hasAccountPeriodSelection
-                        ? accountPeriodType === "day"
-                        ? "День"
-                        : accountPeriodType === "week"
-                        ? "Неделя"
-                        : accountPeriodType === "month"
-                        ? "Месяц"
-                        : accountPeriodType === "quarter"
-                        ? "Квартал"
-                        : accountPeriodType === "year"
-                        ? "Год"
-                        : "Свой"
-                        : "Период"}
-                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>▾</span>
-                    </button>
-                    {isAccountPeriodMenuOpen ? (
-                      <>
-                        <div style={{ position: "fixed", inset: 0, zIndex: 63 }} onClick={() => setIsAccountPeriodMenuOpen(false)} />
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "100%",
-                            left: 0,
-                            marginTop: 6,
-                            background: "#fff",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 10,
-                            boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
-                            zIndex: 64,
-                            width: accountPeriodPopoverWidth ?? "100%",
-                            display: "grid",
-                            gap: 4,
-                            padding: 8,
-                          }}
-                        >
-                          {(["day", "week", "month", "quarter", "year", "custom"] as const).map((p) => (
-                            <button
-                              key={p}
-                              type="button"
-                              onClick={() => {
-                                if (p === "custom") {
-                                  const today = getTodayLocalDate()
-                                  if (!customFrom) setCustomFrom(today)
-                                  if (!customTo) setCustomTo(today)
-                                }
-                                setHasAccountPeriodSelection(true)
-                                setAccountPeriodType(p)
-                                setIsAccountPeriodMenuOpen(false)
-                              }}
-                              style={{
-                                width: "100%",
-                                textAlign: "left",
-                                padding: "8px 10px",
-                                borderRadius: 8,
-                                border: "1px solid #e5e7eb",
-                                background: accountPeriodType === p ? "#f1f5f9" : "#fff",
-                                fontWeight: 500,
-                                cursor: "pointer",
-                              }}
-                            >
-                              {p === "day"
-                                ? "День"
-                                : p === "week"
-                                ? "Неделя"
-                                : p === "month"
-                                ? "Месяц"
-                                : p === "quarter"
-                                ? "Квартал"
-                                : p === "year"
-                                ? "Год"
-                                : "Свой"}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
+                  <PeriodPickerTrigger
+                    buttonLabel={accountPeriodButtonLabel}
+                    isOpen={isAccountPeriodMenuOpen}
+                    selectedPeriod={accountPeriodType}
+                    buttonRef={accountPeriodButtonRef}
+                    popoverWidth={accountPeriodPopoverWidth}
+                    onToggle={toggleAccountPeriodMenu}
+                    onClose={closeAccountPeriodMenu}
+                    onSelect={selectAccountPeriod}
+                  />
 
                   {accountPeriodType === "custom" ? (
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
@@ -3129,25 +3168,16 @@ function TransactionsPanel({
                     }}
                   />
                   <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => setIsPeriodMenuOpen(true)}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        border: "1px solid #e5e7eb",
-                        background: "#f8fafc",
-                        fontWeight: 600,
-                        color: "#0f172a",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        width: "fit-content",
-                      }}
-                    >
-                      Период
-                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
-                    </button>
+                    <PeriodPickerTrigger
+                      buttonLabel={accountPeriodButtonLabel}
+                      isOpen={isAccountPeriodMenuOpen}
+                      selectedPeriod={accountPeriodType}
+                      buttonRef={accountPeriodButtonRef}
+                      popoverWidth={accountPeriodPopoverWidth}
+                      onToggle={toggleAccountPeriodMenu}
+                      onClose={closeAccountPeriodMenu}
+                      onSelect={selectAccountPeriod}
+                    />
 
                     <div
                       style={{
@@ -3248,25 +3278,16 @@ function TransactionsPanel({
                     }}
                   />
                   <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => setIsPeriodMenuOpen(true)}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        border: "1px solid #e5e7eb",
-                        background: "#f8fafc",
-                        fontWeight: 600,
-                        color: "#0f172a",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        width: "fit-content",
-                      }}
-                    >
-                      Период
-                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
-                    </button>
+                    <PeriodPickerTrigger
+                      buttonLabel={accountPeriodButtonLabel}
+                      isOpen={isAccountPeriodMenuOpen}
+                      selectedPeriod={accountPeriodType}
+                      buttonRef={accountPeriodButtonRef}
+                      popoverWidth={accountPeriodPopoverWidth}
+                      onToggle={toggleAccountPeriodMenu}
+                      onClose={closeAccountPeriodMenu}
+                      onSelect={selectAccountPeriod}
+                    />
 
                     <div
                       style={{
@@ -3368,25 +3389,16 @@ function TransactionsPanel({
                     }}
                   />
                   <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => setIsPeriodMenuOpen(true)}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        border: "1px solid #e5e7eb",
-                        background: "#f8fafc",
-                        fontWeight: 600,
-                        color: "#0f172a",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        width: "fit-content",
-                      }}
-                    >
-                      Период
-                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
-                    </button>
+                    <PeriodPickerTrigger
+                      buttonLabel={accountPeriodButtonLabel}
+                      isOpen={isAccountPeriodMenuOpen}
+                      selectedPeriod={accountPeriodType}
+                      buttonRef={accountPeriodButtonRef}
+                      popoverWidth={accountPeriodPopoverWidth}
+                      onToggle={toggleAccountPeriodMenu}
+                      onClose={closeAccountPeriodMenu}
+                      onSelect={selectAccountPeriod}
+                    />
 
                     <div
                       style={{
@@ -3503,25 +3515,16 @@ function TransactionsPanel({
                     }}
                   />
                   <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => setIsPeriodMenuOpen(true)}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        border: "1px solid #e5e7eb",
-                        background: "#f8fafc",
-                        fontWeight: 600,
-                        color: "#0f172a",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        width: "fit-content",
-                      }}
-                    >
-                      Период
-                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
-                    </button>
+                    <PeriodPickerTrigger
+                      buttonLabel={accountPeriodButtonLabel}
+                      isOpen={isAccountPeriodMenuOpen}
+                      selectedPeriod={accountPeriodType}
+                      buttonRef={accountPeriodButtonRef}
+                      popoverWidth={accountPeriodPopoverWidth}
+                      onToggle={toggleAccountPeriodMenu}
+                      onClose={closeAccountPeriodMenu}
+                      onSelect={selectAccountPeriod}
+                    />
 
                     <div
                       style={{
