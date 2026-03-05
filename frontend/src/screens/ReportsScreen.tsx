@@ -101,7 +101,7 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
 
   if (mode === "day") {
     const baseStart = toDayStart(now)
-    return buildSequence(6, (offset) => {
+    return buildSequence(5, (offset) => {
       const start = addDays(baseStart, -offset)
       const end = toDayEnd(start)
       return {
@@ -115,7 +115,7 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
   }
   if (mode === "week") {
     const baseStart = getWeekStartMonday(now)
-    return buildSequence(6, (offset) => {
+    return buildSequence(5, (offset) => {
       const start = addDays(baseStart, -offset * 7)
       const end = toDayEnd(addDays(start, 6))
       return {
@@ -131,7 +131,7 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
     const nowYear = now.getFullYear()
     const nowMonth = now.getMonth()
     const baseStart = new Date(nowYear, nowMonth, 1, 0, 0, 0, 0)
-    return buildSequence(6, (offset) => {
+    return buildSequence(5, (offset) => {
       const start = new Date(baseStart.getFullYear(), baseStart.getMonth() - offset, 1, 0, 0, 0, 0)
       const end = toDayEnd(new Date(start.getFullYear(), start.getMonth() + 1, 0))
       const monthName = MONTHS[start.getMonth()]
@@ -148,7 +148,7 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
   if (mode === "quarter") {
     const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3
     const baseStart = new Date(now.getFullYear(), quarterStartMonth, 1, 0, 0, 0, 0)
-    return buildSequence(6, (offset) => {
+    return buildSequence(5, (offset) => {
       const start = new Date(baseStart.getFullYear(), baseStart.getMonth() - offset * 3, 1, 0, 0, 0, 0)
       const end = toDayEnd(new Date(start.getFullYear(), start.getMonth() + 3, 0))
       return {
@@ -161,7 +161,7 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
     })
   }
   if (mode === "year") {
-    return buildSequence(6, (offset) => {
+    return buildSequence(5, (offset) => {
       const year = now.getFullYear() - offset
       const start = new Date(year, 0, 1, 0, 0, 0, 0)
       const end = toDayEnd(new Date(year, 11, 31))
@@ -185,7 +185,7 @@ const buildCompareBins = (mode: ComparePeriodMode, customFrom: string, customTo:
   const selectedEnd = selectedStartRaw <= selectedEndRaw ? toDayEnd(selectedEndRaw) : toDayEnd(selectedStartRaw)
   const intervalDays = Math.max(1, Math.floor((selectedEnd.getTime() - selectedStart.getTime()) / (24 * 60 * 60 * 1000)) + 1)
 
-  return buildSequence(6, (offset) => {
+  return buildSequence(5, (offset) => {
     const start = toDayStart(addDays(selectedStart, -offset * intervalDays))
     const end = toDayEnd(addDays(start, intervalDays - 1))
     return {
@@ -382,7 +382,7 @@ const ReportsScreen: React.FC<Props> = ({
       ),
     [compareCustomFrom, compareCustomTo, compareHistoryOffset, compareMinDate, comparePeriodMode],
   )
-  const compareMainBins = useMemo(() => compareBins.slice(-5), [compareBins])
+  const compareMainBins = useMemo(() => compareBins.slice(-4), [compareBins])
   const canComparePrev = useMemo(() => {
     const nextBins = buildCompareBins(comparePeriodMode, compareCustomFrom, compareCustomTo, new Date(), compareHistoryOffset + 1).filter(
       (bin) => bin.end >= compareMinDate,
@@ -426,7 +426,7 @@ const ReportsScreen: React.FC<Props> = ({
     })
   }, [compareBins, transactions])
 
-  const compareMainSeries = useMemo(() => compareSeries.slice(-5), [compareSeries])
+  const compareMainSeries = useMemo(() => compareSeries.slice(-4), [compareSeries])
   const comparePreviewSeries = useMemo(
     () => (compareSeries.length > compareMainSeries.length ? compareSeries[0] : null),
     [compareMainSeries.length, compareSeries],
@@ -2274,7 +2274,7 @@ const ReportsScreen: React.FC<Props> = ({
                                         y={labelY}
                                         textAnchor="middle"
                                         dominantBaseline="middle"
-                                        fontSize={8}
+                                        fontSize={9}
                                         fill="#94a3b8"
                                         fontWeight={500}
                                       >
@@ -2288,7 +2288,7 @@ const ReportsScreen: React.FC<Props> = ({
                                       y={labelY}
                                       textAnchor="middle"
                                       dominantBaseline="middle"
-                                      fontSize={8}
+                                      fontSize={9}
                                       fill={label.isPreview ? "#94a3b8" : label.isActive ? "#0f172a" : "#475569"}
                                       fontWeight={label.isPreview ? 500 : label.isActive ? 700 : 500}
                                       cursor={label.isPreview ? "default" : "pointer"}
