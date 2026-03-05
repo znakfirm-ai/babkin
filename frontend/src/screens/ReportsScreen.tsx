@@ -507,6 +507,16 @@ const ReportsScreen: React.FC<Props> = ({
   )
   const compareActiveList = compareListMode === "income" ? compareIncomeList : compareExpenseList
   const compareActiveTotal = compareListMode === "income" ? compareIncomeTotal : compareExpenseTotal
+  const shiftCompareBackOneStep = () => {
+    if (!canComparePrev) return
+    setCompareHistoryOffset((prev) => prev + 1)
+    setCompareActiveBinKey(null)
+  }
+  const shiftCompareForwardOneStep = () => {
+    if (!canCompareNext) return
+    setCompareHistoryOffset((prev) => Math.max(0, prev - 1))
+    setCompareActiveBinKey(null)
+  }
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
@@ -1753,11 +1763,7 @@ const ReportsScreen: React.FC<Props> = ({
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!canComparePrev) return
-                        setCompareHistoryOffset((prev) => prev + 1)
-                        setCompareActiveBinKey(null)
-                      }}
+                      onClick={shiftCompareBackOneStep}
                       disabled={!canComparePrev}
                       style={{
                         width: 30,
@@ -1774,11 +1780,7 @@ const ReportsScreen: React.FC<Props> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!canCompareNext) return
-                        setCompareHistoryOffset((prev) => Math.max(0, prev - 1))
-                        setCompareActiveBinKey(null)
-                      }}
+                      onClick={shiftCompareForwardOneStep}
                       disabled={!canCompareNext}
                       style={{
                         width: 30,
@@ -2184,6 +2186,17 @@ const ReportsScreen: React.FC<Props> = ({
                                     opacity={previewGuideLine.opacity}
                                   />
                                 ) : null}
+                                {previewGuideLine ? (
+                                  <rect
+                                    x={previewGuideLine.x - 20}
+                                    y={chartTop - 12}
+                                    width={40}
+                                    height={labelY - chartTop + 20}
+                                    fill="transparent"
+                                    style={{ cursor: canComparePrev ? "pointer" : "default" }}
+                                    onClick={shiftCompareBackOneStep}
+                                  />
+                                ) : null}
                                 {guideLines.map((line) => (
                                   <line
                                     key={line.x}
@@ -2268,7 +2281,13 @@ const ReportsScreen: React.FC<Props> = ({
                                 ) : null}
                                 {axisLabels.map((label) => (
                                   label.isPreview && hasPreviewLabelClip ? (
-                                    <g key={`axis-label-${label.key}`} clipPath="url(#compare-preview-label-clip)">
+                                    <g
+                                      key={`axis-label-${label.key}`}
+                                      clipPath="url(#compare-preview-label-clip)"
+                                      style={{ cursor: canComparePrev ? "pointer" : "default" }}
+                                      onClick={shiftCompareBackOneStep}
+                                      opacity={canComparePrev ? 1 : 0.55}
+                                    >
                                       <text
                                         x={label.x}
                                         y={labelY}
