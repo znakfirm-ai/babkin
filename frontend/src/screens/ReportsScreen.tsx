@@ -546,6 +546,39 @@ const ReportsScreen: React.FC<Props> = ({
     setIsExpensesSheetOpen(false)
     setIsIncomeSheetOpen(false)
   }
+  const openExpenseReport = () => {
+    setIsExpensesSheetOpen(true)
+    setIsIncomeSheetOpen(false)
+    setIsCompareSheetOpen(false)
+    setIsComparePeriodMenuOpen(false)
+  }
+  const openIncomeReport = () => {
+    setIsIncomeSheetOpen(true)
+    setIsExpensesSheetOpen(false)
+    setIsCompareSheetOpen(false)
+    setIsComparePeriodMenuOpen(false)
+  }
+  const reportListItems = [
+    {
+      key: "income",
+      title: "Доходы",
+      description: "Поступления по категориям за выбранный период. Показывает структуру доходов и их источники.",
+      onClick: openIncomeReport,
+    },
+    {
+      key: "expense",
+      title: "Расходы",
+      description: "Траты по категориям за выбранный период. Помогает анализировать расходы и принимать взвешенные решения.",
+      onClick: openExpenseReport,
+    },
+    {
+      key: "compare",
+      title: "Доходы и Расходы",
+      description:
+        "Сравнение за выбранный период на одном графике. Показывает соотношение доходов и расходов, а также их категории.",
+      onClick: openCompareReportDefault,
+    },
+  ] as const
 
   const expenseData = useMemo(() => {
     if (!effectiveRange.start || !effectiveRange.end) {
@@ -783,61 +816,44 @@ const ReportsScreen: React.FC<Props> = ({
       <div style={{ padding: 16, display: "grid", gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>Отчёты</div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setIsExpensesSheetOpen(true)
-            setIsIncomeSheetOpen(false)
-            setIsCompareSheetOpen(false)
-          }}
-          style={{
-            padding: 14,
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            background: "#fff",
-            textAlign: "left",
-            fontSize: 15,
-            cursor: "pointer",
-          }}
-        >
-          Расходы по категориям
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setIsIncomeSheetOpen(true)
-            setIsExpensesSheetOpen(false)
-            setIsCompareSheetOpen(false)
-          }}
-          style={{
-            padding: 14,
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            background: "#fff",
-            textAlign: "left",
-            fontSize: 15,
-            cursor: "pointer",
-          }}
-        >
-          Доходы по категориям
-        </button>
-
-        <button
-          type="button"
-          onClick={openCompareReportDefault}
-          style={{
-            padding: 14,
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            background: "#fff",
-            textAlign: "left",
-            fontSize: 15,
-            cursor: "pointer",
-          }}
-        >
-          Доходы vs Расходы
-        </button>
+        <div style={{ display: "grid", gap: 10 }}>
+          {reportListItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={item.onClick}
+              style={{
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                textAlign: "left",
+                cursor: "pointer",
+                display: "grid",
+                gap: 6,
+                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{item.title}</span>
+                <span style={{ fontSize: 16, color: "#94a3b8", lineHeight: 1 }}>›</span>
+              </div>
+              <span
+                style={{
+                  fontSize: 12,
+                  lineHeight: 1.35,
+                  color: "#64748b",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {item.description}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {isExpensesSheetOpen ? (
