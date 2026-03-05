@@ -5494,24 +5494,6 @@ function TransactionsPanel({
                       ))}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleSaveAccount}
-                    disabled={isAccountFlight}
-                    style={{
-                      width: "100%",
-                      padding: "12px 14px",
-                      borderRadius: 12,
-                      border: "none",
-                      background: isAccountFlight ? "#1f2937" : "#000",
-                      color: isAccountFlight ? "rgba(255,255,255,0.8)" : "#fff",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      cursor: isAccountFlight ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {isAccountFlight ? "Сохраняем…" : "Сохранить"}
-                  </button>
                   {editingAccountId ? (
                     isConfirmingDelete ? (
                       <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
@@ -5574,7 +5556,7 @@ function TransactionsPanel({
                         </div>
                       </div>
                     ) : (
-                      <div style={{ display: "flex", justifyContent: "center" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                         <button
                           type="button"
                           onClick={() => {
@@ -5582,7 +5564,7 @@ function TransactionsPanel({
                             setIsConfirmingDelete(true)
                           }}
                           style={{
-                            padding: "10px 14px",
+                            padding: "10px 12px",
                             borderRadius: 10,
                             border: "1px solid #fee2e2",
                             background: "#fff",
@@ -5590,14 +5572,64 @@ function TransactionsPanel({
                             fontSize: 13,
                             fontWeight: 600,
                             cursor: "pointer",
-                            whiteSpace: "nowrap",
+                            width: "100%",
                           }}
                         >
                           Удалить
                         </button>
+                        <button
+                          type="button"
+                          onClick={closeAccountSheet}
+                          style={{
+                            padding: "10px 12px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            cursor: "pointer",
+                            width: "100%",
+                          }}
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveAccount}
+                          disabled={isAccountFlight}
+                          style={{
+                            padding: "10px 14px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: isAccountFlight ? "#e5e7eb" : "#000",
+                            color: isAccountFlight ? "#6b7280" : "#fff",
+                            fontWeight: 600,
+                            cursor: isAccountFlight ? "not-allowed" : "pointer",
+                            width: "100%",
+                          }}
+                        >
+                          {isAccountFlight ? "Сохраняем…" : "Сохранить"}
+                        </button>
                       </div>
                     )
-                  ) : null}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSaveAccount}
+                      disabled={isAccountFlight}
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        border: "none",
+                        background: isAccountFlight ? "#1f2937" : "#000",
+                        color: isAccountFlight ? "rgba(255,255,255,0.8)" : "#fff",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: isAccountFlight ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {isAccountFlight ? "Сохраняем…" : "Сохранить"}
+                    </button>
+                  )}
                   {accountActionError ? (
                     <div style={{ color: "#b91c1c", fontSize: 13, textAlign: "center" }}>{accountActionError}</div>
                   ) : null}
