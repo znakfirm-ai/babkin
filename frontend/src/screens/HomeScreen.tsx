@@ -245,6 +245,9 @@ function HomeScreen({
   const [homePeriodCustomFrom, setHomePeriodCustomFrom] = useState("")
   const [homePeriodCustomTo, setHomePeriodCustomTo] = useState("")
   const [isHomePeriodMenuOpen, setIsHomePeriodMenuOpen] = useState(false)
+  const [hasHomePeriodSelection, setHasHomePeriodSelection] = useState(false)
+  const homePeriodButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [homePeriodPopoverWidth, setHomePeriodPopoverWidth] = useState<number | null>(null)
   const stories = useMemo<Story[]>(
     () => [
       { id: "story-1", title: "Инвест книга", image: "https://cdn.litres.ru/pub/c/cover_415/69529921.jpg" },
@@ -359,6 +362,7 @@ function HomeScreen({
   const handleHomePeriodSelect = useCallback(
     (nextMode: HomePeriodMode) => {
       setHomePeriodMode(nextMode)
+      setHasHomePeriodSelection(true)
       setIsHomePeriodMenuOpen(false)
       if (nextMode === "custom" && !homePeriodCustomFrom && !homePeriodCustomTo) {
         setHomePeriodCustomFrom(todayIsoDate)
@@ -367,6 +371,18 @@ function HomeScreen({
     },
     [homePeriodCustomFrom, homePeriodCustomTo, todayIsoDate],
   )
+  const homePeriodButtonLabel = hasHomePeriodSelection
+    ? HOME_PERIOD_OPTIONS.find((option) => option.key === homePeriodMode)?.label ?? "Период"
+    : "Период"
+  const toggleHomePeriodMenu = () => {
+    if (!isHomePeriodMenuOpen) {
+      const buttonWidth = homePeriodButtonRef.current?.getBoundingClientRect().width
+      if (buttonWidth) {
+        setHomePeriodPopoverWidth(buttonWidth)
+      }
+    }
+    setIsHomePeriodMenuOpen((prev) => !prev)
+  }
 
   const openViewer = useCallback(
     (index: number) => {
@@ -927,16 +943,35 @@ function HomeScreen({
           <div className="home-split-banner__period-row">
             <div className="home-split-banner__period-wrap">
               <button
+                ref={homePeriodButtonRef}
                 type="button"
                 className="home-split-banner__period-btn"
-                onClick={() => setIsHomePeriodMenuOpen((prev) => !prev)}
+                onClick={toggleHomePeriodMenu}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  lineHeight: 1.2,
+                  minWidth: 96,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
               >
-                Период
-                <span className="home-split-banner__period-caret">▾</span>
+                {homePeriodButtonLabel}
+                <span className="home-split-banner__period-caret" style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>
+                  ▾
+                </span>
               </button>
               {isHomePeriodMenuOpen ? (
                 <div
                   className="home-split-banner__period-menu"
+                  style={{ width: homePeriodPopoverWidth ?? undefined }}
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={(event) => event.stopPropagation()}
                 >
@@ -946,6 +981,16 @@ function HomeScreen({
                       type="button"
                       className="home-split-banner__period-menu-item"
                       onClick={() => handleHomePeriodSelect(option.key)}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        background: homePeriodMode === option.key ? "#f1f5f9" : "#fff",
+                        fontWeight: 500,
+                        cursor: "pointer",
+                      }}
                     >
                       {option.label}
                     </button>
