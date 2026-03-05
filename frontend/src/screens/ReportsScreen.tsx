@@ -832,11 +832,11 @@ const ReportsScreen: React.FC<Props> = ({
                 display: "grid",
                 gap: 6,
                 boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+                position: "relative",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 20 }}>
                 <span style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{item.title}</span>
-                <span style={{ fontSize: 16, color: "#94a3b8", lineHeight: 1 }}>›</span>
               </div>
               <span
                 style={{
@@ -850,6 +850,9 @@ const ReportsScreen: React.FC<Props> = ({
                 }}
               >
                 {item.description}
+              </span>
+              <span style={{ fontSize: 16, color: "#94a3b8", lineHeight: 1, position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)" }}>
+                ›
               </span>
             </button>
           ))}
