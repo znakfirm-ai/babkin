@@ -90,11 +90,6 @@ const parseIsoDate = (value: string) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 const formatDdMm = (date: Date) => `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}`
-const formatDdMmYyyy = (value: string) => {
-  const parsed = parseIsoDate(value)
-  if (!parsed) return ""
-  return `${String(parsed.getDate()).padStart(2, "0")}.${String(parsed.getMonth() + 1).padStart(2, "0")}.${parsed.getFullYear()}`
-}
 const getWeekStartMonday = (date: Date) => {
   const start = toDayStart(date)
   const weekDay = start.getDay() === 0 ? 7 : start.getDay()
@@ -235,8 +230,6 @@ const ReportsScreen: React.FC<Props> = ({
   const [isComparePeriodMenuOpen, setIsComparePeriodMenuOpen] = useState(false)
   const [compareCustomFrom, setCompareCustomFrom] = useState("")
   const [compareCustomTo, setCompareCustomTo] = useState("")
-  const [isCompareCustomRangeOpen, setIsCompareCustomRangeOpen] = useState(false)
-  const [compareCustomDateTarget, setCompareCustomDateTarget] = useState<"from" | "to">("from")
   const [compareActiveBinKey, setCompareActiveBinKey] = useState<string | null>(null)
   const [compareListMode, setCompareListMode] = useState<CompareListMode>("income")
   const [compareHistoryOffset, setCompareHistoryOffset] = useState(0)
@@ -446,8 +439,6 @@ const ReportsScreen: React.FC<Props> = ({
   }, [compareSeries])
 
   const comparePeriodButtonLabel = comparePeriodLabelByKey[comparePeriodMode]
-  const compareCustomFromLabel = formatDdMmYyyy(compareCustomFrom || todayDate)
-  const compareCustomToLabel = formatDdMmYyyy(compareCustomTo || todayDate)
   const applyCompareCustomDate = (target: "from" | "to", value: string) => {
     const nextValue = value || todayDate
     const fromValue = target === "from" ? nextValue : compareCustomFrom || todayDate
@@ -464,7 +455,6 @@ const ReportsScreen: React.FC<Props> = ({
     }
     setCompareActiveBinKey(null)
     setCompareHistoryOffset(0)
-    setIsCompareCustomRangeOpen(false)
   }
 
   const compareIncomeList = useMemo(() => {
@@ -543,6 +533,18 @@ const ReportsScreen: React.FC<Props> = ({
       return
     }
     setCompareActiveBinKey(rightEdgeKey)
+  }
+  const openCompareReportDefault = () => {
+    setComparePeriodMode("month")
+    setCompareHistoryOffset(0)
+    setCompareActiveBinKey(null)
+    setCompareCustomFrom(todayDate)
+    setCompareCustomTo(todayDate)
+    setCompareListMode("income")
+    setIsComparePeriodMenuOpen(false)
+    setIsCompareSheetOpen(true)
+    setIsExpensesSheetOpen(false)
+    setIsIncomeSheetOpen(false)
   }
 
   const expenseData = useMemo(() => {
@@ -767,22 +769,13 @@ const ReportsScreen: React.FC<Props> = ({
 
   useEffect(() => {
     if (autoOpenCompareSheet) {
-      if (compareReportState) {
-        setComparePeriodMode(compareReportState.periodMode)
-        setCompareCustomFrom(compareReportState.customFrom)
-        setCompareCustomTo(compareReportState.customTo)
-        setCompareActiveBinKey(compareReportState.activeBinKey)
+      openCompareReportDefault()
+      if (compareReportState?.listMode) {
         setCompareListMode(compareReportState.listMode)
-        setCompareHistoryOffset(compareReportState.historyOffset)
       }
-      setIsCompareSheetOpen(true)
-      setIsExpensesSheetOpen(false)
-      setIsIncomeSheetOpen(false)
-      setIsComparePeriodMenuOpen(false)
-      setIsCompareCustomRangeOpen(false)
       onConsumeAutoOpenCompare?.()
     }
-  }, [autoOpenCompareSheet, compareReportState, onConsumeAutoOpenCompare])
+  }, [autoOpenCompareSheet, compareReportState?.listMode, onConsumeAutoOpenCompare, openCompareReportDefault])
 
 
   return (
@@ -832,13 +825,7 @@ const ReportsScreen: React.FC<Props> = ({
 
         <button
           type="button"
-          onClick={() => {
-            setIsCompareSheetOpen(true)
-            setIsExpensesSheetOpen(false)
-            setIsIncomeSheetOpen(false)
-            setIsComparePeriodMenuOpen(false)
-            setIsCompareCustomRangeOpen(false)
-          }}
+          onClick={openCompareReportDefault}
           style={{
             padding: 14,
             borderRadius: 12,
@@ -1714,7 +1701,6 @@ const ReportsScreen: React.FC<Props> = ({
           onClick={() => {
             setIsCompareSheetOpen(false)
             setIsComparePeriodMenuOpen(false)
-            setIsCompareCustomRangeOpen(false)
           }}
           className="tx-modal__backdrop"
           style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
@@ -1743,7 +1729,6 @@ const ReportsScreen: React.FC<Props> = ({
                   onClick={() => {
                     setIsCompareSheetOpen(false)
                     setIsComparePeriodMenuOpen(false)
-                    setIsCompareCustomRangeOpen(false)
                   }}
                   style={{
                     padding: "8px 12px",
@@ -1781,7 +1766,6 @@ const ReportsScreen: React.FC<Props> = ({
                       cursor: "pointer",
                     }}
                     onClick={() => {
-                      setIsCompareCustomRangeOpen(false)
                       setIsComparePeriodMenuOpen((prev) => !prev)
                     }}
                   >
@@ -1802,12 +1786,12 @@ const ReportsScreen: React.FC<Props> = ({
                   >
                     {comparePeriodMode === "custom" ? (
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
+                        <input
+                          type="date"
+                          value={compareCustomFrom || todayDate}
+                          onChange={(event) => {
                             setIsComparePeriodMenuOpen(false)
-                            setCompareCustomDateTarget("from")
-                            setIsCompareCustomRangeOpen(true)
+                            applyCompareCustomDate("from", event.target.value)
                           }}
                           style={{
                             border: "1px solid #e5e7eb",
@@ -1819,16 +1803,14 @@ const ReportsScreen: React.FC<Props> = ({
                             cursor: "pointer",
                             whiteSpace: "nowrap",
                           }}
-                        >
-                          {compareCustomFromLabel}
-                        </button>
+                        />
                         <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
-                        <button
-                          type="button"
-                          onClick={() => {
+                        <input
+                          type="date"
+                          value={compareCustomTo || todayDate}
+                          onChange={(event) => {
                             setIsComparePeriodMenuOpen(false)
-                            setCompareCustomDateTarget("to")
-                            setIsCompareCustomRangeOpen(true)
+                            applyCompareCustomDate("to", event.target.value)
                           }}
                           style={{
                             border: "1px solid #e5e7eb",
@@ -1840,9 +1822,7 @@ const ReportsScreen: React.FC<Props> = ({
                             cursor: "pointer",
                             whiteSpace: "nowrap",
                           }}
-                        >
-                          {compareCustomToLabel}
-                        </button>
+                        />
                       </div>
                     ) : null}
                   </div>
@@ -1883,10 +1863,6 @@ const ReportsScreen: React.FC<Props> = ({
                                 const nextTo = compareCustomTo || todayDate
                                 setCompareCustomFrom(nextFrom)
                                 setCompareCustomTo(nextTo)
-                                setCompareCustomDateTarget("from")
-                                setIsCompareCustomRangeOpen(true)
-                              } else {
-                                setIsCompareCustomRangeOpen(false)
                               }
                             }}
                             style={{
@@ -1902,51 +1878,6 @@ const ReportsScreen: React.FC<Props> = ({
                             {option.label}
                           </button>
                         ))}
-                      </div>
-                    </>
-                  ) : null}
-                  {comparePeriodMode === "custom" && isCompareCustomRangeOpen ? (
-                    <>
-                      <div
-                        style={{ position: "fixed", inset: 0, zIndex: 4 }}
-                        onClick={() => {
-                          setIsCompareCustomRangeOpen(false)
-                        }}
-                      />
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          right: 0,
-                          marginTop: 6,
-                          background: "#fff",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 10,
-                          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
-                          zIndex: 5,
-                          width: 230,
-                          display: "grid",
-                          gap: 8,
-                          padding: 10,
-                        }}
-                      >
-                        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6, alignItems: "center" }}>
-                          <span style={{ fontSize: 13, color: "#6b7280" }}>{compareCustomDateTarget === "from" ? "с" : "по"}</span>
-                          <input
-                            type="date"
-                            value={compareCustomDateTarget === "from" ? compareCustomFrom || todayDate : compareCustomTo || todayDate}
-                            onChange={(event) => {
-                              applyCompareCustomDate(compareCustomDateTarget, event.target.value)
-                            }}
-                            style={{
-                              width: "100%",
-                              border: "1px solid #e5e7eb",
-                              borderRadius: 10,
-                              padding: "8px 10px",
-                              fontSize: 16,
-                            }}
-                          />
-                        </div>
                       </div>
                     </>
                   ) : null}
@@ -2400,7 +2331,6 @@ const ReportsScreen: React.FC<Props> = ({
                           onOpenCompareDrilldown?.(compareListMode, item.id, compareDrilldownState)
                           setIsCompareSheetOpen(false)
                           setIsComparePeriodMenuOpen(false)
-                          setIsCompareCustomRangeOpen(false)
                         }}
                         style={{
                           display: "flex",
@@ -2434,7 +2364,7 @@ const ReportsScreen: React.FC<Props> = ({
                             {item.title}
                           </span>
                         </div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", flexShrink: 0, display: "flex", gap: 6, alignItems: "center" }}>
+                        <div style={{ fontSize: 12, fontWeight: 400, color: "#0f172a", flexShrink: 0, display: "flex", gap: 6, alignItems: "center" }}>
                           <span>{formatMoney(item.amount, currency ?? "RUB")}</span>
                           <span style={{ color: percentColor, fontWeight: 600 }}>· {percent}%</span>
                         </div>
