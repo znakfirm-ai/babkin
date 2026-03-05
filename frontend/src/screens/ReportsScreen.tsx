@@ -507,6 +507,13 @@ const ReportsScreen: React.FC<Props> = ({
   )
   const compareActiveList = compareListMode === "income" ? compareIncomeList : compareExpenseList
   const compareActiveTotal = compareListMode === "income" ? compareIncomeTotal : compareExpenseTotal
+  const getCompareRightMainKeyForOffset = (offset: number) => {
+    const bins = buildCompareBins(comparePeriodMode, compareCustomFrom, compareCustomTo, new Date(), offset).filter(
+      (bin) => bin.end >= compareMinDate,
+    )
+    const mainBins = bins.slice(-4)
+    return mainBins[mainBins.length - 1]?.key ?? null
+  }
   const shiftCompareBackOneStep = () => {
     if (!canComparePrev) return
     setCompareHistoryOffset((prev) => prev + 1)
@@ -520,8 +527,18 @@ const ReportsScreen: React.FC<Props> = ({
   }
   const shiftCompareForwardOneStep = () => {
     if (!canCompareNext) return
-    setCompareHistoryOffset((prev) => Math.max(0, prev - 1))
-    setCompareActiveBinKey(null)
+    const targetOffset = Math.max(0, compareHistoryOffset - 1)
+    setCompareHistoryOffset(targetOffset)
+    setCompareActiveBinKey(getCompareRightMainKeyForOffset(targetOffset))
+  }
+  const shiftCompareForwardFromRightEdge = () => {
+    if (canCompareNext) {
+      const targetOffset = Math.max(0, compareHistoryOffset - 1)
+      setCompareHistoryOffset(targetOffset)
+      setCompareActiveBinKey(getCompareRightMainKeyForOffset(targetOffset))
+      return
+    }
+    setCompareActiveBinKey(compareMainSeries[compareMainSeries.length - 1]?.key ?? null)
   }
 
   const expenseData = useMemo(() => {
@@ -2003,6 +2020,7 @@ const ReportsScreen: React.FC<Props> = ({
                             const xPreview = xMain[0] - mainStep
                             const chartSeries = hasPreview && comparePreviewSeries ? [comparePreviewSeries, ...compareMainSeries] : compareMainSeries
                             const chartX = hasPreview ? [xPreview, ...xMain] : xMain
+                            const xRightMain = xMain[mainCount - 1]
                             const labelY = 152
                             const activeMainIdxRaw = compareMainSeries.findIndex((bin) => bin.key === compareActiveBin?.key)
                             const activeMainIdx = activeMainIdxRaw >= 0 ? activeMainIdxRaw : Math.max(compareMainSeries.length - 1, 0)
@@ -2329,6 +2347,15 @@ const ReportsScreen: React.FC<Props> = ({
                                     </text>
                                   )
                                 ))}
+                                <rect
+                                  x={xRightMain - 20}
+                                  y={chartTop - 12}
+                                  width={40}
+                                  height={labelY - chartTop + 20}
+                                  fill="transparent"
+                                  style={{ cursor: canCompareNext ? "pointer" : "default" }}
+                                  onClick={shiftCompareForwardFromRightEdge}
+                                />
                               </>
                             )
                           })()}
