@@ -3167,7 +3167,7 @@ function TransactionsPanel({
                       WebkitTapHighlightColor: "transparent",
                     }}
                   />
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "nowrap", minWidth: 0 }}>
                     <PeriodPickerTrigger
                       buttonLabel={accountPeriodButtonLabel}
                       isOpen={isAccountPeriodMenuOpen}
@@ -3179,20 +3179,112 @@ function TransactionsPanel({
                       onSelect={selectAccountPeriod}
                     />
 
-                    <div
-                      style={{
-                        fontSize: 12.5,
-                        color: "#6b7280",
-                        maxWidth: "100%",
-                        flex: 1,
-                        textAlign: "right",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "clip",
-                      }}
-                    >
-                      {accountPeriod.label}
-                    </div>
+                    {accountPeriodType === "custom" ? (
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("from")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {accountCustomFromLabel}
+                          </button>
+                          <input
+                            ref={accountCustomFromInputRef}
+                            type="date"
+                            value={accountCustomFromValue}
+                            onChange={(e) => handleAccountCustomDateChange("from", e.target.value)}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                        <span style={{ color: "#6b7280", fontWeight: 600, flex: "0 0 auto" }}>—</span>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("to")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {accountCustomToLabel}
+                          </button>
+                          <input
+                            ref={accountCustomToInputRef}
+                            type="date"
+                            value={accountCustomToValue}
+                            onChange={(e) => handleAccountCustomDateChange("to", e.target.value)}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "#6b7280",
+                          maxWidth: "100%",
+                          flex: 1,
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "clip",
+                        }}
+                      >
+                        {accountPeriod.label}
+                      </div>
+                    )}
                   </div>
 
                   <TransactionsPanel
@@ -3277,7 +3369,7 @@ function TransactionsPanel({
                       WebkitTapHighlightColor: "transparent",
                     }}
                   />
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "nowrap", minWidth: 0 }}>
                     <PeriodPickerTrigger
                       buttonLabel={accountPeriodButtonLabel}
                       isOpen={isAccountPeriodMenuOpen}
@@ -3289,20 +3381,112 @@ function TransactionsPanel({
                       onSelect={selectAccountPeriod}
                     />
 
-                    <div
-                      style={{
-                        fontSize: 12.5,
-                        color: "#6b7280",
-                        maxWidth: "100%",
-                        flex: 1,
-                        textAlign: "right",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "clip",
-                      }}
-                    >
-                      {accountPeriod.label}
-                    </div>
+                    {accountPeriodType === "custom" ? (
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("from")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {accountCustomFromLabel}
+                          </button>
+                          <input
+                            ref={accountCustomFromInputRef}
+                            type="date"
+                            value={accountCustomFromValue}
+                            onChange={(e) => handleAccountCustomDateChange("from", e.target.value)}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                        <span style={{ color: "#6b7280", fontWeight: 600, flex: "0 0 auto" }}>—</span>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("to")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {accountCustomToLabel}
+                          </button>
+                          <input
+                            ref={accountCustomToInputRef}
+                            type="date"
+                            value={accountCustomToValue}
+                            onChange={(e) => handleAccountCustomDateChange("to", e.target.value)}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "#6b7280",
+                          maxWidth: "100%",
+                          flex: 1,
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "clip",
+                        }}
+                      >
+                        {accountPeriod.label}
+                      </div>
+                    )}
                   </div>
 
                   <TransactionsPanel
@@ -3388,7 +3572,7 @@ function TransactionsPanel({
                       WebkitTapHighlightColor: "transparent",
                     }}
                   />
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "nowrap", minWidth: 0 }}>
                     <PeriodPickerTrigger
                       buttonLabel={accountPeriodButtonLabel}
                       isOpen={isAccountPeriodMenuOpen}
@@ -3400,20 +3584,112 @@ function TransactionsPanel({
                       onSelect={selectAccountPeriod}
                     />
 
-                    <div
-                      style={{
-                        fontSize: 12.5,
-                        color: "#6b7280",
-                        maxWidth: "100%",
-                        flex: 1,
-                        textAlign: "right",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "clip",
-                      }}
-                    >
-                      {accountPeriod.label}
-                    </div>
+                    {accountPeriodType === "custom" ? (
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("from")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {accountCustomFromLabel}
+                          </button>
+                          <input
+                            ref={accountCustomFromInputRef}
+                            type="date"
+                            value={accountCustomFromValue}
+                            onChange={(e) => handleAccountCustomDateChange("from", e.target.value)}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                        <span style={{ color: "#6b7280", fontWeight: 600, flex: "0 0 auto" }}>—</span>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("to")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {accountCustomToLabel}
+                          </button>
+                          <input
+                            ref={accountCustomToInputRef}
+                            type="date"
+                            value={accountCustomToValue}
+                            onChange={(e) => handleAccountCustomDateChange("to", e.target.value)}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "#6b7280",
+                          maxWidth: "100%",
+                          flex: 1,
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "clip",
+                        }}
+                      >
+                        {accountPeriod.label}
+                      </div>
+                    )}
                   </div>
 
                   <TransactionsPanel
@@ -3514,7 +3790,7 @@ function TransactionsPanel({
                       WebkitTapHighlightColor: "transparent",
                     }}
                   />
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "nowrap", minWidth: 0 }}>
                     <PeriodPickerTrigger
                       buttonLabel={accountPeriodButtonLabel}
                       isOpen={isAccountPeriodMenuOpen}
@@ -3526,20 +3802,112 @@ function TransactionsPanel({
                       onSelect={selectAccountPeriod}
                     />
 
-                    <div
-                      style={{
-                        fontSize: 12.5,
-                        color: "#6b7280",
-                        maxWidth: "100%",
-                        flex: 1,
-                        textAlign: "right",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "clip",
-                      }}
-                    >
-                      {accountPeriod.label}
-                    </div>
+                    {accountPeriodType === "custom" ? (
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("from")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {accountCustomFromLabel}
+                          </button>
+                          <input
+                            ref={accountCustomFromInputRef}
+                            type="date"
+                            value={accountCustomFromValue}
+                            onChange={(e) => handleAccountCustomDateChange("from", e.target.value)}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                        <span style={{ color: "#6b7280", fontWeight: 600, flex: "0 0 auto" }}>—</span>
+                        <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openAccountCustomDatePicker("to")}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontSize: 13,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {accountCustomToLabel}
+                          </button>
+                          <input
+                            ref={accountCustomToInputRef}
+                            type="date"
+                            value={accountCustomToValue}
+                            onChange={(e) => handleAccountCustomDateChange("to", e.target.value)}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              opacity: 0,
+                              width: "100%",
+                              height: "100%",
+                              border: 0,
+                              background: "transparent",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              zIndex: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "#6b7280",
+                          maxWidth: "100%",
+                          flex: 1,
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "clip",
+                        }}
+                      >
+                        {accountPeriod.label}
+                      </div>
+                    )}
                   </div>
 
                   <TransactionsPanel
