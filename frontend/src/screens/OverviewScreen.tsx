@@ -4376,14 +4376,10 @@ function TransactionsPanel({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
               <div style={{ fontSize: isGoalsMode || isDebtsMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
               <div style={{ display: "flex", gap: 8 }}>
-                {isDebtsMode ? (
+                {isDebtsMode && !isDebtsReceivableMode ? (
                   <button
                     type="button"
-                    onClick={
-                      isDebtsReceivableMode
-                        ? openReceivableDebtOperationFromGoalsList
-                        : openPayableDebtOperationFromGoalsList
-                    }
+                    onClick={openPayableDebtOperationFromGoalsList}
                     style={{
                       padding: "8px 10px",
                       borderRadius: 10,
@@ -4529,7 +4525,7 @@ function TransactionsPanel({
                 )}
               </div>
             </div>
-            {isGoalsMode ? (
+            {isGoalsMode || isDebtsReceivableMode ? (
               <div
                 style={{
                   borderTop: "1px solid #e5e7eb",
@@ -4539,7 +4535,7 @@ function TransactionsPanel({
               >
                 <button
                   type="button"
-                  onClick={openGoalOperationFromGoalsList}
+                  onClick={isGoalsMode ? openGoalOperationFromGoalsList : openReceivableDebtOperationFromGoalsList}
                   style={{
                     width: "100%",
                     padding: "12px 14px",
