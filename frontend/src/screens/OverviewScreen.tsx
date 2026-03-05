@@ -4511,7 +4511,6 @@ function TransactionsPanel({
             {isGoalsMode || isDebtsMode ? (
               <div
                 style={{
-                  borderTop: "1px solid #e5e7eb",
                   paddingTop: 10,
                   paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 4px)",
                 }}
