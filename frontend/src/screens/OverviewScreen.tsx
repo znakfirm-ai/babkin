@@ -5771,23 +5771,37 @@ function TransactionsPanel({
                       ))}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleSaveAccount}
-                    style={{
-                      width: "100%",
-                      padding: "12px 14px",
-                      borderRadius: 12,
-                      border: "none",
-                      background: "#000",
-                      color: "#fff",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Создать
-                  </button>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={closeAccountSheet}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        cursor: "pointer",
+                        width: "100%",
+                      }}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveAccount}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#0f172a",
+                        color: "#fff",
+                        cursor: "pointer",
+                        width: "100%",
+                      }}
+                    >
+                      Создать
+                    </button>
+                  </div>
                 </div>
               </>
             )}
