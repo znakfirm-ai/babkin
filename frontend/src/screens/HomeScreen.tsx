@@ -245,6 +245,7 @@ function HomeScreen({
   const [homePeriodCustomFrom, setHomePeriodCustomFrom] = useState("")
   const [homePeriodCustomTo, setHomePeriodCustomTo] = useState("")
   const [isHomePeriodMenuOpen, setIsHomePeriodMenuOpen] = useState(false)
+  const [isBalanceHintOpen, setIsBalanceHintOpen] = useState(false)
   const [hasHomePeriodSelection, setHasHomePeriodSelection] = useState(false)
   const homePeriodButtonRef = useRef<HTMLButtonElement | null>(null)
   const [homePeriodPopoverWidth, setHomePeriodPopoverWidth] = useState<number | null>(null)
@@ -982,9 +983,10 @@ function HomeScreen({
                       className="home-split-banner__period-menu-item"
                       onClick={() => handleHomePeriodSelect(option.key)}
                       style={{
-                        width: "100%",
-                        textAlign: "left",
-                        padding: "8px 10px",
+                        width: "auto",
+                        justifySelf: "center",
+                        textAlign: "center",
+                        padding: "8px 12px",
                         borderRadius: 8,
                         border: "1px solid #e5e7eb",
                         background: homePeriodMode === option.key ? "#f1f5f9" : "#fff",
@@ -1040,12 +1042,70 @@ function HomeScreen({
           </div>
           <div className="home-split-banner__cell">
             <div className="home-split-banner__metric">
-              <div className="home-split-banner__metric-title">БАЛАНС</div>
+              <div className="home-split-banner__metric-title" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                БАЛАНС
+                <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center", zIndex: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsBalanceHintOpen((prev) => !prev)}
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 999,
+                      border: "1px solid #94a3b8",
+                      background: "#fff",
+                      color: "#475569",
+                      fontSize: 10,
+                      lineHeight: 1,
+                      fontWeight: 600,
+                      padding: 0,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                    aria-label="Подсказка по балансу"
+                  >
+                    ?
+                  </button>
+                  {isBalanceHintOpen ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 6px)",
+                        right: 0,
+                        minWidth: 180,
+                        maxWidth: 220,
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                        color: "#334155",
+                        fontSize: 11,
+                        lineHeight: 1.3,
+                        textAlign: "left",
+                        zIndex: 5,
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      *Сумма на счетах и накопления (ваши цели)
+                    </div>
+                  ) : null}
+                </span>
+              </div>
               <div className="home-split-banner__metric-value">
                 {getBannerValueLabel(homeBannerStats.balance)}
               </div>
             </div>
           </div>
+          {isBalanceHintOpen ? (
+            <div
+              style={{ position: "fixed", inset: 0, zIndex: 3 }}
+              onClick={() => setIsBalanceHintOpen(false)}
+              onPointerDown={() => setIsBalanceHintOpen(false)}
+            />
+          ) : null}
           <div className="home-split-banner__line home-split-banner__line--vertical" />
           <div className="home-split-banner__line home-split-banner__line--horizontal" />
         </div>

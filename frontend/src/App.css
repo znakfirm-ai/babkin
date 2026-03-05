@@ -731,10 +731,11 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  transform: translateY(6px);
 }
 
 .home-split-banner__metric--top-shift {
-  transform: translateY(22px);
+  transform: translateY(28px);
 }
 
 .home-split-banner__metric-title {
