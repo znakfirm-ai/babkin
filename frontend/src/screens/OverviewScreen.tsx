@@ -564,6 +564,8 @@ function OverviewScreen({
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
   const accountCustomFromInputRef = useRef<HTMLInputElement | null>(null)
   const accountCustomToInputRef = useRef<HTMLInputElement | null>(null)
+  const accountPeriodButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [accountPeriodPopoverWidth, setAccountPeriodPopoverWidth] = useState<number | null>(null)
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
@@ -2833,8 +2835,17 @@ function TransactionsPanel({
                 <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative", flexWrap: "nowrap", minWidth: 0 }}>
                   <div style={{ position: "relative" }}>
                     <button
+                      ref={accountPeriodButtonRef}
                       type="button"
-                      onClick={() => setIsAccountPeriodMenuOpen((prev) => !prev)}
+                      onClick={() => {
+                        if (!isAccountPeriodMenuOpen) {
+                          const buttonWidth = accountPeriodButtonRef.current?.getBoundingClientRect().width
+                          if (buttonWidth) {
+                            setAccountPeriodPopoverWidth(buttonWidth)
+                          }
+                        }
+                        setIsAccountPeriodMenuOpen((prev) => !prev)
+                      }}
                       style={{
                         padding: "8px 10px",
                         borderRadius: 10,
@@ -2879,7 +2890,7 @@ function TransactionsPanel({
                             borderRadius: 10,
                             boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
                             zIndex: 64,
-                            width: 196,
+                            width: accountPeriodPopoverWidth ?? "100%",
                             display: "grid",
                             gap: 4,
                             padding: 8,
@@ -2906,7 +2917,6 @@ function TransactionsPanel({
                                 borderRadius: 8,
                                 border: "1px solid #e5e7eb",
                                 background: accountPeriodType === p ? "#f1f5f9" : "#fff",
-                                color: accountPeriodType === p ? "#1d4ed8" : "#2563eb",
                                 fontWeight: 500,
                                 cursor: "pointer",
                               }}
