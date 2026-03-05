@@ -5564,15 +5564,18 @@ function TransactionsPanel({
                             setIsConfirmingDelete(true)
                           }}
                           style={{
-                            padding: "10px 12px",
+                            padding: "8px 12px",
                             borderRadius: 10,
                             border: "1px solid #fee2e2",
                             background: "#fff",
                             color: "#b91c1c",
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: 600,
                             cursor: "pointer",
                             width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
                           Удалить
@@ -5581,12 +5584,16 @@ function TransactionsPanel({
                           type="button"
                           onClick={closeAccountSheet}
                           style={{
-                            padding: "10px 12px",
+                            padding: "8px 12px",
                             borderRadius: 10,
                             border: "1px solid #e5e7eb",
                             background: "#fff",
                             cursor: "pointer",
                             width: "100%",
+                            fontSize: 14,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
                           Отмена
@@ -5596,14 +5603,18 @@ function TransactionsPanel({
                           onClick={handleSaveAccount}
                           disabled={isAccountFlight}
                           style={{
-                            padding: "10px 14px",
+                            padding: "8px 14px",
                             borderRadius: 10,
                             border: "1px solid #e5e7eb",
                             background: isAccountFlight ? "#e5e7eb" : "#000",
                             color: isAccountFlight ? "#6b7280" : "#fff",
+                            fontSize: 14,
                             fontWeight: 600,
                             cursor: isAccountFlight ? "not-allowed" : "pointer",
                             width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
                           {isAccountFlight ? "Сохраняем…" : "Сохранить"}
