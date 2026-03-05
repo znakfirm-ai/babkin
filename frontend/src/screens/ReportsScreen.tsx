@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
@@ -41,6 +41,7 @@ type Props = {
 
 const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
 type ComparePeriodMode = "day" | "week" | "month" | "quarter" | "year" | "custom"
+type ReportPeriodMode = "day" | "week" | "month" | "quarter" | "year" | "custom"
 type CompareListMode = "income" | "expense"
 type CompareReportState = {
   periodMode: ComparePeriodMode
@@ -60,6 +61,105 @@ type CompareBin = {
 const REPORT_GROUP_GOALS_ID = "__report_goals__"
 const REPORT_GROUP_DEBTS_ID = "__report_debts__"
 const REPORT_GROUP_UNCATEGORIZED_ID = "uncategorized"
+const REPORT_PERIOD_OPTIONS: Array<{ key: ReportPeriodMode; label: string }> = [
+  { key: "day", label: "День" },
+  { key: "week", label: "Неделя" },
+  { key: "month", label: "Месяц" },
+  { key: "quarter", label: "Квартал" },
+  { key: "year", label: "Год" },
+  { key: "custom", label: "Свой" },
+]
+
+type ReportPeriodPickerButtonProps = {
+  buttonLabel: string
+  isOpen: boolean
+  selectedPeriod: ReportPeriodMode
+  buttonRef: { current: HTMLButtonElement | null }
+  popoverWidth: number | null
+  onToggle: () => void
+  onClose: () => void
+  onSelect: (period: ReportPeriodMode) => void
+}
+
+const ReportPeriodPickerButton: React.FC<ReportPeriodPickerButtonProps> = ({
+  buttonLabel,
+  isOpen,
+  selectedPeriod,
+  buttonRef,
+  popoverWidth,
+  onToggle,
+  onClose,
+  onSelect,
+}) => {
+  return (
+    <div style={{ position: "relative", flex: "0 0 auto" }}>
+      <button
+        ref={buttonRef}
+        type="button"
+        style={{
+          padding: "8px 10px",
+          borderRadius: 10,
+          border: "1px solid #0f172a",
+          background: "#0f172a",
+          color: "#fff",
+          fontWeight: 600,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          minWidth: 96,
+        }}
+        onClick={onToggle}
+      >
+        {buttonLabel}
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>▾</span>
+      </button>
+      {isOpen ? (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 4 }} onClick={onClose} />
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              marginTop: 6,
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 10,
+              boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+              zIndex: 5,
+              width: popoverWidth ?? "100%",
+              display: "grid",
+              gap: 4,
+              padding: 8,
+            }}
+          >
+            {REPORT_PERIOD_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => onSelect(option.key)}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: selectedPeriod === option.key ? "#f1f5f9" : "#fff",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  )
+}
 
 const resolveReportGroupId = (tx: { goalId?: string | null; debtorId?: string | null; categoryId?: string | null; incomeSourceId?: string | null }) => {
   if (tx.goalId) return REPORT_GROUP_GOALS_ID
@@ -216,11 +316,14 @@ const ReportsScreen: React.FC<Props> = ({
   const { transactions, categories, incomeSources, currency } = useAppStore()
   const [monthOffset, setMonthOffset] = useState(0)
   const [weekOffset] = useState(0)
-  const [periodMode, setPeriodMode] = useState<"day" | "week" | "month" | "quarter" | "year" | "custom">("month")
+  const [periodMode, setPeriodMode] = useState<ReportPeriodMode>("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [singleDay, setSingleDay] = useState("")
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
+  const [hasPeriodSelection, setHasPeriodSelection] = useState(false)
+  const periodButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [periodPopoverWidth, setPeriodPopoverWidth] = useState<number | null>(null)
   const [isExpensesSheetOpen, setIsExpensesSheetOpen] = useState(false)
   const [isIncomeSheetOpen, setIsIncomeSheetOpen] = useState(false)
   const [isCompareSheetOpen, setIsCompareSheetOpen] = useState(false)
@@ -228,6 +331,9 @@ const ReportsScreen: React.FC<Props> = ({
   const [bannerOffset, setBannerOffset] = useState(0)
   const [comparePeriodMode, setComparePeriodMode] = useState<ComparePeriodMode>("month")
   const [isComparePeriodMenuOpen, setIsComparePeriodMenuOpen] = useState(false)
+  const [hasComparePeriodSelection, setHasComparePeriodSelection] = useState(false)
+  const comparePeriodButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [comparePeriodPopoverWidth, setComparePeriodPopoverWidth] = useState<number | null>(null)
   const [compareCustomFrom, setCompareCustomFrom] = useState("")
   const [compareCustomTo, setCompareCustomTo] = useState("")
   const [compareActiveBinKey, setCompareActiveBinKey] = useState<string | null>(null)
@@ -355,15 +461,13 @@ const ReportsScreen: React.FC<Props> = ({
 
   const canNextBanner = bannerOffset < 0
 
-  const comparePeriodOptions = useMemo(
-    () => [
-      { key: "day" as const, label: "День" },
-      { key: "week" as const, label: "Неделя" },
-      { key: "month" as const, label: "Месяц" },
-      { key: "quarter" as const, label: "Квартал" },
-      { key: "year" as const, label: "Год" },
-      { key: "custom" as const, label: "Свой" },
-    ],
+  const comparePeriodOptions = REPORT_PERIOD_OPTIONS
+  const periodLabelByKey = useMemo(
+    () =>
+      REPORT_PERIOD_OPTIONS.reduce<Record<ReportPeriodMode, string>>((acc, option) => {
+        acc[option.key] = option.label
+        return acc
+      }, {} as Record<ReportPeriodMode, string>),
     [],
   )
   const comparePeriodLabelByKey = useMemo(
@@ -438,7 +542,57 @@ const ReportsScreen: React.FC<Props> = ({
     return Math.max(...(values.length ? values : [0]), 0)
   }, [compareSeries])
 
-  const comparePeriodButtonLabel = comparePeriodLabelByKey[comparePeriodMode]
+  const periodButtonLabel = hasPeriodSelection ? periodLabelByKey[periodMode] : "Период"
+  const comparePeriodButtonLabel = hasComparePeriodSelection ? comparePeriodLabelByKey[comparePeriodMode] : "Период"
+  const togglePeriodMenu = () => {
+    if (!isPeriodMenuOpen) {
+      const buttonWidth = periodButtonRef.current?.getBoundingClientRect().width
+      if (buttonWidth) {
+        setPeriodPopoverWidth(buttonWidth)
+      }
+    }
+    setIsPeriodMenuOpen((prev) => !prev)
+  }
+  const closePeriodMenu = () => setIsPeriodMenuOpen(false)
+  const selectPeriodMode = (nextMode: ReportPeriodMode) => {
+    setPeriodMode(nextMode)
+    setHasPeriodSelection(true)
+    setIsPeriodMenuOpen(false)
+    if (nextMode === "day") {
+      setSingleDay(todayDate)
+    }
+    if (nextMode === "custom") {
+      setCustomFrom(customFrom || todayDate)
+      setCustomTo(customTo || todayDate)
+    }
+    if (nextMode === "month") {
+      setMonthOffset(0)
+    }
+    setBannerOffset(0)
+  }
+  const toggleComparePeriodMenu = () => {
+    if (!isComparePeriodMenuOpen) {
+      const buttonWidth = comparePeriodButtonRef.current?.getBoundingClientRect().width
+      if (buttonWidth) {
+        setComparePeriodPopoverWidth(buttonWidth)
+      }
+    }
+    setIsComparePeriodMenuOpen((prev) => !prev)
+  }
+  const closeComparePeriodMenu = () => setIsComparePeriodMenuOpen(false)
+  const selectComparePeriodMode = (nextMode: ComparePeriodMode) => {
+    setComparePeriodMode(nextMode)
+    setHasComparePeriodSelection(true)
+    setIsComparePeriodMenuOpen(false)
+    setCompareActiveBinKey(null)
+    setCompareHistoryOffset(0)
+    if (nextMode === "custom") {
+      const nextFrom = compareCustomFrom || todayDate
+      const nextTo = compareCustomTo || todayDate
+      setCompareCustomFrom(nextFrom)
+      setCompareCustomTo(nextTo)
+    }
+  }
   const applyCompareCustomDate = (target: "from" | "to", value: string) => {
     const nextValue = value || todayDate
     const fromValue = target === "from" ? nextValue : compareCustomFrom || todayDate
@@ -536,6 +690,7 @@ const ReportsScreen: React.FC<Props> = ({
   }
   const openCompareReportDefault = () => {
     setComparePeriodMode("month")
+    setHasComparePeriodSelection(false)
     setCompareHistoryOffset(0)
     setCompareActiveBinKey(null)
     setCompareCustomFrom(todayDate)
@@ -913,21 +1068,16 @@ const ReportsScreen: React.FC<Props> = ({
                     position: "relative",
                   }}
                 >
-                  <button
-                    type="button"
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 10,
-                      border: "1px solid #0f172a",
-                      background: "#0f172a",
-                      color: "#fff",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => setIsPeriodMenuOpen((prev) => !prev)}
-                  >
-                    Период
-                  </button>
+                  <ReportPeriodPickerButton
+                    buttonLabel={periodButtonLabel}
+                    isOpen={isPeriodMenuOpen}
+                    selectedPeriod={periodMode}
+                    buttonRef={periodButtonRef}
+                    popoverWidth={periodPopoverWidth}
+                    onToggle={togglePeriodMenu}
+                    onClose={closePeriodMenu}
+                    onSelect={selectPeriodMode}
+                  />
                   <div
                     style={{
                       flex: 1,
@@ -943,65 +1093,6 @@ const ReportsScreen: React.FC<Props> = ({
                   >
                     {periodDisplayText}
                   </div>
-                  {isPeriodMenuOpen ? (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        marginTop: 6,
-                        background: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 10,
-                        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
-                        zIndex: 5,
-                        width: 200,
-                        display: "grid",
-                        gap: 4,
-                        padding: 8,
-                      }}
-                    >
-                      {[
-                        { key: "day", label: "День" },
-                        { key: "week", label: "Неделя" },
-                        { key: "month", label: "Месяц" },
-                        { key: "quarter", label: "Квартал" },
-                        { key: "year", label: "Год" },
-                        { key: "custom", label: "Свой" },
-                      ].map((opt) => (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          onClick={() => {
-                            setPeriodMode(opt.key as typeof periodMode)
-                            setIsPeriodMenuOpen(false)
-                            if (opt.key === "day") {
-                              setSingleDay(todayDate)
-                            }
-                            if (opt.key === "custom") {
-                              setCustomFrom(customFrom || todayDate)
-                              setCustomTo(customTo || todayDate)
-                            }
-                            if (opt.key === "month") {
-                              setMonthOffset(0)
-                            }
-                            setBannerOffset(0)
-                          }}
-                          style={{
-                            width: "100%",
-                            textAlign: "left",
-                            padding: "8px 10px",
-                            borderRadius: 8,
-                            border: "1px solid #e5e7eb",
-                            background: periodMode === opt.key ? "#f1f5f9" : "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
                 </div>
 
                 {periodMode === "day" ? (
@@ -1340,21 +1431,16 @@ const ReportsScreen: React.FC<Props> = ({
                     position: "relative",
                   }}
                 >
-                  <button
-                    type="button"
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 10,
-                      border: "1px solid #0f172a",
-                      background: "#0f172a",
-                      color: "#fff",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => setIsPeriodMenuOpen((prev) => !prev)}
-                  >
-                    Период
-                  </button>
+                  <ReportPeriodPickerButton
+                    buttonLabel={periodButtonLabel}
+                    isOpen={isPeriodMenuOpen}
+                    selectedPeriod={periodMode}
+                    buttonRef={periodButtonRef}
+                    popoverWidth={periodPopoverWidth}
+                    onToggle={togglePeriodMenu}
+                    onClose={closePeriodMenu}
+                    onSelect={selectPeriodMode}
+                  />
                   <div
                     style={{
                       flex: 1,
@@ -1370,65 +1456,6 @@ const ReportsScreen: React.FC<Props> = ({
                   >
                     {periodDisplayText}
                   </div>
-                  {isPeriodMenuOpen ? (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        marginTop: 6,
-                        background: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 10,
-                        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
-                        zIndex: 5,
-                        width: 200,
-                        display: "grid",
-                        gap: 4,
-                        padding: 8,
-                      }}
-                    >
-                      {[
-                        { key: "day", label: "День" },
-                        { key: "week", label: "Неделя" },
-                        { key: "month", label: "Месяц" },
-                        { key: "quarter", label: "Квартал" },
-                        { key: "year", label: "Год" },
-                        { key: "custom", label: "Свой" },
-                      ].map((opt) => (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          onClick={() => {
-                            setPeriodMode(opt.key as typeof periodMode)
-                            setIsPeriodMenuOpen(false)
-                            if (opt.key === "day") {
-                              setSingleDay(todayDate)
-                            }
-                            if (opt.key === "custom") {
-                              setCustomFrom(customFrom || todayDate)
-                              setCustomTo(customTo || todayDate)
-                            }
-                            if (opt.key === "month") {
-                              setMonthOffset(0)
-                            }
-                            setBannerOffset(0)
-                          }}
-                          style={{
-                            width: "100%",
-                            textAlign: "left",
-                            padding: "8px 10px",
-                            borderRadius: 8,
-                            border: "1px solid #e5e7eb",
-                            background: periodMode === opt.key ? "#f1f5f9" : "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
                 </div>
 
                 {periodMode === "day" ? (
@@ -1773,23 +1800,16 @@ const ReportsScreen: React.FC<Props> = ({
                     position: "relative",
                   }}
                 >
-                  <button
-                    type="button"
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 10,
-                      border: "1px solid #0f172a",
-                      background: "#0f172a",
-                      color: "#fff",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      setIsComparePeriodMenuOpen((prev) => !prev)
-                    }}
-                  >
-                    {comparePeriodButtonLabel}
-                  </button>
+                  <ReportPeriodPickerButton
+                    buttonLabel={comparePeriodButtonLabel}
+                    isOpen={isComparePeriodMenuOpen}
+                    selectedPeriod={comparePeriodMode}
+                    buttonRef={comparePeriodButtonRef}
+                    popoverWidth={comparePeriodPopoverWidth}
+                    onToggle={toggleComparePeriodMenu}
+                    onClose={closeComparePeriodMenu}
+                    onSelect={selectComparePeriodMode}
+                  />
                   <div
                     style={{
                       flex: 1,
@@ -1845,61 +1865,6 @@ const ReportsScreen: React.FC<Props> = ({
                       </div>
                     ) : null}
                   </div>
-                  {isComparePeriodMenuOpen ? (
-                    <>
-                      <div
-                        style={{ position: "fixed", inset: 0, zIndex: 4 }}
-                        onClick={() => setIsComparePeriodMenuOpen(false)}
-                      />
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          marginTop: 6,
-                          background: "#fff",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 10,
-                          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
-                          zIndex: 5,
-                          width: 196,
-                          display: "grid",
-                          gap: 4,
-                          padding: 8,
-                        }}
-                      >
-                        {comparePeriodOptions.map((option) => (
-                          <button
-                            key={option.key}
-                            type="button"
-                            onClick={() => {
-                              setComparePeriodMode(option.key)
-                              setIsComparePeriodMenuOpen(false)
-                              setCompareActiveBinKey(null)
-                              setCompareHistoryOffset(0)
-                              if (option.key === "custom") {
-                                const nextFrom = compareCustomFrom || todayDate
-                                const nextTo = compareCustomTo || todayDate
-                                setCompareCustomFrom(nextFrom)
-                                setCompareCustomTo(nextTo)
-                              }
-                            }}
-                            style={{
-                              width: "100%",
-                              textAlign: "left",
-                              padding: "8px 10px",
-                              borderRadius: 8,
-                              border: "1px solid #e5e7eb",
-                              background: comparePeriodMode === option.key ? "#f1f5f9" : "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  ) : null}
                 </div>
 
                 <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
