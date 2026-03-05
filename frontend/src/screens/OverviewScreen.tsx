@@ -2783,7 +2783,12 @@ function TransactionsPanel({
                 ) : detailCategoryId ? (
                   <button
                     type="button"
-                    onClick={openExpenseFromCategoryDetails}
+                    onClick={() => {
+                      if (detailCategoryId) {
+                        setPendingCategoryEdit({ id: detailCategoryId, title: detailTitle || "Категория" })
+                        closeDetails()
+                      }
+                    }}
                     style={{
                       border: "1px solid #e5e7eb",
                       background: "#fff",
@@ -2794,7 +2799,7 @@ function TransactionsPanel({
                       fontWeight: 600,
                     }}
                   >
-                    + Операция
+                    + Редактировать
                   </button>
                 ) : null}
                 <button
@@ -3038,12 +3043,7 @@ function TransactionsPanel({
                   />
                     <button
                       type="button"
-                      onClick={() => {
-                        if (detailCategoryId) {
-                        setPendingCategoryEdit({ id: detailCategoryId, title: detailTitle || "Категория" })
-                        closeDetails()
-                      }
-                      }}
+                      onClick={openExpenseFromCategoryDetails}
                       style={{
                         padding: "12px 14px",
                         borderRadius: 12,
@@ -3059,7 +3059,7 @@ function TransactionsPanel({
                         marginTop: 2,
                       }}
                     >
-                      Редактировать категорию
+                      Добавить операцию
                     </button>
                   </div>
               ) : detailIncomeSourceId ? (
