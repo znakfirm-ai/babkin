@@ -537,7 +537,6 @@ function OverviewScreen({
   const [debtorName, setDebtorName] = useState("")
   const [debtorIcon, setDebtorIcon] = useState<string | null>(null)
   const [debtorIssuedDate, setDebtorIssuedDate] = useState(() => getTodayLocalDate())
-  const [debtorLoanAmount, setDebtorLoanAmount] = useState("")
   const [debtorReturnDate, setDebtorReturnDate] = useState(() => getTodayLocalDate())
   const [debtorReturnAmount, setDebtorReturnAmount] = useState("")
   const [debtorError, setDebtorError] = useState<string | null>(null)
@@ -816,12 +815,22 @@ function OverviewScreen({
     const day = Number.isFinite(rawDay) && rawDay >= 1 && rawDay <= maxDay ? rawDay : now.getDate()
     return { year, month, day, maxDay }
   }, [activeDebtorDate])
+  const formatDebtorDate = useCallback((iso: string) => {
+    const [year, month, day] = iso.split("-").map((value) => Number(value))
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return iso
+    const parsed = new Date(year, month - 1, day)
+    if (Number.isNaN(parsed.getTime())) return iso
+    return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+      .format(parsed)
+      .replace(/\s*г\.$/u, "")
+      .trim()
+  }, [])
+  const debtorIssuedDateLabel = useMemo(() => formatDebtorDate(debtorIssuedDate), [debtorIssuedDate, formatDebtorDate])
+  const debtorReturnDateLabel = useMemo(() => formatDebtorDate(debtorReturnDate), [debtorReturnDate, formatDebtorDate])
   const debtorDateLabel = useMemo(() => {
     if (!activeDebtorDate) return ""
-    const [year, month, day] = activeDebtorDate.split("-")
-    if (!year || !month || !day) return activeDebtorDate
-    return `${day}.${month}.${year}`
-  }, [activeDebtorDate])
+    return formatDebtorDate(activeDebtorDate)
+  }, [activeDebtorDate, formatDebtorDate])
   const applyDebtorDateChange = useCallback(
     (nextYear: number, nextMonth: number, nextDay: number) => {
       if (!debtorDateField) return
@@ -1349,9 +1358,8 @@ function OverviewScreen({
         setDebtorName(debtor.name)
         setDebtorIcon(debtor.icon ?? null)
         setDebtorIssuedDate(debtor.issuedDate || getTodayLocalDate())
-        setDebtorLoanAmount(String(debtor.loanAmount))
         setDebtorReturnDate(debtor.dueDate || "")
-        setDebtorReturnAmount(debtor.returnAmount > 0 ? String(debtor.returnAmount) : "")
+        setDebtorReturnAmount(debtor.returnAmount > 0 ? String(debtor.returnAmount) : String(debtor.loanAmount || ""))
         setIsDebtorSheetOpen(true)
       })
     },
@@ -1727,7 +1735,6 @@ function OverviewScreen({
     setDebtorName("")
     setDebtorIcon(null)
     setDebtorIssuedDate(getTodayLocalDate())
-    setDebtorLoanAmount("")
     setDebtorReturnDate(getTodayLocalDate())
     setDebtorReturnAmount("")
   }, [])
@@ -1743,7 +1750,6 @@ function OverviewScreen({
     setDebtorName("")
     setDebtorIcon(null)
     setDebtorIssuedDate(getTodayLocalDate())
-    setDebtorLoanAmount("")
     setDebtorReturnDate(getTodayLocalDate())
     setDebtorReturnAmount("")
     setIsDebtorSheetOpen(true)
@@ -1760,21 +1766,19 @@ function OverviewScreen({
         setDebtorError("Введите имя должника")
         return
       }
-      const loan = Number(debtorLoanAmount.trim().replace(",", "."))
-      if (!Number.isFinite(loan) || loan <= 0) {
-        setDebtorError("Введите сумму займа")
+      const returnAmount = Number(debtorReturnAmount.trim().replace(",", "."))
+      if (!Number.isFinite(returnAmount) || returnAmount <= 0) {
+        setDebtorError("Введите сумму к возврату")
         return
       }
-      const returnAmount = Number(debtorReturnAmount.trim().replace(",", "."))
-      const roundedLoan = Math.round(loan * 100) / 100
-      const normalizedReturnAmount = Number.isFinite(returnAmount) && returnAmount > 0 ? Math.round(returnAmount * 100) / 100 : null
+      const normalizedReturnAmount = Math.round(returnAmount * 100) / 100
       setDebtorError(null)
       if (debtorSheetMode === "edit" && editingDebtorId) {
         await updateDebtor(token, editingDebtorId, {
           name: trimmedName,
           icon: debtorIcon ?? null,
           issuedAt: debtorIssuedDate || getTodayLocalDate(),
-          principalAmount: roundedLoan,
+          principalAmount: normalizedReturnAmount,
           dueAt: debtorReturnDate || null,
           payoffAmount: normalizedReturnAmount,
           status: "active",
@@ -1788,9 +1792,9 @@ function OverviewScreen({
                   name: trimmedName,
                   icon: debtorIcon ?? null,
                   issuedDate: debtorIssuedDate || getTodayLocalDate(),
-                  loanAmount: roundedLoan,
+                  loanAmount: normalizedReturnAmount,
                   dueDate: debtorReturnDate || "",
-                  returnAmount: normalizedReturnAmount ?? roundedLoan,
+                  returnAmount: normalizedReturnAmount,
                   payoffAmount: normalizedReturnAmount,
                   status: "active",
                   direction: currentDebtorDirection,
@@ -1803,7 +1807,7 @@ function OverviewScreen({
           name: trimmedName,
           icon: debtorIcon ?? null,
           issuedAt: debtorIssuedDate || getTodayLocalDate(),
-          principalAmount: roundedLoan,
+          principalAmount: normalizedReturnAmount,
           dueAt: debtorReturnDate || null,
           payoffAmount: normalizedReturnAmount,
           status: "active",
@@ -1818,7 +1822,6 @@ function OverviewScreen({
     closeDebtorSheet,
     debtorIcon,
     debtorIssuedDate,
-    debtorLoanAmount,
     debtorName,
     debtorReturnAmount,
     debtorReturnDate,
@@ -3677,12 +3680,13 @@ function TransactionsPanel({
             inset: 0,
             background: "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: isDebtsPayableMode ? "flex-end" : "center",
+            alignItems: "center",
             justifyContent: "center",
             zIndex: 59,
-            padding: isDebtsPayableMode
-              ? "12px 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)"
-              : "12px",
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
+            paddingLeft: 16,
+            paddingRight: 16,
+            paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
           }}
         >
           <div
@@ -3698,11 +3702,10 @@ function TransactionsPanel({
               display: "flex",
               flexDirection: "column",
               gap: 12,
-              maxHeight: isDebtsPayableMode
-                ? "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)"
-                : undefined,
-              overflowY: isDebtsPayableMode ? "auto" : undefined,
-              WebkitOverflowScrolling: isDebtsPayableMode ? "touch" : undefined,
+              maxHeight:
+                "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 40px)",
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -3744,6 +3747,70 @@ function TransactionsPanel({
               />
             </label>
 
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setDebtorDatePart(null)
+                  setDebtorDateField("issued")
+                }}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 16,
+                  background: "#fff",
+                  color: "#0f172a",
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+              >
+                {debtorIssuedDateLabel}
+              </button>
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setDebtorDatePart(null)
+                  setDebtorDateField("return")
+                }}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 16,
+                  background: "#fff",
+                  color: "#0f172a",
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+              >
+                {debtorReturnDateLabel}
+              </button>
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={{ fontSize: 13, color: "#475569" }}>Сумма к возврату</span>
+              <input
+                value={debtorReturnAmount}
+                onChange={(e) => setDebtorReturnAmount(e.target.value)}
+                placeholder="0"
+                inputMode="decimal"
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 15,
+                  outline: "none",
+                  boxShadow: "none",
+                }}
+              />
+            </label>
+
             <div style={{ display: "grid", gap: 6 }}>
               <span style={{ fontSize: 13, color: "#475569" }}>Иконка</span>
               <button
@@ -3769,88 +3836,6 @@ function TransactionsPanel({
               </button>
             </div>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setDebtorDatePart(null)
-                  setDebtorDateField("issued")
-                }}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  fontSize: 16,
-                  background: "#fff",
-                  color: "#0f172a",
-                  textAlign: "left",
-                  cursor: "pointer",
-                }}
-              >
-                {debtorIssuedDate}
-              </button>
-            </label>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Сумма займа</span>
-              <input
-                value={debtorLoanAmount}
-                onChange={(e) => setDebtorLoanAmount(e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  fontSize: 15,
-                  outline: "none",
-                  boxShadow: "none",
-                }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setDebtorDatePart(null)
-                  setDebtorDateField("return")
-                }}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  fontSize: 16,
-                  background: "#fff",
-                  color: "#0f172a",
-                  textAlign: "left",
-                  cursor: "pointer",
-                }}
-              >
-                {debtorReturnDate}
-              </button>
-            </label>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Сумма к возврату</span>
-              <input
-                value={debtorReturnAmount}
-                onChange={(e) => setDebtorReturnAmount(e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  fontSize: 15,
-                  outline: "none",
-                  boxShadow: "none",
-                }}
-              />
-            </label>
-
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
                 type="button"
@@ -3872,7 +3857,7 @@ function TransactionsPanel({
               </button>
               <button
                 type="button"
-                disabled={isDebtorSaveRunning || !debtorName.trim() || !(Number(debtorLoanAmount.trim().replace(",", ".")) > 0)}
+                disabled={isDebtorSaveRunning || !debtorName.trim() || !(Number(debtorReturnAmount.trim().replace(",", ".")) > 0)}
                 onClick={() => void handleSaveDebtor()}
                 style={{
                   padding: "10px 14px",
