@@ -957,7 +957,7 @@ function HomeScreen({
                   fontWeight: 600,
                   fontSize: 9,
                   lineHeight: 1,
-                  minWidth: 81,
+                  width: 104,
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -983,10 +983,10 @@ function HomeScreen({
                       className="home-split-banner__period-menu-item"
                       onClick={() => handleHomePeriodSelect(option.key)}
                       style={{
-                        width: "auto",
-                        justifySelf: "center",
+                        width: "100%",
                         textAlign: "center",
                         padding: "8px 12px",
+                        minHeight: 32,
                         borderRadius: 8,
                         border: "1px solid #e5e7eb",
                         background: homePeriodMode === option.key ? "#f1f5f9" : "#fff",
@@ -1072,7 +1072,7 @@ function HomeScreen({
                     <div
                       style={{
                         position: "absolute",
-                        top: "calc(100% + 6px)",
+                        bottom: "calc(100% + 6px)",
                         right: 0,
                         minWidth: 180,
                         maxWidth: 220,
