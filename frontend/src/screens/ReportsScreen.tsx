@@ -1995,9 +1995,10 @@ const ReportsScreen: React.FC<Props> = ({
                             const mainStep = baseStep * compareChartMainCompress
                             const xMain = Array.from({ length: mainCount }, (_, index) => chartRight - mainStep * (mainCount - 1 - index))
                             const hasPreview = Boolean(comparePreviewSeries)
-                            const xPreview = Math.max(6, xMain[0] - mainStep * compareChartPreviewFactor)
+                            const xPreview = Math.max(18, xMain[0] - mainStep * compareChartPreviewFactor)
                             const chartSeries = hasPreview && comparePreviewSeries ? [comparePreviewSeries, ...compareMainSeries] : compareMainSeries
                             const chartX = hasPreview ? [xPreview, ...xMain] : xMain
+                            const previewLabel = hasPreview && comparePreviewSeries ? comparePreviewSeries.label : ""
                             const activeMainIdxRaw = compareMainSeries.findIndex((bin) => bin.key === compareActiveBin?.key)
                             const activeMainIdx = activeMainIdxRaw >= 0 ? activeMainIdxRaw : Math.max(compareMainSeries.length - 1, 0)
                             const activeIdx = activeMainIdx + (hasPreview ? 1 : 0)
@@ -2244,28 +2245,24 @@ const ReportsScreen: React.FC<Props> = ({
                                     </g>
                                   </>
                                 ) : null}
+                                {previewLabel ? (
+                                  <text
+                                    x={xPreview}
+                                    y={154}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fontSize={8}
+                                    fill="#94a3b8"
+                                    fontWeight={500}
+                                  >
+                                    {previewLabel}
+                                  </text>
+                                ) : null}
                               </>
                             )
                           })()}
                         </svg>
                         <div style={{ position: "relative", overflow: "hidden", padding: "2px 4px 0" }}>
-                          {comparePreviewSeries ? (
-                            <div
-                              style={{
-                                position: "absolute",
-                                left: 0,
-                                top: 2,
-                                fontSize: 9,
-                                fontWeight: 500,
-                                color: "#94a3b8",
-                                whiteSpace: "nowrap",
-                                pointerEvents: "none",
-                                transform: "translateX(-45%)",
-                              }}
-                            >
-                              {comparePreviewSeries.label}
-                            </div>
-                          ) : null}
                           <div
                             style={{
                               display: "grid",
