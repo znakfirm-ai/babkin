@@ -17,17 +17,51 @@ const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview 
     setDebugTimingsStorageEnabled(nextValue)
     setDebugTimingsEnabledState(nextValue)
   }, [debugTimingsEnabled])
+  const listCardStyle: React.CSSProperties = {
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid #e5e7eb",
+    background: "#fff",
+    textAlign: "left",
+    cursor: "pointer",
+    display: "grid",
+    gap: 6,
+    boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+    position: "relative",
+  }
+  const listTitleStyle: React.CSSProperties = { fontSize: 16, fontWeight: 600, color: "#0f172a" }
+  const listSubtitleStyle: React.CSSProperties = {
+    fontSize: 12,
+    lineHeight: 1.35,
+    color: "#64748b",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+    paddingRight: 20,
+  }
+  const chevronStyle: React.CSSProperties = {
+    fontSize: 16,
+    color: "#94a3b8",
+    lineHeight: 1,
+    position: "absolute",
+    right: 14,
+    top: "50%",
+    transform: "translateY(-50%)",
+  }
 
   return (
     <div style={{ padding: 16, display: "grid", gap: 12 }}>
-      <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>Настройки</div>
+      <div style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>Настройки</div>
 
-      <label style={{ display: "grid", gap: 6, maxWidth: 320 }}>
-        <span style={{ fontSize: 13, color: "#4b5563" }}>Валюта приложения</span>
+      <div style={{ display: "grid", gap: 10 }}>
+        <label style={{ ...listCardStyle, cursor: "default" }}>
+          <span style={listTitleStyle}>Валюта приложения</span>
+          <span style={listSubtitleStyle}>Базовая валюта для отображения сумм в приложении.</span>
         <select
           value={current}
           onChange={(e) => setCurrency(e.target.value)}
-          style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14 }}
+            style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, marginTop: 2 }}
         >
           {CURRENCIES.map((c) => (
             <option key={c.code} value={c.code}>
@@ -35,50 +69,23 @@ const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview 
             </option>
           ))}
         </select>
-      </label>
+        </label>
 
-      <button
-        type="button"
-        onClick={onOpenCategories}
-        style={{
-          padding: 12,
-          borderRadius: 10,
-          border: "1px solid #e5e7eb",
-          background: "#fff",
-          fontSize: 14,
-          textAlign: "left",
-          cursor: "pointer",
-        }}
-      >
-        Категории
-      </button>
+        <button type="button" onClick={onOpenCategories} style={listCardStyle}>
+          <span style={listTitleStyle}>Категории</span>
+          <span style={listSubtitleStyle}>Управление списком категорий расходов и доходов.</span>
+          <span style={chevronStyle}>›</span>
+        </button>
 
-      <button
-        type="button"
-        onClick={onOpenIconsPreview}
-        style={{
-          padding: 12,
-          borderRadius: 10,
-          border: "1px solid #e5e7eb",
-          background: "#fff",
-          fontSize: 14,
-          textAlign: "left",
-          cursor: "pointer",
-        }}
-      >
-        Иконки (preview)
-      </button>
+        <button type="button" onClick={onOpenIconsPreview} style={listCardStyle}>
+          <span style={listTitleStyle}>Иконки (preview)</span>
+          <span style={listSubtitleStyle}>Предпросмотр доступных иконок интерфейса.</span>
+          <span style={chevronStyle}>›</span>
+        </button>
 
-      <div
-        style={{
-          border: "1px solid #e5e7eb",
-          borderRadius: 10,
-          background: "#fff",
-          padding: 12,
-          display: "grid",
-          gap: 6,
-        }}
-      >
+        <div style={{ ...listCardStyle, cursor: "default" }}>
+          <span style={listTitleStyle}>Debug timings</span>
+          <span style={listSubtitleStyle}>Отладочные тайминги старта приложения.</span>
         <button
           type="button"
           onClick={handleToggleDebugTimings}
@@ -97,14 +104,15 @@ const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview 
           }}
           aria-pressed={debugTimingsEnabled}
         >
-          <span>Debug timings</span>
-          <span style={{ fontSize: 12, color: debugTimingsEnabled ? "#0369a1" : "#6b7280" }}>
-            {debugTimingsEnabled ? "ON" : "OFF"}
-          </span>
-        </button>
+            <span>Debug timings</span>
+            <span style={{ fontSize: 12, color: debugTimingsEnabled ? "#0369a1" : "#6b7280" }}>
+              {debugTimingsEnabled ? "ON" : "OFF"}
+            </span>
+          </button>
         {debugTimingsEnabled ? (
           <div style={{ fontSize: 12, color: "#0369a1" }}>Enabled. Restart app to measure cold start.</div>
         ) : null}
+        </div>
       </div>
     </div>
   )
