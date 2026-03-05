@@ -2759,10 +2759,31 @@ function TransactionsPanel({
                   >
                     + Редактировать
                   </button>
-                ) : detailIncomeSourceId || detailCategoryId ? (
+                ) : detailIncomeSourceId ? (
                   <button
                     type="button"
-                    onClick={detailIncomeSourceId ? openIncomeFromSourceDetails : openExpenseFromCategoryDetails}
+                    onClick={() => {
+                      if (detailIncomeSourceId) {
+                        setPendingIncomeSourceEdit({ id: detailIncomeSourceId, title: detailTitle || "Источник" })
+                        closeDetails()
+                      }
+                    }}
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      borderRadius: 10,
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      color: "#0f172a",
+                      fontWeight: 600,
+                    }}
+                  >
+                    + Редактировать
+                  </button>
+                ) : detailCategoryId ? (
+                  <button
+                    type="button"
+                    onClick={openExpenseFromCategoryDetails}
                     style={{
                       border: "1px solid #e5e7eb",
                       background: "#fff",
@@ -3142,12 +3163,7 @@ function TransactionsPanel({
 
                   <button
                     type="button"
-                    onClick={() => {
-                      if (detailIncomeSourceId) {
-                        setPendingIncomeSourceEdit({ id: detailIncomeSourceId, title: detailTitle || "Источник" })
-                        closeDetails()
-                      }
-                    }}
+                    onClick={openIncomeFromSourceDetails}
                     style={{
                       padding: "12px 14px",
                       borderRadius: 12,
@@ -3163,7 +3179,7 @@ function TransactionsPanel({
                       marginTop: 2,
                     }}
                   >
-                    Редактировать источник
+                    Добавить операцию
                   </button>
                 </div>
               ) : detailDebtor ? (
