@@ -2364,7 +2364,7 @@ const ReportsScreen: React.FC<Props> = ({
                             {item.title}
                           </span>
                         </div>
-                        <div style={{ fontSize: 12, fontWeight: 400, color: "#0f172a", flexShrink: 0, display: "flex", gap: 6, alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, fontSize: 14, lineHeight: "normal", fontWeight: 400, color: "#0f172a" }}>
                           <span>{formatMoney(item.amount, currency ?? "RUB")}</span>
                           <span style={{ color: percentColor, fontWeight: 600 }}>· {percent}%</span>
                         </div>
