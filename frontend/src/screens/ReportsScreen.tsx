@@ -338,6 +338,7 @@ const ReportsScreen: React.FC<Props> = ({
   const compareCustomToInputRef = useRef<HTMLInputElement | null>(null)
   const customFromInputRef = useRef<HTMLInputElement | null>(null)
   const customToInputRef = useRef<HTMLInputElement | null>(null)
+  const singleDayInputRef = useRef<HTMLInputElement | null>(null)
   const [compareCustomFrom, setCompareCustomFrom] = useState("")
   const [compareCustomTo, setCompareCustomTo] = useState("")
   const [compareActiveBinKey, setCompareActiveBinKey] = useState<string | null>(null)
@@ -581,8 +582,25 @@ const ReportsScreen: React.FC<Props> = ({
   }
   const periodCustomFromValue = customFrom || todayDate
   const periodCustomToValue = customTo || todayDate
+  const singleDayValue = singleDay || todayDate
+  const singleDayLabel = formatLongRuDate(singleDayValue)
   const periodCustomFromLabel = formatLongRuDate(periodCustomFromValue)
   const periodCustomToLabel = formatLongRuDate(periodCustomToValue)
+  const openSingleDayPicker = () => {
+    const input = singleDayInputRef.current
+    if (!input) return
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void }
+    if (typeof pickerInput.showPicker === "function") {
+      try {
+        pickerInput.showPicker()
+        return
+      } catch {
+        // Fallback for webviews without showPicker.
+      }
+    }
+    pickerInput.focus()
+    pickerInput.click()
+  }
   const openPeriodCustomDatePicker = (target: "from" | "to") => {
     const input = target === "from" ? customFromInputRef.current : customToInputRef.current
     if (!input) return
@@ -1140,7 +1158,53 @@ const ReportsScreen: React.FC<Props> = ({
                     onClose={closePeriodMenu}
                     onSelect={selectPeriodMode}
                   />
-                  {periodMode === "custom" ? (
+                  {periodMode === "day" ? (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                      <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={openSingleDayPicker}>
+                        <button
+                          type="button"
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            color: "#0f172a",
+                            fontSize: 13,
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {singleDayLabel}
+                        </button>
+                        <input
+                          ref={singleDayInputRef}
+                          type="date"
+                          value={singleDayValue}
+                          onChange={(event) => setSingleDay(event.target.value)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: 0,
+                            background: "transparent",
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            zIndex: 1,
+                            cursor: "pointer",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : periodMode === "custom" ? (
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
                       <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openPeriodCustomDatePicker("from")}>
                         <button
@@ -1248,23 +1312,6 @@ const ReportsScreen: React.FC<Props> = ({
                     </div>
                   )}
                 </div>
-
-                {periodMode === "day" ? (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <input
-                      type="date"
-                      value={singleDay || todayDate}
-                      onChange={(e) => setSingleDay(e.target.value)}
-                      style={{
-                        flex: "0 0 auto",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 10,
-                        padding: "8px 10px",
-                        fontSize: 14,
-                      }}
-                    />
-                  </div>
-                ) : null}
 
                 <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
                   <div style={{ display: "grid", gap: 10 }}>
@@ -1560,7 +1607,53 @@ const ReportsScreen: React.FC<Props> = ({
                     onClose={closePeriodMenu}
                     onSelect={selectPeriodMode}
                   />
-                  {periodMode === "custom" ? (
+                  {periodMode === "day" ? (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
+                      <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={openSingleDayPicker}>
+                        <button
+                          type="button"
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            color: "#0f172a",
+                            fontSize: 13,
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {singleDayLabel}
+                        </button>
+                        <input
+                          ref={singleDayInputRef}
+                          type="date"
+                          value={singleDayValue}
+                          onChange={(event) => setSingleDay(event.target.value)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: 0,
+                            background: "transparent",
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            zIndex: 1,
+                            cursor: "pointer",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : periodMode === "custom" ? (
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", minWidth: 0, flex: 1, justifyContent: "flex-end" }}>
                       <div style={{ position: "relative", flex: "0 1 160px", minWidth: 0 }} onClick={() => openPeriodCustomDatePicker("from")}>
                         <button
@@ -1668,23 +1761,6 @@ const ReportsScreen: React.FC<Props> = ({
                     </div>
                   )}
                 </div>
-
-                {periodMode === "day" ? (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <input
-                      type="date"
-                      value={singleDay || todayDate}
-                      onChange={(e) => setSingleDay(e.target.value)}
-                      style={{
-                        flex: "0 0 auto",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 10,
-                        padding: "8px 10px",
-                        fontSize: 14,
-                      }}
-                    />
-                  </div>
-                ) : null}
 
                 <div style={{ display: "grid", gap: 8, minHeight: 0, flex: "0 0 auto" }}>
                   <div style={{ display: "grid", gap: 10 }}>
