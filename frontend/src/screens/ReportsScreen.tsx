@@ -234,8 +234,6 @@ const ReportsScreen: React.FC<Props> = ({
   const [compareActiveBinKey, setCompareActiveBinKey] = useState<string | null>(null)
   const [compareListMode, setCompareListMode] = useState<CompareListMode>("income")
   const [compareHistoryOffset, setCompareHistoryOffset] = useState(0)
-  const compareChartMainCompress = 0.92
-  const compareChartPreviewFactor = 0.6
   const todayDate = useMemo(() => format(new Date()), [])
 
   const monthRange = useMemo(() => getMonthRange(monthOffset), [monthOffset])
@@ -1983,32 +1981,38 @@ const ReportsScreen: React.FC<Props> = ({
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
                           {(() => {
-                            const paddingX = 12
-                            const chartWidth = 300 - paddingX * 2
+                            const plotLeft = 58
+                            const plotRight = 288
+                            const chartWidth = plotRight - plotLeft
                             const chartTop = 10
                             const chartBottom = 130
                             const chartHeight = chartBottom - chartTop
                             const mainCount = compareMainSeries.length
                             if (mainCount === 0) return null
-                            const chartRight = paddingX + chartWidth
-                            const baseStep = mainCount > 1 ? chartWidth / (mainCount - 1) : chartWidth
-                            const mainStep = baseStep * compareChartMainCompress
-                            const xMain = Array.from({ length: mainCount }, (_, index) => chartRight - mainStep * (mainCount - 1 - index))
+                            const mainStep = mainCount > 1 ? chartWidth / (mainCount - 1) : chartWidth
+                            const xMain = Array.from({ length: mainCount }, (_, index) => plotLeft + mainStep * index)
                             const hasPreview = Boolean(comparePreviewSeries)
-                            const xPreview = Math.max(18, xMain[0] - mainStep * compareChartPreviewFactor)
+                            const xPreview = xMain[0] - mainStep
                             const chartSeries = hasPreview && comparePreviewSeries ? [comparePreviewSeries, ...compareMainSeries] : compareMainSeries
                             const chartX = hasPreview ? [xPreview, ...xMain] : xMain
-                            const previewLabel = hasPreview && comparePreviewSeries ? comparePreviewSeries.label : ""
+                            const labelY = 152
                             const activeMainIdxRaw = compareMainSeries.findIndex((bin) => bin.key === compareActiveBin?.key)
                             const activeMainIdx = activeMainIdxRaw >= 0 ? activeMainIdxRaw : Math.max(compareMainSeries.length - 1, 0)
                             const activeIdx = activeMainIdx + (hasPreview ? 1 : 0)
                             const maxVal = compareChartMax > 0 ? compareChartMax : 1
                             const toY = (v: number) => chartBottom - (v / maxVal) * chartHeight
-                            const guideLines = xMain.map((xPos, idx) => ({
+                            const guideLines = xMain.map((xPos) => ({
                               x: xPos,
-                              opacity: idx === activeMainIdx ? 0.35 : 0.25,
+                              opacity: 0.25,
                             }))
                             const previewGuideLine = hasPreview ? { x: xPreview, opacity: 0.2 } : null
+                            const axisLabels = chartSeries.map((bin, idx) => ({
+                              key: bin.key,
+                              label: bin.label,
+                              x: chartX[idx],
+                              isPreview: hasPreview && idx === 0,
+                              isActive: bin.key === compareActiveBin?.key,
+                            }))
                             const incomePoints = chartSeries.map((bin, idx) => ({
                               x: chartX[idx],
                               y: toY(bin.income),
@@ -2245,62 +2249,32 @@ const ReportsScreen: React.FC<Props> = ({
                                     </g>
                                   </>
                                 ) : null}
-                                {previewLabel ? (
+                                {axisLabels.map((label) => (
                                   <text
-                                    x={xPreview}
-                                    y={154}
+                                    key={`axis-label-${label.key}`}
+                                    x={label.x}
+                                    y={labelY}
                                     textAnchor="middle"
                                     dominantBaseline="middle"
                                     fontSize={8}
-                                    fill="#94a3b8"
-                                    fontWeight={500}
+                                    fill={label.isPreview ? "#94a3b8" : label.isActive ? "#0f172a" : "#475569"}
+                                    fontWeight={label.isPreview ? 500 : label.isActive ? 700 : 500}
+                                    cursor={label.isPreview ? "default" : "pointer"}
+                                    onClick={
+                                      label.isPreview
+                                        ? undefined
+                                        : () => {
+                                            setCompareActiveBinKey(label.key)
+                                          }
+                                    }
                                   >
-                                    {previewLabel}
+                                    {label.label}
                                   </text>
-                                ) : null}
+                                ))}
                               </>
                             )
                           })()}
                         </svg>
-                        <div style={{ position: "relative", overflow: "hidden", padding: "2px 4px 0" }}>
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: `repeat(${Math.max(compareMainSeries.length, 1)}, minmax(0, 1fr))`,
-                              alignItems: "center",
-                              gap: 4,
-                              width: `${compareChartMainCompress * 100}%`,
-                              marginLeft: `${(1 - compareChartMainCompress) * 100}%`,
-                            }}
-                          >
-                            {compareMainSeries.map((bin) => {
-                              const isActive = bin.key === compareActiveBin?.key
-                              return (
-                                <button
-                                  key={bin.key}
-                                  type="button"
-                                  onClick={() => {
-                                    setCompareActiveBinKey(bin.key)
-                                  }}
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    padding: 0,
-                                    color: isActive ? "#0f172a" : "#475569",
-                                    cursor: "pointer",
-                                    fontWeight: isActive ? 700 : 500,
-                                    fontSize: 8,
-                                    minWidth: 0,
-                                    whiteSpace: "nowrap",
-                                    width: "100%",
-                                  }}
-                                >
-                                  {bin.label}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>
