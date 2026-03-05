@@ -552,14 +552,17 @@ function OverviewScreen({
   const [accountSearch, setAccountSearch] = useState("")
   const [categorySearch, setCategorySearch] = useState("")
   const [incomeSourceSearch, setIncomeSourceSearch] = useState("")
-  const [accountPeriodType, setAccountPeriodType] = useState<"day" | "week" | "month" | "year" | "custom">("month")
+  const [accountPeriodType, setAccountPeriodType] = useState<"day" | "week" | "month" | "quarter" | "year" | "custom">("month")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [customFromDraft, setCustomFromDraft] = useState("")
   const [customToDraft, setCustomToDraft] = useState("")
   const [isCustomSheetOpen, setIsCustomSheetOpen] = useState(false)
+  const [isAccountPeriodMenuOpen, setIsAccountPeriodMenuOpen] = useState(false)
   const [openPicker, setOpenPicker] = useState<OpenPicker>(null)
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false)
+  const accountCustomFromInputRef = useRef<HTMLInputElement | null>(null)
+  const accountCustomToInputRef = useRef<HTMLInputElement | null>(null)
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
@@ -1236,6 +1239,7 @@ function OverviewScreen({
     setIncomeSourceSearch("")
     setGoalSearch("")
     setDebtorSearch("")
+    setIsAccountPeriodMenuOpen(false)
     setSearchFocused(false)
     closeTxSheet()
     if (returnToReport) {
@@ -2263,6 +2267,9 @@ function TransactionsPanel({
       start.setDate(start.getDate() - diff)
     } else if (accountPeriodType === "month") {
       start.setDate(1)
+    } else if (accountPeriodType === "quarter") {
+      start.setDate(1)
+      start.setMonth(Math.floor(start.getMonth() / 3) * 3)
     } else if (accountPeriodType === "year") {
       start.setMonth(0, 1)
     } else if (accountPeriodType === "custom") {
@@ -2280,12 +2287,65 @@ function TransactionsPanel({
     if (accountPeriodType === "day") end.setDate(end.getDate() + 1)
     else if (accountPeriodType === "week") end.setDate(end.getDate() + 7)
     else if (accountPeriodType === "month") end.setMonth(end.getMonth() + 1)
+    else if (accountPeriodType === "quarter") end.setMonth(end.getMonth() + 3)
     else if (accountPeriodType === "year") end.setFullYear(end.getFullYear() + 1)
     else end.setDate(end.getDate() + 1)
     const fmt = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" })
     const endPrev = new Date(end.getTime() - 1)
     return { start, end, label: `${fmt.format(start)} - ${fmt.format(endPrev)}` }
   }, [accountPeriodType, customFrom, customTo])
+  const formatAccountCustomDate = useCallback((iso: string) => {
+    const [year, month, day] = iso.split("-").map((value) => Number(value))
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return iso
+    const parsed = new Date(year, month - 1, day)
+    if (Number.isNaN(parsed.getTime())) return iso
+    return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+      .format(parsed)
+      .replace(/\s*г\.$/u, "")
+      .trim()
+  }, [])
+  const accountCustomFromValue = customFrom || getTodayLocalDate()
+  const accountCustomToValue = customTo || getTodayLocalDate()
+  const accountCustomFromLabel = useMemo(
+    () => formatAccountCustomDate(accountCustomFromValue),
+    [accountCustomFromValue, formatAccountCustomDate],
+  )
+  const accountCustomToLabel = useMemo(
+    () => formatAccountCustomDate(accountCustomToValue),
+    [accountCustomToValue, formatAccountCustomDate],
+  )
+  const openAccountCustomDatePicker = useCallback((side: "from" | "to") => {
+    const input = side === "from" ? accountCustomFromInputRef.current : accountCustomToInputRef.current
+    if (!input) return
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void }
+    if (typeof pickerInput.showPicker === "function") {
+      try {
+        pickerInput.showPicker()
+        return
+      } catch {
+        // Fallback for webviews without showPicker.
+      }
+    }
+    pickerInput.focus()
+    pickerInput.click()
+  }, [])
+  const handleAccountCustomDateChange = useCallback(
+    (side: "from" | "to", nextIso: string) => {
+      if (!nextIso) return
+      if (side === "from") {
+        const nextTo = customTo && new Date(`${customTo}T00:00:00`) < new Date(`${nextIso}T00:00:00`) ? nextIso : customTo || nextIso
+        setCustomFrom(nextIso)
+        setCustomTo(nextTo)
+      } else {
+        const nextFrom =
+          customFrom && new Date(`${customFrom}T00:00:00`) > new Date(`${nextIso}T00:00:00`) ? nextIso : customFrom || nextIso
+        setCustomFrom(nextFrom)
+        setCustomTo(nextIso)
+      }
+      setAccountPeriodType("custom")
+    },
+    [customFrom, customTo],
+  )
 
   const filteredAccountTx = useMemo(() => {
     if (!detailAccountId) return []
@@ -2764,41 +2824,191 @@ function TransactionsPanel({
                   />
                 </label>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsPeriodMenuOpen(true)}
-                    style={{
-                      padding: "8px 10px",
-                      borderRadius: 10,
-                      border: "1px solid #e5e7eb",
-                      background: "#f8fafc",
-                      fontWeight: 600,
-                      color: "#0f172a",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      width: "fit-content",
-                    }}
-                  >
-                    Период
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
-                  </button>
+                <div style={{ display: "grid", gap: 8, position: "relative" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsAccountPeriodMenuOpen((prev) => !prev)}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#f8fafc",
+                        fontWeight: 600,
+                        color: "#0f172a",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        width: "fit-content",
+                      }}
+                    >
+                      {accountPeriodType === "day"
+                        ? "День"
+                        : accountPeriodType === "week"
+                        ? "Неделя"
+                        : accountPeriodType === "month"
+                        ? "Месяц"
+                        : accountPeriodType === "quarter"
+                        ? "Квартал"
+                        : accountPeriodType === "year"
+                        ? "Год"
+                        : "Свой"}
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>▾</span>
+                    </button>
+                    {isAccountPeriodMenuOpen ? (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "calc(100% + 8px)",
+                          left: 0,
+                          zIndex: 64,
+                          width: 180,
+                          background: "#fff",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 12,
+                          padding: 6,
+                          boxShadow: "none",
+                          display: "grid",
+                          gap: 4,
+                        }}
+                      >
+                        {(["day", "week", "month", "quarter", "year", "custom"] as const).map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => {
+                              if (p === "custom") {
+                                const today = getTodayLocalDate()
+                                if (!customFrom) setCustomFrom(today)
+                                if (!customTo) setCustomTo(today)
+                              }
+                              setAccountPeriodType(p)
+                              setIsAccountPeriodMenuOpen(false)
+                            }}
+                            style={{
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid " + (accountPeriodType === p ? "#0f172a" : "#e5e7eb"),
+                              background: accountPeriodType === p ? "#0f172a" : "#fff",
+                              color: accountPeriodType === p ? "#fff" : "#0f172a",
+                              fontWeight: 600,
+                              fontSize: 14,
+                              textAlign: "left",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {p === "day"
+                              ? "День"
+                              : p === "week"
+                              ? "Неделя"
+                              : p === "month"
+                              ? "Месяц"
+                              : p === "quarter"
+                              ? "Квартал"
+                              : p === "year"
+                              ? "Год"
+                              : "Свой"}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
 
-                  <div
-                    style={{
-                      fontSize: 12.5,
-                      color: "#6b7280",
-                      maxWidth: "100%",
-                      flex: 1,
-                      textAlign: "right",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "clip",
-                    }}
-                  >
-                    {accountPeriod.label}
+                    {accountPeriodType !== "custom" ? (
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "#6b7280",
+                          maxWidth: "100%",
+                          flex: 1,
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "clip",
+                        }}
+                      >
+                        {accountPeriod.label}
+                      </div>
+                    ) : null}
                   </div>
+                  {accountPeriodType === "custom" ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ position: "relative", flex: 1 }} onClick={() => openAccountCustomDatePicker("from")}>
+                        <button
+                          type="button"
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            color: "#0f172a",
+                            fontSize: 13,
+                            textAlign: "left",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {accountCustomFromLabel}
+                        </button>
+                        <input
+                          ref={accountCustomFromInputRef}
+                          type="date"
+                          value={accountCustomFromValue}
+                          onChange={(e) => handleAccountCustomDateChange("from", e.target.value)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: 0,
+                            background: "transparent",
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            zIndex: 1,
+                            cursor: "pointer",
+                          }}
+                        />
+                      </div>
+                      <span style={{ color: "#64748b", fontSize: 12 }}>—</span>
+                      <div style={{ position: "relative", flex: 1 }} onClick={() => openAccountCustomDatePicker("to")}>
+                        <button
+                          type="button"
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #e5e7eb",
+                            background: "#fff",
+                            color: "#0f172a",
+                            fontSize: 13,
+                            textAlign: "left",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {accountCustomToLabel}
+                        </button>
+                        <input
+                          ref={accountCustomToInputRef}
+                          type="date"
+                          value={accountCustomToValue}
+                          onChange={(e) => handleAccountCustomDateChange("to", e.target.value)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: 0,
+                            background: "transparent",
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            zIndex: 1,
+                            cursor: "pointer",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <TransactionsPanel
