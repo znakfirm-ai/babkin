@@ -128,6 +128,9 @@ const resolveLaunchInviteCode = (): string | null => {
   const inviteFromStartApp = normalizeInviteCodeFromStartParam(searchParams.get("startapp"))
   if (inviteFromStartApp) return inviteFromStartApp
 
+  const inviteFromStart = normalizeInviteCodeFromStartParam(searchParams.get("start"))
+  if (inviteFromStart) return inviteFromStart
+
   const inviteFromTelegramStartParam = normalizeInviteCodeFromStartParam(searchParams.get("tgWebAppStartParam"))
   if (inviteFromTelegramStartParam) return inviteFromTelegramStartParam
 

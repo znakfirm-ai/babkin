@@ -42,5 +42,5 @@ export const buildSharedWorkspaceInviteUrl = (inviteCode: string, options?: Buil
     return buildFallbackWebInviteUrl(code)
   }
 
-  return `https://t.me/${botUsername}/app?startapp=${encodeURIComponent(`${TELEGRAM_INVITE_PREFIX}${code}`)}`
+  return `https://t.me/${botUsername}?startapp=${encodeURIComponent(`${TELEGRAM_INVITE_PREFIX}${code}`)}`
 }
