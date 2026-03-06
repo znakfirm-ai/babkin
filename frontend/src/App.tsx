@@ -336,6 +336,7 @@ function App() {
   const [savedCompareReportState, setSavedCompareReportState] = useState<CompareReportState | null>(null)
   const [pendingJoinInviteCode, setPendingJoinInviteCode] = useState<string | null>(() => resolveLaunchInviteCode())
   const [inviteJoinError, setInviteJoinError] = useState<string | null>(null)
+  const [inviteJoinNotice, setInviteJoinNotice] = useState<string | null>(null)
   const inviteCodeHydrationDoneRef = useRef(false)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const { run: runWorkspaceMetaSave, isRunning: isWorkspaceMetaSaveRunning } = useSingleFlight()
@@ -1146,7 +1147,7 @@ function App() {
         return { ok: false as const, error: "Не удалось присоединиться к пространству" }
       }
 
-      const joinData = (await response.json()) as { workspaceId?: string }
+      const joinData = (await response.json()) as { workspaceId?: string; joined?: boolean }
       const refreshResult = await refreshWorkspacesAndBootstrap(appToken, {
         preferredWorkspaceId: typeof joinData.workspaceId === "string" ? joinData.workspaceId : undefined,
       })
@@ -1156,7 +1157,7 @@ function App() {
 
       appSettleDoneRef.current = true
       setAppSettling(false)
-      return { ok: true as const }
+      return { ok: true as const, alreadyMember: joinData.joined === false }
     })
 
     if (!result) {
@@ -1168,17 +1169,24 @@ function App() {
   const closeJoinInviteSheet = useCallback(() => {
     if (isWorkspaceJoinRunning) return
     setInviteJoinError(null)
+    setInviteJoinNotice(null)
     setPendingJoinInviteCode(null)
   }, [isWorkspaceJoinRunning])
 
   const confirmJoinInvite = useCallback(async () => {
     setInviteJoinError(null)
+    setInviteJoinNotice(null)
     const result = await joinWorkspaceByInvite()
     if (!result.ok) {
       setInviteJoinError(result.error ?? "Не удалось присоединиться к пространству")
       return
     }
+    if (result.alreadyMember) {
+      setInviteJoinNotice("Вы уже состоите в этом пространстве")
+      return
+    }
     setInviteJoinError(null)
+    setInviteJoinNotice(null)
     setPendingJoinInviteCode(null)
   }, [joinWorkspaceByInvite])
 
@@ -1784,6 +1792,7 @@ const appShell = appLoading ? (
               <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Присоединиться к пространству</div>
               <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>Вы будете добавлены в общее пространство</div>
               {inviteJoinError ? <div style={{ fontSize: 13, color: "#b91c1c", lineHeight: 1.35 }}>{inviteJoinError}</div> : null}
+              {inviteJoinNotice ? <div style={{ fontSize: 13, color: "#0369a1", lineHeight: 1.35 }}>{inviteJoinNotice}</div> : null}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
                 <button
                   type="button"
@@ -1805,7 +1814,7 @@ const appShell = appLoading ? (
                 </button>
                 <button
                   type="button"
-                  onClick={confirmJoinInvite}
+                  onClick={inviteJoinNotice ? closeJoinInviteSheet : confirmJoinInvite}
                   disabled={isWorkspaceJoinRunning}
                   style={{
                     padding: "11px 14px",
@@ -1819,7 +1828,7 @@ const appShell = appLoading ? (
                     opacity: isWorkspaceJoinRunning ? 0.7 : 1,
                   }}
                 >
-                  {isWorkspaceJoinRunning ? "Подключаем..." : "Присоединиться"}
+                  {isWorkspaceJoinRunning ? "Подключаем..." : inviteJoinNotice ? "Перейти в пространство" : "Присоединиться"}
                 </button>
               </div>
             </div>

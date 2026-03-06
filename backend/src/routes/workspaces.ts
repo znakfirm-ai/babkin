@@ -42,7 +42,7 @@ const createInviteRecord = async (
           created_by_user_id: ownerUserId,
           code,
           expires_at: buildInviteExpiry(),
-          max_uses: null,
+          max_uses: 1,
           uses_count: 0,
           is_revoked: false,
         },
@@ -656,6 +656,7 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
           select: {
             id: true,
             workspace_id: true,
+            created_by_user_id: true,
             is_revoked: true,
             expires_at: true,
             max_uses: true,
@@ -665,16 +666,6 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
         if (!invite) {
           return { ok: false as const, reason: "invite_not_found" }
         }
-        if (invite.is_revoked) {
-          return { ok: false as const, reason: "invite_revoked" }
-        }
-        if (isInviteExpired(invite)) {
-          return { ok: false as const, reason: "invite_expired" }
-        }
-        if (isInviteExhausted(invite)) {
-          return { ok: false as const, reason: "invite_exhausted" }
-        }
-
         const existingMembership = await tx.workspace_members.findUnique({
           where: {
             workspace_id_user_id: {
@@ -692,6 +683,16 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
           return { ok: true as const, joined: false, workspaceId: invite.workspace_id }
         }
 
+        if (invite.is_revoked) {
+          return { ok: false as const, reason: "invite_revoked" }
+        }
+        if (isInviteExpired(invite)) {
+          return { ok: false as const, reason: "invite_expired" }
+        }
+        if (isInviteExhausted(invite)) {
+          return { ok: false as const, reason: "invite_exhausted" }
+        }
+
         await tx.workspace_members.create({
           data: {
             workspace_id: invite.workspace_id,
@@ -700,28 +701,32 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
           },
         })
 
-        if (invite.max_uses !== null) {
-          const incremented = await tx.workspace_invites.updateMany({
-            where: {
-              id: invite.id,
-              is_revoked: false,
-              uses_count: invite.uses_count,
-              max_uses: { gte: invite.uses_count + 1 },
-              OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
-            },
-            data: {
-              uses_count: { increment: 1 },
-            },
-          })
-          if (incremented.count !== 1) {
-            throw new Error("invite_usage_race")
-          }
-        } else {
-          await tx.workspace_invites.update({
-            where: { id: invite.id },
-            data: { uses_count: { increment: 1 } },
-          })
+        const consumedInvite = await tx.workspace_invites.updateMany({
+          where: {
+            id: invite.id,
+            is_revoked: false,
+            uses_count: invite.uses_count,
+            OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+            ...(invite.max_uses === null ? {} : { max_uses: { gte: invite.uses_count + 1 } }),
+          },
+          data: {
+            uses_count: { increment: 1 },
+            is_revoked: true,
+          },
+        })
+        if (consumedInvite.count !== 1) {
+          throw new Error("invite_usage_race")
         }
+
+        await tx.workspace_invites.updateMany({
+          where: {
+            workspace_id: invite.workspace_id,
+            is_revoked: false,
+          },
+          data: { is_revoked: true },
+        })
+
+        await createInviteRecord(tx, invite.workspace_id, invite.created_by_user_id)
 
         await tx.users.update({
           where: { id: userId },

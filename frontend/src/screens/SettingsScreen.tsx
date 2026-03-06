@@ -158,11 +158,32 @@ const SettingsScreen: React.FC<Props> = ({
   const handleCopySharedInvite = useCallback(async () => {
     if (!sharedInviteUrl) return
     setSharedInviteError(null)
+    setSharedInviteNotice(null)
     try {
       await copyText(sharedInviteUrl)
       setSharedInviteNotice("Ссылка скопирована")
     } catch {
       setSharedInviteError("Не удалось скопировать ссылку")
+    }
+  }, [sharedInviteUrl])
+
+  const handleShareSharedInvite = useCallback(async () => {
+    if (!sharedInviteUrl) return
+    setSharedInviteError(null)
+    setSharedInviteNotice(null)
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({ url: sharedInviteUrl })
+        setSharedInviteNotice("Ссылка готова к отправке")
+        return
+      }
+      await copyText(sharedInviteUrl)
+      setSharedInviteNotice("Ссылка скопирована")
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return
+      }
+      setSharedInviteError("Не удалось поделиться ссылкой")
     }
   }, [sharedInviteUrl])
 
@@ -696,6 +717,7 @@ const SettingsScreen: React.FC<Props> = ({
                 minHeight: 44,
                 display: "flex",
                 alignItems: "center",
+                gap: 8,
                 overflow: "hidden",
               }}
             >
@@ -713,6 +735,33 @@ const SettingsScreen: React.FC<Props> = ({
               >
                 {isSharedInviteLoading ? "Загружаем ссылку..." : sharedInviteUrl || "Ссылка еще не создана"}
               </span>
+              <button
+                type="button"
+                onClick={handleShareSharedInvite}
+                disabled={!sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating}
+                title="Поделиться"
+                aria-label="Поделиться ссылкой приглашения"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 8,
+                  border: "1px solid #e2e8f0",
+                  background: "#fff",
+                  color: "#0f172a",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? "not-allowed" : "pointer",
+                  opacity: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? 0.6 : 1,
+                  flex: "0 0 auto",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M7 12.5V18a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <path d="M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <path d="m8.5 6.5 3.5-3.5 3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
 
             {sharedInviteError ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{sharedInviteError}</div> : null}
