@@ -6,7 +6,7 @@ import { getIncomeSources } from "./api/incomeSources"
 import { getTransactions } from "./api/transactions"
 import { getGoals } from "./api/goals"
 import { getDebtors } from "./api/debtors"
-import { getBootstrap } from "./api/bootstrap"
+import { getBootstrap, type BootstrapResponse } from "./api/bootstrap"
 import DebugTimingsOverlay from "./components/DebugTimingsOverlay"
 import CenteredLoader from "./components/CenteredLoader"
 import { markTimingStage, timedFetch } from "./utils/debugTimings"
@@ -40,6 +40,13 @@ type WorkspaceInvite = {
   usesCount: number
   botUsername?: string | null
 }
+type SharedWorkspaceMember = {
+  userId: string
+  role: "owner" | "member"
+  firstName: string | null
+  username: string | null
+  telegramUserId: string
+}
 type SpaceKey = Workspace["type"]
 type BannerLoadStatus = "idle" | "loading" | "success" | "error"
 type OverviewUiPhase = "idle" | "loading" | "ready" | "error"
@@ -68,6 +75,12 @@ const DEFAULT_EXPENSE_CATEGORY_INDEX = new Map<string, number>(DEFAULT_EXPENSE_C
 const DEFAULT_INCOME_CATEGORY_INDEX = new Map<string, number>(DEFAULT_INCOME_CATEGORY_ORDER.map((name, index) => [name, index]))
 const DEFAULT_INCOME_SOURCE_INDEX = new Map<string, number>(DEFAULT_INCOME_SOURCE_ORDER.map((name, index) => [name, index]))
 const DEFAULT_ACCOUNT_INDEX = new Map<string, number>(DEFAULT_ACCOUNT_ORDER.map((name, index) => [name, index]))
+const INVITE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,128}$/
+const INVITE_STARTAPP_PREFIX = "join_"
+
+type TelegramInitDataUnsafe = {
+  start_param?: unknown
+}
 
 const normalizeWorkspaceIcon = (value: string) => {
   const trimmed = value.trim()
@@ -91,6 +104,40 @@ const normalizeWorkspace = (workspace: {
 const buildWorkspaceFallbackLabel = (spaceKey: SpaceKey) => (spaceKey === "family" ? "Семейный" : "Личный")
 
 const compareByName = (a: string, b: string) => a.localeCompare(b, "ru-RU")
+
+const normalizeInviteCode = (value: string | null | undefined): string | null => {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!INVITE_CODE_PATTERN.test(trimmed)) return null
+  return trimmed
+}
+
+const normalizeInviteCodeFromStartParam = (value: string | null | undefined): string | null => {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed.startsWith(INVITE_STARTAPP_PREFIX)) return null
+  return normalizeInviteCode(trimmed.slice(INVITE_STARTAPP_PREFIX.length))
+}
+
+const resolveLaunchInviteCode = (): string | null => {
+  if (typeof window === "undefined") return null
+  const searchParams = new URLSearchParams(window.location.search)
+  const directInviteCode = normalizeInviteCode(searchParams.get("invite"))
+  if (directInviteCode) return directInviteCode
+
+  const inviteFromStartApp = normalizeInviteCodeFromStartParam(searchParams.get("startapp"))
+  if (inviteFromStartApp) return inviteFromStartApp
+
+  const inviteFromTelegramStartParam = normalizeInviteCodeFromStartParam(searchParams.get("tgWebAppStartParam"))
+  if (inviteFromTelegramStartParam) return inviteFromTelegramStartParam
+
+  const initDataUnsafe = window.Telegram?.WebApp?.initDataUnsafe as TelegramInitDataUnsafe | undefined
+  if (typeof initDataUnsafe?.start_param === "string") {
+    return normalizeInviteCodeFromStartParam(initDataUnsafe.start_param)
+  }
+
+  return null
+}
 
 const sortAccountsCanonical = <T extends { name: string }>(accounts: T[]) =>
   [...accounts].sort((left, right) => {
@@ -276,10 +323,14 @@ function App() {
     singleDay: string
   } | null>(null)
   const [savedCompareReportState, setSavedCompareReportState] = useState<CompareReportState | null>(null)
+  const [pendingJoinInviteCode, setPendingJoinInviteCode] = useState<string | null>(() => resolveLaunchInviteCode())
+  const [inviteJoinError, setInviteJoinError] = useState<string | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const { run: runWorkspaceMetaSave, isRunning: isWorkspaceMetaSaveRunning } = useSingleFlight()
   const { run: runWorkspaceReset, isRunning: isWorkspaceResetRunning } = useSingleFlight()
   const { run: runWorkspaceInviteRegenerate, isRunning: isWorkspaceInviteRegenerating } = useSingleFlight()
+  const { run: runWorkspaceJoin, isRunning: isWorkspaceJoinRunning } = useSingleFlight()
+  const { run: runWorkspaceMemberRemove, isRunning: isWorkspaceMemberRemoveRunning } = useSingleFlight()
   const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
   const appSettleInFlightRef = useRef(false)
   const appSettleDoneRef = useRef(false)
@@ -404,6 +455,123 @@ function App() {
     return activeSpaceKeyRef.current !== spaceKey
   }, [])
 
+  const applyBootstrapDataToStore = useCallback(
+    (bootstrapData: BootstrapResponse) => {
+      const mappedAccounts = bootstrapData.accounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        balance: { amount: a.balance, currency: a.currency },
+        color: a.color ?? undefined,
+        icon: a.icon ?? null,
+      }))
+      setAccounts(sortAccountsCanonical(mappedAccounts))
+
+      const mappedCategories = bootstrapData.categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: c.kind,
+        icon: c.icon,
+        budget: c.budget ?? null,
+      }))
+      setCategories(sortCategoriesCanonical(mappedCategories))
+
+      const mappedIncomeSources = bootstrapData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
+      setIncomeSources(sortIncomeSourcesCanonical(mappedIncomeSources))
+
+      const mappedGoals = bootstrapData.goals.map((g) => ({
+        id: g.id,
+        name: g.name,
+        icon: g.icon,
+        targetAmount: Number(g.targetAmount),
+        currentAmount: Number(g.currentAmount),
+        status: g.status,
+      }))
+      setGoals(mappedGoals)
+
+      const mappedDebtors = bootstrapData.debtors.map((d) => ({
+        id: d.id,
+        name: d.name,
+        icon: d.icon,
+        issuedDate: d.issuedAt.slice(0, 10),
+        loanAmount: Number(d.principalAmount),
+        dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
+        returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
+        status: d.status,
+        direction: d.direction ?? "receivable",
+      }))
+      setDebtors(mappedDebtors)
+
+      const mappedTransactions = bootstrapData.transactions.map((t) => ({
+        id: t.id,
+        type: t.kind,
+        amount: {
+          amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
+          currency: "RUB",
+        },
+        date: t.happenedAt,
+        accountId: t.accountId ?? t.fromAccountId ?? "",
+        accountName: t.accountName ?? null,
+        fromAccountId: t.fromAccountId ?? undefined,
+        fromAccountName: t.fromAccountName ?? null,
+        categoryId: t.categoryId ?? undefined,
+        incomeSourceId: t.incomeSourceId ?? undefined,
+        toAccountId: t.toAccountId ?? undefined,
+        toAccountName: t.toAccountName ?? null,
+        goalId: t.goalId ?? undefined,
+        goalName: t.goalName ?? null,
+        debtorId: t.debtorId ?? undefined,
+        debtorName: t.debtorName ?? null,
+      }))
+      setTransactions(mappedTransactions)
+    },
+    [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setTransactions],
+  )
+
+  const refreshWorkspacesAndBootstrap = useCallback(
+    async (token: string, options?: { preferredWorkspaceId?: string }) => {
+      const workspacesResponse = await timedFetch(
+        "https://babkin.onrender.com/api/v1/workspaces",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+        { label: "workspaces" },
+      )
+      if (!workspacesResponse.ok) {
+        return { ok: false as const, reason: "workspaces_failed" as const }
+      }
+
+      const workspacesData: { activeWorkspace: Workspace | null; workspaces: Workspace[]; activeWorkspaceId?: string | null } =
+        await workspacesResponse.json()
+      const normalizedWorkspaces = (workspacesData.workspaces ?? []).map((workspace) => normalizeWorkspace(workspace))
+      const preferredWorkspace = options?.preferredWorkspaceId
+        ? normalizedWorkspaces.find((workspace) => workspace.id === options.preferredWorkspaceId) ?? null
+        : null
+      const normalizedActiveWorkspace = preferredWorkspace ?? (workspacesData.activeWorkspace ? normalizeWorkspace(workspacesData.activeWorkspace) : null)
+
+      setAppWorkspaces(normalizedWorkspaces)
+      setAppActiveWorkspace(normalizedActiveWorkspace)
+
+      if (!normalizedActiveWorkspace) {
+        return { ok: true as const, hasActiveWorkspace: false as const }
+      }
+
+      activeSpaceKeyRef.current = normalizedActiveWorkspace.type
+      setAppActiveSpaceKey(normalizedActiveWorkspace.type)
+      localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, normalizedActiveWorkspace.type)
+      setOverviewStatus(normalizedActiveWorkspace.type, "loading")
+      setOverviewUiPhase(normalizedActiveWorkspace.type, "loading")
+
+      const bootstrapData = await getBootstrap(token)
+      applyBootstrapDataToStore(bootstrapData)
+      setOverviewError(null)
+      setOverviewAppliedSpaceKey(normalizedActiveWorkspace.type)
+      setOverviewStatus(normalizedActiveWorkspace.type, "success")
+      setOverviewUiPhase(normalizedActiveWorkspace.type, "ready")
+      return { ok: true as const, hasActiveWorkspace: true as const }
+    },
+    [applyBootstrapDataToStore, setOverviewStatus, setOverviewUiPhase],
+  )
+
   const initApp = useCallback(async () => {
     if (initDone.current || initInFlightRef.current) return
     initInFlightRef.current = true
@@ -437,111 +605,17 @@ function App() {
       }
       setAppToken(token)
 
-      const wsRes = await timedFetch(
-        "https://babkin.onrender.com/api/v1/workspaces",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-        { label: "workspaces" },
-      )
-      if (!wsRes.ok) throw new Error(`Workspaces error: ${wsRes.status}`)
-      const wsData: { activeWorkspace: Workspace | null; workspaces: Workspace[] } = await wsRes.json()
-      const normalizedWorkspaces = (wsData.workspaces ?? []).map((workspace) => normalizeWorkspace(workspace))
-      const normalizedActiveWorkspace = wsData.activeWorkspace ? normalizeWorkspace(wsData.activeWorkspace) : null
-      setAppWorkspaces(normalizedWorkspaces)
-      setAppActiveWorkspace(normalizedActiveWorkspace)
-      if (normalizedActiveWorkspace?.type) {
-        activeSpaceKeyRef.current = normalizedActiveWorkspace.type
-        setAppActiveSpaceKey(normalizedActiveWorkspace.type)
-        localStorage.setItem(ACTIVE_SPACE_KEY_STORAGE, normalizedActiveWorkspace.type)
-        setOverviewStatus(normalizedActiveWorkspace.type, "loading")
-        setOverviewUiPhase(normalizedActiveWorkspace.type, "loading")
+      const initialLoadResult = await refreshWorkspacesAndBootstrap(token)
+      if (!initialLoadResult.ok) {
+        throw new Error("Workspaces error")
       }
-
-      try {
-        const bootstrapData = await getBootstrap(token)
-        const mappedAccounts = bootstrapData.accounts.map((a) => ({
-          id: a.id,
-          name: a.name,
-          balance: { amount: a.balance, currency: a.currency },
-          color: a.color ?? undefined,
-          icon: a.icon ?? null,
-        }))
-        setAccounts(sortAccountsCanonical(mappedAccounts))
-
-        const mappedCategories = bootstrapData.categories.map((c) => ({
-          id: c.id,
-          name: c.name,
-          type: c.kind,
-          icon: c.icon,
-          budget: c.budget ?? null,
-        }))
-        setCategories(sortCategoriesCanonical(mappedCategories))
-
-        const mappedIncomeSources = bootstrapData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
-        setIncomeSources(sortIncomeSourcesCanonical(mappedIncomeSources))
-
-        const mappedGoals = bootstrapData.goals.map((g) => ({
-          id: g.id,
-          name: g.name,
-          icon: g.icon,
-          targetAmount: Number(g.targetAmount),
-          currentAmount: Number(g.currentAmount),
-          status: g.status,
-        }))
-        setGoals(mappedGoals)
-
-        const mappedDebtors = bootstrapData.debtors.map((d) => ({
-          id: d.id,
-          name: d.name,
-          icon: d.icon,
-          issuedDate: d.issuedAt.slice(0, 10),
-          loanAmount: Number(d.principalAmount),
-          dueDate: d.dueAt ? d.dueAt.slice(0, 10) : "",
-          returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
-          status: d.status,
-          direction: d.direction ?? "receivable",
-        }))
-        setDebtors(mappedDebtors)
-
-        const mappedTransactions = bootstrapData.transactions.map((t) => ({
-          id: t.id,
-          type: t.kind,
-          amount: {
-            amount: typeof t.amount === "string" ? Number(t.amount) : t.amount,
-            currency: "RUB",
-          },
-          date: t.happenedAt,
-          accountId: t.accountId ?? t.fromAccountId ?? "",
-          accountName: t.accountName ?? null,
-          fromAccountId: t.fromAccountId ?? undefined,
-          fromAccountName: t.fromAccountName ?? null,
-          categoryId: t.categoryId ?? undefined,
-          incomeSourceId: t.incomeSourceId ?? undefined,
-          toAccountId: t.toAccountId ?? undefined,
-          toAccountName: t.toAccountName ?? null,
-          goalId: t.goalId ?? undefined,
-          goalName: t.goalName ?? null,
-          debtorId: t.debtorId ?? undefined,
-          debtorName: t.debtorName ?? null,
-        }))
-        setTransactions(mappedTransactions)
-        setOverviewError(null)
-        if (normalizedActiveWorkspace?.type) {
-          setOverviewAppliedSpaceKey(normalizedActiveWorkspace.type)
-          setOverviewStatus(normalizedActiveWorkspace.type, "success")
-          setOverviewUiPhase(normalizedActiveWorkspace.type, "ready")
+      if (!initialLoadResult.hasActiveWorkspace) {
+        if (pendingJoinInviteCode) {
+          appSettleDoneRef.current = true
+          setAppSettling(false)
+        } else {
+          setOverviewError("Нет активного рабочего пространства")
         }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          setAppLoading(false)
-          return
-        }
-        if (normalizedActiveWorkspace?.type) {
-          setOverviewStatus(normalizedActiveWorkspace.type, "error")
-          setOverviewUiPhase(normalizedActiveWorkspace.type, "error")
-        }
-        setOverviewError("Ошибка загрузки данных")
       }
 
       initDone.current = true
@@ -559,7 +633,7 @@ function App() {
       initInFlightRef.current = false
       markTimingStage("initEnd")
     }
-  }, [setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setOverviewUiPhase, setTransactions])
+  }, [pendingJoinInviteCode, refreshWorkspacesAndBootstrap])
 
   useEffect(() => {
     if (!initDone.current && !initInFlightRef.current) {
@@ -575,6 +649,12 @@ function App() {
       if (overviewInFlightBySpaceRef.current[targetSpaceKey]) return false
       if (!appToken) {
         setOverviewError("Нет токена")
+        setOverviewStatus(targetSpaceKey, "error")
+        setOverviewUiPhase(targetSpaceKey, "error")
+        return false
+      }
+      if (!appActiveWorkspace) {
+        setOverviewError("Нет активного рабочего пространства")
         setOverviewStatus(targetSpaceKey, "error")
         setOverviewUiPhase(targetSpaceKey, "error")
         return false
@@ -691,7 +771,19 @@ function App() {
         overviewInFlightBySpaceRef.current[targetSpaceKey] = false
       }
     },
-    [appToken, isStaleOverviewReload, setAccounts, setCategories, setDebtors, setGoals, setIncomeSources, setOverviewStatus, setOverviewUiPhase, setTransactions],
+    [
+      appActiveWorkspace,
+      appToken,
+      isStaleOverviewReload,
+      setAccounts,
+      setCategories,
+      setDebtors,
+      setGoals,
+      setIncomeSources,
+      setOverviewStatus,
+      setOverviewUiPhase,
+      setTransactions,
+    ],
   )
 
   const ensureOverviewReady = useCallback(
@@ -715,14 +807,20 @@ function App() {
 
   useEffect(() => {
     if (!isOverviewScreenActive) return
+    if (!appActiveWorkspace) return
     if (!appToken || appLoading) return
     if (appSettling) return
     void ensureOverviewReady({ spaceKey: appActiveSpaceKey })
-  }, [appActiveSpaceKey, appLoading, appSettling, appToken, ensureOverviewReady, isOverviewScreenActive])
+  }, [appActiveSpaceKey, appActiveWorkspace, appLoading, appSettling, appToken, ensureOverviewReady, isOverviewScreenActive])
 
   useEffect(() => {
     if (appSettleDoneRef.current) return
     if (appLoading || !appToken) return
+    if (!appActiveWorkspace) {
+      appSettleDoneRef.current = true
+      setAppSettling(false)
+      return
+    }
     if (overviewAppliedSpaceKey === appActiveSpaceKey && activeOverviewUiPhase === "ready") {
       appSettleDoneRef.current = true
       setAppSettling(false)
@@ -743,7 +841,7 @@ function App() {
           setAppSettling(false)
         }
       })
-  }, [activeOverviewUiPhase, appActiveSpaceKey, appLoading, appToken, ensureOverviewReady, overviewAppliedSpaceKey, overviewUiPhaseBySpaceKey])
+  }, [activeOverviewUiPhase, appActiveSpaceKey, appActiveWorkspace, appLoading, appToken, ensureOverviewReady, overviewAppliedSpaceKey, overviewUiPhaseBySpaceKey])
 
   const prevScreen = useRef<ScreenKey>("overview")
   const personalWorkspace = appWorkspaces.find((workspace) => workspace.type === "personal") ?? null
@@ -773,6 +871,8 @@ function App() {
   const canOpenWorkspaceSwitcher = appWorkspaces.length > 0
   const canResetWorkspace = appActiveWorkspace?.canResetWorkspace === true
   const canManageSharedAccess = canResetWorkspace && appActiveWorkspace?.type === "family"
+  const shouldShowJoinInviteSheet = Boolean(pendingJoinInviteCode && appToken && !appLoading)
+  const canDismissJoinInviteSheet = appWorkspaces.length > 0
 
   const handleResetWorkspace = useCallback(async () => {
     if (!appToken || !appActiveWorkspace) {
@@ -896,6 +996,164 @@ function App() {
     }
     return result
   }, [appActiveWorkspace, appToken, runWorkspaceInviteRegenerate])
+
+  const loadWorkspaceMembers = useCallback(async () => {
+    if (!appToken || !appActiveWorkspace) {
+      return { members: [] as SharedWorkspaceMember[], error: "Не удалось определить рабочее пространство" }
+    }
+
+    const response = await timedFetch(
+      `https://babkin.onrender.com/api/v1/workspaces/${appActiveWorkspace.id}/members`,
+      {
+        headers: {
+          Authorization: `Bearer ${appToken}`,
+        },
+      },
+      { label: "workspaces" },
+    )
+
+    if (!response.ok) {
+      let reason = "load_members_failed"
+      try {
+        const data = (await response.json()) as { reason?: string }
+        if (typeof data.reason === "string") {
+          reason = data.reason
+        }
+      } catch {
+        // ignore parse errors
+      }
+      if (reason === "only_creator_can_view_members" || reason === "not_a_member") {
+        return { members: [] as SharedWorkspaceMember[], error: "Доступно только создателю пространства" }
+      }
+      return { members: [] as SharedWorkspaceMember[], error: "Не удалось загрузить участников" }
+    }
+
+    const data = (await response.json()) as { members?: SharedWorkspaceMember[] }
+    return { members: data.members ?? [] }
+  }, [appActiveWorkspace, appToken])
+
+  const removeWorkspaceMember = useCallback(
+    async (userId: string) => {
+      if (!appToken || !appActiveWorkspace) {
+        return { ok: false as const, error: "Не удалось определить рабочее пространство" }
+      }
+
+      const result = await runWorkspaceMemberRemove(async () => {
+        const response = await timedFetch(
+          `https://babkin.onrender.com/api/v1/workspaces/${appActiveWorkspace.id}/members/${encodeURIComponent(userId)}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${appToken}`,
+            },
+          },
+          { label: "workspaces" },
+        )
+        if (!response.ok) {
+          let reason = "remove_member_failed"
+          try {
+            const data = (await response.json()) as { reason?: string }
+            if (typeof data.reason === "string") {
+              reason = data.reason
+            }
+          } catch {
+            // ignore parse errors
+          }
+          if (reason === "only_creator_can_remove_members" || reason === "not_a_member") {
+            return { ok: false as const, error: "Доступно только создателю пространства" }
+          }
+          if (reason === "cannot_remove_owner" || reason === "cannot_remove_self") {
+            return { ok: false as const, error: "Нельзя удалить этого участника" }
+          }
+          if (reason === "member_not_found") {
+            return { ok: false as const, error: "Участник уже удален" }
+          }
+          return { ok: false as const, error: "Не удалось удалить участника" }
+        }
+        return { ok: true as const }
+      })
+
+      if (!result) {
+        return { ok: false as const, error: "Запрос уже выполняется" }
+      }
+      return result
+    },
+    [appActiveWorkspace, appToken, runWorkspaceMemberRemove],
+  )
+
+  const joinWorkspaceByInvite = useCallback(async () => {
+    if (!appToken || !pendingJoinInviteCode) {
+      return { ok: false as const, error: "Ссылка приглашения недействительна" }
+    }
+
+    const result = await runWorkspaceJoin(async () => {
+      const response = await timedFetch(
+        "https://babkin.onrender.com/api/v1/workspaces/join",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${appToken}`,
+          },
+          body: JSON.stringify({ code: pendingJoinInviteCode }),
+        },
+        { label: "workspaces" },
+      )
+
+      if (!response.ok) {
+        let reason = "join_failed"
+        try {
+          const data = (await response.json()) as { reason?: string }
+          if (typeof data.reason === "string") {
+            reason = data.reason
+          }
+        } catch {
+          // ignore parse errors
+        }
+        if (reason === "invite_not_found" || reason === "invite_revoked" || reason === "invite_expired" || reason === "invite_exhausted") {
+          return { ok: false as const, error: "Ссылка приглашения больше недоступна" }
+        }
+        if (reason === "missing_invite_code") {
+          return { ok: false as const, error: "Некорректная ссылка приглашения" }
+        }
+        return { ok: false as const, error: "Не удалось присоединиться к пространству" }
+      }
+
+      const joinData = (await response.json()) as { workspaceId?: string }
+      const refreshResult = await refreshWorkspacesAndBootstrap(appToken, {
+        preferredWorkspaceId: typeof joinData.workspaceId === "string" ? joinData.workspaceId : undefined,
+      })
+      if (!refreshResult.ok || !refreshResult.hasActiveWorkspace) {
+        return { ok: false as const, error: "Не удалось обновить рабочее пространство" }
+      }
+
+      appSettleDoneRef.current = true
+      setAppSettling(false)
+      return { ok: true as const }
+    })
+
+    if (!result) {
+      return { ok: false as const, error: "Запрос уже выполняется" }
+    }
+    return result
+  }, [appToken, pendingJoinInviteCode, refreshWorkspacesAndBootstrap, runWorkspaceJoin])
+
+  const closeJoinInviteSheet = useCallback(() => {
+    if (isWorkspaceJoinRunning) return
+    setInviteJoinError(null)
+    setPendingJoinInviteCode(null)
+  }, [isWorkspaceJoinRunning])
+
+  const confirmJoinInvite = useCallback(async () => {
+    setInviteJoinError(null)
+    const result = await joinWorkspaceByInvite()
+    if (!result.ok) {
+      setInviteJoinError(result.error ?? "Не удалось присоединиться к пространству")
+      return
+    }
+    setInviteJoinError(null)
+    setPendingJoinInviteCode(null)
+  }, [joinWorkspaceByInvite])
 
   const applyWorkspaceMetaUpdate = useCallback(
     async (spaceKey: SpaceKey, patch: { displayName?: string | null; iconEmoji?: string | null }) => {
@@ -1399,6 +1657,9 @@ function App() {
             onLoadSharedInvite={loadWorkspaceInvite}
             onRegenerateSharedInvite={regenerateWorkspaceInvite}
             isSharedInviteRegenerating={isWorkspaceInviteRegenerating}
+            onLoadSharedMembers={loadWorkspaceMembers}
+            onRemoveSharedMember={removeWorkspaceMember}
+            isSharedMemberRemoving={isWorkspaceMemberRemoveRunning}
           />
         )
       case "icons-preview":
@@ -1462,6 +1723,81 @@ const appShell = appLoading ? (
             }
           }}
         />
+        {shouldShowJoinInviteSheet ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.35)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingLeft: 16,
+              paddingRight: 16,
+              paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)",
+              paddingBottom: "calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              zIndex: 25,
+            }}
+            onClick={canDismissJoinInviteSheet ? closeJoinInviteSheet : undefined}
+          >
+            <div
+              style={{
+                width: "min(420px, 100%)",
+                background: "#fff",
+                borderRadius: 18,
+                padding: "16px",
+                boxShadow: "0 12px 28px rgba(15,23,42,0.16)",
+                display: "grid",
+                gap: 12,
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Присоединиться к пространству</div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>Вы будете добавлены в общее пространство</div>
+              {inviteJoinError ? <div style={{ fontSize: 13, color: "#b91c1c", lineHeight: 1.35 }}>{inviteJoinError}</div> : null}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={closeJoinInviteSheet}
+                  disabled={isWorkspaceJoinRunning || !canDismissJoinInviteSheet}
+                  style={{
+                    padding: "11px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #e2e8f0",
+                    background: "#fff",
+                    color: "#0f172a",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: isWorkspaceJoinRunning || !canDismissJoinInviteSheet ? "not-allowed" : "pointer",
+                    opacity: isWorkspaceJoinRunning || !canDismissJoinInviteSheet ? 0.6 : 1,
+                  }}
+                >
+                  {canDismissJoinInviteSheet ? "Позже" : "Недоступно"}
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmJoinInvite}
+                  disabled={isWorkspaceJoinRunning}
+                  style={{
+                    padding: "11px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #0f172a",
+                    background: "#0f172a",
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: isWorkspaceJoinRunning ? "not-allowed" : "pointer",
+                    opacity: isWorkspaceJoinRunning ? 0.7 : 1,
+                  }}
+                >
+                  {isWorkspaceJoinRunning ? "Подключаем..." : "Присоединиться"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {isWorkspaceModalOpen ? (
           <div
             role="dialog"

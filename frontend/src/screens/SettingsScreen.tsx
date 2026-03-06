@@ -12,6 +12,13 @@ type SharedWorkspaceInvite = {
   usesCount: number
   botUsername?: string | null
 }
+type SharedWorkspaceMember = {
+  userId: string
+  role: "owner" | "member"
+  firstName: string | null
+  username: string | null
+  telegramUserId: string
+}
 
 type Props = {
   onOpenCategories?: () => void
@@ -21,8 +28,11 @@ type Props = {
   isResetWorkspaceRunning?: boolean
   canManageSharedAccess?: boolean
   onLoadSharedInvite?: () => Promise<{ invite: SharedWorkspaceInvite | null; error?: string }>
+  onLoadSharedMembers?: () => Promise<{ members: SharedWorkspaceMember[]; error?: string }>
   onRegenerateSharedInvite?: () => Promise<{ ok: boolean; invite: SharedWorkspaceInvite | null; error?: string }>
   isSharedInviteRegenerating?: boolean
+  onRemoveSharedMember?: (userId: string) => Promise<{ ok: boolean; error?: string }>
+  isSharedMemberRemoving?: boolean
 }
 
 const copyText = async (value: string) => {
@@ -51,8 +61,11 @@ const SettingsScreen: React.FC<Props> = ({
   isResetWorkspaceRunning = false,
   canManageSharedAccess = false,
   onLoadSharedInvite,
+  onLoadSharedMembers,
   onRegenerateSharedInvite,
   isSharedInviteRegenerating = false,
+  onRemoveSharedMember,
+  isSharedMemberRemoving = false,
 }) => {
   const { currency, setCurrency } = useAppStore()
   const current = normalizeCurrency(currency)
@@ -67,6 +80,11 @@ const SettingsScreen: React.FC<Props> = ({
   const [isSharedInviteLoading, setIsSharedInviteLoading] = useState(false)
   const [sharedInviteError, setSharedInviteError] = useState<string | null>(null)
   const [sharedInviteNotice, setSharedInviteNotice] = useState<string | null>(null)
+  const [sharedMembers, setSharedMembers] = useState<SharedWorkspaceMember[]>([])
+  const [isSharedMembersLoading, setIsSharedMembersLoading] = useState(false)
+  const [sharedMembersError, setSharedMembersError] = useState<string | null>(null)
+  const [sharedMembersNotice, setSharedMembersNotice] = useState<string | null>(null)
+  const [memberToRemove, setMemberToRemove] = useState<SharedWorkspaceMember | null>(null)
 
   const handleToggleDebugTimings = useCallback(() => {
     const nextValue = !debugTimingsEnabled
@@ -99,17 +117,38 @@ const SettingsScreen: React.FC<Props> = ({
     setIsSharedInviteLoading(false)
   }, [onLoadSharedInvite])
 
+  const loadSharedMembers = useCallback(async () => {
+    if (!onLoadSharedMembers) return
+    setSharedMembersError(null)
+    setSharedMembersNotice(null)
+    setIsSharedMembersLoading(true)
+    const result = await onLoadSharedMembers()
+    if (result.error) {
+      setSharedMembersError(result.error)
+      setSharedMembers([])
+    } else {
+      setSharedMembers(result.members)
+    }
+    setIsSharedMembersLoading(false)
+  }, [onLoadSharedMembers])
+
   const openSharedAccessSheet = useCallback(() => {
     setIsSharedAccessSheetOpen(true)
-    void loadSharedInvite()
-  }, [loadSharedInvite])
+    void (async () => {
+      await loadSharedInvite()
+      await loadSharedMembers()
+    })()
+  }, [loadSharedInvite, loadSharedMembers])
 
   const closeSharedAccessSheet = useCallback(() => {
-    if (isSharedInviteRegenerating) return
+    if (isSharedInviteRegenerating || isSharedMemberRemoving) return
     setIsSharedAccessSheetOpen(false)
     setSharedInviteError(null)
     setSharedInviteNotice(null)
-  }, [isSharedInviteRegenerating])
+    setSharedMembersError(null)
+    setSharedMembersNotice(null)
+    setMemberToRemove(null)
+  }, [isSharedInviteRegenerating, isSharedMemberRemoving])
 
   const sharedInviteUrl = useMemo(() => {
     if (!sharedInvite?.code) return ""
@@ -138,6 +177,31 @@ const SettingsScreen: React.FC<Props> = ({
     }
     setSharedInvite(result.invite)
   }, [isSharedInviteRegenerating, onRegenerateSharedInvite])
+
+  const handleOpenMemberRemove = useCallback((member: SharedWorkspaceMember) => {
+    setSharedMembersError(null)
+    setSharedMembersNotice(null)
+    setMemberToRemove(member)
+  }, [])
+
+  const handleCloseMemberRemove = useCallback(() => {
+    if (isSharedMemberRemoving) return
+    setMemberToRemove(null)
+  }, [isSharedMemberRemoving])
+
+  const handleConfirmMemberRemove = useCallback(async () => {
+    if (!memberToRemove || !onRemoveSharedMember || isSharedMemberRemoving) return
+    setSharedMembersError(null)
+    setSharedMembersNotice(null)
+    const result = await onRemoveSharedMember(memberToRemove.userId)
+    if (!result.ok) {
+      setSharedMembersError(result.error ?? "Не удалось удалить участника")
+      return
+    }
+    setMemberToRemove(null)
+    await loadSharedMembers()
+    setSharedMembersNotice("Участник удален")
+  }, [isSharedMemberRemoving, loadSharedMembers, memberToRemove, onRemoveSharedMember])
 
   const openResetSheet = useCallback(() => {
     setResetError(null)
@@ -198,6 +262,18 @@ const SettingsScreen: React.FC<Props> = ({
         item.label.toLowerCase().includes(normalizedCurrencySearch),
     )
   }, [normalizedCurrencySearch])
+
+  const sharedMembersView = useMemo(
+    () =>
+      sharedMembers.map((member) => {
+        const trimmedFirstName = member.firstName?.trim() ?? ""
+        const username = member.username?.trim() ? `@${member.username.trim()}` : null
+        const title = trimmedFirstName || username || `Пользователь ${member.telegramUserId}`
+        const subtitle = member.role === "owner" ? "Создатель пространства" : username ?? `ID: ${member.telegramUserId}`
+        return { ...member, title, subtitle }
+      }),
+    [sharedMembers],
+  )
 
   const listCardStyle: React.CSSProperties = {
     padding: "12px 14px",
@@ -642,6 +718,74 @@ const SettingsScreen: React.FC<Props> = ({
             {sharedInviteError ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{sharedInviteError}</div> : null}
             {sharedInviteNotice ? <div style={{ fontSize: 13, color: "#0369a1" }}>{sharedInviteNotice}</div> : null}
 
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Участники</div>
+              <div
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 12,
+                  background: "#fff",
+                  overflow: "hidden",
+                  maxHeight: 220,
+                  overflowY: "auto",
+                  WebkitOverflowScrolling: "touch",
+                }}
+              >
+                {isSharedMembersLoading ? (
+                  <div style={{ padding: "10px 12px", fontSize: 13, color: "#64748b" }}>Загружаем участников...</div>
+                ) : sharedMembersView.length === 0 ? (
+                  <div style={{ padding: "10px 12px", fontSize: 13, color: "#64748b" }}>Участников пока нет</div>
+                ) : (
+                  sharedMembersView.map((member, index) => (
+                    <div
+                      key={member.userId}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "10px 12px",
+                        borderBottom: index === sharedMembersView.length - 1 ? "none" : "1px solid #f1f5f9",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
+                        <div style={{ fontSize: 13, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {member.title}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {member.subtitle}
+                        </div>
+                      </div>
+                      {member.role === "owner" ? (
+                        <span style={{ fontSize: 11, color: "#0369a1", fontWeight: 600, flex: "0 0 auto" }}>owner</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenMemberRemove(member)}
+                          disabled={isSharedMemberRemoving || isSharedInviteRegenerating}
+                          style={{
+                            padding: "6px 8px",
+                            borderRadius: 8,
+                            border: "1px solid #fecaca",
+                            background: "#fff5f5",
+                            color: "#b91c1c",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: isSharedMemberRemoving || isSharedInviteRegenerating ? "not-allowed" : "pointer",
+                            opacity: isSharedMemberRemoving || isSharedInviteRegenerating ? 0.65 : 1,
+                            flex: "0 0 auto",
+                          }}
+                        >
+                          Удалить
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+              {sharedMembersError ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{sharedMembersError}</div> : null}
+              {sharedMembersNotice ? <div style={{ fontSize: 13, color: "#0369a1" }}>{sharedMembersNotice}</div> : null}
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
               <button
                 type="button"
@@ -665,7 +809,7 @@ const SettingsScreen: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={handleRegenerateSharedInvite}
-                disabled={isSharedInviteLoading || isSharedInviteRegenerating}
+                disabled={isSharedInviteLoading || isSharedInviteRegenerating || isSharedMemberRemoving}
                 style={{
                   padding: "11px 14px",
                   borderRadius: 12,
@@ -674,11 +818,82 @@ const SettingsScreen: React.FC<Props> = ({
                   color: "#fff",
                   fontSize: 14,
                   fontWeight: 600,
-                  cursor: isSharedInviteLoading || isSharedInviteRegenerating ? "not-allowed" : "pointer",
-                  opacity: isSharedInviteLoading || isSharedInviteRegenerating ? 0.7 : 1,
+                  cursor: isSharedInviteLoading || isSharedInviteRegenerating || isSharedMemberRemoving ? "not-allowed" : "pointer",
+                  opacity: isSharedInviteLoading || isSharedInviteRegenerating || isSharedMemberRemoving ? 0.7 : 1,
                 }}
               >
                 {isSharedInviteRegenerating ? "Обновляем..." : sharedInvite ? "Перевыпустить ссылку" : "Создать ссылку"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {memberToRemove ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={handleCloseMemberRemove}
+          className="tx-modal__backdrop"
+          style={{
+            alignItems: "center",
+            padding: "12px 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              borderRadius: 18,
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 20px 45px rgba(15, 23, 42, 0.14)",
+              padding: 16,
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Удалить участника?</div>
+            <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>
+              Пользователь будет исключен из общего пространства и потеряет к нему доступ.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              <button
+                type="button"
+                onClick={handleCloseMemberRemove}
+                disabled={isSharedMemberRemoving}
+                style={{
+                  padding: "11px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #e2e8f0",
+                  background: "#fff",
+                  color: "#0f172a",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: isSharedMemberRemoving ? "not-allowed" : "pointer",
+                  opacity: isSharedMemberRemoving ? 0.6 : 1,
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmMemberRemove}
+                disabled={isSharedMemberRemoving}
+                style={{
+                  padding: "11px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #b91c1c",
+                  background: "#b91c1c",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: isSharedMemberRemoving ? "not-allowed" : "pointer",
+                  opacity: isSharedMemberRemoving ? 0.7 : 1,
+                }}
+              >
+                {isSharedMemberRemoving ? "Удаляем..." : "Удалить"}
               </button>
             </div>
           </div>

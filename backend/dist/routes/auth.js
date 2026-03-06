@@ -18,6 +18,12 @@ async function authRoutes(fastify, _opts) {
             const ad = params?.get("auth_date");
             return ad ? Number(ad) : undefined;
         })();
+        const startParam = (() => {
+            const params = initDataRaw ? new URLSearchParams(initDataRaw) : null;
+            const value = params?.get("start_param")?.trim();
+            return value && value.length > 0 ? value : null;
+        })();
+        const isInviteStartParam = Boolean(startParam && startParam.startsWith("join_"));
         if (!env_1.env.BOT_TOKEN) {
             fastify.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason: "missing_bot_token" });
             return reply.status(401).send({ error: "Unauthorized", reason: "missing_bot_token" });
@@ -43,7 +49,7 @@ async function authRoutes(fastify, _opts) {
         }
         await prisma_1.prisma.$transaction(async (tx) => {
             const membershipCount = await tx.workspace_members.count({ where: { user_id: user.id } });
-            if (membershipCount === 0) {
+            if (membershipCount === 0 && !isInviteStartParam) {
                 const workspace = await tx.workspaces.create({
                     data: {
                         type: "personal",
