@@ -187,6 +187,7 @@ async function goalsRoutes(fastify, _opts) {
                 await tx.transactions.create({
                     data: {
                         workspace_id: workspaceId,
+                        created_by_user_id: userId,
                         kind: "transfer",
                         amount: amountDec,
                         happened_at: new Date(),
@@ -258,6 +259,7 @@ async function goalsRoutes(fastify, _opts) {
             await tx.transactions.create({
                 data: {
                     workspace_id: workspaceId,
+                    created_by_user_id: userId,
                     kind: "transfer",
                     amount: amountDec,
                     happened_at: happenedAt,

@@ -23,6 +23,8 @@ type TransactionResponse = {
   goalName?: string | null
   debtorId: string | null
   debtorName?: string | null
+  createdByUserId: string | null
+  createdByName?: string | null
 }
 
 export type TransactionCreateInput = {
@@ -96,6 +98,16 @@ async function resolveUserId(request: any, reply: any): Promise<string | null> {
   return userId
 }
 
+function resolveTransactionAuthorName(tx: any): string | null {
+  const creator = tx.created_by
+  if (!creator) return null
+  const firstName = creator.first_name?.trim()
+  if (firstName) return firstName
+  const username = creator.username?.trim()
+  if (username) return `@${username}`
+  return "Пользователь"
+}
+
 function mapTx(tx: any): TransactionResponse {
   return {
     id: tx.id,
@@ -115,12 +127,15 @@ function mapTx(tx: any): TransactionResponse {
     goalName: tx.goal?.name ?? null,
     debtorId: tx.debtor_id ?? null,
     debtorName: tx.debtor?.name ?? null,
+    createdByUserId: tx.created_by_user_id ?? null,
+    createdByName: resolveTransactionAuthorName(tx),
   }
 }
 
 export async function createWorkspaceTransaction(
   workspaceId: string,
   body: TransactionCreateInput,
+  createdByUserId?: string | null,
 ): Promise<TransactionResponse> {
   if (!body?.kind || (body.kind !== "income" && body.kind !== "expense" && body.kind !== "transfer")) {
     throw new CreateTransactionError(400, "invalid_kind")
@@ -195,6 +210,7 @@ export async function createWorkspaceTransaction(
       return trx.transactions.create({
         data: {
           workspace_id: workspaceId,
+          created_by_user_id: createdByUserId ?? null,
           kind,
           amount,
           happened_at: happenedAt,
@@ -231,6 +247,7 @@ export async function createWorkspaceTransaction(
       return trx.transactions.create({
         data: {
           workspace_id: workspaceId,
+          created_by_user_id: createdByUserId ?? null,
           kind,
           amount,
           happened_at: happenedAt,
@@ -276,6 +293,7 @@ export async function createWorkspaceTransaction(
       return trx.transactions.create({
         data: {
           workspace_id: workspaceId,
+          created_by_user_id: createdByUserId ?? null,
           kind,
           amount,
           happened_at: happenedAt,
@@ -315,6 +333,7 @@ export async function createWorkspaceTransaction(
     return trx.transactions.create({
       data: {
         workspace_id: workspaceId,
+        created_by_user_id: createdByUserId ?? null,
         kind,
         amount,
         happened_at: happenedAt,
@@ -348,6 +367,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
       },
       orderBy: { happened_at: "desc" },
       include: {
+        created_by: { select: { id: true, first_name: true, username: true } },
         account: { select: { id: true, name: true } },
         from_account: { select: { id: true, name: true } },
         to_account: { select: { id: true, name: true } },
@@ -371,7 +391,7 @@ export async function transactionsRoutes(fastify: FastifyInstance, _opts: Fastif
 
     const body = request.body as TransactionCreateInput
     try {
-      const transaction = await createWorkspaceTransaction(user.active_workspace_id, body)
+      const transaction = await createWorkspaceTransaction(user.active_workspace_id, body, userId)
       return reply.send({ transaction })
     } catch (error) {
       if (error instanceof CreateTransactionError) {

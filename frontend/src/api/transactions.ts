@@ -18,6 +18,8 @@ export type TransactionDto = {
   goalName?: string | null
   debtorId?: string | null
   debtorName?: string | null
+  createdByUserId?: string | null
+  createdByName?: string | null
 }
 
 export type GetTransactionsResponse = {

@@ -1017,6 +1017,8 @@ function OverviewScreen({
       goalName: t.goalName ?? null,
       debtorId: t.debtorId ?? undefined,
       debtorName: t.debtorName ?? null,
+      createdByUserId: t.createdByUserId ?? null,
+      createdByName: t.createdByName ?? null,
     }))
     setTransactions(mapped)
   }, [setTransactions, token])
@@ -2340,6 +2342,15 @@ function TransactionsPanel({
     },
     [accountNameById, isPayableDebtRepaymentTx],
   )
+  const getTxCreatorLabel = useCallback(
+    (tx: Transaction) => {
+      if (activeSpaceKey !== "family") return null
+      if (!tx.createdByUserId) return null
+      const authorName = tx.createdByName?.trim() || "Пользователь"
+      return `Добавил: ${authorName}`
+    },
+    [activeSpaceKey],
+  )
 
   const displayTransactions = useMemo(() => transactions.filter((t) => t.type !== "adjustment"), [transactions])
 
@@ -3105,6 +3116,7 @@ function TransactionsPanel({
                     const sign = isIncome ? "+" : isExpense ? "-" : ""
                     const color = isIncome ? "#16a34a" : "#0f172a"
                     const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
+                    const creatorLabel = getTxCreatorLabel(tx)
                     return (
                       <div
                         key={tx.id}
@@ -3123,6 +3135,7 @@ function TransactionsPanel({
                               ? getGoalTransferTitle(tx)
                               : "Перевод"}
                           </div>
+                          {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
                         </div>
 
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -3298,6 +3311,7 @@ function TransactionsPanel({
                     renderRow={(tx, idx) => {
                       const displayAccountName = getTxAccountName(tx)
                       const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
+                      const creatorLabel = getTxCreatorLabel(tx)
                       return (
                         <div
                           key={tx.id}
@@ -3306,6 +3320,7 @@ function TransactionsPanel({
                         >
                           <div style={{ display: "grid", gap: 2 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
+                            {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
@@ -3500,6 +3515,7 @@ function TransactionsPanel({
                     renderRow={(tx, idx) => {
                       const displayAccountName = getTxAccountName(tx)
                       const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
+                      const creatorLabel = getTxCreatorLabel(tx)
                       return (
                         <div
                           key={tx.id}
@@ -3508,6 +3524,7 @@ function TransactionsPanel({
                         >
                           <div style={{ display: "grid", gap: 2 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
+                            {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
@@ -3703,6 +3720,7 @@ function TransactionsPanel({
                     renderRow={(tx, idx) => {
                       const displayName = getDebtTxDebtorLabel(tx) ?? "Операция"
                       const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
+                      const creatorLabel = getTxCreatorLabel(tx)
                       return (
                         <div
                           key={tx.id}
@@ -3711,6 +3729,7 @@ function TransactionsPanel({
                         >
                           <div style={{ display: "grid", gap: 2 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
+                            {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
@@ -3921,6 +3940,7 @@ function TransactionsPanel({
                     renderRow={(tx, idx) => {
                       const displayName = tx.accountName ?? "Операция"
                       const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
+                      const creatorLabel = getTxCreatorLabel(tx)
                       return (
                         <div
                           key={tx.id}
@@ -3929,6 +3949,7 @@ function TransactionsPanel({
                         >
                           <div style={{ display: "grid", gap: 2 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
+                            {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>

@@ -60,6 +60,18 @@ async function resolveUserId(request, reply) {
     }
     return userId;
 }
+function resolveTransactionAuthorName(tx) {
+    const creator = tx.created_by;
+    if (!creator)
+        return null;
+    const firstName = creator.first_name?.trim();
+    if (firstName)
+        return firstName;
+    const username = creator.username?.trim();
+    if (username)
+        return `@${username}`;
+    return "Пользователь";
+}
 function mapTx(tx) {
     return {
         id: tx.id,
@@ -79,9 +91,11 @@ function mapTx(tx) {
         goalName: tx.goal?.name ?? null,
         debtorId: tx.debtor_id ?? null,
         debtorName: tx.debtor?.name ?? null,
+        createdByUserId: tx.created_by_user_id ?? null,
+        createdByName: resolveTransactionAuthorName(tx),
     };
 }
-async function createWorkspaceTransaction(workspaceId, body) {
+async function createWorkspaceTransaction(workspaceId, body, createdByUserId) {
     if (!body?.kind || (body.kind !== "income" && body.kind !== "expense" && body.kind !== "transfer")) {
         throw new CreateTransactionError(400, "invalid_kind");
     }
@@ -142,6 +156,7 @@ async function createWorkspaceTransaction(workspaceId, body) {
             return trx.transactions.create({
                 data: {
                     workspace_id: workspaceId,
+                    created_by_user_id: createdByUserId ?? null,
                     kind,
                     amount,
                     happened_at: happenedAt,
@@ -173,6 +188,7 @@ async function createWorkspaceTransaction(workspaceId, body) {
             return trx.transactions.create({
                 data: {
                     workspace_id: workspaceId,
+                    created_by_user_id: createdByUserId ?? null,
                     kind,
                     amount,
                     happened_at: happenedAt,
@@ -211,6 +227,7 @@ async function createWorkspaceTransaction(workspaceId, body) {
             return trx.transactions.create({
                 data: {
                     workspace_id: workspaceId,
+                    created_by_user_id: createdByUserId ?? null,
                     kind,
                     amount,
                     happened_at: happenedAt,
@@ -244,6 +261,7 @@ async function createWorkspaceTransaction(workspaceId, body) {
         return trx.transactions.create({
             data: {
                 workspace_id: workspaceId,
+                created_by_user_id: createdByUserId ?? null,
                 kind,
                 amount,
                 happened_at: happenedAt,
@@ -273,6 +291,7 @@ async function transactionsRoutes(fastify, _opts) {
             },
             orderBy: { happened_at: "desc" },
             include: {
+                created_by: { select: { id: true, first_name: true, username: true } },
                 account: { select: { id: true, name: true } },
                 from_account: { select: { id: true, name: true } },
                 to_account: { select: { id: true, name: true } },
@@ -293,7 +312,7 @@ async function transactionsRoutes(fastify, _opts) {
         }
         const body = request.body;
         try {
-            const transaction = await createWorkspaceTransaction(user.active_workspace_id, body);
+            const transaction = await createWorkspaceTransaction(user.active_workspace_id, body, userId);
             return reply.send({ transaction });
         }
         catch (error) {

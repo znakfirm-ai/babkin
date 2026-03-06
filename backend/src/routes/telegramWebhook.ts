@@ -52,6 +52,7 @@ type DraftLookup = {
 }
 
 type DraftEntry = {
+  userId: string
   telegramUserId: string
   chatId: string
   workspaceId: string
@@ -475,13 +476,13 @@ function buildCreateInputFromDraft(draft: OperationDraftResolved): TransactionCr
 
 async function loadOperationContextByTelegramUserId(
   telegramUserId: string,
-): Promise<{ workspaceId: string; context: OperationContext } | null> {
+): Promise<{ userId: string; workspaceId: string; context: OperationContext } | null> {
   const user = await prisma.users.findUnique({
     where: { telegram_user_id: telegramUserId },
-    select: { active_workspace_id: true },
+    select: { id: true, active_workspace_id: true },
   })
   const workspaceId = user?.active_workspace_id ?? null
-  if (!workspaceId) return null
+  if (!workspaceId || !user?.id) return null
 
   const accounts = await prisma.accounts.findMany({
     where: { workspace_id: workspaceId, is_archived: false, archived_at: null },
@@ -509,6 +510,7 @@ async function loadOperationContextByTelegramUserId(
   })
 
   return {
+    userId: user.id,
     workspaceId,
     context: {
       accounts: accounts.map((account) => ({ id: account.id, name: account.name, currency: account.currency })),
@@ -592,6 +594,7 @@ async function handleParsedOperationResult(
     telegramUserId: string
     chatId: string
     workspaceId: string
+    userId: string
     context: OperationContext
     messageId: number | undefined
     sourceText: string
@@ -604,6 +607,7 @@ async function handleParsedOperationResult(
     telegramUserId,
     chatId,
     workspaceId,
+    userId,
     context,
     messageId,
     sourceText,
@@ -642,6 +646,7 @@ async function handleParsedOperationResult(
   }
   const lookup = toLookup(context)
   draftStore.set(draftId, {
+    userId,
     telegramUserId,
     chatId,
     workspaceId,
@@ -725,7 +730,7 @@ async function handleDraftCallback(
       return
     }
     try {
-      await createWorkspaceTransaction(draft.workspaceId, createInput)
+      await createWorkspaceTransaction(draft.workspaceId, createInput, draft.userId)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       fastify.log.error(`[apply] error ${draft.telegramUserId} ${parsedAction.draftId} ${message}`)
@@ -988,7 +993,7 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
           await sendTelegramMessage(fastify, chatId, "Не понял чек, уточни")
           return reply.send({ ok: true })
         }
-        const { workspaceId, context } = loadedContext
+        const { userId, workspaceId, context } = loadedContext
         const receiptParseText = buildReceiptParseText(receipt)
 
         try {
@@ -997,6 +1002,7 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
             parsedOperation,
             telegramUserId,
             chatId,
+            userId,
             workspaceId,
             context,
             messageId,
@@ -1041,7 +1047,7 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
           await sendTelegramMessage(fastify, chatId, "Не понял, уточни")
           return reply.send({ ok: true })
         }
-        const { workspaceId, context } = loadedContext
+        const { userId, workspaceId, context } = loadedContext
 
         try {
           const parsedOperation = await parseOperationFromText(transcript, context)
@@ -1049,6 +1055,7 @@ export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: Fas
             parsedOperation,
             telegramUserId,
             chatId,
+            userId,
             workspaceId,
             context,
             messageId,

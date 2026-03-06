@@ -75,6 +75,8 @@ type BootstrapResponse = {
     goalName: string | null
     debtorId: string | null
     debtorName: string | null
+    createdByUserId: string | null
+    createdByName: string | null
   }>
 }
 
@@ -139,11 +141,13 @@ const mapTx = (tx: {
   income_source_id: string | null
   goal_id: string | null
   debtor_id: string | null
+  created_by_user_id: string | null
   account: { id: string; name: string } | null
   from_account: { id: string; name: string } | null
   to_account: { id: string; name: string } | null
   goal: { id: string; name: string } | null
   debtor: { id: string; name: string } | null
+  created_by: { id: string; first_name: string | null; username: string | null } | null
 }) => ({
   id: tx.id,
   kind: tx.kind,
@@ -162,6 +166,8 @@ const mapTx = (tx: {
   goalName: tx.goal?.name ?? null,
   debtorId: tx.debtor_id ?? null,
   debtorName: tx.debtor?.name ?? null,
+  createdByUserId: tx.created_by_user_id ?? null,
+  createdByName: tx.created_by?.first_name?.trim() || (tx.created_by?.username ? `@${tx.created_by.username}` : null),
 })
 
 export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -228,6 +234,7 @@ export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPl
       where: { workspace_id: workspaceId },
       orderBy: { happened_at: "desc" },
       include: {
+        created_by: { select: { id: true, first_name: true, username: true } },
         account: { select: { id: true, name: true } },
         from_account: { select: { id: true, name: true } },
         to_account: { select: { id: true, name: true } },

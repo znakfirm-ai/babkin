@@ -273,6 +273,7 @@ async function accountsRoutes(fastify, _opts) {
             await trx.transactions.create({
                 data: {
                     workspace_id: workspaceId,
+                    created_by_user_id: userId,
                     kind: "adjustment",
                     amount: absDiff,
                     happened_at: happenedAt,
