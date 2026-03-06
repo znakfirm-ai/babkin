@@ -406,20 +406,20 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
       await tx.transactions.deleteMany({
         where: { workspace_id: workspaceId },
       })
-      await tx.goals.deleteMany({
-        where: { workspace_id: workspaceId },
-      })
       await tx.debtors.deleteMany({
         where: { workspace_id: workspaceId },
       })
+      await tx.goals.deleteMany({
+        where: { workspace_id: workspaceId },
+      })
       await tx.accounts.deleteMany({
-        where: { workspace_id: workspaceId, is_default: false },
+        where: { workspace_id: workspaceId },
       })
       await tx.income_sources.deleteMany({
-        where: { workspace_id: workspaceId, is_default: false },
+        where: { workspace_id: workspaceId },
       })
       await tx.categories.deleteMany({
-        where: { workspace_id: workspaceId, is_default: false },
+        where: { workspace_id: workspaceId },
       })
       await seedWorkspaceDefaults(tx, workspaceId)
     })
