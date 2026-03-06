@@ -3,6 +3,7 @@ import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { isDebugTimingsStorageEnabled, setDebugTimingsStorageEnabled } from "../utils/debugTimings"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
+import { buildSharedWorkspaceInviteUrl } from "../utils/sharedInviteLink"
 
 type SharedWorkspaceInvite = {
   code: string
@@ -110,10 +111,8 @@ const SettingsScreen: React.FC<Props> = ({
   }, [isSharedInviteRegenerating])
 
   const sharedInviteUrl = useMemo(() => {
-    if (!sharedInvite?.code || typeof window === "undefined") return ""
-    const url = new URL(window.location.href)
-    url.searchParams.set("invite", sharedInvite.code)
-    return url.toString()
+    if (!sharedInvite?.code) return ""
+    return buildSharedWorkspaceInviteUrl(sharedInvite.code)
   }, [sharedInvite?.code])
 
   const handleCopySharedInvite = useCallback(async () => {
@@ -620,10 +619,14 @@ const SettingsScreen: React.FC<Props> = ({
                 minHeight: 44,
                 display: "flex",
                 alignItems: "center",
+                overflow: "hidden",
               }}
             >
               <span
                 style={{
+                  display: "block",
+                  flex: 1,
+                  minWidth: 0,
                   fontSize: 13,
                   color: sharedInviteUrl ? "#0f172a" : "#94a3b8",
                   whiteSpace: "nowrap",

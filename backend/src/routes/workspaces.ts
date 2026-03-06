@@ -8,7 +8,7 @@ import { env } from "../env"
 import { seedWorkspaceDefaults } from "../defaults/workspaceDefaults"
 import { canUseSharedWorkspaceFeature } from "../policies/sharedWorkspaceAccess"
 
-const INVITE_CODE_BYTES = 18
+const INVITE_CODE_BYTES = 8
 const INVITE_EXPIRES_IN_MS = 7 * 24 * 60 * 60 * 1000
 
 const buildInviteCode = () => crypto.randomBytes(INVITE_CODE_BYTES).toString("base64url")

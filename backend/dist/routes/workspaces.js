@@ -12,7 +12,7 @@ const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
 const workspaceDefaults_1 = require("../defaults/workspaceDefaults");
 const sharedWorkspaceAccess_1 = require("../policies/sharedWorkspaceAccess");
-const INVITE_CODE_BYTES = 18;
+const INVITE_CODE_BYTES = 8;
 const INVITE_EXPIRES_IN_MS = 7 * 24 * 60 * 60 * 1000;
 const buildInviteCode = () => crypto_1.default.randomBytes(INVITE_CODE_BYTES).toString("base64url");
 const buildInviteExpiry = () => new Date(Date.now() + INVITE_EXPIRES_IN_MS);
