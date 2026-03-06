@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TELEGRAM_INITDATA_HEADER = void 0;
+exports.validateInitDataUserOnly = validateInitDataUserOnly;
 exports.validateInitData = validateInitData;
 exports.telegramAuth = telegramAuth;
 const crypto_1 = __importDefault(require("crypto"));
@@ -46,40 +47,43 @@ function isSignatureValid(params, botToken) {
     return timingSafeEqualHex(hmac, hash);
 }
 async function ensureUserAndWorkspace(tgUser) {
-    const telegramUserId = String(tgUser.id);
-    const firstName = tgUser.first_name ?? null;
-    const username = tgUser.username ?? null;
-    const user = await prisma_1.prisma.users.upsert({
-        where: { telegram_user_id: telegramUserId },
-        create: { telegram_user_id: telegramUserId, first_name: firstName, username },
-        update: { first_name: firstName, username },
-    });
-    let activeWorkspaceId = user.active_workspace_id;
+    const baseUser = await ensureTelegramUser(tgUser);
+    let activeWorkspaceId = baseUser.active_workspace_id;
     if (!activeWorkspaceId) {
         const personal = await prisma_1.prisma.workspaces.create({
             data: {
                 type: "personal",
                 name: null,
-                created_by_user_id: user.id,
+                created_by_user_id: baseUser.id,
                 workspace_members: {
-                    create: { user_id: user.id, role: "owner" },
+                    create: { user_id: baseUser.id, role: "owner" },
                 },
             },
         });
         await (0, workspaceDefaults_1.seedWorkspaceDefaults)(prisma_1.prisma, personal.id);
         await prisma_1.prisma.users.update({
-            where: { id: user.id },
+            where: { id: baseUser.id },
             data: { active_workspace_id: personal.id },
         });
         activeWorkspaceId = personal.id;
     }
     return {
-        userId: user.id,
-        telegramUserId,
+        userId: baseUser.id,
+        telegramUserId: baseUser.telegram_user_id,
         activeWorkspaceId,
     };
 }
-async function validateInitData(initDataRaw) {
+async function ensureTelegramUser(tgUser) {
+    const telegramUserId = String(tgUser.id);
+    const firstName = tgUser.first_name ?? null;
+    const username = tgUser.username ?? null;
+    return prisma_1.prisma.users.upsert({
+        where: { telegram_user_id: telegramUserId },
+        create: { telegram_user_id: telegramUserId, first_name: firstName, username },
+        update: { first_name: firstName, username },
+    });
+}
+const parseAndValidateInitDataUser = (initDataRaw) => {
     const params = parseInitData(initDataRaw ?? null);
     if (!params) {
         return null;
@@ -99,6 +103,24 @@ async function validateInitData(initDataRaw) {
         return null;
     }
     if (!tgUser || typeof tgUser.id !== "number") {
+        return null;
+    }
+    return tgUser;
+};
+async function validateInitDataUserOnly(initDataRaw) {
+    const tgUser = parseAndValidateInitDataUser(initDataRaw);
+    if (!tgUser) {
+        return null;
+    }
+    const user = await ensureTelegramUser(tgUser);
+    return {
+        userId: user.id,
+        telegramUserId: user.telegram_user_id,
+    };
+}
+async function validateInitData(initDataRaw) {
+    const tgUser = parseAndValidateInitDataUser(initDataRaw);
+    if (!tgUser) {
         return null;
     }
     return ensureUserAndWorkspace(tgUser);
