@@ -617,6 +617,23 @@
   gap: 4px;
   width: fit-content;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+.home-split-banner__period-btn:hover,
+.home-split-banner__period-btn:active,
+.home-split-banner__period-btn:focus,
+.home-split-banner__period-btn:focus-visible,
+.home-split-banner__period-btn[aria-expanded="true"] {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #0f172a;
+  outline: none;
+  box-shadow: none;
 }
 
 .home-split-banner__period-caret {

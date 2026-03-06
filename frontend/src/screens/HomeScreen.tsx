@@ -952,7 +952,7 @@ function HomeScreen({
                   padding: "2px 6px",
                   borderRadius: 8,
                   border: "1px solid #e5e7eb",
-                  background: "var(--tg-theme-bg-color, #f5f6f8)",
+                  background: "#f5f6f8",
                   color: "#0f172a",
                   fontWeight: 600,
                   fontSize: 9,
