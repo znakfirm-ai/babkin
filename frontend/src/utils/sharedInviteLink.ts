@@ -31,6 +31,7 @@ const buildFallbackWebInviteUrl = (inviteCode: string): string => {
 
 type BuildInviteLinkOptions = {
   botUsername?: string | null
+  miniAppPath?: string | null
 }
 
 export const buildSharedWorkspaceInviteUrl = (inviteCode: string, options?: BuildInviteLinkOptions): string => {
@@ -42,5 +43,8 @@ export const buildSharedWorkspaceInviteUrl = (inviteCode: string, options?: Buil
     return buildFallbackWebInviteUrl(code)
   }
 
-  return `https://t.me/${botUsername}?startapp=${encodeURIComponent(`${TELEGRAM_INVITE_PREFIX}${code}`)}`
+  const normalizedMiniAppPath = options?.miniAppPath?.trim().replace(/^\/+/, "").replace(/\/+$/, "")
+  const fromEnv = import.meta.env.VITE_TELEGRAM_MINI_APP_PATH?.trim().replace(/^\/+/, "").replace(/\/+$/, "")
+  const miniAppPath = normalizedMiniAppPath || fromEnv || "app"
+  return `https://t.me/${botUsername}/${miniAppPath}?startapp=${encodeURIComponent(`${TELEGRAM_INVITE_PREFIX}${code}`)}`
 }

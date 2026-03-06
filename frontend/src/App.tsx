@@ -125,18 +125,26 @@ const resolveLaunchInviteCode = (): string | null => {
   const directInviteCode = normalizeInviteCode(searchParams.get("invite"))
   if (directInviteCode) return directInviteCode
 
-  const inviteFromStartApp = normalizeInviteCodeFromStartParam(searchParams.get("startapp"))
+  const inviteFromStartApp = normalizeInviteCodeFromStartParam(searchParams.get("startapp")) ?? normalizeInviteCode(searchParams.get("startapp"))
   if (inviteFromStartApp) return inviteFromStartApp
 
-  const inviteFromStart = normalizeInviteCodeFromStartParam(searchParams.get("start"))
+  const inviteFromStart = normalizeInviteCodeFromStartParam(searchParams.get("start")) ?? normalizeInviteCode(searchParams.get("start"))
   if (inviteFromStart) return inviteFromStart
 
-  const inviteFromTelegramStartParam = normalizeInviteCodeFromStartParam(searchParams.get("tgWebAppStartParam"))
+  const inviteFromTelegramStartParam =
+    normalizeInviteCodeFromStartParam(searchParams.get("tgWebAppStartParam")) ?? normalizeInviteCode(searchParams.get("tgWebAppStartParam"))
   if (inviteFromTelegramStartParam) return inviteFromTelegramStartParam
+
+  const initDataRaw = window.Telegram?.WebApp?.initData
+  if (typeof initDataRaw === "string" && initDataRaw.length > 0) {
+    const initDataParams = new URLSearchParams(initDataRaw)
+    const inviteFromInitData = normalizeInviteCodeFromStartParam(initDataParams.get("start_param")) ?? normalizeInviteCode(initDataParams.get("start_param"))
+    if (inviteFromInitData) return inviteFromInitData
+  }
 
   const initDataUnsafe = window.Telegram?.WebApp?.initDataUnsafe as TelegramInitDataUnsafe | undefined
   if (typeof initDataUnsafe?.start_param === "string") {
-    return normalizeInviteCodeFromStartParam(initDataUnsafe.start_param)
+    return normalizeInviteCodeFromStartParam(initDataUnsafe.start_param) ?? normalizeInviteCode(initDataUnsafe.start_param)
   }
 
   return null
@@ -328,6 +336,7 @@ function App() {
   const [savedCompareReportState, setSavedCompareReportState] = useState<CompareReportState | null>(null)
   const [pendingJoinInviteCode, setPendingJoinInviteCode] = useState<string | null>(() => resolveLaunchInviteCode())
   const [inviteJoinError, setInviteJoinError] = useState<string | null>(null)
+  const inviteCodeHydrationDoneRef = useRef(false)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const { run: runWorkspaceMetaSave, isRunning: isWorkspaceMetaSaveRunning } = useSingleFlight()
   const { run: runWorkspaceReset, isRunning: isWorkspaceResetRunning } = useSingleFlight()
@@ -437,6 +446,17 @@ function App() {
   useEffect(() => {
     activeSpaceKeyRef.current = appActiveSpaceKey
   }, [appActiveSpaceKey])
+
+  useEffect(() => {
+    if (inviteCodeHydrationDoneRef.current) return
+    if (!isTelegram) return
+    inviteCodeHydrationDoneRef.current = true
+    if (pendingJoinInviteCode) return
+    const launchInviteCode = resolveLaunchInviteCode()
+    if (launchInviteCode) {
+      setPendingJoinInviteCode(launchInviteCode)
+    }
+  }, [isTelegram, pendingJoinInviteCode])
 
   const setOverviewStatus = useCallback((spaceKey: SpaceKey, status: BannerLoadStatus) => {
     setOverviewStatusBySpaceKey((prev) => {
