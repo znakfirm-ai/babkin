@@ -607,7 +607,7 @@
   min-height: 24px;
   border-radius: 5px;
   border: 1px solid #e5e7eb;
-  background: #f8fafc;
+  background: #fff;
   color: #0f172a;
   font-weight: 600;
   font-size: 11px;
@@ -630,7 +630,7 @@
 .home-split-banner__period-btn:focus-visible,
 .home-split-banner__period-btn[aria-expanded="true"] {
   border: 1px solid #e5e7eb;
-  background: #f8fafc;
+  background: #fff;
   color: #0f172a;
   outline: none;
   box-shadow: none;
