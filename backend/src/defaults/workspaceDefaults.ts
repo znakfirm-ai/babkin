@@ -14,6 +14,11 @@ export type DefaultsNormalizationReport = {
     accounts: number
     incomeSources: number
   }
+  canonicalized: {
+    categories: number
+    accounts: number
+    incomeSources: number
+  }
   promotedLegacy: {
     categories: number
     accounts: number
@@ -85,6 +90,7 @@ const LEGACY_PROMOTION_UPDATE_DRIFT_MS = 5 * 60 * 1000
 
 const DEFAULT_REPORT: DefaultsNormalizationReport = {
   created: { categories: 0, accounts: 0, incomeSources: 0 },
+  canonicalized: { categories: 0, accounts: 0, incomeSources: 0 },
   promotedLegacy: { categories: 0, accounts: 0, incomeSources: 0 },
   skippedConflicts: { categories: 0, accounts: 0, incomeSources: 0 },
 }
@@ -95,6 +101,9 @@ const categoryKey = (item: { kind: CategoryKind; name: string }) => `${item.kind
 
 const accountKey = (item: { name: string; type: string; currency: string }) =>
   `${normalizeName(item.name)}:${item.type.trim().toLowerCase()}:${item.currency.trim().toUpperCase()}`
+
+const accountSlotKey = (item: { type: string; currency: string }) =>
+  `${item.type.trim().toLowerCase()}:${item.currency.trim().toUpperCase()}`
 
 const incomeSourceKey = (item: { name: string }) => normalizeName(item.name)
 
@@ -133,6 +142,7 @@ const INCOME_SOURCE_LEGACY_ICONS = new Map<string, Set<string | null>>([
 
 const cloneReport = (): DefaultsNormalizationReport => ({
   created: { ...DEFAULT_REPORT.created },
+  canonicalized: { ...DEFAULT_REPORT.canonicalized },
   promotedLegacy: { ...DEFAULT_REPORT.promotedLegacy },
   skippedConflicts: { ...DEFAULT_REPORT.skippedConflicts },
 })
@@ -185,6 +195,9 @@ export const hasDefaultsNormalizationChanges = (report: DefaultsNormalizationRep
   report.created.categories > 0 ||
   report.created.accounts > 0 ||
   report.created.incomeSources > 0 ||
+  report.canonicalized.categories > 0 ||
+  report.canonicalized.accounts > 0 ||
+  report.canonicalized.incomeSources > 0 ||
   report.promotedLegacy.categories > 0 ||
   report.promotedLegacy.accounts > 0 ||
   report.promotedLegacy.incomeSources > 0
@@ -225,13 +238,63 @@ export async function seedWorkspaceDefaults(
     for (const defaultAccount of DEFAULT_WORKSPACE_ACCOUNTS) {
       const key = accountKey(defaultAccount)
       const matching = existingAccounts.filter((item) => accountKey(item) === key)
-      if (matching.some((item) => item.is_default)) continue
+      const matchingDefault = matching.filter((item) => item.is_default)
+      if (matchingDefault.length === 1) {
+        const current = matchingDefault[0]
+        if (current.icon !== defaultAccount.icon || current.name !== defaultAccount.name) {
+          await db.accounts.update({
+            where: { id: current.id },
+            data: {
+              name: defaultAccount.name,
+              type: defaultAccount.type,
+              currency: defaultAccount.currency,
+              icon: defaultAccount.icon,
+              is_default: true,
+            },
+          })
+          report.canonicalized.accounts += 1
+        }
+        continue
+      }
+      if (matchingDefault.length > 1) {
+        report.skippedConflicts.accounts += 1
+        continue
+      }
+
+      const slotMatchingDefault = existingAccounts.filter(
+        (item) => item.is_default && accountSlotKey(item) === accountSlotKey(defaultAccount),
+      )
+      if (slotMatchingDefault.length === 1) {
+        const current = slotMatchingDefault[0]
+        await db.accounts.update({
+          where: { id: current.id },
+          data: {
+            name: defaultAccount.name,
+            type: defaultAccount.type,
+            currency: defaultAccount.currency,
+            icon: defaultAccount.icon,
+            is_default: true,
+          },
+        })
+        report.canonicalized.accounts += 1
+        continue
+      }
+      if (slotMatchingDefault.length > 1) {
+        report.skippedConflicts.accounts += 1
+        continue
+      }
 
       const nonDefault = matching.filter((item) => !item.is_default)
       if (nonDefault.length === 1 && canPromoteLegacyAccount(defaultAccount, nonDefault[0], workspaceCreatedAt)) {
         await db.accounts.update({
           where: { id: nonDefault[0].id },
-          data: { is_default: true },
+          data: {
+            name: defaultAccount.name,
+            type: defaultAccount.type,
+            currency: defaultAccount.currency,
+            icon: defaultAccount.icon,
+            is_default: true,
+          },
         })
         report.promotedLegacy.accounts += 1
         continue
@@ -275,13 +338,59 @@ export async function seedWorkspaceDefaults(
     for (const defaultCategory of DEFAULT_WORKSPACE_CATEGORIES) {
       const key = categoryKey(defaultCategory)
       const matching = existingCategories.filter((item) => categoryKey(item) === key)
-      if (matching.some((item) => item.is_default)) continue
+      const matchingDefault = matching.filter((item) => item.is_default)
+      if (matchingDefault.length === 1) {
+        const current = matchingDefault[0]
+        if (current.icon !== defaultCategory.icon) {
+          await db.categories.update({
+            where: { id: current.id },
+            data: {
+              name: defaultCategory.name,
+              kind: defaultCategory.kind,
+              icon: defaultCategory.icon,
+              is_default: true,
+            },
+          })
+          report.canonicalized.categories += 1
+        }
+        continue
+      }
+      if (matchingDefault.length > 1) {
+        report.skippedConflicts.categories += 1
+        continue
+      }
+
+      const slotMatchingDefault = existingCategories.filter(
+        (item) => item.is_default && item.kind === defaultCategory.kind && (item.icon ?? null) === defaultCategory.icon,
+      )
+      if (slotMatchingDefault.length === 1) {
+        await db.categories.update({
+          where: { id: slotMatchingDefault[0].id },
+          data: {
+            name: defaultCategory.name,
+            kind: defaultCategory.kind,
+            icon: defaultCategory.icon,
+            is_default: true,
+          },
+        })
+        report.canonicalized.categories += 1
+        continue
+      }
+      if (slotMatchingDefault.length > 1) {
+        report.skippedConflicts.categories += 1
+        continue
+      }
 
       const nonDefault = matching.filter((item) => !item.is_default)
       if (nonDefault.length === 1 && canPromoteLegacyCategory(defaultCategory, nonDefault[0], workspaceCreatedAt)) {
         await db.categories.update({
           where: { id: nonDefault[0].id },
-          data: { is_default: true },
+          data: {
+            name: defaultCategory.name,
+            kind: defaultCategory.kind,
+            icon: defaultCategory.icon,
+            is_default: true,
+          },
         })
         report.promotedLegacy.categories += 1
         continue
@@ -321,13 +430,56 @@ export async function seedWorkspaceDefaults(
     for (const defaultSource of DEFAULT_WORKSPACE_INCOME_SOURCES) {
       const key = incomeSourceKey(defaultSource)
       const matching = existingIncomeSources.filter((item) => incomeSourceKey(item) === key)
-      if (matching.some((item) => item.is_default)) continue
+      const matchingDefault = matching.filter((item) => item.is_default)
+      if (matchingDefault.length === 1) {
+        const current = matchingDefault[0]
+        if (current.icon !== defaultSource.icon) {
+          await db.income_sources.update({
+            where: { id: current.id },
+            data: {
+              name: defaultSource.name,
+              icon: defaultSource.icon,
+              is_default: true,
+            },
+          })
+          report.canonicalized.incomeSources += 1
+        }
+        continue
+      }
+      if (matchingDefault.length > 1) {
+        report.skippedConflicts.incomeSources += 1
+        continue
+      }
+
+      const slotMatchingDefault = existingIncomeSources.filter(
+        (item) => item.is_default && (item.icon ?? null) === defaultSource.icon,
+      )
+      if (slotMatchingDefault.length === 1) {
+        await db.income_sources.update({
+          where: { id: slotMatchingDefault[0].id },
+          data: {
+            name: defaultSource.name,
+            icon: defaultSource.icon,
+            is_default: true,
+          },
+        })
+        report.canonicalized.incomeSources += 1
+        continue
+      }
+      if (slotMatchingDefault.length > 1) {
+        report.skippedConflicts.incomeSources += 1
+        continue
+      }
 
       const nonDefault = matching.filter((item) => !item.is_default)
       if (nonDefault.length === 1 && canPromoteLegacyIncomeSource(defaultSource, nonDefault[0], workspaceCreatedAt)) {
         await db.income_sources.update({
           where: { id: nonDefault[0].id },
-          data: { is_default: true },
+          data: {
+            name: defaultSource.name,
+            icon: defaultSource.icon,
+            is_default: true,
+          },
         })
         report.promotedLegacy.incomeSources += 1
         continue

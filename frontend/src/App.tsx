@@ -52,6 +52,15 @@ type CompareReportState = {
 
 const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
 const WORKSPACE_NAME_LIMIT = 32
+const DEFAULT_EXPENSE_CATEGORY_ORDER = ["Еда", "Транспорт", "Здоровье", "Одежда", "Подписки", "Развлечения", "Маркетплейсы", "Прочие"] as const
+const DEFAULT_INCOME_CATEGORY_ORDER = ["Зарплата", "Бизнес", "Прочие"] as const
+const DEFAULT_INCOME_SOURCE_ORDER = ["Зарплата", "Бизнес", "Прочие"] as const
+const DEFAULT_ACCOUNT_ORDER = ["Банк", "Наличные"] as const
+
+const DEFAULT_EXPENSE_CATEGORY_INDEX = new Map<string, number>(DEFAULT_EXPENSE_CATEGORY_ORDER.map((name, index) => [name, index]))
+const DEFAULT_INCOME_CATEGORY_INDEX = new Map<string, number>(DEFAULT_INCOME_CATEGORY_ORDER.map((name, index) => [name, index]))
+const DEFAULT_INCOME_SOURCE_INDEX = new Map<string, number>(DEFAULT_INCOME_SOURCE_ORDER.map((name, index) => [name, index]))
+const DEFAULT_ACCOUNT_INDEX = new Map<string, number>(DEFAULT_ACCOUNT_ORDER.map((name, index) => [name, index]))
 
 const normalizeWorkspaceIcon = (value: string) => {
   const trimmed = value.trim()
@@ -73,6 +82,49 @@ const normalizeWorkspace = (workspace: {
   canResetWorkspace: workspace.canResetWorkspace === true,
 })
 const buildWorkspaceFallbackLabel = (spaceKey: SpaceKey) => (spaceKey === "family" ? "Семейный" : "Личный")
+
+const compareByName = (a: string, b: string) => a.localeCompare(b, "ru-RU")
+
+const sortAccountsCanonical = <T extends { name: string }>(accounts: T[]) =>
+  [...accounts].sort((left, right) => {
+    const leftDefaultIndex = DEFAULT_ACCOUNT_INDEX.get(left.name)
+    const rightDefaultIndex = DEFAULT_ACCOUNT_INDEX.get(right.name)
+    if (leftDefaultIndex !== undefined && rightDefaultIndex !== undefined) return leftDefaultIndex - rightDefaultIndex
+    if (leftDefaultIndex !== undefined) return -1
+    if (rightDefaultIndex !== undefined) return 1
+    return compareByName(left.name, right.name)
+  })
+
+const sortCategoriesCanonical = <T extends { name: string; type: "income" | "expense" }>(categories: T[]) =>
+  [...categories].sort((left, right) => {
+    const leftDefaultIndex =
+      left.type === "expense"
+        ? DEFAULT_EXPENSE_CATEGORY_INDEX.get(left.name)
+        : DEFAULT_INCOME_CATEGORY_INDEX.get(left.name)
+    const rightDefaultIndex =
+      right.type === "expense"
+        ? DEFAULT_EXPENSE_CATEGORY_INDEX.get(right.name)
+        : DEFAULT_INCOME_CATEGORY_INDEX.get(right.name)
+
+    if (leftDefaultIndex !== undefined && rightDefaultIndex !== undefined) {
+      if (left.type !== right.type) return left.type === "expense" ? -1 : 1
+      return leftDefaultIndex - rightDefaultIndex
+    }
+    if (leftDefaultIndex !== undefined) return -1
+    if (rightDefaultIndex !== undefined) return 1
+    if (left.type !== right.type) return left.type === "expense" ? -1 : 1
+    return compareByName(left.name, right.name)
+  })
+
+const sortIncomeSourcesCanonical = <T extends { name: string }>(sources: T[]) =>
+  [...sources].sort((left, right) => {
+    const leftDefaultIndex = DEFAULT_INCOME_SOURCE_INDEX.get(left.name)
+    const rightDefaultIndex = DEFAULT_INCOME_SOURCE_INDEX.get(right.name)
+    if (leftDefaultIndex !== undefined && rightDefaultIndex !== undefined) return leftDefaultIndex - rightDefaultIndex
+    if (leftDefaultIndex !== undefined) return -1
+    if (rightDefaultIndex !== undefined) return 1
+    return compareByName(left.name, right.name)
+  })
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
 type ErrorBoundaryState = { hasError: boolean; error: Error | null }
@@ -407,7 +459,7 @@ function App() {
           color: a.color ?? undefined,
           icon: a.icon ?? null,
         }))
-        setAccounts(mappedAccounts)
+        setAccounts(sortAccountsCanonical(mappedAccounts))
 
         const mappedCategories = bootstrapData.categories.map((c) => ({
           id: c.id,
@@ -416,10 +468,10 @@ function App() {
           icon: c.icon,
           budget: c.budget ?? null,
         }))
-        setCategories(mappedCategories)
+        setCategories(sortCategoriesCanonical(mappedCategories))
 
         const mappedIncomeSources = bootstrapData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
-        setIncomeSources(mappedIncomeSources)
+        setIncomeSources(sortIncomeSourcesCanonical(mappedIncomeSources))
 
         const mappedGoals = bootstrapData.goals.map((g) => ({
           id: g.id,
@@ -537,21 +589,21 @@ function App() {
           color: a.color ?? undefined,
           icon: a.icon ?? null,
         }))
-        setAccounts(mappedAccounts)
+        setAccounts(sortAccountsCanonical(mappedAccounts))
 
         const catData = await getCategories(appToken)
         if (isStale()) {
           return false
         }
         const mappedCategories = catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null }))
-        setCategories(mappedCategories)
+        setCategories(sortCategoriesCanonical(mappedCategories))
 
         const incData = await getIncomeSources(appToken)
         if (isStale()) {
           return false
         }
         const mappedIncomeSources = incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
-        setIncomeSources(mappedIncomeSources)
+        setIncomeSources(sortIncomeSourcesCanonical(mappedIncomeSources))
 
         const goalsData = await getGoals(appToken)
         if (isStale()) {
