@@ -10,6 +10,7 @@ type SharedWorkspaceInvite = {
   expiresAt: string | null
   maxUses: number | null
   usesCount: number
+  botUsername?: string | null
 }
 
 type Props = {
@@ -112,8 +113,8 @@ const SettingsScreen: React.FC<Props> = ({
 
   const sharedInviteUrl = useMemo(() => {
     if (!sharedInvite?.code) return ""
-    return buildSharedWorkspaceInviteUrl(sharedInvite.code)
-  }, [sharedInvite?.code])
+    return buildSharedWorkspaceInviteUrl(sharedInvite.code, { botUsername: sharedInvite.botUsername })
+  }, [sharedInvite?.botUsername, sharedInvite?.code])
 
   const handleCopySharedInvite = useCallback(async () => {
     if (!sharedInviteUrl) return

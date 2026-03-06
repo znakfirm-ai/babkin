@@ -12,6 +12,7 @@ const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
 const workspaceDefaults_1 = require("../defaults/workspaceDefaults");
 const sharedWorkspaceAccess_1 = require("../policies/sharedWorkspaceAccess");
+const telegramBotUsername_1 = require("../utils/telegramBotUsername");
 const INVITE_CODE_BYTES = 8;
 const INVITE_EXPIRES_IN_MS = 7 * 24 * 60 * 60 * 1000;
 const buildInviteCode = () => crypto_1.default.randomBytes(INVITE_CODE_BYTES).toString("base64url");
@@ -446,7 +447,7 @@ async function workspacesRoutes(fastify, _opts) {
                 workspace_id: workspaceId,
                 is_revoked: false,
             },
-            orderBy: { created_at: "desc" },
+            orderBy: [{ created_at: "desc" }, { id: "desc" }],
             select: {
                 id: true,
                 code: true,
@@ -455,8 +456,9 @@ async function workspacesRoutes(fastify, _opts) {
                 uses_count: true,
             },
         });
+        const botUsername = await (0, telegramBotUsername_1.resolveTelegramBotUsername)();
         if (!activeInvite || isInviteExpired(activeInvite) || isInviteExhausted(activeInvite)) {
-            return reply.send({ invite: null });
+            return reply.send({ invite: null, botUsername });
         }
         return reply.send({
             invite: {
@@ -464,6 +466,7 @@ async function workspacesRoutes(fastify, _opts) {
                 expiresAt: activeInvite.expires_at?.toISOString() ?? null,
                 maxUses: activeInvite.max_uses,
                 usesCount: activeInvite.uses_count,
+                botUsername,
             },
         });
     });
@@ -544,12 +547,14 @@ async function workspacesRoutes(fastify, _opts) {
             });
             return created;
         });
+        const botUsername = await (0, telegramBotUsername_1.resolveTelegramBotUsername)();
         return reply.send({
             invite: {
                 code: invite.code,
                 expiresAt: invite.expires_at?.toISOString() ?? null,
                 maxUses: invite.max_uses,
                 usesCount: invite.uses_count,
+                botUsername,
             },
         });
     });

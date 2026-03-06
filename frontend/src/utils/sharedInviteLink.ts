@@ -24,16 +24,20 @@ const resolveTelegramBotUsername = (): string | null => {
 
 const buildFallbackWebInviteUrl = (inviteCode: string): string => {
   if (typeof window === "undefined") return ""
-  const url = new URL(window.location.href)
+  const url = new URL("/", window.location.origin)
   url.searchParams.set("invite", inviteCode)
   return url.toString()
 }
 
-export const buildSharedWorkspaceInviteUrl = (inviteCode: string): string => {
+type BuildInviteLinkOptions = {
+  botUsername?: string | null
+}
+
+export const buildSharedWorkspaceInviteUrl = (inviteCode: string, options?: BuildInviteLinkOptions): string => {
   const code = inviteCode.trim()
   if (!code) return ""
 
-  const botUsername = resolveTelegramBotUsername()
+  const botUsername = normalizeBotUsername(options?.botUsername) ?? resolveTelegramBotUsername()
   if (!botUsername) {
     return buildFallbackWebInviteUrl(code)
   }

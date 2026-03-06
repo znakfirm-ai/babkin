@@ -38,6 +38,7 @@ type WorkspaceInvite = {
   expiresAt: string | null
   maxUses: number | null
   usesCount: number
+  botUsername?: string | null
 }
 type SpaceKey = Workspace["type"]
 type BannerLoadStatus = "idle" | "loading" | "success" | "error"

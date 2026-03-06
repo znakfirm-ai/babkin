@@ -7,6 +7,7 @@ import { TELEGRAM_INITDATA_HEADER, validateInitData, validateInitDataUserOnly } 
 import { env } from "../env"
 import { seedWorkspaceDefaults } from "../defaults/workspaceDefaults"
 import { canUseSharedWorkspaceFeature } from "../policies/sharedWorkspaceAccess"
+import { resolveTelegramBotUsername } from "../utils/telegramBotUsername"
 
 const INVITE_CODE_BYTES = 8
 const INVITE_EXPIRES_IN_MS = 7 * 24 * 60 * 60 * 1000
@@ -505,7 +506,7 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
         workspace_id: workspaceId,
         is_revoked: false,
       },
-      orderBy: { created_at: "desc" },
+      orderBy: [{ created_at: "desc" }, { id: "desc" }],
       select: {
         id: true,
         code: true,
@@ -514,9 +515,10 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
         uses_count: true,
       },
     })
+    const botUsername = await resolveTelegramBotUsername()
 
     if (!activeInvite || isInviteExpired(activeInvite) || isInviteExhausted(activeInvite)) {
-      return reply.send({ invite: null })
+      return reply.send({ invite: null, botUsername })
     }
 
     return reply.send({
@@ -525,6 +527,7 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
         expiresAt: activeInvite.expires_at?.toISOString() ?? null,
         maxUses: activeInvite.max_uses,
         usesCount: activeInvite.uses_count,
+        botUsername,
       },
     })
   })
@@ -615,12 +618,15 @@ export async function workspacesRoutes(fastify: FastifyInstance, _opts: FastifyP
       return created
     })
 
+    const botUsername = await resolveTelegramBotUsername()
+
     return reply.send({
       invite: {
         code: invite.code,
         expiresAt: invite.expires_at?.toISOString() ?? null,
         maxUses: invite.max_uses,
         usesCount: invite.uses_count,
+        botUsername,
       },
     })
   })
