@@ -74,6 +74,7 @@ async function workspacesRoutes(fastify, _opts) {
             type: m.workspaces.type,
             name: m.workspaces.name,
             iconEmoji: m.workspaces.icon_emoji ?? null,
+            canResetWorkspace: m.workspaces.created_by_user_id === user.id,
         }));
         const active = workspaces.find((w) => w.id === user.active_workspace_id) ?? null;
         return reply.send({
@@ -147,6 +148,7 @@ async function workspacesRoutes(fastify, _opts) {
                 type: workspace.type,
                 name: workspace.name,
                 iconEmoji: workspace.icon_emoji ?? null,
+                canResetWorkspace: true,
             },
         });
     });
@@ -217,6 +219,7 @@ async function workspacesRoutes(fastify, _opts) {
                 type: workspace.type,
                 name: workspace.name,
                 iconEmoji: workspace.icon_emoji ?? null,
+                canResetWorkspace: workspace.created_by_user_id === userId,
             },
         });
     });
@@ -291,7 +294,92 @@ async function workspacesRoutes(fastify, _opts) {
                 type: updatedWorkspace.type,
                 name: updatedWorkspace.name,
                 iconEmoji: updatedWorkspace.icon_emoji ?? null,
+                canResetWorkspace: updatedWorkspace.created_by_user_id === userId,
             },
         });
+    });
+    fastify.post("/workspaces/:id/reset", async (request, reply) => {
+        const authHeader = request.headers.authorization;
+        let userId = null;
+        let reason = null;
+        if (authHeader?.startsWith("Bearer ")) {
+            const token = authHeader.slice("Bearer ".length);
+            try {
+                const payload = jsonwebtoken_1.default.verify(token, env_1.env.JWT_SECRET);
+                userId = payload.sub;
+            }
+            catch {
+                reason = "invalid_jwt";
+                return reply.status(401).send({ error: "Unauthorized", reason });
+            }
+        }
+        if (!userId) {
+            const initDataRaw = request.headers[telegramAuth_1.TELEGRAM_INITDATA_HEADER];
+            const hasInitData = Boolean(initDataRaw && initDataRaw.length > 0);
+            const authDate = (() => {
+                const params = initDataRaw ? new URLSearchParams(initDataRaw) : null;
+                const ad = params?.get("auth_date");
+                return ad ? Number(ad) : undefined;
+            })();
+            if (!env_1.env.BOT_TOKEN) {
+                reason = "missing_bot_token";
+                request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason });
+                return reply.status(401).send({ error: "Unauthorized", reason });
+            }
+            const auth = await (0, telegramAuth_1.validateInitData)(initDataRaw);
+            if (!auth) {
+                reason = hasInitData ? "invalid_initdata" : "missing_initdata";
+                request.log.info({ hasInitData, initDataLength: initDataRaw?.length ?? 0, authDate, reason });
+                return reply.status(401).send({ error: "Unauthorized", reason });
+            }
+            userId = auth.userId;
+        }
+        const workspaceId = request.params.id;
+        if (!workspaceId) {
+            return reply.status(400).send({ error: "Bad Request", reason: "missing_workspace_id" });
+        }
+        const workspace = await prisma_1.prisma.workspaces.findUnique({
+            where: { id: workspaceId },
+            select: { id: true, created_by_user_id: true },
+        });
+        if (!workspace) {
+            return reply.status(404).send({ error: "Not Found", reason: "workspace_not_found" });
+        }
+        const membership = await prisma_1.prisma.workspace_members.findUnique({
+            where: {
+                workspace_id_user_id: {
+                    workspace_id: workspaceId,
+                    user_id: userId,
+                },
+            },
+        });
+        if (!membership) {
+            return reply.status(403).send({ error: "Forbidden", reason: "not_a_member" });
+        }
+        if (workspace.created_by_user_id !== userId) {
+            return reply.status(403).send({ error: "Forbidden", reason: "only_creator_can_reset" });
+        }
+        await prisma_1.prisma.$transaction(async (tx) => {
+            await tx.transactions.deleteMany({
+                where: { workspace_id: workspaceId },
+            });
+            await tx.goals.deleteMany({
+                where: { workspace_id: workspaceId },
+            });
+            await tx.debtors.deleteMany({
+                where: { workspace_id: workspaceId },
+            });
+            await tx.accounts.deleteMany({
+                where: { workspace_id: workspaceId, is_default: false },
+            });
+            await tx.income_sources.deleteMany({
+                where: { workspace_id: workspaceId, is_default: false },
+            });
+            await tx.categories.deleteMany({
+                where: { workspace_id: workspaceId, is_default: false },
+            });
+            await (0, workspaceDefaults_1.seedWorkspaceDefaults)(tx, workspaceId);
+        });
+        return reply.send({ ok: true });
     });
 }

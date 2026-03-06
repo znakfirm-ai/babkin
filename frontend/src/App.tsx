@@ -26,7 +26,13 @@ import { useSingleFlight } from "./hooks/useSingleFlight"
 import "./BottomNav.css"
 import "./App.css"
 
-type Workspace = { id: string; type: "personal" | "family"; name: string | null; iconEmoji: string | null }
+type Workspace = {
+  id: string
+  type: "personal" | "family"
+  name: string | null
+  iconEmoji: string | null
+  canResetWorkspace: boolean
+}
 type SpaceKey = Workspace["type"]
 type BannerLoadStatus = "idle" | "loading" | "success" | "error"
 type OverviewUiPhase = "idle" | "loading" | "ready" | "error"
@@ -58,11 +64,13 @@ const normalizeWorkspace = (workspace: {
   type: "personal" | "family"
   name: string | null
   iconEmoji?: string | null
+  canResetWorkspace?: boolean
 }): Workspace => ({
   id: workspace.id,
   type: workspace.type,
   name: workspace.name,
   iconEmoji: workspace.iconEmoji ?? null,
+  canResetWorkspace: workspace.canResetWorkspace === true,
 })
 const buildWorkspaceFallbackLabel = (spaceKey: SpaceKey) => (spaceKey === "family" ? "Семейный" : "Личный")
 
@@ -211,6 +219,7 @@ function App() {
   const [savedCompareReportState, setSavedCompareReportState] = useState<CompareReportState | null>(null)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const { run: runWorkspaceMetaSave, isRunning: isWorkspaceMetaSaveRunning } = useSingleFlight()
+  const { run: runWorkspaceReset, isRunning: isWorkspaceResetRunning } = useSingleFlight()
   const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
   const appSettleInFlightRef = useRef(false)
   const appSettleDoneRef = useRef(false)
@@ -702,6 +711,52 @@ function App() {
   const accountLabel = appActiveSpaceKey === "family" ? familyAccountLabel : personalAccountLabel
   const accountIcon = appActiveSpaceKey === "family" ? familyAccountIcon : personalAccountIcon
   const canOpenWorkspaceSwitcher = appWorkspaces.length > 0
+  const canResetWorkspace = appActiveWorkspace?.canResetWorkspace === true
+
+  const handleResetWorkspace = useCallback(async () => {
+    if (!appToken || !appActiveWorkspace) {
+      return { ok: false as const, error: "Не удалось определить рабочее пространство" }
+    }
+
+    const result = await runWorkspaceReset(async () => {
+      const response = await timedFetch(
+        `https://babkin.onrender.com/api/v1/workspaces/${appActiveWorkspace.id}/reset`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${appToken}`,
+          },
+        },
+        { label: "workspaces" },
+      )
+      if (!response.ok) {
+        let reason = "reset_failed"
+        try {
+          const data = (await response.json()) as { reason?: string }
+          if (typeof data.reason === "string") {
+            reason = data.reason
+          }
+        } catch {
+          // ignore parse errors
+        }
+        if (reason === "only_creator_can_reset" || reason === "not_a_member") {
+          return { ok: false as const, error: "Очистка доступна только создателю пространства" }
+        }
+        return { ok: false as const, error: "Не удалось очистить аккаунт" }
+      }
+
+      const reloaded = await retryOverviewData({ spaceKey: appActiveSpaceKey })
+      if (!reloaded) {
+        return { ok: false as const, error: "Данные очищены, но не удалось обновить экран" }
+      }
+      return { ok: true as const }
+    })
+
+    if (!result) {
+      return { ok: false as const, error: "Очистка уже выполняется" }
+    }
+    return result
+  }, [appActiveSpaceKey, appActiveWorkspace, appToken, retryOverviewData, runWorkspaceReset])
 
   const applyWorkspaceMetaUpdate = useCallback(
     async (spaceKey: SpaceKey, patch: { displayName?: string | null; iconEmoji?: string | null }) => {
@@ -1198,6 +1253,9 @@ function App() {
         return (
           <SettingsScreen
             onOpenIconsPreview={() => setActiveScreen("icons-preview")}
+            canResetWorkspace={canResetWorkspace}
+            onResetWorkspace={handleResetWorkspace}
+            isResetWorkspaceRunning={isWorkspaceResetRunning}
           />
         )
       case "icons-preview":

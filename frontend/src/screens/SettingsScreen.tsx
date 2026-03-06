@@ -7,15 +7,26 @@ import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 type Props = {
   onOpenCategories?: () => void
   onOpenIconsPreview?: () => void
+  canResetWorkspace?: boolean
+  onResetWorkspace?: () => Promise<{ ok: boolean; error?: string }>
+  isResetWorkspaceRunning?: boolean
 }
 
-const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview }) => {
+const SettingsScreen: React.FC<Props> = ({
+  onOpenCategories,
+  onOpenIconsPreview,
+  canResetWorkspace = false,
+  onResetWorkspace,
+  isResetWorkspaceRunning = false,
+}) => {
   const { currency, setCurrency } = useAppStore()
   const current = normalizeCurrency(currency)
   const [debugTimingsEnabled, setDebugTimingsEnabledState] = useState(() => isDebugTimingsStorageEnabled())
   const [isCurrencySheetOpen, setIsCurrencySheetOpen] = useState(false)
   const [currencySearch, setCurrencySearch] = useState("")
   const [pendingCurrencyCode, setPendingCurrencyCode] = useState<string | null>(null)
+  const [resetStep, setResetStep] = useState<0 | 1 | 2>(0)
+  const [resetError, setResetError] = useState<string | null>(null)
 
   const handleToggleDebugTimings = useCallback(() => {
     const nextValue = !debugTimingsEnabled
@@ -32,6 +43,39 @@ const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview 
   const closeCurrencySheet = useCallback(() => {
     setIsCurrencySheetOpen(false)
   }, [])
+
+  const openResetSheet = useCallback(() => {
+    setResetError(null)
+    setResetStep(1)
+  }, [])
+
+  const closeResetSheet = useCallback(() => {
+    if (isResetWorkspaceRunning) return
+    setResetError(null)
+    setResetStep(0)
+  }, [isResetWorkspaceRunning])
+
+  const continueResetSheet = useCallback(() => {
+    setResetError(null)
+    setResetStep(2)
+  }, [])
+
+  const goBackResetSheet = useCallback(() => {
+    if (isResetWorkspaceRunning) return
+    setResetError(null)
+    setResetStep(1)
+  }, [isResetWorkspaceRunning])
+
+  const confirmReset = useCallback(async () => {
+    if (!onResetWorkspace || isResetWorkspaceRunning) return
+    setResetError(null)
+    const result = await onResetWorkspace()
+    if (result.ok) {
+      setResetStep(0)
+      return
+    }
+    setResetError(result.error ?? "Не удалось очистить аккаунт")
+  }, [isResetWorkspaceRunning, onResetWorkspace])
 
   const applyCurrencySelection = useCallback(() => {
     if (!pendingCurrencyCode) return
@@ -147,6 +191,14 @@ const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview 
               <div style={{ fontSize: 12, color: "#0369a1" }}>Enabled. Restart app to measure cold start.</div>
             ) : null}
           </div>
+
+          {canResetWorkspace ? (
+            <button type="button" onClick={openResetSheet} style={listCardStyle}>
+              <span style={listTitleStyle}>Очистить аккаунт</span>
+              <span style={listSubtitleStyle}>Удалит все данные и начнет учет заново</span>
+              <span style={chevronStyle}>›</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -286,6 +338,121 @@ const SettingsScreen: React.FC<Props> = ({ onOpenCategories, onOpenIconsPreview 
               >
                 Выбрать валюту
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {resetStep !== 0 ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={closeResetSheet}
+          className="tx-modal__backdrop"
+          style={{
+            alignItems: "center",
+            padding: "12px 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              borderRadius: 18,
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 20px 45px rgba(15, 23, 42, 0.14)",
+              padding: 16,
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
+              {resetStep === 1 ? "Вы уверены?" : "Подтвердите очистку аккаунта"}
+            </div>
+            <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>
+              {resetStep === 1
+                ? "Все операции, счета, цели, долги и пользовательские категории будут удалены. Это действие нельзя отменить."
+                : "После очистки останутся только данные по умолчанию. Валюта приложения сохранится."}
+            </div>
+            {resetError ? <div style={{ fontSize: 13, color: "#b91c1c", lineHeight: 1.35 }}>{resetError}</div> : null}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              {resetStep === 1 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={closeResetSheet}
+                    style={{
+                      padding: "11px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #e2e8f0",
+                      background: "#fff",
+                      color: "#0f172a",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={continueResetSheet}
+                    style={{
+                      padding: "11px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Продолжить
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={goBackResetSheet}
+                    disabled={isResetWorkspaceRunning}
+                    style={{
+                      padding: "11px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #e2e8f0",
+                      background: "#fff",
+                      color: "#0f172a",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
+                      opacity: isResetWorkspaceRunning ? 0.6 : 1,
+                    }}
+                  >
+                    Назад
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmReset}
+                    disabled={isResetWorkspaceRunning}
+                    style={{
+                      padding: "11px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #b91c1c",
+                      background: "#b91c1c",
+                      color: "#fff",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
+                      opacity: isResetWorkspaceRunning ? 0.75 : 1,
+                    }}
+                  >
+                    {isResetWorkspaceRunning ? "Очищаем..." : "Очистить аккаунт"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
