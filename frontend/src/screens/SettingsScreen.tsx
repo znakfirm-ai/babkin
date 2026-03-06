@@ -4,12 +4,41 @@ import { useAppStore } from "../store/useAppStore"
 import { isDebugTimingsStorageEnabled, setDebugTimingsStorageEnabled } from "../utils/debugTimings"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 
+type SharedWorkspaceInvite = {
+  code: string
+  expiresAt: string | null
+  maxUses: number | null
+  usesCount: number
+}
+
 type Props = {
   onOpenCategories?: () => void
   onOpenIconsPreview?: () => void
   canResetWorkspace?: boolean
   onResetWorkspace?: () => Promise<{ ok: boolean; error?: string }>
   isResetWorkspaceRunning?: boolean
+  canManageSharedAccess?: boolean
+  onLoadSharedInvite?: () => Promise<{ invite: SharedWorkspaceInvite | null; error?: string }>
+  onRegenerateSharedInvite?: () => Promise<{ ok: boolean; invite: SharedWorkspaceInvite | null; error?: string }>
+  isSharedInviteRegenerating?: boolean
+}
+
+const copyText = async (value: string) => {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value)
+    return
+  }
+  if (typeof document === "undefined") return
+  const textarea = document.createElement("textarea")
+  textarea.value = value
+  textarea.setAttribute("readonly", "true")
+  textarea.style.position = "fixed"
+  textarea.style.opacity = "0"
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+  document.execCommand("copy")
+  document.body.removeChild(textarea)
 }
 
 const SettingsScreen: React.FC<Props> = ({
@@ -18,6 +47,10 @@ const SettingsScreen: React.FC<Props> = ({
   canResetWorkspace = false,
   onResetWorkspace,
   isResetWorkspaceRunning = false,
+  canManageSharedAccess = false,
+  onLoadSharedInvite,
+  onRegenerateSharedInvite,
+  isSharedInviteRegenerating = false,
 }) => {
   const { currency, setCurrency } = useAppStore()
   const current = normalizeCurrency(currency)
@@ -27,6 +60,11 @@ const SettingsScreen: React.FC<Props> = ({
   const [pendingCurrencyCode, setPendingCurrencyCode] = useState<string | null>(null)
   const [resetStep, setResetStep] = useState<0 | 1 | 2>(0)
   const [resetError, setResetError] = useState<string | null>(null)
+  const [isSharedAccessSheetOpen, setIsSharedAccessSheetOpen] = useState(false)
+  const [sharedInvite, setSharedInvite] = useState<SharedWorkspaceInvite | null>(null)
+  const [isSharedInviteLoading, setIsSharedInviteLoading] = useState(false)
+  const [sharedInviteError, setSharedInviteError] = useState<string | null>(null)
+  const [sharedInviteNotice, setSharedInviteNotice] = useState<string | null>(null)
 
   const handleToggleDebugTimings = useCallback(() => {
     const nextValue = !debugTimingsEnabled
@@ -43,6 +81,63 @@ const SettingsScreen: React.FC<Props> = ({
   const closeCurrencySheet = useCallback(() => {
     setIsCurrencySheetOpen(false)
   }, [])
+
+  const loadSharedInvite = useCallback(async () => {
+    if (!onLoadSharedInvite) return
+    setSharedInviteError(null)
+    setSharedInviteNotice(null)
+    setIsSharedInviteLoading(true)
+    const result = await onLoadSharedInvite()
+    if (result.error) {
+      setSharedInviteError(result.error)
+      setSharedInvite(null)
+    } else {
+      setSharedInvite(result.invite)
+    }
+    setIsSharedInviteLoading(false)
+  }, [onLoadSharedInvite])
+
+  const openSharedAccessSheet = useCallback(() => {
+    setIsSharedAccessSheetOpen(true)
+    void loadSharedInvite()
+  }, [loadSharedInvite])
+
+  const closeSharedAccessSheet = useCallback(() => {
+    if (isSharedInviteRegenerating) return
+    setIsSharedAccessSheetOpen(false)
+    setSharedInviteError(null)
+    setSharedInviteNotice(null)
+  }, [isSharedInviteRegenerating])
+
+  const sharedInviteUrl = useMemo(() => {
+    if (!sharedInvite?.code || typeof window === "undefined") return ""
+    const url = new URL(window.location.href)
+    url.searchParams.set("invite", sharedInvite.code)
+    return url.toString()
+  }, [sharedInvite?.code])
+
+  const handleCopySharedInvite = useCallback(async () => {
+    if (!sharedInviteUrl) return
+    setSharedInviteError(null)
+    try {
+      await copyText(sharedInviteUrl)
+      setSharedInviteNotice("Ссылка скопирована")
+    } catch {
+      setSharedInviteError("Не удалось скопировать ссылку")
+    }
+  }, [sharedInviteUrl])
+
+  const handleRegenerateSharedInvite = useCallback(async () => {
+    if (!onRegenerateSharedInvite || isSharedInviteRegenerating) return
+    setSharedInviteError(null)
+    setSharedInviteNotice(null)
+    const result = await onRegenerateSharedInvite()
+    if (!result.ok) {
+      setSharedInviteError(result.error ?? "Не удалось создать ссылку")
+      return
+    }
+    setSharedInvite(result.invite)
+  }, [isSharedInviteRegenerating, onRegenerateSharedInvite])
 
   const openResetSheet = useCallback(() => {
     setResetError(null)
@@ -196,6 +291,14 @@ const SettingsScreen: React.FC<Props> = ({
             <button type="button" onClick={openResetSheet} style={listCardStyle}>
               <span style={listTitleStyle}>Очистить аккаунт</span>
               <span style={listSubtitleStyle}>Удалит все данные и начнет учет заново</span>
+              <span style={chevronStyle}>›</span>
+            </button>
+          ) : null}
+
+          {canManageSharedAccess ? (
+            <button type="button" onClick={openSharedAccessSheet} style={listCardStyle}>
+              <span style={listTitleStyle}>Совместный доступ</span>
+              <span style={listSubtitleStyle}>Для учета в малом бизнесе или ведения совместного бюджета семьи</span>
               <span style={chevronStyle}>›</span>
             </button>
           ) : null}
@@ -453,6 +556,126 @@ const SettingsScreen: React.FC<Props> = ({
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isSharedAccessSheetOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={closeSharedAccessSheet}
+          className="tx-modal__backdrop"
+          style={{
+            alignItems: "center",
+            padding: "12px 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 460,
+              borderRadius: 18,
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 20px 45px rgba(15, 23, 42, 0.14)",
+              padding: 16,
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Пригласить пользователя</div>
+              <button
+                type="button"
+                onClick={closeSharedAccessSheet}
+                disabled={isSharedInviteRegenerating}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  fontWeight: 600,
+                  color: "#0f172a",
+                  cursor: isSharedInviteRegenerating ? "not-allowed" : "pointer",
+                  opacity: isSharedInviteRegenerating ? 0.6 : 1,
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
+
+            <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.35 }}>
+              По этой ссылке пользователь сможет присоединиться к вашему пространству
+            </div>
+
+            <div
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 12,
+                background: "#f8fafc",
+                padding: "10px 12px",
+                minHeight: 44,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 13,
+                  color: sharedInviteUrl ? "#0f172a" : "#94a3b8",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {isSharedInviteLoading ? "Загружаем ссылку..." : sharedInviteUrl || "Ссылка еще не создана"}
+              </span>
+            </div>
+
+            {sharedInviteError ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{sharedInviteError}</div> : null}
+            {sharedInviteNotice ? <div style={{ fontSize: 13, color: "#0369a1" }}>{sharedInviteNotice}</div> : null}
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              <button
+                type="button"
+                onClick={handleCopySharedInvite}
+                disabled={!sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating}
+                style={{
+                  padding: "11px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  color: "#0f172a",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? "not-allowed" : "pointer",
+                  opacity: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? 0.6 : 1,
+                }}
+              >
+                Скопировать ссылку
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRegenerateSharedInvite}
+                disabled={isSharedInviteLoading || isSharedInviteRegenerating}
+                style={{
+                  padding: "11px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: isSharedInviteLoading || isSharedInviteRegenerating ? "not-allowed" : "pointer",
+                  opacity: isSharedInviteLoading || isSharedInviteRegenerating ? 0.7 : 1,
+                }}
+              >
+                {isSharedInviteRegenerating ? "Обновляем..." : sharedInvite ? "Перевыпустить ссылку" : "Создать ссылку"}
+              </button>
             </div>
           </div>
         </div>

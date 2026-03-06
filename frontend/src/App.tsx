@@ -33,6 +33,12 @@ type Workspace = {
   iconEmoji: string | null
   canResetWorkspace: boolean
 }
+type WorkspaceInvite = {
+  code: string
+  expiresAt: string | null
+  maxUses: number | null
+  usesCount: number
+}
 type SpaceKey = Workspace["type"]
 type BannerLoadStatus = "idle" | "loading" | "success" | "error"
 type OverviewUiPhase = "idle" | "loading" | "ready" | "error"
@@ -272,6 +278,7 @@ function App() {
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const { run: runWorkspaceMetaSave, isRunning: isWorkspaceMetaSaveRunning } = useSingleFlight()
   const { run: runWorkspaceReset, isRunning: isWorkspaceResetRunning } = useSingleFlight()
+  const { run: runWorkspaceInviteRegenerate, isRunning: isWorkspaceInviteRegenerating } = useSingleFlight()
   const overviewInFlightBySpaceRef = useRef<Partial<Record<SpaceKey, boolean>>>({})
   const appSettleInFlightRef = useRef(false)
   const appSettleDoneRef = useRef(false)
@@ -764,6 +771,7 @@ function App() {
   const accountIcon = appActiveSpaceKey === "family" ? familyAccountIcon : personalAccountIcon
   const canOpenWorkspaceSwitcher = appWorkspaces.length > 0
   const canResetWorkspace = appActiveWorkspace?.canResetWorkspace === true
+  const canManageSharedAccess = canResetWorkspace && appActiveWorkspace?.type === "family"
 
   const handleResetWorkspace = useCallback(async () => {
     if (!appToken || !appActiveWorkspace) {
@@ -809,6 +817,84 @@ function App() {
     }
     return result
   }, [appActiveSpaceKey, appActiveWorkspace, appToken, retryOverviewData, runWorkspaceReset])
+
+  const loadWorkspaceInvite = useCallback(async () => {
+    if (!appToken || !appActiveWorkspace) {
+      return { invite: null, error: "Не удалось определить рабочее пространство" }
+    }
+
+    const response = await timedFetch(
+      `https://babkin.onrender.com/api/v1/workspaces/${appActiveWorkspace.id}/invite`,
+      {
+        headers: {
+          Authorization: `Bearer ${appToken}`,
+        },
+      },
+      { label: "workspaces" },
+    )
+
+    if (!response.ok) {
+      let reason = "load_invite_failed"
+      try {
+        const data = (await response.json()) as { reason?: string }
+        if (typeof data.reason === "string") {
+          reason = data.reason
+        }
+      } catch {
+        // ignore parse errors
+      }
+      if (reason === "only_creator_can_manage_invites" || reason === "not_a_member") {
+        return { invite: null, error: "Доступно только создателю пространства" }
+      }
+      return { invite: null, error: "Не удалось загрузить ссылку приглашения" }
+    }
+
+    const data = (await response.json()) as { invite?: WorkspaceInvite | null }
+    return { invite: data.invite ?? null }
+  }, [appActiveWorkspace, appToken])
+
+  const regenerateWorkspaceInvite = useCallback(async () => {
+    if (!appToken || !appActiveWorkspace) {
+      return { ok: false as const, invite: null, error: "Не удалось определить рабочее пространство" }
+    }
+
+    const result = await runWorkspaceInviteRegenerate(async () => {
+      const response = await timedFetch(
+        `https://babkin.onrender.com/api/v1/workspaces/${appActiveWorkspace.id}/invite/regenerate`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${appToken}`,
+          },
+        },
+        { label: "workspaces" },
+      )
+
+      if (!response.ok) {
+        let reason = "regenerate_invite_failed"
+        try {
+          const data = (await response.json()) as { reason?: string }
+          if (typeof data.reason === "string") {
+            reason = data.reason
+          }
+        } catch {
+          // ignore parse errors
+        }
+        if (reason === "only_creator_can_manage_invites" || reason === "not_a_member") {
+          return { ok: false as const, invite: null, error: "Доступно только создателю пространства" }
+        }
+        return { ok: false as const, invite: null, error: "Не удалось перевыпустить ссылку" }
+      }
+
+      const data = (await response.json()) as { invite?: WorkspaceInvite | null }
+      return { ok: true as const, invite: data.invite ?? null }
+    })
+
+    if (!result) {
+      return { ok: false as const, invite: null, error: "Запрос уже выполняется" }
+    }
+    return result
+  }, [appActiveWorkspace, appToken, runWorkspaceInviteRegenerate])
 
   const applyWorkspaceMetaUpdate = useCallback(
     async (spaceKey: SpaceKey, patch: { displayName?: string | null; iconEmoji?: string | null }) => {
@@ -1308,6 +1394,10 @@ function App() {
             canResetWorkspace={canResetWorkspace}
             onResetWorkspace={handleResetWorkspace}
             isResetWorkspaceRunning={isWorkspaceResetRunning}
+            canManageSharedAccess={canManageSharedAccess}
+            onLoadSharedInvite={loadWorkspaceInvite}
+            onRegenerateSharedInvite={regenerateWorkspaceInvite}
+            isSharedInviteRegenerating={isWorkspaceInviteRegenerating}
           />
         )
       case "icons-preview":
