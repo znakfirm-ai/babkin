@@ -1,4 +1,5 @@
 const TELEGRAM_INVITE_PREFIX = "join_"
+const DEFAULT_TELEGRAM_BOT_USERNAME = "babkin_finance_bot"
 
 type TelegramInitDataUnsafe = {
   receiver?: {
@@ -19,7 +20,7 @@ const resolveTelegramBotUsername = (): string | null => {
   if (typeof window === "undefined") return null
 
   const initDataUnsafe = window.Telegram?.WebApp?.initDataUnsafe as TelegramInitDataUnsafe | undefined
-  return normalizeBotUsername(initDataUnsafe?.receiver?.username)
+  return normalizeBotUsername(initDataUnsafe?.receiver?.username) ?? DEFAULT_TELEGRAM_BOT_USERNAME
 }
 
 const buildFallbackWebInviteUrl = (inviteCode: string): string => {
@@ -31,7 +32,6 @@ const buildFallbackWebInviteUrl = (inviteCode: string): string => {
 
 type BuildInviteLinkOptions = {
   botUsername?: string | null
-  miniAppPath?: string | null
 }
 
 export const buildSharedWorkspaceInviteUrl = (inviteCode: string, options?: BuildInviteLinkOptions): string => {
@@ -43,8 +43,5 @@ export const buildSharedWorkspaceInviteUrl = (inviteCode: string, options?: Buil
     return buildFallbackWebInviteUrl(code)
   }
 
-  const normalizedMiniAppPath = options?.miniAppPath?.trim().replace(/^\/+/, "").replace(/\/+$/, "")
-  const fromEnv = import.meta.env.VITE_TELEGRAM_MINI_APP_PATH?.trim().replace(/^\/+/, "").replace(/\/+$/, "")
-  const miniAppPath = normalizedMiniAppPath || fromEnv || "app"
-  return `https://t.me/${botUsername}/${miniAppPath}?startapp=${encodeURIComponent(`${TELEGRAM_INVITE_PREFIX}${code}`)}`
+  return `https://t.me/${botUsername}?startapp=${encodeURIComponent(`${TELEGRAM_INVITE_PREFIX}${code}`)}`
 }
