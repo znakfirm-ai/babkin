@@ -4,20 +4,11 @@ import { Prisma, TransactionKind } from "@prisma/client"
 import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
-
-const DEFAULT_CATEGORIES = [
-  { name: "Еда", kind: "expense" as const },
-  { name: "Транспорт", kind: "expense" as const },
-  { name: "Дом", kind: "expense" as const },
-  { name: "Развлечения", kind: "expense" as const },
-  { name: "Здоровье", kind: "expense" as const },
-  { name: "Покупки", kind: "expense" as const },
-  { name: "Зарплата", kind: "income" as const },
-  { name: "Бизнес", kind: "income" as const },
-  { name: "Подарки", kind: "income" as const },
-]
-
-const DEFAULT_INCOME_SOURCES = [{ name: "Зарплата" }, { name: "Бизнес" }]
+import {
+  hasDefaultsNormalizationChanges,
+  hasDefaultsNormalizationConflicts,
+  seedWorkspaceDefaults,
+} from "../defaults/workspaceDefaults"
 
 type BootstrapResponse = {
   accounts: Array<{
@@ -184,6 +175,20 @@ export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPl
     }
     const workspaceId = user.active_workspace_id
 
+    const defaultsNormalizationReport = await seedWorkspaceDefaults(prisma, workspaceId)
+    if (hasDefaultsNormalizationChanges(defaultsNormalizationReport)) {
+      request.log.info(
+        { workspaceId, defaultsNormalizationReport },
+        "Workspace defaults normalized",
+      )
+    }
+    if (hasDefaultsNormalizationConflicts(defaultsNormalizationReport)) {
+      request.log.warn(
+        { workspaceId, defaultsNormalizationReport },
+        "Workspace defaults normalization skipped conflicting legacy records",
+      )
+    }
+
     const accounts = await prisma.accounts.findMany({
       where: { workspace_id: workspaceId, archived_at: null, is_archived: false },
       select: {
@@ -199,50 +204,15 @@ export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPl
       },
     })
 
-    const existingCategories = await prisma.categories.findMany({
+    const categories = await prisma.categories.findMany({
       where: { workspace_id: workspaceId },
       select: { id: true, name: true, kind: true, icon: true, budget: true },
     })
-    if (existingCategories.length === 0) {
-      await prisma.categories.createMany({
-        data: DEFAULT_CATEGORIES.map((c) => ({
-          workspace_id: workspaceId,
-          name: c.name,
-          kind: c.kind,
-          icon: null,
-        })),
-        skipDuplicates: true,
-      })
-    }
-    const categories =
-      existingCategories.length > 0
-        ? existingCategories
-        : await prisma.categories.findMany({
-            where: { workspace_id: workspaceId },
-            select: { id: true, name: true, kind: true, icon: true, budget: true },
-          })
 
-    const existingIncomeSources = await prisma.income_sources.findMany({
+    const incomeSources = await prisma.income_sources.findMany({
       where: { workspace_id: workspaceId },
       select: { id: true, name: true, icon: true },
     })
-    if (existingIncomeSources.length === 0) {
-      await prisma.income_sources.createMany({
-        data: DEFAULT_INCOME_SOURCES.map((source) => ({
-          workspace_id: workspaceId,
-          name: source.name,
-          icon: null,
-        })),
-        skipDuplicates: true,
-      })
-    }
-    const incomeSources =
-      existingIncomeSources.length > 0
-        ? existingIncomeSources
-        : await prisma.income_sources.findMany({
-            where: { workspace_id: workspaceId },
-            select: { id: true, name: true, icon: true },
-          })
 
     const goals = await prisma.goals.findMany({
       where: { workspace_id: workspaceId },

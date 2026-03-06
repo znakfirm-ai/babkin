@@ -3,8 +3,7 @@ import jwt from "jsonwebtoken"
 import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
-
-const DEFAULT_INCOME_SOURCES = [{ name: "Зарплата" }, { name: "Бизнес" }]
+import { seedWorkspaceDefaults } from "../defaults/workspaceDefaults"
 
 type IncomeSourceResponse = {
   id: string
@@ -72,22 +71,13 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
 
     const workspaceId: string = user.active_workspace_id
 
-    const existing = await prisma.income_sources.findMany({ where: { workspace_id: workspaceId } })
+    await seedWorkspaceDefaults(prisma, workspaceId, {
+      seedAccounts: false,
+      seedCategories: false,
+      seedIncomeSources: true,
+    })
 
-    if (existing.length === 0) {
-      await prisma.income_sources.createMany({
-        data: DEFAULT_INCOME_SOURCES.map((s) => ({
-          workspace_id: workspaceId,
-          name: s.name,
-          icon: null,
-        })),
-        skipDuplicates: true,
-      })
-    }
-
-    const sources = existing.length
-      ? existing
-      : await prisma.income_sources.findMany({ where: { workspace_id: workspaceId } })
+    const sources = await prisma.income_sources.findMany({ where: { workspace_id: workspaceId } })
 
     const payload: { incomeSources: IncomeSourceResponse[] } = {
       incomeSources: sources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })),
@@ -123,6 +113,7 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
         workspace_id: user.active_workspace_id,
         name,
         icon: body?.icon ?? null,
+        is_default: false,
       },
     })
 

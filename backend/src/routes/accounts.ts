@@ -148,6 +148,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
         color: body.color ?? null,
         icon: body.icon ?? null,
         icon_emoji: body.iconEmoji?.trim() ? Array.from(body.iconEmoji.trim())[0] ?? null : null,
+        is_default: false,
       },
     })
 

@@ -9,17 +9,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
-const DEFAULT_CATEGORIES = [
-    { name: "Еда", kind: "expense" },
-    { name: "Транспорт", kind: "expense" },
-    { name: "Дом", kind: "expense" },
-    { name: "Развлечения", kind: "expense" },
-    { name: "Здоровье", kind: "expense" },
-    { name: "Покупки", kind: "expense" },
-    { name: "Зарплата", kind: "income" },
-    { name: "Бизнес", kind: "income" },
-    { name: "Подарки", kind: "income" },
-];
+const workspaceDefaults_1 = require("../defaults/workspaceDefaults");
 const unauthorized = async (reply, reason) => {
     await reply.status(401).send({ error: "Unauthorized", reason });
     return null;
@@ -72,27 +62,15 @@ async function categoriesRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "No active workspace" });
         }
         const workspaceId = user.active_workspace_id;
-        const existing = await prisma_1.prisma.categories.findMany({
+        await (0, workspaceDefaults_1.seedWorkspaceDefaults)(prisma_1.prisma, workspaceId, {
+            seedAccounts: false,
+            seedCategories: true,
+            seedIncomeSources: false,
+        });
+        const categories = await prisma_1.prisma.categories.findMany({
             where: { workspace_id: workspaceId },
             select: { id: true, name: true, kind: true, icon: true, budget: true },
         });
-        if (existing.length === 0) {
-            await prisma_1.prisma.categories.createMany({
-                data: DEFAULT_CATEGORIES.map((c) => ({
-                    workspace_id: workspaceId,
-                    name: c.name,
-                    kind: c.kind,
-                    icon: null,
-                })),
-                skipDuplicates: true,
-            });
-        }
-        const categories = existing.length
-            ? existing
-            : await prisma_1.prisma.categories.findMany({
-                where: { workspace_id: workspaceId },
-                select: { id: true, name: true, kind: true, icon: true, budget: true },
-            });
         const payload = {
             categories: categories.map((c) => ({
                 id: c.id,
@@ -124,6 +102,7 @@ async function categoriesRoutes(fastify, _opts) {
                 name,
                 kind,
                 icon: body?.icon ?? null,
+                is_default: false,
                 budget: body?.budget ?? null,
             },
         });

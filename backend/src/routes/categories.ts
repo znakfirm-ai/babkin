@@ -4,18 +4,7 @@ import jwt from "jsonwebtoken"
 import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
-
-const DEFAULT_CATEGORIES = [
-  { name: "Еда", kind: "expense" as const },
-  { name: "Транспорт", kind: "expense" as const },
-  { name: "Дом", kind: "expense" as const },
-  { name: "Развлечения", kind: "expense" as const },
-  { name: "Здоровье", kind: "expense" as const },
-  { name: "Покупки", kind: "expense" as const },
-  { name: "Зарплата", kind: "income" as const },
-  { name: "Бизнес", kind: "income" as const },
-  { name: "Подарки", kind: "income" as const },
-]
+import { seedWorkspaceDefaults } from "../defaults/workspaceDefaults"
 
 type CategoryResponse = {
   id: string
@@ -86,29 +75,16 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
 
     const workspaceId: string = user.active_workspace_id
 
-    const existing = await prisma.categories.findMany({
+    await seedWorkspaceDefaults(prisma, workspaceId, {
+      seedAccounts: false,
+      seedCategories: true,
+      seedIncomeSources: false,
+    })
+
+    const categories = await prisma.categories.findMany({
       where: { workspace_id: workspaceId },
       select: { id: true, name: true, kind: true, icon: true, budget: true },
     })
-
-    if (existing.length === 0) {
-      await prisma.categories.createMany({
-        data: DEFAULT_CATEGORIES.map((c) => ({
-          workspace_id: workspaceId,
-          name: c.name,
-          kind: c.kind,
-          icon: null,
-        })),
-        skipDuplicates: true,
-      })
-    }
-
-    const categories = existing.length
-      ? existing
-      : await prisma.categories.findMany({
-          where: { workspace_id: workspaceId },
-          select: { id: true, name: true, kind: true, icon: true, budget: true },
-        })
 
     const payload: { categories: CategoryResponse[] } = {
       categories: categories.map((c) => ({
@@ -147,6 +123,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
         name,
         kind,
         icon: body?.icon ?? null,
+        is_default: false,
         budget: body?.budget ?? null,
       },
     })

@@ -8,7 +8,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
-const DEFAULT_INCOME_SOURCES = [{ name: "Зарплата" }, { name: "Бизнес" }];
+const workspaceDefaults_1 = require("../defaults/workspaceDefaults");
 const unauthorized = async (reply, reason) => {
     await reply.status(401).send({ error: "Unauthorized", reason });
     return null;
@@ -61,20 +61,12 @@ async function incomeSourcesRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "No active workspace" });
         }
         const workspaceId = user.active_workspace_id;
-        const existing = await prisma_1.prisma.income_sources.findMany({ where: { workspace_id: workspaceId } });
-        if (existing.length === 0) {
-            await prisma_1.prisma.income_sources.createMany({
-                data: DEFAULT_INCOME_SOURCES.map((s) => ({
-                    workspace_id: workspaceId,
-                    name: s.name,
-                    icon: null,
-                })),
-                skipDuplicates: true,
-            });
-        }
-        const sources = existing.length
-            ? existing
-            : await prisma_1.prisma.income_sources.findMany({ where: { workspace_id: workspaceId } });
+        await (0, workspaceDefaults_1.seedWorkspaceDefaults)(prisma_1.prisma, workspaceId, {
+            seedAccounts: false,
+            seedCategories: false,
+            seedIncomeSources: true,
+        });
+        const sources = await prisma_1.prisma.income_sources.findMany({ where: { workspace_id: workspaceId } });
         const payload = {
             incomeSources: sources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })),
         };
@@ -104,6 +96,7 @@ async function incomeSourcesRoutes(fastify, _opts) {
                 workspace_id: user.active_workspace_id,
                 name,
                 icon: body?.icon ?? null,
+                is_default: false,
             },
         });
         const payload = {
