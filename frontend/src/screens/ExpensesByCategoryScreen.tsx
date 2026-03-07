@@ -103,8 +103,8 @@ const ExpensesByCategoryScreen: React.FC<Props> = ({ onBack }) => {
     const fromDate = new Date(`${from}T00:00:00.000Z`)
     const toExclusive = new Date(new Date(`${to}T00:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000)
     const byCat = selectedCategoryId
-      ? transactions.filter((t) => t.type === "expense" && t.categoryId === selectedCategoryId)
-      : transactions.filter((t) => t.type === "expense")
+      ? transactions.filter((t) => t.type === "expense" && !t.debtorId && t.categoryId === selectedCategoryId)
+      : transactions.filter((t) => t.type === "expense" && !t.debtorId)
     return byCat
       .filter((t) => {
         const d = new Date(t.date)

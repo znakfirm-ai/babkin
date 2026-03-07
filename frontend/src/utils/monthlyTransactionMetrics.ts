@@ -35,6 +35,7 @@ export const buildMonthlyTransactionMetrics = (
   transactions.forEach((tx) => {
     if (!isDateInMonthPoint(tx.date, monthPoint)) return
     if (tx.goalId) return
+    if (tx.debtorId) return
 
     if (tx.type === "income") {
       const amount = tx.amount.amount

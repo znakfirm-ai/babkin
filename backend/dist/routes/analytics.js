@@ -82,6 +82,7 @@ async function analyticsRoutes(fastify, _opts) {
                 where: {
                     workspace_id: user.active_workspace_id,
                     kind: "income",
+                    debtor_id: null,
                     happened_at: { gte: fromDate, lt: toExclusive },
                 },
             }),
@@ -90,6 +91,7 @@ async function analyticsRoutes(fastify, _opts) {
                 where: {
                     workspace_id: user.active_workspace_id,
                     kind: "expense",
+                    debtor_id: null,
                     happened_at: { gte: fromDate, lt: toExclusive },
                 },
             }),
@@ -130,6 +132,7 @@ async function analyticsRoutes(fastify, _opts) {
             where: {
                 workspace_id: user.active_workspace_id,
                 kind: "expense",
+                debtor_id: null,
                 happened_at: { gte: fromDate, lt: toExclusive },
             },
             _sum: { amount: true },

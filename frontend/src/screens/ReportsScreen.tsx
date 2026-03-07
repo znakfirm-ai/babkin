@@ -166,6 +166,7 @@ const resolveReportGroupId = (tx: { goalId?: string | null; debtorId?: string | 
   if (tx.debtorId) return REPORT_GROUP_DEBTS_ID
   return tx.incomeSourceId ?? tx.categoryId ?? REPORT_GROUP_UNCATEGORIZED_ID
 }
+const isDebtAnalyticsTx = (tx: { debtorId?: string | null }) => Boolean(tx.debtorId)
 
 const getMonthRange = (offset: number) => {
   const now = new Date()
@@ -532,6 +533,7 @@ const ReportsScreen: React.FC<Props> = ({
         if (date < bin.start || date > bin.end) return
         const kind = (transaction as { type?: string }).type ?? (transaction as { kind?: string }).kind
         if (kind !== "income" && kind !== "expense") return
+        if (isDebtAnalyticsTx(transaction as { debtorId?: string | null })) return
         if (kind === "expense" && (transaction as { kind?: string }).kind === "adjustment") return
         const amount = transaction.amount?.amount ?? 0
         if (kind === "income") income += amount
@@ -699,6 +701,7 @@ const ReportsScreen: React.FC<Props> = ({
       if (date < compareActiveBin.start || date > compareActiveBin.end) return
       const kind = (transaction as { type?: string }).type ?? (transaction as { kind?: string }).kind
       if (kind !== "income") return
+      if (isDebtAnalyticsTx(transaction as { debtorId?: string | null })) return
       const sourceId = (transaction as { incomeSourceId?: string | null }).incomeSourceId ?? REPORT_GROUP_UNCATEGORIZED_ID
       const amount = transaction.amount?.amount ?? 0
       totals.set(sourceId, (totals.get(sourceId) ?? 0) + amount)
@@ -722,6 +725,7 @@ const ReportsScreen: React.FC<Props> = ({
       if (date < compareActiveBin.start || date > compareActiveBin.end) return
       const kind = (transaction as { type?: string }).type ?? (transaction as { kind?: string }).kind
       if (kind !== "expense") return
+      if (isDebtAnalyticsTx(transaction as { debtorId?: string | null })) return
       if ((transaction as { kind?: string }).kind === "adjustment") return
       const categoryId = (transaction as { categoryId?: string | null }).categoryId ?? REPORT_GROUP_UNCATEGORIZED_ID
       const amount = transaction.amount?.amount ?? 0
@@ -853,6 +857,7 @@ const ReportsScreen: React.FC<Props> = ({
       if (date < effectiveRange.start || date > effectiveRange.end) return
       const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
       if (kind !== "expense") return
+      if (isDebtAnalyticsTx(t as { debtorId?: string | null })) return
       if ((t as { kind?: string }).kind === "adjustment") return
       const catId = resolveReportGroupId({
         goalId: (t as { goalId?: string | null }).goalId ?? null,
@@ -970,6 +975,7 @@ const ReportsScreen: React.FC<Props> = ({
       if (date < effectiveRange.start || date > effectiveRange.end) return
       const kind = (t as { type?: string }).type ?? (t as { kind?: string }).kind
       if (kind !== "income") return
+      if (isDebtAnalyticsTx(t as { debtorId?: string | null })) return
       const groupId = resolveReportGroupId({
         goalId: (t as { goalId?: string | null }).goalId ?? null,
         debtorId: (t as { debtorId?: string | null }).debtorId ?? null,

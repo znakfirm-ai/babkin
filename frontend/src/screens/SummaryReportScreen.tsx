@@ -93,6 +93,7 @@ const SummaryReportScreen: React.FC<Props> = ({ onBack }) => {
     const toExclusive = new Date(new Date(`${to}T00:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000)
     return transactions
       .filter((t) => {
+        if (t.debtorId) return false
         const d = new Date(t.date)
         return d >= fromDate && d < toExclusive
       })
