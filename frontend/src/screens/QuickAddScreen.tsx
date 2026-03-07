@@ -5,7 +5,7 @@ import { createTransaction, getTransactions } from "../api/transactions"
 import { getAccounts } from "../api/accounts"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
-import { getAccountDisplay, getCategoryDisplay, getGoalDisplay, getIncomeSourceDisplay } from "../shared/display"
+import { getAccountDisplay, getCategoryDisplay, getIncomeSourceDisplay } from "../shared/display"
 import { GoalList } from "../components/GoalList"
 import { DebtorList } from "../components/DebtorList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
@@ -188,6 +188,30 @@ export const QuickAddScreen: React.FC<Props> = ({
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
   const incomeSourcesList = useMemo(() => incomeSources, [incomeSources])
   const activeGoals = useMemo(() => goals.filter((goal) => goal.status === "active"), [goals])
+  const activeGoalIds = useMemo(() => new Set(activeGoals.map((goal) => goal.id)), [activeGoals])
+  const reservedInActiveGoalsByAccountId = useMemo(() => {
+    const reservedByAccountId = new Map<string, number>()
+    transactions.forEach((tx) => {
+      if (tx.type !== "transfer" || !tx.goalId || !activeGoalIds.has(tx.goalId)) return
+      const amount = Number(tx.amount.amount ?? 0)
+      if (!Number.isFinite(amount)) return
+      const normalizedAmount = Math.abs(amount)
+      const sourceAccountId = tx.fromAccountId ?? tx.accountId
+      if (sourceAccountId && !tx.toAccountId) {
+        reservedByAccountId.set(sourceAccountId, (reservedByAccountId.get(sourceAccountId) ?? 0) + normalizedAmount)
+        return
+      }
+      if (!tx.fromAccountId && tx.toAccountId) {
+        reservedByAccountId.set(tx.toAccountId, (reservedByAccountId.get(tx.toAccountId) ?? 0) - normalizedAmount)
+      }
+    })
+    reservedByAccountId.forEach((value, accountId) => {
+      if (value <= 0) {
+        reservedByAccountId.delete(accountId)
+      }
+    })
+    return reservedByAccountId
+  }, [activeGoalIds, transactions])
   const receivablePaidByDebtorId = useMemo(() => {
     const paidById: Record<string, number> = {}
     transactions.forEach((tx) => {
@@ -243,7 +267,6 @@ export const QuickAddScreen: React.FC<Props> = ({
   const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts])
   const categoriesById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
   const incomeSourcesById = useMemo(() => Object.fromEntries(incomeSources.map((s) => [s.id, s])), [incomeSources])
-  const activeGoalsById = useMemo(() => Object.fromEntries(activeGoals.map((g) => [g.id, g])), [activeGoals])
   const hScrollRowStyle = useMemo(
     () =>
       ({
@@ -514,15 +537,18 @@ export const QuickAddScreen: React.FC<Props> = ({
     () =>
       accounts.map((acc) => {
         const display = getAccountDisplay(acc.id, accountsById)
+        const reservedInGoals = reservedInActiveGoalsByAccountId.get(acc.id) ?? 0
+        const factualBalance = acc.balance.amount + reservedInGoals
         return {
           id: acc.id,
           title: display.title,
           iconKey: display.iconKey ?? null,
           color: display.color ?? "#EEF2F7",
-          text: formatMoney(acc.balance.amount, baseCurrency),
+          amount: acc.balance.amount,
+          secondaryAmount: reservedInGoals > 0 ? factualBalance : undefined,
         }
       }),
-    [accounts, accountsById, baseCurrency],
+    [accounts, accountsById, reservedInActiveGoalsByAccountId],
   )
 
   const expenseCategoryTiles = useMemo(
@@ -703,6 +729,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       color?: string
       text?: string
       amount?: number
+      secondaryAmount?: number
       budget?: number | null
       budgetTone?: "normal" | "warn" | "alert"
     },
@@ -799,6 +826,20 @@ export const QuickAddScreen: React.FC<Props> = ({
           {item.amount !== undefined ? (
             <div className="tile-card__amount" style={isAccount ? { color: contentColor, textShadow: shadow } : undefined}>
               {formatMoney(item.amount, baseCurrency)}
+            </div>
+          ) : null}
+          {isAccount && item.secondaryAmount !== undefined ? (
+            <div
+              style={{
+                marginTop: 2,
+                fontSize: 11,
+                lineHeight: "14px",
+                color: secondaryColor,
+                textShadow: shadow,
+                fontWeight: 600,
+              }}
+            >
+              {formatMoney(item.secondaryAmount, baseCurrency)}
             </div>
           ) : null}
           {item.budget != null ? (
@@ -1293,7 +1334,8 @@ export const QuickAddScreen: React.FC<Props> = ({
                       icon: "wallet",
                       iconKey: acc.iconKey,
                       color: acc.color,
-                      text: acc.text,
+                      amount: acc.amount,
+                      secondaryAmount: acc.secondaryAmount,
                     },
                     selectedAccountId === acc.id,
                     "account",
@@ -1381,7 +1423,8 @@ export const QuickAddScreen: React.FC<Props> = ({
                     icon: "wallet",
                     iconKey: acc.iconKey,
                     color: acc.color,
-                    text: acc.text,
+                    amount: acc.amount,
+                    secondaryAmount: acc.secondaryAmount,
                   },
                   selectedAccountId === acc.id,
                   "account",
@@ -1432,7 +1475,8 @@ export const QuickAddScreen: React.FC<Props> = ({
                     icon: "wallet",
                     iconKey: acc.iconKey,
                     color: acc.color,
-                    text: acc.text,
+                    amount: acc.amount,
+                    secondaryAmount: acc.secondaryAmount,
                   },
                   transferFromAccountId === acc.id,
                   "account",
@@ -1486,7 +1530,8 @@ export const QuickAddScreen: React.FC<Props> = ({
                           icon: "wallet",
                           iconKey: acc.iconKey,
                           color: acc.color,
-                          text: acc.text,
+                          amount: acc.amount,
+                          secondaryAmount: acc.secondaryAmount,
                         },
                         transferToAccountId === acc.id,
                         "account",
@@ -1731,7 +1776,8 @@ export const QuickAddScreen: React.FC<Props> = ({
                           icon: "wallet",
                           iconKey: acc.iconKey,
                           color: acc.color,
-                          text: acc.text,
+                          amount: acc.amount,
+                          secondaryAmount: acc.secondaryAmount,
                         },
                         selectedDebtAccountId === acc.id,
                         "account",
@@ -1756,7 +1802,8 @@ export const QuickAddScreen: React.FC<Props> = ({
                         icon: "wallet",
                         iconKey: acc.iconKey,
                         color: acc.color,
-                        text: acc.text,
+                        amount: acc.amount,
+                        secondaryAmount: acc.secondaryAmount,
                       },
                       selectedDebtAccountId === acc.id,
                       "account",
@@ -1863,7 +1910,8 @@ export const QuickAddScreen: React.FC<Props> = ({
                     icon: "wallet",
                     iconKey: acc.iconKey,
                     color: acc.color,
-                    text: acc.text,
+                    amount: acc.amount,
+                    secondaryAmount: acc.secondaryAmount,
                   },
                   selectedAccountId === acc.id,
                   "account",
@@ -1874,24 +1922,18 @@ export const QuickAddScreen: React.FC<Props> = ({
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
               {activeGoals.length > 0 ? (
-                <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
-                  {activeGoals.map((goal) =>
-                    renderTile(
-                      {
-                        id: goal.id,
-                        title: getGoalDisplay(goal.id, activeGoalsById).title,
-                        iconKey: getGoalDisplay(goal.id, activeGoalsById).iconKey ?? null,
-                        amount: goal.currentAmount,
-                        budget: goal.targetAmount,
-                      },
-                      selectedGoalId === goal.id,
-                      "goal",
-                      (id) => {
-                        setSelectedGoalId(id)
-                        setError(null)
-                      },
-                    ),
-                  )}
+                <div style={debtListScrollContainerStyle}>
+                  <GoalList
+                    goals={activeGoals}
+                    selectedGoalId={selectedGoalId}
+                    onSelectGoal={(goal) => {
+                      setSelectedGoalId(goal.id)
+                      setError(null)
+                    }}
+                    currency={baseCurrency}
+                    showSelectedCheck
+                    selectedCheckOnly
+                  />
                 </div>
               ) : (
                 <div style={{ display: "grid", justifyItems: "center", gap: 10, padding: "16px 8px" }}>
