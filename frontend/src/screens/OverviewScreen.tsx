@@ -355,6 +355,50 @@ const Section: React.FC<{
   baseCurrency,
 }) => {
   const [isHelpOpen, setIsHelpOpen] = useState(false)
+  const helpButtonRef = useRef<HTMLButtonElement | null>(null)
+  const helpTooltipRef = useRef<HTMLDivElement | null>(null)
+  const [helpTooltipPosition, setHelpTooltipPosition] = useState<{ left: number; top: number } | null>(null)
+  const updateHelpTooltipPosition = useCallback(() => {
+    if (!isHelpOpen) return
+    const buttonEl = helpButtonRef.current
+    const tooltipEl = helpTooltipRef.current
+    if (!buttonEl || !tooltipEl || typeof window === "undefined") return
+
+    const buttonRect = buttonEl.getBoundingClientRect()
+    const tooltipRect = tooltipEl.getBoundingClientRect()
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const gap = 8
+    const edgePadding = 8
+
+    let left = buttonRect.right + gap
+    const maxLeft = viewportWidth - tooltipRect.width - edgePadding
+    if (left > maxLeft) left = maxLeft
+    if (left < edgePadding) left = edgePadding
+
+    let top = buttonRect.top + buttonRect.height / 2 - tooltipRect.height / 2
+    const maxTop = viewportHeight - tooltipRect.height - edgePadding
+    if (top > maxTop) top = maxTop
+    if (top < edgePadding) top = edgePadding
+
+    setHelpTooltipPosition({ left: Math.round(left), top: Math.round(top) })
+  }, [isHelpOpen])
+
+  useEffect(() => {
+    if (!isHelpOpen) {
+      setHelpTooltipPosition(null)
+      return
+    }
+
+    updateHelpTooltipPosition()
+    window.addEventListener("resize", updateHelpTooltipPosition)
+    window.addEventListener("scroll", updateHelpTooltipPosition, true)
+    return () => {
+      window.removeEventListener("resize", updateHelpTooltipPosition)
+      window.removeEventListener("scroll", updateHelpTooltipPosition, true)
+    }
+  }, [isHelpOpen, updateHelpTooltipPosition])
+
   const listClass = rowScroll
     ? `overview-section__list overview-section__list--row ${rowClass ?? ""}`.trim()
     : "overview-section__list tile-grid"
@@ -365,6 +409,7 @@ const Section: React.FC<{
         {helpTooltip ? (
           <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
             <button
+              ref={helpButtonRef}
               type="button"
               onClick={() => setIsHelpOpen((prev) => !prev)}
               style={{
@@ -389,10 +434,11 @@ const Section: React.FC<{
             </button>
             {isHelpOpen ? (
               <div
+                ref={helpTooltipRef}
                 style={{
-                  position: "absolute",
-                  bottom: "calc(100% + 6px)",
-                  right: 0,
+                  position: "fixed",
+                  left: helpTooltipPosition?.left ?? 8,
+                  top: helpTooltipPosition?.top ?? 8,
                   width: "max-content",
                   maxWidth: "min(320px, calc(100vw - 48px))",
                   padding: "8px 10px",
