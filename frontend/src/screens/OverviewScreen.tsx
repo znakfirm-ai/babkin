@@ -2347,7 +2347,17 @@ function TransactionsPanel({
       if (activeSpaceKey !== "family") return null
       if (!tx.createdByUserId) return null
       const authorName = tx.createdByName?.trim() || "Пользователь"
-      return `Добавил: ${authorName}`
+      const normalized = authorName
+        .trim()
+        .replace(/\s+/g, " ")
+      const parts = normalized.split(" ").filter(Boolean)
+      const initials =
+        parts.length === 0
+          ? "?"
+          : parts.length === 1
+          ? parts[0].slice(0, 1).toUpperCase()
+          : `${parts[0].slice(0, 1)}${parts[1].slice(0, 1)}`.toUpperCase()
+      return { initials, name: normalized || "Пользователь" }
     },
     [activeSpaceKey],
   )
@@ -3135,7 +3145,29 @@ function TransactionsPanel({
                               ? getGoalTransferTitle(tx)
                               : "Перевод"}
                           </div>
-                          {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
+                          {creatorLabel ? (
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                              <span
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  borderRadius: "50%",
+                                  background: "#e2e8f0",
+                                  color: "#475569",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  lineHeight: 1,
+                                  flex: "0 0 auto",
+                                }}
+                              >
+                                {creatorLabel.initials}
+                              </span>
+                              <span>{creatorLabel.name}</span>
+                            </div>
+                          ) : null}
                         </div>
 
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -3320,7 +3352,29 @@ function TransactionsPanel({
                         >
                           <div style={{ display: "grid", gap: 2 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
-                            {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
+                            {creatorLabel ? (
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                                <span
+                                  style={{
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: "50%",
+                                    background: "#e2e8f0",
+                                    color: "#475569",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    lineHeight: 1,
+                                    flex: "0 0 auto",
+                                  }}
+                                >
+                                  {creatorLabel.initials}
+                                </span>
+                                <span>{creatorLabel.name}</span>
+                              </div>
+                            ) : null}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
@@ -3524,7 +3578,29 @@ function TransactionsPanel({
                         >
                           <div style={{ display: "grid", gap: 2 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
-                            {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
+                            {creatorLabel ? (
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                                <span
+                                  style={{
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: "50%",
+                                    background: "#e2e8f0",
+                                    color: "#475569",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    lineHeight: 1,
+                                    flex: "0 0 auto",
+                                  }}
+                                >
+                                  {creatorLabel.initials}
+                                </span>
+                                <span>{creatorLabel.name}</span>
+                              </div>
+                            ) : null}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
@@ -3729,7 +3805,29 @@ function TransactionsPanel({
                         >
                           <div style={{ display: "grid", gap: 2 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
-                            {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
+                            {creatorLabel ? (
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                                <span
+                                  style={{
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: "50%",
+                                    background: "#e2e8f0",
+                                    color: "#475569",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    lineHeight: 1,
+                                    flex: "0 0 auto",
+                                  }}
+                                >
+                                  {creatorLabel.initials}
+                                </span>
+                                <span>{creatorLabel.name}</span>
+                              </div>
+                            ) : null}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
@@ -3949,7 +4047,29 @@ function TransactionsPanel({
                         >
                           <div style={{ display: "grid", gap: 2 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
-                            {creatorLabel ? <div style={{ fontSize: 11.5, color: "#64748b" }}>{creatorLabel}</div> : null}
+                            {creatorLabel ? (
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                                <span
+                                  style={{
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: "50%",
+                                    background: "#e2e8f0",
+                                    color: "#475569",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    lineHeight: 1,
+                                    flex: "0 0 auto",
+                                  }}
+                                >
+                                  {creatorLabel.initials}
+                                </span>
+                                <span>{creatorLabel.name}</span>
+                              </div>
+                            ) : null}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
