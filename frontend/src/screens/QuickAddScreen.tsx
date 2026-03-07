@@ -1941,7 +1941,16 @@ export const QuickAddScreen: React.FC<Props> = ({
                   <div
                     style={{
                       ...debtListScrollContainerStyle,
-                      paddingBottom: goalTabSupportsExpand ? 36 : debtListScrollContainerStyle.padding,
+                      maxHeight:
+                        goalTabSupportsExpand && !showExpandedGoalTabList
+                          ? "none"
+                          : debtListScrollContainerStyle.maxHeight,
+                      overflowY:
+                        goalTabSupportsExpand && !showExpandedGoalTabList
+                          ? "hidden"
+                          : debtListScrollContainerStyle.overflowY,
+                      paddingBottom:
+                        goalTabSupportsExpand && showExpandedGoalTabList ? 36 : debtListScrollContainerStyle.padding,
                     }}
                   >
                     <GoalList
