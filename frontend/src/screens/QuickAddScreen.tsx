@@ -170,7 +170,6 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
   const [transferGoalListScrolled, setTransferGoalListScrolled] = useState(false)
-  const [isGoalTabListExpanded, setIsGoalTabListExpanded] = useState(false)
   const [showDebtReceivableScrollHint, setShowDebtReceivableScrollHint] = useState(false)
   const [debtReceivableListScrolled, setDebtReceivableListScrolled] = useState(false)
   const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
@@ -380,7 +379,8 @@ export const QuickAddScreen: React.FC<Props> = ({
   }, [transferDebtListScrolled])
 
   useEffect(() => {
-    if (activeTab !== "transfer" || transferTargetType !== "goal") {
+    const isGoalSelectionMode = activeTab === "goal" || (activeTab === "transfer" && transferTargetType === "goal")
+    if (!isGoalSelectionMode) {
       setShowTransferGoalScrollHint(false)
       setTransferGoalListScrolled(false)
       return
@@ -591,15 +591,6 @@ export const QuickAddScreen: React.FC<Props> = ({
       }),
     [incomeBySource, incomeSourcesById, incomeSourcesList],
   )
-  const goalTabSupportsExpand = activeGoals.length > 2
-  const collapsedGoalTabItems = useMemo(() => activeGoals.slice(0, 2), [activeGoals])
-  const isSelectedGoalHiddenInCollapsed = useMemo(
-    () => Boolean(selectedGoalId && !collapsedGoalTabItems.some((goal) => goal.id === selectedGoalId)),
-    [collapsedGoalTabItems, selectedGoalId],
-  )
-  const showExpandedGoalTabList = goalTabSupportsExpand && (isGoalTabListExpanded || isSelectedGoalHiddenInCollapsed)
-  const goalTabListItems = showExpandedGoalTabList ? activeGoals : collapsedGoalTabItems
-
   const submitExpense = useCallback(() => {
     if (isRunning) return
     return run(async () => {
@@ -903,12 +894,6 @@ export const QuickAddScreen: React.FC<Props> = ({
       void ensureGoalsLoaded()
     }
   }, [activeTab, ensureGoalsLoaded, transferTargetType])
-
-  useEffect(() => {
-    if (goalTabSupportsExpand) return
-    if (!isGoalTabListExpanded) return
-    setIsGoalTabListExpanded(false)
-  }, [goalTabSupportsExpand, isGoalTabListExpanded])
 
   useEffect(() => {
     if (activeTab === "debt") {
@@ -1937,14 +1922,14 @@ export const QuickAddScreen: React.FC<Props> = ({
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
               {activeGoals.length > 0 ? (
-                <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ position: "relative" }}>
                   <div
                     ref={transferGoalListRef}
                     onScroll={handleTransferGoalListScroll}
                     style={debtListScrollContainerStyle}
                   >
                     <GoalList
-                      goals={goalTabListItems}
+                      goals={activeGoals}
                       selectedGoalId={selectedGoalId}
                       onSelectGoal={(goal) => {
                         setSelectedGoalId(goal.id)
@@ -1955,29 +1940,29 @@ export const QuickAddScreen: React.FC<Props> = ({
                       selectedCheckOnly
                     />
                   </div>
-                  {goalTabSupportsExpand ? (
-                    <button
-                      type="button"
-                      onClick={() => setIsGoalTabListExpanded((prev) => !prev)}
-                      aria-label={showExpandedGoalTabList ? "Свернуть список целей" : "Развернуть список целей"}
+                  {showTransferGoalScrollHint && activeGoals.length > 2 ? (
+                    <div
                       style={{
-                        margin: "0 auto",
+                        position: "absolute",
+                        left: "50%",
+                        bottom: 8,
+                        transform: "translateX(-50%)",
+                        pointerEvents: "none",
+                        color: "rgba(71,85,105,0.9)",
+                        fontSize: 14,
+                        lineHeight: 1,
                         width: 24,
                         height: 24,
                         borderRadius: 999,
                         border: "1px solid rgba(148,163,184,0.45)",
-                        background: "rgba(255,255,255,0.9)",
-                        color: "rgba(71,85,105,0.95)",
-                        fontSize: 14,
-                        lineHeight: 1,
+                        background: "rgba(255,255,255,0.88)",
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        cursor: "pointer",
                       }}
                     >
-                      {showExpandedGoalTabList ? "↑" : "↓"}
-                    </button>
+                      ↓
+                    </div>
                   ) : null}
                 </div>
               ) : (
