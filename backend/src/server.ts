@@ -15,6 +15,7 @@ import { debtorsRoutes } from "./routes/debtors"
 import { bootstrapRoutes } from "./routes/bootstrap"
 import { runOpenAITest } from "./utils/openaiTest"
 import { telegramWebhookRoutes } from "./routes/telegramWebhook"
+import { devToolsRoutes } from "./routes/devTools"
 
 const fastify = Fastify({
   logger: true,
@@ -60,6 +61,7 @@ fastify.register(bootstrapRoutes, { prefix: "/api/v1" })
 fastify.register(transactionsRoutes, { prefix: "/api/v1" })
 fastify.register(analyticsRoutes, { prefix: "/api/v1" })
 fastify.register(telegramWebhookRoutes, { prefix: "/api/v1" })
+fastify.register(devToolsRoutes, { prefix: "/api/v1" })
 
 const port = Number(process.env.PORT) || env.PORT
 
