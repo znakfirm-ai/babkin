@@ -23,6 +23,7 @@ import BottomNav from "./BottomNav"
 import type { NavItem } from "./BottomNav"
 import { AppIcon } from "./components/AppIcon"
 import { useSingleFlight } from "./hooks/useSingleFlight"
+import { buildTelegramMiniAppInviteUrl } from "./utils/sharedInviteLink"
 import "./BottomNav.css"
 import "./App.css"
 
@@ -119,8 +120,22 @@ const normalizeInviteCodeFromStartParam = (value: string | null | undefined): st
   return normalizeInviteCode(trimmed.slice(INVITE_STARTAPP_PREFIX.length))
 }
 
+const resolveInviteCodeFromPathname = (value: string | null | undefined): string | null => {
+  if (!value) return null
+  const match = value.match(/^\/i\/([^/?#]+)/i)
+  if (!match || !match[1]) return null
+  try {
+    return normalizeInviteCode(decodeURIComponent(match[1]))
+  } catch {
+    return normalizeInviteCode(match[1])
+  }
+}
+
 const resolveLaunchInviteCode = (): string | null => {
   if (typeof window === "undefined") return null
+  const inviteFromPathname = resolveInviteCodeFromPathname(window.location.pathname)
+  if (inviteFromPathname) return inviteFromPathname
+
   const searchParams = new URLSearchParams(window.location.search)
   const directInviteCode = normalizeInviteCode(searchParams.get("invite"))
   if (directInviteCode) return directInviteCode
@@ -270,6 +285,8 @@ function App() {
   const telegramAvailable =
     typeof window !== "undefined" &&
     Boolean((window as typeof window & { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp)
+  const inviteCodeFromPathname =
+    typeof window !== "undefined" ? resolveInviteCodeFromPathname(window.location.pathname) : null
   const [activeNav, setActiveNav] = useState<NavItem>("home")
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("home")
   const [isTelegram, setIsTelegram] = useState(telegramAvailable)
@@ -600,6 +617,13 @@ function App() {
 
   const initApp = useCallback(async () => {
     if (initDone.current || initInFlightRef.current) return
+    if (!isTelegram && inviteCodeFromPathname) {
+      initDone.current = true
+      setAppLoading(false)
+      setAppSettling(false)
+      setAppInitError(null)
+      return
+    }
     initInFlightRef.current = true
     markTimingStage("initBegin")
     setAppLoading(true)
@@ -659,7 +683,7 @@ function App() {
       initInFlightRef.current = false
       markTimingStage("initEnd")
     }
-  }, [pendingJoinInviteCode, refreshWorkspacesAndBootstrap])
+  }, [inviteCodeFromPathname, isTelegram, pendingJoinInviteCode, refreshWorkspacesAndBootstrap])
 
   useEffect(() => {
     if (!initDone.current && !initInFlightRef.current) {
@@ -901,6 +925,11 @@ function App() {
   const canManageSharedAccess = canResetWorkspace && appActiveWorkspace?.type === "family"
   const shouldShowJoinInviteSheet = Boolean(pendingJoinInviteCode && appToken && !appLoading)
   const canDismissJoinInviteSheet = appWorkspaces.length > 0
+  const shouldShowInviteLanding = Boolean(inviteCodeFromPathname && !isTelegram)
+  const telegramInviteUrl = useMemo(() => {
+    if (!inviteCodeFromPathname) return ""
+    return buildTelegramMiniAppInviteUrl(inviteCodeFromPathname)
+  }, [inviteCodeFromPathname])
 
   const handleResetWorkspace = useCallback(async () => {
     if (!appToken || !appActiveWorkspace) {
@@ -1708,7 +1737,49 @@ function App() {
     }
   }
 
-const appShell = appLoading ? (
+const appShell = shouldShowInviteLanding ? (
+    <div className="app-shell" style={{ padding: 16 }}>
+      <div
+        style={{
+          marginTop: 48,
+          marginInline: "auto",
+          width: "min(420px, 100%)",
+          background: "#fff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 18,
+          padding: 16,
+          boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+          display: "grid",
+          gap: 10,
+        }}
+      >
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Откройте приглашение в Telegram</div>
+        <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>Чтобы присоединиться к общему пространству, откройте эту ссылку в Telegram Mini App.</div>
+        <button
+          type="button"
+          onClick={() => {
+            if (!telegramInviteUrl) return
+            window.location.href = telegramInviteUrl
+          }}
+          disabled={!telegramInviteUrl}
+          style={{
+            marginTop: 2,
+            padding: "11px 14px",
+            borderRadius: 12,
+            border: "1px solid #0f172a",
+            background: "#0f172a",
+            color: "#fff",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: telegramInviteUrl ? "pointer" : "not-allowed",
+            opacity: telegramInviteUrl ? 1 : 0.7,
+          }}
+        >
+          Открыть в Telegram
+        </button>
+      </div>
+    </div>
+  ) : appLoading ? (
     <div className="app-shell">
       <CenteredLoader message="Раскладываем финансы по полочкам" />
     </div>
