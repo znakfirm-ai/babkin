@@ -1937,8 +1937,13 @@ export const QuickAddScreen: React.FC<Props> = ({
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
               {activeGoals.length > 0 ? (
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div style={debtListScrollContainerStyle}>
+                <div style={{ position: "relative" }}>
+                  <div
+                    style={{
+                      ...debtListScrollContainerStyle,
+                      paddingBottom: goalTabSupportsExpand ? 36 : debtListScrollContainerStyle.padding,
+                    }}
+                  >
                     <GoalList
                       goals={goalTabListItems}
                       selectedGoalId={selectedGoalId}
@@ -1952,29 +1957,31 @@ export const QuickAddScreen: React.FC<Props> = ({
                     />
                   </div>
                   {goalTabSupportsExpand ? (
-                    <div style={{ display: "flex", justifyContent: "center" }}>
-                      <button
-                        type="button"
-                        onClick={() => setIsGoalTabListExpanded((prev) => !prev)}
-                        aria-label={showExpandedGoalTabList ? "Свернуть список целей" : "Развернуть список целей"}
-                        style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: 999,
-                          border: "1px solid rgba(148,163,184,0.45)",
-                          background: "rgba(255,255,255,0.9)",
-                          color: "rgba(71,85,105,0.95)",
-                          fontSize: 14,
-                          lineHeight: 1,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                        }}
-                      >
-                        {showExpandedGoalTabList ? "↑" : "↓"}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsGoalTabListExpanded((prev) => !prev)}
+                      aria-label={showExpandedGoalTabList ? "Свернуть список целей" : "Развернуть список целей"}
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        bottom: 8,
+                        transform: "translateX(-50%)",
+                        width: 24,
+                        height: 24,
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.45)",
+                        background: "rgba(255,255,255,0.9)",
+                        color: "rgba(71,85,105,0.95)",
+                        fontSize: 14,
+                        lineHeight: 1,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {showExpandedGoalTabList ? "↑" : "↓"}
+                    </button>
                   ) : null}
                 </div>
               ) : (
