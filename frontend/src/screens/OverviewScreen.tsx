@@ -10,7 +10,7 @@ import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccount
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
 import { completeGoal, createGoal, getGoals, updateGoal } from "../api/goals"
-import { createDebtor, deleteDebtor, getDebtors, updateDebtor } from "../api/debtors"
+import { createDebtor, getDebtors, updateDebtor } from "../api/debtors"
 import { createTransaction, deleteTransaction, getTransactions, type CreateTransactionBody } from "../api/transactions"
 import { useSingleFlight } from "../hooks/useSingleFlight"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
@@ -1403,12 +1403,12 @@ function OverviewScreen({
     return runDebtorDelete(async () => {
       if (!token || !detailDebtorId) return
       setIsConfirmingDebtorClose(false)
-      await deleteDebtor(token, detailDebtorId, currentDebtorDirection)
+      await updateDebtor(token, detailDebtorId, { status: "completed" })
       await refetchDebtors()
       closeDetails()
       setPendingOpenGoalsList(true)
     })
-  }, [closeDetails, currentDebtorDirection, detailDebtorId, refetchDebtors, runDebtorDelete, token])
+  }, [closeDetails, detailDebtorId, refetchDebtors, runDebtorDelete, token, updateDebtor])
 
   const handleArchiveGoalFromDetails = useCallback(() => {
     return runGoalComplete(async () => {
