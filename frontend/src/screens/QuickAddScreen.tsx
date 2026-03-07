@@ -170,6 +170,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
   const [transferGoalListScrolled, setTransferGoalListScrolled] = useState(false)
+  const [isGoalTabListExpanded, setIsGoalTabListExpanded] = useState(false)
   const [showDebtReceivableScrollHint, setShowDebtReceivableScrollHint] = useState(false)
   const [debtReceivableListScrolled, setDebtReceivableListScrolled] = useState(false)
   const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
@@ -590,6 +591,14 @@ export const QuickAddScreen: React.FC<Props> = ({
       }),
     [incomeBySource, incomeSourcesById, incomeSourcesList],
   )
+  const goalTabSupportsExpand = activeGoals.length > 2
+  const collapsedGoalTabItems = useMemo(() => activeGoals.slice(0, 2), [activeGoals])
+  const isSelectedGoalHiddenInCollapsed = useMemo(
+    () => Boolean(selectedGoalId && !collapsedGoalTabItems.some((goal) => goal.id === selectedGoalId)),
+    [collapsedGoalTabItems, selectedGoalId],
+  )
+  const showExpandedGoalTabList = goalTabSupportsExpand && (isGoalTabListExpanded || isSelectedGoalHiddenInCollapsed)
+  const goalTabListItems = showExpandedGoalTabList ? activeGoals : collapsedGoalTabItems
 
   const submitExpense = useCallback(() => {
     if (isRunning) return
@@ -894,6 +903,12 @@ export const QuickAddScreen: React.FC<Props> = ({
       void ensureGoalsLoaded()
     }
   }, [activeTab, ensureGoalsLoaded, transferTargetType])
+
+  useEffect(() => {
+    if (goalTabSupportsExpand) return
+    if (!isGoalTabListExpanded) return
+    setIsGoalTabListExpanded(false)
+  }, [goalTabSupportsExpand, isGoalTabListExpanded])
 
   useEffect(() => {
     if (activeTab === "debt") {
@@ -1922,18 +1937,45 @@ export const QuickAddScreen: React.FC<Props> = ({
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
               {activeGoals.length > 0 ? (
-                <div style={debtListScrollContainerStyle}>
-                  <GoalList
-                    goals={activeGoals}
-                    selectedGoalId={selectedGoalId}
-                    onSelectGoal={(goal) => {
-                      setSelectedGoalId(goal.id)
-                      setError(null)
-                    }}
-                    currency={baseCurrency}
-                    showSelectedCheck
-                    selectedCheckOnly
-                  />
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={debtListScrollContainerStyle}>
+                    <GoalList
+                      goals={goalTabListItems}
+                      selectedGoalId={selectedGoalId}
+                      onSelectGoal={(goal) => {
+                        setSelectedGoalId(goal.id)
+                        setError(null)
+                      }}
+                      currency={baseCurrency}
+                      showSelectedCheck
+                      selectedCheckOnly
+                    />
+                  </div>
+                  {goalTabSupportsExpand ? (
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsGoalTabListExpanded((prev) => !prev)}
+                        aria-label={showExpandedGoalTabList ? "Свернуть список целей" : "Развернуть список целей"}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 999,
+                          border: "1px solid rgba(148,163,184,0.45)",
+                          background: "rgba(255,255,255,0.9)",
+                          color: "rgba(71,85,105,0.95)",
+                          fontSize: 14,
+                          lineHeight: 1,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {showExpandedGoalTabList ? "↑" : "↓"}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div style={{ display: "grid", justifyItems: "center", gap: 10, padding: "16px 8px" }}>
