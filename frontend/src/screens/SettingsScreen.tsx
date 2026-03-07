@@ -155,29 +155,34 @@ const SettingsScreen: React.FC<Props> = ({
     return buildSharedWorkspaceInviteUrl(sharedInvite.code, { botUsername: sharedInvite.botUsername })
   }, [sharedInvite?.botUsername, sharedInvite?.code])
 
+  const sharedInviteShareText = useMemo(() => {
+    if (!sharedInviteUrl) return ""
+    return `Давай вместе вести бюджет 👇\n\n${sharedInviteUrl}`
+  }, [sharedInviteUrl])
+
   const handleCopySharedInvite = useCallback(async () => {
-    if (!sharedInviteUrl) return
+    if (!sharedInviteShareText) return
     setSharedInviteError(null)
     setSharedInviteNotice(null)
     try {
-      await copyText(sharedInviteUrl)
+      await copyText(sharedInviteShareText)
       setSharedInviteNotice("Ссылка скопирована")
     } catch {
       setSharedInviteError("Не удалось скопировать ссылку")
     }
-  }, [sharedInviteUrl])
+  }, [sharedInviteShareText])
 
   const handleShareSharedInvite = useCallback(async () => {
-    if (!sharedInviteUrl) return
+    if (!sharedInviteShareText) return
     setSharedInviteError(null)
     setSharedInviteNotice(null)
     try {
       if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-        await navigator.share({ url: sharedInviteUrl })
+        await navigator.share({ text: sharedInviteShareText })
         setSharedInviteNotice("Ссылка готова к отправке")
         return
       }
-      await copyText(sharedInviteUrl)
+      await copyText(sharedInviteShareText)
       setSharedInviteNotice("Ссылка скопирована")
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -185,7 +190,7 @@ const SettingsScreen: React.FC<Props> = ({
       }
       setSharedInviteError("Не удалось поделиться ссылкой")
     }
-  }, [sharedInviteUrl])
+  }, [sharedInviteShareText])
 
   const handleRegenerateSharedInvite = useCallback(async () => {
     if (!onRegenerateSharedInvite || isSharedInviteRegenerating) return
