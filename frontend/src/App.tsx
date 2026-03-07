@@ -354,7 +354,7 @@ function App() {
   const [pendingJoinInviteCode, setPendingJoinInviteCode] = useState<string | null>(() => resolveLaunchInviteCode())
   const [inviteJoinError, setInviteJoinError] = useState<string | null>(null)
   const [inviteJoinNotice, setInviteJoinNotice] = useState<string | null>(null)
-  const inviteCodeHydrationDoneRef = useRef(false)
+  const handledLaunchInviteCodeRef = useRef<string | null>(pendingJoinInviteCode)
   const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const { run: runWorkspaceMetaSave, isRunning: isWorkspaceMetaSaveRunning } = useSingleFlight()
   const { run: runWorkspaceReset, isRunning: isWorkspaceResetRunning } = useSingleFlight()
@@ -466,15 +466,30 @@ function App() {
   }, [appActiveSpaceKey])
 
   useEffect(() => {
-    if (inviteCodeHydrationDoneRef.current) return
     if (!isTelegram) return
-    inviteCodeHydrationDoneRef.current = true
-    if (pendingJoinInviteCode) return
-    const launchInviteCode = resolveLaunchInviteCode()
-    if (launchInviteCode) {
+
+    const syncInviteFromLaunch = () => {
+      const launchInviteCode = resolveLaunchInviteCode()
+      if (!launchInviteCode) return
+      if (handledLaunchInviteCodeRef.current === launchInviteCode) return
+      handledLaunchInviteCodeRef.current = launchInviteCode
+      setInviteJoinError(null)
+      setInviteJoinNotice(null)
       setPendingJoinInviteCode(launchInviteCode)
     }
-  }, [isTelegram, pendingJoinInviteCode])
+
+    syncInviteFromLaunch()
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return
+      syncInviteFromLaunch()
+    }
+    window.addEventListener("focus", syncInviteFromLaunch)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => {
+      window.removeEventListener("focus", syncInviteFromLaunch)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [isTelegram])
 
   const setOverviewStatus = useCallback((spaceKey: SpaceKey, status: BannerLoadStatus) => {
     setOverviewStatusBySpaceKey((prev) => {
