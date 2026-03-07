@@ -640,6 +640,7 @@ function OverviewScreen({
   const [debtorReturnDate, setDebtorReturnDate] = useState(() => getTodayLocalDate())
   const [debtorReturnAmount, setDebtorReturnAmount] = useState("")
   const [debtorError, setDebtorError] = useState<string | null>(null)
+  const [isConfirmingDebtorClose, setIsConfirmingDebtorClose] = useState(false)
   const [isDebtorIconPickerOpen, setIsDebtorIconPickerOpen] = useState(false)
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
@@ -1346,6 +1347,7 @@ function OverviewScreen({
     setIncomeSourceSearch("")
     setGoalSearch("")
     setDebtorSearch("")
+    setIsConfirmingDebtorClose(false)
     setAccountPeriodType("month")
     setCustomFrom("")
     setCustomTo("")
@@ -1408,6 +1410,7 @@ function OverviewScreen({
   const handleDeleteDebtorFromDetails = useCallback(() => {
     return runDebtorDelete(async () => {
       if (!token || !detailDebtorId) return
+      setIsConfirmingDebtorClose(false)
       await deleteDebtor(token, detailDebtorId, currentDebtorDirection)
       await refetchDebtors()
       closeDetails()
@@ -3854,12 +3857,11 @@ function TransactionsPanel({
                     }}
                   />
 
-                  <div style={{ display: "flex", gap: 10, marginTop: 4, justifyContent: "space-between" }}>
+                  <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
                     <button
                       type="button"
                       onClick={() => openEditDebtorFromDetails(detailDebtor)}
                       style={{
-                        flex: 1,
                         padding: "12px 14px",
                         borderRadius: 12,
                         border: "1px solid #e5e7eb",
@@ -3871,23 +3873,64 @@ function TransactionsPanel({
                     >
                       Редактировать
                     </button>
-                    <button
-                      type="button"
-                      disabled={isDebtorDeleteRunning}
-                      onClick={() => void handleDeleteDebtorFromDetails()}
-                      style={{
-                        flex: 1,
-                        padding: "12px 14px",
-                        borderRadius: 12,
-                        border: "1px solid #0f172a",
-                        background: isDebtorDeleteRunning ? "#e5e7eb" : "#0f172a",
-                        color: isDebtorDeleteRunning ? "#6b7280" : "#fff",
-                        fontWeight: 700,
-                        cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      {isDebtorDeleteRunning ? "Удаляем…" : "Удалить"}
-                    </button>
+                    {isConfirmingDebtorClose ? (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        <div style={{ fontSize: 14, color: "#0f172a", opacity: 0.75 }}>
+                          Этот долг будет перемещён в архив и перестанет отображаться в актуальном списке.
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => setIsConfirmingDebtorClose(false)}
+                            disabled={isDebtorDeleteRunning}
+                            style={{
+                              padding: "10px 12px",
+                              borderRadius: 10,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#0f172a",
+                              fontWeight: 600,
+                              cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            Отмена
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isDebtorDeleteRunning}
+                            onClick={() => void handleDeleteDebtorFromDetails()}
+                            style={{
+                              padding: "10px 12px",
+                              borderRadius: 10,
+                              border: "1px solid #0f172a",
+                              background: isDebtorDeleteRunning ? "#e5e7eb" : "#0f172a",
+                              color: isDebtorDeleteRunning ? "#6b7280" : "#fff",
+                              fontWeight: 700,
+                              cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {isDebtorDeleteRunning ? "Закрываем…" : "Закрыть долг"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isDebtorDeleteRunning}
+                        onClick={() => setIsConfirmingDebtorClose(true)}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          border: "1px solid #0f172a",
+                          background: isDebtorDeleteRunning ? "#e5e7eb" : "#0f172a",
+                          color: isDebtorDeleteRunning ? "#6b7280" : "#fff",
+                          fontWeight: 700,
+                          cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {isDebtorDeleteRunning ? "Закрываем…" : "Закрыть долг"}
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : detailGoal ? (
