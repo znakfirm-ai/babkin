@@ -1937,21 +1937,11 @@ export const QuickAddScreen: React.FC<Props> = ({
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
               <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
               {activeGoals.length > 0 ? (
-                <div style={{ position: "relative" }}>
+                <div style={{ display: "grid", gap: 8 }}>
                   <div
-                    style={{
-                      ...debtListScrollContainerStyle,
-                      maxHeight:
-                        goalTabSupportsExpand && !showExpandedGoalTabList
-                          ? "none"
-                          : debtListScrollContainerStyle.maxHeight,
-                      overflowY:
-                        goalTabSupportsExpand && !showExpandedGoalTabList
-                          ? "hidden"
-                          : debtListScrollContainerStyle.overflowY,
-                      paddingBottom:
-                        goalTabSupportsExpand && showExpandedGoalTabList ? 36 : debtListScrollContainerStyle.padding,
-                    }}
+                    ref={transferGoalListRef}
+                    onScroll={handleTransferGoalListScroll}
+                    style={debtListScrollContainerStyle}
                   >
                     <GoalList
                       goals={goalTabListItems}
@@ -1971,10 +1961,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                       onClick={() => setIsGoalTabListExpanded((prev) => !prev)}
                       aria-label={showExpandedGoalTabList ? "Свернуть список целей" : "Развернуть список целей"}
                       style={{
-                        position: "absolute",
-                        left: "50%",
-                        bottom: 8,
-                        transform: "translateX(-50%)",
+                        margin: "0 auto",
                         width: 24,
                         height: 24,
                         borderRadius: 999,
