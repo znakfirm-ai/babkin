@@ -320,6 +320,11 @@ const shouldIncludeActiveDebtTotal = (debtor: Debtor, total: number) => {
 const Section: React.FC<{
   title: string
   items: CardItem[]
+  helpTooltip?: {
+    ariaLabel: string
+    topText: string
+    bottomText: string
+  }
   rowScroll?: boolean
   rowClass?: string
   onAddAccounts?: () => void
@@ -335,6 +340,7 @@ const Section: React.FC<{
 }> = ({
   title,
   items,
+  helpTooltip,
   rowScroll,
   rowClass,
   onAddAccounts,
@@ -348,12 +354,80 @@ const Section: React.FC<{
   onDebtPayableClick,
   baseCurrency,
 }) => {
+  const [isHelpOpen, setIsHelpOpen] = useState(false)
   const listClass = rowScroll
     ? `overview-section__list overview-section__list--row ${rowClass ?? ""}`.trim()
     : "overview-section__list tile-grid"
   return (
     <section className="overview-section">
-      <div className="overview-section__title overview-section__title--muted">{title}</div>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, position: "relative", zIndex: isHelpOpen ? 4 : 1 }}>
+        <div className="overview-section__title overview-section__title--muted">{title}</div>
+        {helpTooltip ? (
+          <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            <button
+              type="button"
+              onClick={() => setIsHelpOpen((prev) => !prev)}
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: 999,
+                border: "1px solid #94a3b8",
+                background: "#fff",
+                color: "#475569",
+                fontSize: 10,
+                lineHeight: 1,
+                fontWeight: 600,
+                padding: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+              aria-label={helpTooltip.ariaLabel}
+            >
+              ?
+            </button>
+            {isHelpOpen ? (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 6px)",
+                  right: 0,
+                  width: "max-content",
+                  maxWidth: "min(320px, calc(100vw - 48px))",
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                  color: "#334155",
+                  fontSize: 11,
+                  lineHeight: 1.35,
+                  textAlign: "left",
+                  zIndex: 5,
+                  display: "grid",
+                  gap: 7,
+                }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div>
+                  <span style={{ fontWeight: 600 }}>Сумма сверху</span>
+                  <span> — {helpTooltip.topText}</span>
+                </div>
+                <div style={{ width: "100%", height: 1, background: "#e2e8f0" }} />
+                <div>{helpTooltip.bottomText}</div>
+              </div>
+            ) : null}
+          </span>
+        ) : null}
+      </div>
+      {isHelpOpen ? (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 3 }}
+          onClick={() => setIsHelpOpen(false)}
+          onPointerDown={() => setIsHelpOpen(false)}
+        />
+      ) : null}
       <div className={listClass}>
         {items.map((item) => {
           const categoryHighlight =
@@ -2818,6 +2892,11 @@ function TransactionsPanel({
 
       <Section
         title="Цели"
+        helpTooltip={{
+          ariaLabel: "Подсказка по целям",
+          topText: "отложено на цели в этом месяце (включая завершённые).",
+          bottomText: "Сумма снизу — накоплено в активных целях сейчас.",
+        }}
         items={goalsItems}
         rowScroll
         rowClass="overview-goals-row"
@@ -2833,6 +2912,11 @@ function TransactionsPanel({
       />
       <Section
         title="Долги / Кредиты"
+        helpTooltip={{
+          ariaLabel: "Подсказка по долгам и кредитам",
+          topText: "сколько вам вернули или вы погасили в этом месяце.",
+          bottomText: "Сумма снизу — сколько сейчас осталось по активным долгам.",
+        }}
         items={debtsItems}
         rowScroll
         baseCurrency={baseCurrency}
