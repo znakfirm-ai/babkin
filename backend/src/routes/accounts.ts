@@ -4,6 +4,9 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
+import { hasEntityNameConflict, isEntityNameTooLong } from "../utils/entityNameValidation"
+
+const ACCOUNT_NAME_MAX_LENGTH = 12
 
 type AccountResponse = {
   id: string
@@ -133,14 +136,26 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       iconEmoji?: string | null
     }
 
-    if (!body?.name || !body.type || !body.currency) {
+    const trimmedName = body?.name?.trim()
+    if (!trimmedName || !body.type || !body.currency) {
       return reply.status(400).send({ error: "Bad Request", reason: "missing_fields" })
+    }
+    if (isEntityNameTooLong(trimmedName, ACCOUNT_NAME_MAX_LENGTH)) {
+      return reply.status(400).send({ error: "Bad Request", code: "ACCOUNT_NAME_TOO_LONG" })
+    }
+
+    const sameWorkspaceAccounts = await prisma.accounts.findMany({
+      where: { workspace_id: user.active_workspace_id },
+      select: { id: true, name: true },
+    })
+    if (hasEntityNameConflict(sameWorkspaceAccounts, trimmedName)) {
+      return reply.status(409).send({ error: "Conflict", code: "ACCOUNT_NAME_EXISTS" })
     }
 
     const created = await prisma.accounts.create({
       data: {
         workspace_id: user.active_workspace_id,
-        name: body.name,
+        name: trimmedName,
         display_name: body.displayName?.trim() ? body.displayName.trim() : null,
         type: body.type,
         currency: body.currency,
@@ -195,10 +210,36 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       iconEmoji?: string | null
     }
 
-    const updated = await prisma.accounts.updateMany({
+    const existing = await prisma.accounts.findFirst({
       where: { id: accountId, workspace_id: user.active_workspace_id },
+      select: { id: true, name: true },
+    })
+    if (!existing) {
+      return reply.status(404).send({ error: "Not Found" })
+    }
+
+    const nextName = body?.name !== undefined ? body.name.trim() : existing.name
+    if (!nextName) {
+      return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
+    }
+    if (isEntityNameTooLong(nextName, ACCOUNT_NAME_MAX_LENGTH)) {
+      return reply.status(400).send({ error: "Bad Request", code: "ACCOUNT_NAME_TOO_LONG" })
+    }
+
+    if (body?.name !== undefined) {
+      const sameWorkspaceAccounts = await prisma.accounts.findMany({
+        where: { workspace_id: user.active_workspace_id },
+        select: { id: true, name: true },
+      })
+      if (hasEntityNameConflict(sameWorkspaceAccounts, nextName, accountId)) {
+        return reply.status(409).send({ error: "Conflict", code: "ACCOUNT_NAME_EXISTS" })
+      }
+    }
+
+    await prisma.accounts.update({
+      where: { id: accountId },
       data: {
-        name: body?.name ?? undefined,
+        name: body?.name !== undefined ? nextName : undefined,
         display_name:
           body?.displayName !== undefined
             ? body.displayName?.trim()
@@ -217,10 +258,6 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
             : undefined,
       },
     })
-
-    if (updated.count === 0) {
-      return reply.status(404).send({ error: "Not Found" })
-    }
 
     const account = await prisma.accounts.findUnique({
       where: { id: accountId },

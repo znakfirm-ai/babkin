@@ -83,6 +83,14 @@ const getTodayLocalDate = () => {
   return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
 }
 const GOALS_LIST_STALE_MS = 60_000
+const ACCOUNT_NAME_MAX_LENGTH = 12
+const INCOME_SOURCE_NAME_MAX_LENGTH = 12
+const EXPENSE_CATEGORY_NAME_MAX_LENGTH = 12
+const GOAL_NAME_MAX_LENGTH = 20
+const DEBTOR_NAME_MAX_LENGTH = 20
+
+const normalizeEntityName = (value: string) => value.trim().toLowerCase()
+const isEntityNameTooLong = (value: string, maxLength: number) => Array.from(value.trim()).length > maxLength
 
 type OpenPicker =
   | {
@@ -1799,6 +1807,21 @@ function OverviewScreen({
     }
     const trimmed = categoryName.trim()
     if (!trimmed) {
+      setCategorySaveError("Введите название категории")
+      return
+    }
+    if (isEntityNameTooLong(trimmed, EXPENSE_CATEGORY_NAME_MAX_LENGTH)) {
+      setCategorySaveError("Максимум 12 символов")
+      return
+    }
+    const duplicateCategory = categories.some(
+      (category) =>
+        category.type === "expense" &&
+        category.id !== editingCategoryId &&
+        normalizeEntityName(category.name) === normalizeEntityName(trimmed),
+    )
+    if (duplicateCategory) {
+      setCategorySaveError("Такое название уже используется")
       return
     }
     const budgetNumber = (() => {
@@ -1837,7 +1860,13 @@ function OverviewScreen({
       }
       const msg = err instanceof Error ? err.message : "Не удалось сохранить. Попробуйте ещё раз."
       console.error("updateCategory failed", err)
-      setCategorySaveError(msg)
+      if (msg.includes("CATEGORY_NAME_EXISTS")) {
+        setCategorySaveError("Такое название уже используется")
+      } else if (msg.includes("CATEGORY_NAME_TOO_LONG")) {
+        setCategorySaveError("Максимум 12 символов")
+      } else {
+        setCategorySaveError(msg)
+      }
     } finally {
       setIsSavingCategory(false)
     }
@@ -1866,6 +1895,19 @@ function OverviewScreen({
         setIncomeSourceError("Введите название источника")
         return
       }
+      if (isEntityNameTooLong(trimmed, INCOME_SOURCE_NAME_MAX_LENGTH)) {
+        setIncomeSourceError("Максимум 12 символов")
+        return
+      }
+      const duplicateIncomeSource = incomeSources.some(
+        (source) =>
+          source.id !== editingIncomeSourceId &&
+          normalizeEntityName(source.name) === normalizeEntityName(trimmed),
+      )
+      if (duplicateIncomeSource) {
+        setIncomeSourceError("Такое название уже используется")
+        return
+      }
       setIsSavingIncomeSource(true)
       setIncomeSourceError(null)
       try {
@@ -1878,13 +1920,20 @@ function OverviewScreen({
         closeIncomeSourceSheet()
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Ошибка"
-        setIncomeSourceError(msg.includes("INCOME_SOURCE_NAME_EXISTS") ? "Источник с таким названием уже есть" : msg)
+        if (msg.includes("INCOME_SOURCE_NAME_EXISTS")) {
+          setIncomeSourceError("Такое название уже используется")
+        } else if (msg.includes("INCOME_SOURCE_NAME_TOO_LONG")) {
+          setIncomeSourceError("Максимум 12 символов")
+        } else {
+          setIncomeSourceError(msg)
+        }
       } finally {
         setIsSavingIncomeSource(false)
       }
     })
   }, [
     closeIncomeSourceSheet,
+    incomeSources,
     editingIncomeSourceId,
     incomeSourceName,
     incomeSourceSheetMode,
@@ -1957,6 +2006,20 @@ function OverviewScreen({
         setDebtorError("Введите имя должника")
         return
       }
+      if (isEntityNameTooLong(trimmedName, DEBTOR_NAME_MAX_LENGTH)) {
+        setDebtorError("Максимум 20 символов")
+        return
+      }
+      const duplicateDebtor = debtors.some(
+        (debtor) =>
+          debtor.direction === currentDebtorDirection &&
+          debtor.id !== editingDebtorId &&
+          normalizeEntityName(debtor.name) === normalizeEntityName(trimmedName),
+      )
+      if (duplicateDebtor) {
+        setDebtorError("Такое название уже используется")
+        return
+      }
       const returnAmount = Number(debtorReturnAmount.trim().replace(",", "."))
       if (!Number.isFinite(returnAmount) || returnAmount <= 0) {
         setDebtorError("Введите сумму к возврату")
@@ -2008,6 +2071,15 @@ function OverviewScreen({
       await refetchDebtors()
       closeDebtorSheet()
       setIsGoalsListOpen(true)
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message : "Не удалось сохранить"
+      if (msg.includes("DEBTOR_NAME_EXISTS")) {
+        setDebtorError("Такое название уже используется")
+      } else if (msg.includes("DEBTOR_NAME_TOO_LONG")) {
+        setDebtorError("Максимум 20 символов")
+      } else {
+        setDebtorError(msg)
+      }
     })
   }, [
     closeDebtorSheet,
@@ -2044,6 +2116,17 @@ function OverviewScreen({
       setGoalError("Введите название")
       return
     }
+    if (isEntityNameTooLong(trimmed, GOAL_NAME_MAX_LENGTH)) {
+      setGoalError("Максимум 20 символов")
+      return
+    }
+    const duplicateGoal = goals.some(
+      (goal) => goal.id !== editingGoalId && normalizeEntityName(goal.name) === normalizeEntityName(trimmed),
+    )
+    if (duplicateGoal) {
+      setGoalError("Такое название уже используется")
+      return
+    }
     const targetRaw = goalTarget.trim().replace(",", ".")
     const target = Number(targetRaw)
     if (!Number.isFinite(target) || target <= 0) {
@@ -2070,11 +2153,17 @@ function OverviewScreen({
       setEditingGoalId(null)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось создать цель"
-      setGoalError(msg)
+      if (msg.includes("GOAL_NAME_EXISTS")) {
+        setGoalError("Такое название уже используется")
+      } else if (msg.includes("GOAL_NAME_TOO_LONG")) {
+        setGoalError("Максимум 20 символов")
+      } else {
+        setGoalError(msg)
+      }
     } finally {
       setIsSavingGoal(false)
     }
-  }, [goalIcon, goalName, goalTarget, refetchGoals, token])
+  }, [editingGoalId, goalIcon, goalName, goalTarget, goals, refetchGoals, token])
 
   const handleDeleteCategory = useCallback(
     (id: string) =>
@@ -2216,9 +2305,28 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
     return runAccountFlight(async () => {
       const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
       if (!tokenLocal) return
-      if (!name.trim()) return
+      const trimmedName = name.trim()
+      if (!trimmedName) {
+        setAccountActionError("Введите название счёта")
+        return
+      }
+      if (isEntityNameTooLong(trimmedName, ACCOUNT_NAME_MAX_LENGTH)) {
+        setAccountActionError("Максимум 12 символов")
+        return
+      }
+      const duplicateAccount = accounts.some(
+        (account) =>
+          account.id !== editingAccountId && normalizeEntityName(account.name) === normalizeEntityName(trimmedName),
+      )
+      if (duplicateAccount) {
+        setAccountActionError("Такое название уже используется")
+        return
+      }
       const parsed = Number(balance.trim().replace(",", "."))
-      if (!Number.isFinite(parsed)) return
+      if (!Number.isFinite(parsed)) {
+        setAccountActionError("Некорректный баланс")
+        return
+      }
       const balanceNumber = Math.round(parsed * 100) / 100
       try {
         setAccountActionError(null)
@@ -2228,14 +2336,14 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
           typeof currentBalance === "number" ? Math.round(currentBalance * 100) / 100 !== balanceNumber : false
         const needUpdateAccount =
           editingAccountId &&
-          (name.trim() !== currentAccount?.name ||
+          (trimmedName !== currentAccount?.name ||
             accountColor !== (currentAccount as { color?: string })?.color ||
             accountIcon !== (currentAccount as { icon?: string | null })?.icon)
 
         if (editingAccountId) {
           if (needUpdateAccount) {
             await updateAccount(tokenLocal, editingAccountId, {
-              name: name.trim(),
+              name: trimmedName,
               type: type || "cash",
               currency: baseCurrency,
               color: accountColor,
@@ -2247,7 +2355,7 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
           }
         } else {
           await createAccount(tokenLocal, {
-            name: name.trim(),
+            name: trimmedName,
             type: type || "cash",
             currency: baseCurrency,
             balance: balanceNumber,
@@ -2259,7 +2367,14 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
         closeAccountSheet()
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return
-        setAccountActionError(err instanceof Error ? err.message : "Не удалось сохранить счёт")
+        const msg = err instanceof Error ? err.message : "Не удалось сохранить счёт"
+        if (msg.includes("ACCOUNT_NAME_EXISTS")) {
+          setAccountActionError("Такое название уже используется")
+        } else if (msg.includes("ACCOUNT_NAME_TOO_LONG")) {
+          setAccountActionError("Максимум 12 символов")
+        } else {
+          setAccountActionError(msg)
+        }
       }
     })
   }, [
@@ -4493,6 +4608,7 @@ function TransactionsPanel({
                 value={debtorName}
                 onChange={(e) => setDebtorName(e.target.value)}
                 placeholder="Например, Иван Петров"
+                maxLength={DEBTOR_NAME_MAX_LENGTH}
                 style={{
                   padding: 12,
                   borderRadius: 12,
@@ -4833,6 +4949,7 @@ function TransactionsPanel({
                 value={goalName}
                 onChange={(e) => setGoalName(e.target.value)}
                 placeholder="Например, Путешествие"
+                maxLength={GOAL_NAME_MAX_LENGTH}
                 style={{
                   padding: 12,
                   borderRadius: 12,
@@ -5998,6 +6115,7 @@ function TransactionsPanel({
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Введите название"
+                        maxLength={ACCOUNT_NAME_MAX_LENGTH}
                         style={{
                           padding: 12,
                           borderRadius: 10,
@@ -6266,6 +6384,7 @@ function TransactionsPanel({
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Введите название"
+                        maxLength={ACCOUNT_NAME_MAX_LENGTH}
                         style={{
                           padding: 12,
                           borderRadius: 10,
@@ -6454,6 +6573,7 @@ function TransactionsPanel({
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
                   placeholder="Название"
+                  maxLength={EXPENSE_CATEGORY_NAME_MAX_LENGTH}
                   style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 16 }}
                 />
               </div>
@@ -6706,6 +6826,7 @@ function TransactionsPanel({
                 value={incomeSourceName}
                 onChange={(e) => setIncomeSourceName(e.target.value)}
                 placeholder="Название"
+                maxLength={INCOME_SOURCE_NAME_MAX_LENGTH}
                 style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
               />
               <div style={{ display: "grid", gap: 6 }}>

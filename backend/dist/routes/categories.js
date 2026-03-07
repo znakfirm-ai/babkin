@@ -10,6 +10,8 @@ const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
 const workspaceDefaults_1 = require("../defaults/workspaceDefaults");
+const entityNameValidation_1 = require("../utils/entityNameValidation");
+const CATEGORY_NAME_MAX_LENGTH = 12;
 const unauthorized = async (reply, reason) => {
     await reply.status(401).send({ error: "Unauthorized", reason });
     return null;
@@ -96,6 +98,16 @@ async function categoriesRoutes(fastify, _opts) {
         if (!name || (kind !== "income" && kind !== "expense")) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_fields" });
         }
+        if ((0, entityNameValidation_1.isEntityNameTooLong)(name, CATEGORY_NAME_MAX_LENGTH)) {
+            return reply.status(400).send({ error: "Bad Request", code: "CATEGORY_NAME_TOO_LONG" });
+        }
+        const sameKindCategories = await prisma_1.prisma.categories.findMany({
+            where: { workspace_id: user.active_workspace_id, kind },
+            select: { id: true, name: true },
+        });
+        if ((0, entityNameValidation_1.hasEntityNameConflict)(sameKindCategories, name)) {
+            return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" });
+        }
         const created = await prisma_1.prisma.categories.create({
             data: {
                 workspace_id: user.active_workspace_id,
@@ -132,32 +144,21 @@ async function categoriesRoutes(fastify, _opts) {
         if (!name) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" });
         }
+        if ((0, entityNameValidation_1.isEntityNameTooLong)(name, CATEGORY_NAME_MAX_LENGTH)) {
+            return reply.status(400).send({ error: "Bad Request", code: "CATEGORY_NAME_TOO_LONG" });
+        }
         const existing = await prisma_1.prisma.categories.findFirst({
             where: { id: categoryId, workspace_id: user.active_workspace_id },
         });
         if (!existing) {
             return reply.status(404).send({ error: "Not Found" });
         }
-        const normalizedName = name.toLowerCase();
-        const normalizedExisting = existing.name.trim().toLowerCase();
-        if (normalizedName !== normalizedExisting) {
-            const duplicate = await prisma_1.prisma.categories.findFirst({
-                where: {
-                    workspace_id: user.active_workspace_id,
-                    name: { equals: name, mode: "insensitive" },
-                    id: { not: categoryId },
-                },
-            });
-            if (duplicate) {
-                fastify.log.warn({
-                    msg: "CATEGORY_NAME_EXISTS",
-                    categoryId,
-                    workspaceId: user.active_workspace_id,
-                    name,
-                    duplicateId: duplicate.id,
-                }, "Category update conflict: name already exists");
-                return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" });
-            }
+        const sameKindCategories = await prisma_1.prisma.categories.findMany({
+            where: { workspace_id: user.active_workspace_id, kind: existing.kind },
+            select: { id: true, name: true },
+        });
+        if ((0, entityNameValidation_1.hasEntityNameConflict)(sameKindCategories, name, categoryId)) {
+            return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" });
         }
         let updated;
         try {

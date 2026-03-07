@@ -4,6 +4,9 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
+import { hasEntityNameConflict, isEntityNameTooLong } from "../utils/entityNameValidation"
+
+const DEBTOR_NAME_MAX_LENGTH = 20
 
 type DebtorResponse = {
   id: string
@@ -184,6 +187,9 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
     if (!name) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
     }
+    if (isEntityNameTooLong(name, DEBTOR_NAME_MAX_LENGTH)) {
+      return reply.status(400).send({ error: "Bad Request", code: "DEBTOR_NAME_TOO_LONG" })
+    }
 
     const issuedAt = parseDate(body.issuedAt)
     if (!issuedAt) {
@@ -211,6 +217,13 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
     const direction = parseDirection(body.direction ?? "RECEIVABLE")
     if (!direction) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" })
+    }
+
+    const sameDirectionDebtors = await debtorsModel.findMany({
+      where: { workspace_id: user.active_workspace_id, direction },
+    })
+    if (hasEntityNameConflict(sameDirectionDebtors, name)) {
+      return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" })
     }
 
     const created = await debtorsModel.create({
@@ -278,7 +291,24 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       if (!name) {
         return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
       }
+      if (isEntityNameTooLong(name, DEBTOR_NAME_MAX_LENGTH)) {
+        return reply.status(400).send({ error: "Bad Request", code: "DEBTOR_NAME_TOO_LONG" })
+      }
+      const targetDirection = direction ?? existing.direction
+      const sameDirectionDebtors = await debtorsModel.findMany({
+        where: { workspace_id: user.active_workspace_id, direction: targetDirection },
+      })
+      if (hasEntityNameConflict(sameDirectionDebtors, name, debtorId)) {
+        return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" })
+      }
       data.name = name
+    } else if (direction && direction !== existing.direction) {
+      const sameDirectionDebtors = await debtorsModel.findMany({
+        where: { workspace_id: user.active_workspace_id, direction },
+      })
+      if (hasEntityNameConflict(sameDirectionDebtors, existing.name, debtorId)) {
+        return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" })
+      }
     }
 
     if (body.icon !== undefined) {

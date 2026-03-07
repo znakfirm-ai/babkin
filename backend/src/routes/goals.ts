@@ -4,6 +4,9 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
+import { hasEntityNameConflict, isEntityNameTooLong } from "../utils/entityNameValidation"
+
+const GOAL_NAME_MAX_LENGTH = 20
 
 type GoalResponse = {
   id: string
@@ -120,6 +123,17 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
     if (!name) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
     }
+    if (isEntityNameTooLong(name, GOAL_NAME_MAX_LENGTH)) {
+      return reply.status(400).send({ error: "Bad Request", code: "GOAL_NAME_TOO_LONG" })
+    }
+
+    const sameWorkspaceGoals = await prisma.goals.findMany({
+      where: { workspace_id: user.active_workspace_id },
+      select: { id: true, name: true },
+    })
+    if (hasEntityNameConflict(sameWorkspaceGoals, name)) {
+      return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" })
+    }
 
     const parsedAmount = typeof body.targetAmount === "string" ? Number(body.targetAmount) : body.targetAmount
     if (parsedAmount === undefined || parsedAmount === null || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -163,6 +177,16 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
     if (body.name !== undefined) {
       const nm = body.name.trim()
       if (!nm) return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
+      if (isEntityNameTooLong(nm, GOAL_NAME_MAX_LENGTH)) {
+        return reply.status(400).send({ error: "Bad Request", code: "GOAL_NAME_TOO_LONG" })
+      }
+      const sameWorkspaceGoals = await prisma.goals.findMany({
+        where: { workspace_id: user.active_workspace_id },
+        select: { id: true, name: true },
+      })
+      if (hasEntityNameConflict(sameWorkspaceGoals, nm, goalId)) {
+        return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" })
+      }
       data.name = nm
     }
     if (body.icon !== undefined) {

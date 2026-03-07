@@ -9,6 +9,8 @@ const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
 const workspaceDefaults_1 = require("../defaults/workspaceDefaults");
+const entityNameValidation_1 = require("../utils/entityNameValidation");
+const INCOME_SOURCE_NAME_MAX_LENGTH = 12;
 const unauthorized = async (reply, reason) => {
     await reply.status(401).send({ error: "Unauthorized", reason });
     return null;
@@ -85,10 +87,14 @@ async function incomeSourcesRoutes(fastify, _opts) {
         if (!name) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" });
         }
-        const duplicate = await prisma_1.prisma.income_sources.findFirst({
-            where: { workspace_id: user.active_workspace_id, name: { equals: name, mode: "insensitive" } },
+        if ((0, entityNameValidation_1.isEntityNameTooLong)(name, INCOME_SOURCE_NAME_MAX_LENGTH)) {
+            return reply.status(400).send({ error: "Bad Request", code: "INCOME_SOURCE_NAME_TOO_LONG" });
+        }
+        const sameWorkspaceSources = await prisma_1.prisma.income_sources.findMany({
+            where: { workspace_id: user.active_workspace_id },
+            select: { id: true, name: true },
         });
-        if (duplicate) {
+        if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceSources, name)) {
             return reply.status(409).send({ error: "Conflict", code: "INCOME_SOURCE_NAME_EXISTS" });
         }
         const created = await prisma_1.prisma.income_sources.create({
@@ -121,20 +127,20 @@ async function incomeSourcesRoutes(fastify, _opts) {
         if (!name) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" });
         }
+        if ((0, entityNameValidation_1.isEntityNameTooLong)(name, INCOME_SOURCE_NAME_MAX_LENGTH)) {
+            return reply.status(400).send({ error: "Bad Request", code: "INCOME_SOURCE_NAME_TOO_LONG" });
+        }
         const existing = await prisma_1.prisma.income_sources.findFirst({
             where: { id: incomeSourceId, workspace_id: user.active_workspace_id },
         });
         if (!existing) {
             return reply.status(404).send({ error: "Not Found" });
         }
-        const duplicate = await prisma_1.prisma.income_sources.findFirst({
-            where: {
-                workspace_id: user.active_workspace_id,
-                name: { equals: name, mode: "insensitive" },
-                NOT: { id: incomeSourceId },
-            },
+        const sameWorkspaceSources = await prisma_1.prisma.income_sources.findMany({
+            where: { workspace_id: user.active_workspace_id },
+            select: { id: true, name: true },
         });
-        if (duplicate) {
+        if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceSources, name, incomeSourceId)) {
             return reply.status(409).send({ error: "Conflict", code: "INCOME_SOURCE_NAME_EXISTS" });
         }
         const updated = await prisma_1.prisma.income_sources.update({

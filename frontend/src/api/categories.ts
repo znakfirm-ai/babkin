@@ -46,7 +46,8 @@ export async function createCategory(token: string, body: CreateCategoryBody): P
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    throw new Error(`Failed to create category: ${res.status}`)
+    const text = await res.text().catch(() => "")
+    throw new Error(`POST /categories failed: ${res.status} ${res.statusText} ${text}`)
   }
   const data = (await res.json()) as { category: CategoryDto }
   return data.category

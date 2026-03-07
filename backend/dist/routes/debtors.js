@@ -9,6 +9,8 @@ const client_1 = require("@prisma/client");
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
+const entityNameValidation_1 = require("../utils/entityNameValidation");
+const DEBTOR_NAME_MAX_LENGTH = 20;
 const debtorsModel = prisma_1.prisma.debtors;
 const unauthorized = async (reply, reason) => {
     await reply.status(401).send({ error: "Unauthorized", reason });
@@ -133,6 +135,9 @@ async function debtorsRoutes(fastify, _opts) {
         if (!name) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" });
         }
+        if ((0, entityNameValidation_1.isEntityNameTooLong)(name, DEBTOR_NAME_MAX_LENGTH)) {
+            return reply.status(400).send({ error: "Bad Request", code: "DEBTOR_NAME_TOO_LONG" });
+        }
         const issuedAt = parseDate(body.issuedAt);
         if (!issuedAt) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_issued_at" });
@@ -155,6 +160,12 @@ async function debtorsRoutes(fastify, _opts) {
         const direction = parseDirection(body.direction ?? "RECEIVABLE");
         if (!direction) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" });
+        }
+        const sameDirectionDebtors = await debtorsModel.findMany({
+            where: { workspace_id: user.active_workspace_id, direction },
+        });
+        if ((0, entityNameValidation_1.hasEntityNameConflict)(sameDirectionDebtors, name)) {
+            return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" });
         }
         const created = await debtorsModel.create({
             data: {
@@ -204,7 +215,25 @@ async function debtorsRoutes(fastify, _opts) {
             if (!name) {
                 return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" });
             }
+            if ((0, entityNameValidation_1.isEntityNameTooLong)(name, DEBTOR_NAME_MAX_LENGTH)) {
+                return reply.status(400).send({ error: "Bad Request", code: "DEBTOR_NAME_TOO_LONG" });
+            }
+            const targetDirection = direction ?? existing.direction;
+            const sameDirectionDebtors = await debtorsModel.findMany({
+                where: { workspace_id: user.active_workspace_id, direction: targetDirection },
+            });
+            if ((0, entityNameValidation_1.hasEntityNameConflict)(sameDirectionDebtors, name, debtorId)) {
+                return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" });
+            }
             data.name = name;
+        }
+        else if (direction && direction !== existing.direction) {
+            const sameDirectionDebtors = await debtorsModel.findMany({
+                where: { workspace_id: user.active_workspace_id, direction },
+            });
+            if ((0, entityNameValidation_1.hasEntityNameConflict)(sameDirectionDebtors, existing.name, debtorId)) {
+                return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" });
+            }
         }
         if (body.icon !== undefined) {
             data.icon = body.icon?.trim() || null;

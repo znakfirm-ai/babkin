@@ -4,6 +4,9 @@ import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
 import { seedWorkspaceDefaults } from "../defaults/workspaceDefaults"
+import { hasEntityNameConflict, isEntityNameTooLong } from "../utils/entityNameValidation"
+
+const INCOME_SOURCE_NAME_MAX_LENGTH = 12
 
 type IncomeSourceResponse = {
   id: string
@@ -100,11 +103,15 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
     if (!name) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
     }
+    if (isEntityNameTooLong(name, INCOME_SOURCE_NAME_MAX_LENGTH)) {
+      return reply.status(400).send({ error: "Bad Request", code: "INCOME_SOURCE_NAME_TOO_LONG" })
+    }
 
-    const duplicate = await prisma.income_sources.findFirst({
-      where: { workspace_id: user.active_workspace_id, name: { equals: name, mode: "insensitive" } },
+    const sameWorkspaceSources = await prisma.income_sources.findMany({
+      where: { workspace_id: user.active_workspace_id },
+      select: { id: true, name: true },
     })
-    if (duplicate) {
+    if (hasEntityNameConflict(sameWorkspaceSources, name)) {
       return reply.status(409).send({ error: "Conflict", code: "INCOME_SOURCE_NAME_EXISTS" })
     }
 
@@ -143,6 +150,9 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
     if (!name) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
     }
+    if (isEntityNameTooLong(name, INCOME_SOURCE_NAME_MAX_LENGTH)) {
+      return reply.status(400).send({ error: "Bad Request", code: "INCOME_SOURCE_NAME_TOO_LONG" })
+    }
 
     const existing = await prisma.income_sources.findFirst({
       where: { id: incomeSourceId, workspace_id: user.active_workspace_id },
@@ -151,14 +161,11 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       return reply.status(404).send({ error: "Not Found" })
     }
 
-    const duplicate = await prisma.income_sources.findFirst({
-      where: {
-        workspace_id: user.active_workspace_id,
-        name: { equals: name, mode: "insensitive" },
-        NOT: { id: incomeSourceId },
-      },
+    const sameWorkspaceSources = await prisma.income_sources.findMany({
+      where: { workspace_id: user.active_workspace_id },
+      select: { id: true, name: true },
     })
-    if (duplicate) {
+    if (hasEntityNameConflict(sameWorkspaceSources, name, incomeSourceId)) {
       return reply.status(409).send({ error: "Conflict", code: "INCOME_SOURCE_NAME_EXISTS" })
     }
 

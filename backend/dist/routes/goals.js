@@ -9,6 +9,8 @@ const client_1 = require("@prisma/client");
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
+const entityNameValidation_1 = require("../utils/entityNameValidation");
+const GOAL_NAME_MAX_LENGTH = 20;
 const unauthorized = async (reply, reason) => {
     await reply.status(401).send({ error: "Unauthorized", reason });
     return null;
@@ -93,6 +95,16 @@ async function goalsRoutes(fastify, _opts) {
         if (!name) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" });
         }
+        if ((0, entityNameValidation_1.isEntityNameTooLong)(name, GOAL_NAME_MAX_LENGTH)) {
+            return reply.status(400).send({ error: "Bad Request", code: "GOAL_NAME_TOO_LONG" });
+        }
+        const sameWorkspaceGoals = await prisma_1.prisma.goals.findMany({
+            where: { workspace_id: user.active_workspace_id },
+            select: { id: true, name: true },
+        });
+        if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceGoals, name)) {
+            return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" });
+        }
         const parsedAmount = typeof body.targetAmount === "string" ? Number(body.targetAmount) : body.targetAmount;
         if (parsedAmount === undefined || parsedAmount === null || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
             return reply.status(400).send({ error: "Bad Request", reason: "invalid_target_amount" });
@@ -129,6 +141,16 @@ async function goalsRoutes(fastify, _opts) {
             const nm = body.name.trim();
             if (!nm)
                 return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" });
+            if ((0, entityNameValidation_1.isEntityNameTooLong)(nm, GOAL_NAME_MAX_LENGTH)) {
+                return reply.status(400).send({ error: "Bad Request", code: "GOAL_NAME_TOO_LONG" });
+            }
+            const sameWorkspaceGoals = await prisma_1.prisma.goals.findMany({
+                where: { workspace_id: user.active_workspace_id },
+                select: { id: true, name: true },
+            });
+            if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceGoals, nm, goalId)) {
+                return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" });
+            }
             data.name = nm;
         }
         if (body.icon !== undefined) {

@@ -134,7 +134,8 @@ export async function createAccount(token: string, body: CreateAccountBody): Pro
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    throw new Error(`Failed to create account: ${res.status}`)
+    const text = await res.text().catch(() => "")
+    throw new Error(`POST /accounts failed: ${res.status} ${res.statusText} ${text}`)
   }
   const data = (await res.json()) as { account: ApiAccount }
   return data.account

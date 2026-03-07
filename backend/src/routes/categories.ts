@@ -5,6 +5,9 @@ import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
 import { seedWorkspaceDefaults } from "../defaults/workspaceDefaults"
+import { hasEntityNameConflict, isEntityNameTooLong } from "../utils/entityNameValidation"
+
+const CATEGORY_NAME_MAX_LENGTH = 12
 
 type CategoryResponse = {
   id: string
@@ -116,6 +119,17 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
     if (!name || (kind !== "income" && kind !== "expense")) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_fields" })
     }
+    if (isEntityNameTooLong(name, CATEGORY_NAME_MAX_LENGTH)) {
+      return reply.status(400).send({ error: "Bad Request", code: "CATEGORY_NAME_TOO_LONG" })
+    }
+
+    const sameKindCategories = await prisma.categories.findMany({
+      where: { workspace_id: user.active_workspace_id, kind },
+      select: { id: true, name: true },
+    })
+    if (hasEntityNameConflict(sameKindCategories, name)) {
+      return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" })
+    }
 
     const created = await prisma.categories.create({
       data: {
@@ -158,6 +172,9 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
     if (!name) {
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
     }
+    if (isEntityNameTooLong(name, CATEGORY_NAME_MAX_LENGTH)) {
+      return reply.status(400).send({ error: "Bad Request", code: "CATEGORY_NAME_TOO_LONG" })
+    }
 
     const existing = await prisma.categories.findFirst({
       where: { id: categoryId, workspace_id: user.active_workspace_id },
@@ -166,30 +183,12 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       return reply.status(404).send({ error: "Not Found" })
     }
 
-    const normalizedName = name.toLowerCase()
-    const normalizedExisting = existing.name.trim().toLowerCase()
-
-    if (normalizedName !== normalizedExisting) {
-      const duplicate = await prisma.categories.findFirst({
-        where: {
-          workspace_id: user.active_workspace_id,
-          name: { equals: name, mode: "insensitive" },
-          id: { not: categoryId },
-        },
-      })
-      if (duplicate) {
-        fastify.log.warn(
-          {
-            msg: "CATEGORY_NAME_EXISTS",
-            categoryId,
-            workspaceId: user.active_workspace_id,
-            name,
-            duplicateId: duplicate.id,
-          },
-          "Category update conflict: name already exists",
-        )
-        return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" })
-      }
+    const sameKindCategories = await prisma.categories.findMany({
+      where: { workspace_id: user.active_workspace_id, kind: existing.kind },
+      select: { id: true, name: true },
+    })
+    if (hasEntityNameConflict(sameKindCategories, name, categoryId)) {
+      return reply.status(409).send({ error: "Conflict", code: "CATEGORY_NAME_EXISTS" })
     }
 
     let updated

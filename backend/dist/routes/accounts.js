@@ -9,6 +9,8 @@ const client_1 = require("@prisma/client");
 const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
+const entityNameValidation_1 = require("../utils/entityNameValidation");
+const ACCOUNT_NAME_MAX_LENGTH = 12;
 async function accountsRoutes(fastify, _opts) {
     const resolveUserId = async (request, reply) => {
         const authHeader = request.headers.authorization;
@@ -103,13 +105,24 @@ async function accountsRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "No active workspace" });
         }
         const body = request.body;
-        if (!body?.name || !body.type || !body.currency) {
+        const trimmedName = body?.name?.trim();
+        if (!trimmedName || !body.type || !body.currency) {
             return reply.status(400).send({ error: "Bad Request", reason: "missing_fields" });
+        }
+        if ((0, entityNameValidation_1.isEntityNameTooLong)(trimmedName, ACCOUNT_NAME_MAX_LENGTH)) {
+            return reply.status(400).send({ error: "Bad Request", code: "ACCOUNT_NAME_TOO_LONG" });
+        }
+        const sameWorkspaceAccounts = await prisma_1.prisma.accounts.findMany({
+            where: { workspace_id: user.active_workspace_id },
+            select: { id: true, name: true },
+        });
+        if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceAccounts, trimmedName)) {
+            return reply.status(409).send({ error: "Conflict", code: "ACCOUNT_NAME_EXISTS" });
         }
         const created = await prisma_1.prisma.accounts.create({
             data: {
                 workspace_id: user.active_workspace_id,
-                name: body.name,
+                name: trimmedName,
                 display_name: body.displayName?.trim() ? body.displayName.trim() : null,
                 type: body.type,
                 currency: body.currency,
@@ -149,10 +162,33 @@ async function accountsRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" });
         }
         const body = request.body;
-        const updated = await prisma_1.prisma.accounts.updateMany({
+        const existing = await prisma_1.prisma.accounts.findFirst({
             where: { id: accountId, workspace_id: user.active_workspace_id },
+            select: { id: true, name: true },
+        });
+        if (!existing) {
+            return reply.status(404).send({ error: "Not Found" });
+        }
+        const nextName = body?.name !== undefined ? body.name.trim() : existing.name;
+        if (!nextName) {
+            return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" });
+        }
+        if ((0, entityNameValidation_1.isEntityNameTooLong)(nextName, ACCOUNT_NAME_MAX_LENGTH)) {
+            return reply.status(400).send({ error: "Bad Request", code: "ACCOUNT_NAME_TOO_LONG" });
+        }
+        if (body?.name !== undefined) {
+            const sameWorkspaceAccounts = await prisma_1.prisma.accounts.findMany({
+                where: { workspace_id: user.active_workspace_id },
+                select: { id: true, name: true },
+            });
+            if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceAccounts, nextName, accountId)) {
+                return reply.status(409).send({ error: "Conflict", code: "ACCOUNT_NAME_EXISTS" });
+            }
+        }
+        await prisma_1.prisma.accounts.update({
+            where: { id: accountId },
             data: {
-                name: body?.name ?? undefined,
+                name: body?.name !== undefined ? nextName : undefined,
                 display_name: body?.displayName !== undefined
                     ? body.displayName?.trim()
                         ? body.displayName.trim()
@@ -169,9 +205,6 @@ async function accountsRoutes(fastify, _opts) {
                     : undefined,
             },
         });
-        if (updated.count === 0) {
-            return reply.status(404).send({ error: "Not Found" });
-        }
         const account = await prisma_1.prisma.accounts.findUnique({
             where: { id: accountId },
             select: {
