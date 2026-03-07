@@ -2284,12 +2284,20 @@ function TransactionsPanel({
     return map
   }, [goals])
 
+  const isGoalReturnTx = useCallback(
+    (tx: Transaction) => tx.type === "transfer" && Boolean(tx.goalId) && !tx.fromAccountId && Boolean(tx.toAccountId),
+    [],
+  )
+
   const getGoalTransferTitle = useCallback(
     (tx: Transaction) => {
       const goalName = tx.goalName ?? (tx.goalId ? goalNameById.get(tx.goalId) : null)
+      if (isGoalReturnTx(tx)) {
+        return goalName ? `Пополнение с цели: ${goalName}` : "Пополнение с цели"
+      }
       return goalName ? `Цель: ${goalName}` : "Цель"
     },
-    [goalNameById],
+    [goalNameById, isGoalReturnTx],
   )
   const getGoalTransferSourceLabel = useCallback(
     (tx: Transaction) => {
@@ -3117,7 +3125,8 @@ function TransactionsPanel({
                   renderRow={(tx, idx) => {
                     const debtTitle = getDebtTxAccountTitle(tx)
                     const isDebtIncome = Boolean(tx.debtorId && tx.type === "transfer")
-                    const isIncome = tx.type === "income" || isDebtIncome
+                    const isGoalReturnIncome = isGoalReturnTx(tx)
+                    const isIncome = tx.type === "income" || isDebtIncome || isGoalReturnIncome
                     const isExpense = tx.type === "expense"
                     const sign = isIncome ? "+" : isExpense ? "-" : ""
                     const color = isIncome ? "#16a34a" : "#0f172a"
