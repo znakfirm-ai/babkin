@@ -96,14 +96,14 @@ export async function contributeGoal(
   return (await res.json()) as { goal: GoalDto }
 }
 
-export async function completeGoal(token: string, goalId: string, destinationAccountId: string) {
+export async function completeGoal(token: string, goalId: string, destinationAccountId?: string) {
   const res = await fetch(`https://babkin.onrender.com/api/v1/goals/${goalId}/complete`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ destinationAccountId }),
+    body: JSON.stringify(destinationAccountId ? { destinationAccountId } : {}),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => "")

@@ -162,26 +162,55 @@ async function goalsRoutes(fastify, _opts) {
         if (!goalId) {
             return reply.status(400).send({ error: "Bad Request", reason: "missing_goal_id" });
         }
-        const body = request.body;
-        if (!body.destinationAccountId) {
-            return reply.status(400).send({ error: "Bad Request", reason: "missing_destination_account_id" });
-        }
+        const body = request.body ?? {};
         const workspaceId = user.active_workspace_id;
         const goal = await prisma_1.prisma.goals.findFirst({ where: { id: goalId, workspace_id: workspaceId } });
         if (!goal) {
             return reply.status(404).send({ error: "Not Found", reason: "goal_not_found" });
         }
-        const destinationAccount = await prisma_1.prisma.accounts.findFirst({
-            where: { id: body.destinationAccountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
+        const goalTransactions = await prisma_1.prisma.transactions.findMany({
+            where: {
+                workspace_id: workspaceId,
+                goal_id: goal.id,
+                kind: "transfer",
+            },
+            select: {
+                amount: true,
+                from_account_id: true,
+                to_account_id: true,
+            },
+            orderBy: {
+                happened_at: "asc",
+            },
         });
-        if (!destinationAccount) {
-            return reply.status(404).send({ error: "Not Found", reason: "account_not_found" });
+        const returnByAccount = new Map();
+        const trackReturn = (accountId, delta) => {
+            const previous = returnByAccount.get(accountId) ?? new client_1.Prisma.Decimal(0);
+            returnByAccount.set(accountId, previous.plus(delta));
+        };
+        goalTransactions.forEach((transaction) => {
+            if (transaction.from_account_id && !transaction.to_account_id) {
+                trackReturn(transaction.from_account_id, transaction.amount);
+                return;
+            }
+            if (!transaction.from_account_id && transaction.to_account_id) {
+                trackReturn(transaction.to_account_id, transaction.amount.neg());
+            }
+        });
+        if (body.destinationAccountId) {
+            const fallbackAccount = await prisma_1.prisma.accounts.findFirst({
+                where: { id: body.destinationAccountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
+            });
+            if (fallbackAccount && returnByAccount.size === 0 && goal.current_amount.greaterThan(0)) {
+                returnByAccount.set(fallbackAccount.id, new client_1.Prisma.Decimal(goal.current_amount));
+            }
         }
-        const amountDec = new client_1.Prisma.Decimal(goal.current_amount);
         const updatedGoal = await prisma_1.prisma.$transaction(async (tx) => {
-            if (amountDec.greaterThan(0)) {
-                await tx.accounts.update({
-                    where: { id: destinationAccount.id },
+            for (const [accountId, amountDec] of returnByAccount.entries()) {
+                if (!amountDec.greaterThan(0))
+                    continue;
+                await tx.accounts.updateMany({
+                    where: { id: accountId, workspace_id: workspaceId },
                     data: { balance: { increment: amountDec } },
                 });
                 await tx.transactions.create({
@@ -193,7 +222,7 @@ async function goalsRoutes(fastify, _opts) {
                         happened_at: new Date(),
                         account_id: null,
                         from_account_id: null,
-                        to_account_id: destinationAccount.id,
+                        to_account_id: accountId,
                         category_id: null,
                         income_source_id: null,
                         goal_id: goal.id,
