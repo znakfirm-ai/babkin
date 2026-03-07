@@ -53,6 +53,15 @@ const copyText = async (value: string) => {
   document.body.removeChild(textarea)
 }
 
+const SHARED_INVITE_MESSAGE = "Давай вместе вести бюджет 👇"
+
+const buildTelegramShareUrl = (inviteUrl: string) => {
+  const url = new URL("https://t.me/share/url")
+  url.searchParams.set("url", inviteUrl)
+  url.searchParams.set("text", SHARED_INVITE_MESSAGE)
+  return url.toString()
+}
+
 const SettingsScreen: React.FC<Props> = ({
   onOpenCategories,
   onOpenIconsPreview,
@@ -157,7 +166,7 @@ const SettingsScreen: React.FC<Props> = ({
 
   const sharedInviteShareText = useMemo(() => {
     if (!sharedInviteUrl) return ""
-    return `Давай вместе вести бюджет 👇\n\n${sharedInviteUrl}`
+    return `${SHARED_INVITE_MESSAGE}\n\n${sharedInviteUrl}`
   }, [sharedInviteUrl])
 
   const handleCopySharedInvite = useCallback(async () => {
@@ -173,24 +182,41 @@ const SettingsScreen: React.FC<Props> = ({
   }, [sharedInviteShareText])
 
   const handleShareSharedInvite = useCallback(async () => {
-    if (!sharedInviteShareText) return
+    if (!sharedInviteUrl || !sharedInviteShareText) return
     setSharedInviteError(null)
     setSharedInviteNotice(null)
+    const shareUrl = buildTelegramShareUrl(sharedInviteUrl)
     try {
-      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-        await navigator.share({ text: sharedInviteShareText })
-        setSharedInviteNotice("Ссылка готова к отправке")
+      const webApp = window.Telegram?.WebApp as
+        | {
+            openTelegramLink?: (url: string) => void
+            openLink?: (url: string) => void
+          }
+        | undefined
+      if (typeof webApp?.openTelegramLink === "function") {
+        webApp.openTelegramLink(shareUrl)
+        setSharedInviteNotice("Открыли окно отправки")
         return
       }
-      await copyText(sharedInviteShareText)
-      setSharedInviteNotice("Ссылка скопирована")
+      if (typeof webApp?.openLink === "function") {
+        webApp.openLink(shareUrl)
+        setSharedInviteNotice("Открыли окно отправки")
+        return
+      }
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({ text: sharedInviteShareText, url: sharedInviteUrl })
+        setSharedInviteNotice("Открыли окно отправки")
+        return
+      }
+      window.open(shareUrl, "_blank", "noopener,noreferrer")
+      setSharedInviteNotice("Открыли окно отправки")
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return
       }
       setSharedInviteError("Не удалось поделиться ссылкой")
     }
-  }, [sharedInviteShareText])
+  }, [sharedInviteShareText, sharedInviteUrl])
 
   const handleRegenerateSharedInvite = useCallback(async () => {
     if (!onRegenerateSharedInvite || isSharedInviteRegenerating) return
