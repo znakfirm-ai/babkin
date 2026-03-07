@@ -91,6 +91,7 @@ const DEBTOR_NAME_MAX_LENGTH = 20
 
 const normalizeEntityName = (value: string) => value.trim().toLowerCase()
 const isEntityNameTooLong = (value: string, maxLength: number) => Array.from(value.trim()).length > maxLength
+const isDuplicateNameError = (error: string | null | undefined) => Boolean(error && error.includes("Такое название уже используется"))
 
 type OpenPicker =
   | {
@@ -829,6 +830,11 @@ function OverviewScreen({
   const isGoalsMode = goalsListMode === "goals"
   const currentDebtorDirection: "receivable" | "payable" = isDebtsPayableMode ? "payable" : "receivable"
   const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : isDebtsPayableMode ? "Я должен" : "Список целей"
+  const hasAccountDuplicateNameError = isDuplicateNameError(accountActionError)
+  const hasCategoryDuplicateNameError = isDuplicateNameError(categorySaveError)
+  const hasIncomeSourceDuplicateNameError = isDuplicateNameError(incomeSourceError)
+  const hasGoalDuplicateNameError = isDuplicateNameError(goalError)
+  const hasDebtorDuplicateNameError = isDuplicateNameError(debtorError)
   const accountPreviewColor = accountColor || accountColorOptions[0]
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
@@ -1210,6 +1216,9 @@ function OverviewScreen({
     lastCategorySheetModeRef.current = "create"
     setEditingCategoryId(null)
     setCategoryName("")
+    setCategoryBudget("")
+    setCategoryIcon(null)
+    setCategorySaveError(null)
   }, [])
 
   const openGoalsList = useCallback(async () => {
@@ -1384,6 +1393,7 @@ function OverviewScreen({
     setEditingIncomeSourceId(null)
     setIncomeSourceName("")
     setIncomeSourceIcon(null)
+    setIncomeSourceError(null)
   }, [])
 
   const openIncomeSourceDetails = useCallback((id: string, title: string) => {
@@ -1397,6 +1407,7 @@ function OverviewScreen({
   const closeCategorySheet = useCallback(
     (opts?: { preserveForm?: boolean }) => {
       setCategorySheetMode(null)
+      setCategorySaveError(null)
       if (!opts?.preserveForm) {
         setEditingCategoryId(null)
         setCategoryName("")
@@ -1435,6 +1446,7 @@ function OverviewScreen({
       lastCategorySheetModeRef.current = "edit"
       setEditingCategoryId(id)
       setCategoryName(title)
+      setCategorySaveError(null)
       const cat = categories.find((c) => c.id === id)
       setCategoryBudget(cat && (cat as { budget?: number | string }).budget ? String((cat as any).budget) : "")
       setCategoryIcon((cat as { icon?: string | null } | undefined)?.icon ?? null)
@@ -1448,6 +1460,7 @@ function OverviewScreen({
       lastIncomeSourceModeRef.current = "edit"
       setEditingIncomeSourceId(id)
       setIncomeSourceName(title)
+      setIncomeSourceError(null)
       const src = incomeSources.find((s) => s.id === id)
       setIncomeSourceIcon(src?.icon ?? null)
     },
@@ -3064,6 +3077,7 @@ function TransactionsPanel({
           setType("cash")
           setAccountColor(accountColorOptions[0])
           setAccountIcon(null)
+          setAccountActionError(null)
           setIsConfirmingDelete(false)
           setIsAccountSheetOpen(true)
         }}
@@ -4612,7 +4626,7 @@ function TransactionsPanel({
                 style={{
                   padding: 12,
                   borderRadius: 12,
-                  border: "1px solid #e5e7eb",
+                  border: hasDebtorDuplicateNameError ? "1px solid #ef4444" : "1px solid #e5e7eb",
                   fontSize: 16,
                   outline: "none",
                   boxShadow: "none",
@@ -4953,7 +4967,7 @@ function TransactionsPanel({
                 style={{
                   padding: 12,
                   borderRadius: 12,
-                  border: "1px solid #e5e7eb",
+                  border: hasGoalDuplicateNameError ? "1px solid #ef4444" : "1px solid #e5e7eb",
                   fontSize: 15,
                   outline: "none",
                   boxShadow: "none",
@@ -6119,7 +6133,7 @@ function TransactionsPanel({
                         style={{
                           padding: 12,
                           borderRadius: 10,
-                          border: "1px solid rgba(255,255,255,0.35)",
+                          border: hasAccountDuplicateNameError ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.35)",
                           fontSize: 16,
                           outline: "none",
                           boxShadow: "none",
@@ -6211,6 +6225,9 @@ function TransactionsPanel({
                       ))}
                     </div>
                   </div>
+                  {accountActionError ? (
+                    <div style={{ color: "#b91c1c", fontSize: 13, textAlign: "center" }}>{accountActionError}</div>
+                  ) : null}
                   {editingAccountId ? (
                     isConfirmingDelete ? (
                       <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
@@ -6346,9 +6363,6 @@ function TransactionsPanel({
                       {isAccountFlight ? "Сохраняем…" : "Сохранить"}
                     </button>
                   )}
-                  {accountActionError ? (
-                    <div style={{ color: "#b91c1c", fontSize: 13, textAlign: "center" }}>{accountActionError}</div>
-                  ) : null}
                 </div>
               </div>
             ) : (
@@ -6388,7 +6402,7 @@ function TransactionsPanel({
                         style={{
                           padding: 12,
                           borderRadius: 10,
-                          border: "1px solid rgba(255,255,255,0.35)",
+                          border: hasAccountDuplicateNameError ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.35)",
                           fontSize: 16,
                           outline: "none",
                           boxShadow: "none",
@@ -6574,7 +6588,12 @@ function TransactionsPanel({
                   onChange={(e) => setCategoryName(e.target.value)}
                   placeholder="Название"
                   maxLength={EXPENSE_CATEGORY_NAME_MAX_LENGTH}
-                  style={{ padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 16 }}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: hasCategoryDuplicateNameError ? "1px solid #ef4444" : "1px solid #e5e7eb",
+                    fontSize: 16,
+                  }}
                 />
               </div>
               <div style={{ display: "grid", gap: 6 }}>
@@ -6827,7 +6846,12 @@ function TransactionsPanel({
                 onChange={(e) => setIncomeSourceName(e.target.value)}
                 placeholder="Название"
                 maxLength={INCOME_SOURCE_NAME_MAX_LENGTH}
-                style={{ padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 16 }}
+                style={{
+                  padding: 12,
+                  borderRadius: 10,
+                  border: hasIncomeSourceDuplicateNameError ? "1px solid #ef4444" : "1px solid #e5e7eb",
+                  fontSize: 16,
+                }}
               />
               <div style={{ display: "grid", gap: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Иконка</div>
