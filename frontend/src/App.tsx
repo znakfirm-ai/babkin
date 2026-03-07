@@ -81,6 +81,18 @@ const INVITE_STARTAPP_PREFIX = "join_"
 
 type TelegramInitDataUnsafe = {
   start_param?: unknown
+  user?: { id?: number | string } | null
+}
+
+const readTelegramInitData = (): { initData: string; userId: string } | null => {
+  if (typeof window === "undefined") return null
+  const webApp = window.Telegram?.WebApp
+  const initData = typeof webApp?.initData === "string" ? webApp.initData : ""
+  if (!initData) return null
+  const initDataUnsafe = webApp?.initDataUnsafe as TelegramInitDataUnsafe | undefined
+  const rawUserId = initDataUnsafe?.user?.id
+  if (typeof rawUserId !== "string" && typeof rawUserId !== "number") return null
+  return { initData, userId: String(rawUserId) }
 }
 
 const normalizeWorkspaceIcon = (value: string) => {
@@ -290,6 +302,7 @@ function App() {
   const [activeNav, setActiveNav] = useState<NavItem>("home")
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("home")
   const [isTelegram, setIsTelegram] = useState(telegramAvailable)
+  const [isTelegramInitReady, setIsTelegramInitReady] = useState(() => !telegramAvailable || Boolean(readTelegramInitData()))
   const baseHeightRef = useRef<number | null>(null)
   const gestureBlockers = useRef<(() => void) | null>(null)
   const initDone = useRef<boolean>(false)
@@ -384,6 +397,7 @@ function App() {
     if (typeof window === "undefined") return
     const tg = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp
     setIsTelegram(Boolean(tg))
+    setIsTelegramInitReady(!tg || Boolean(readTelegramInitData()))
 
     if (baseHeightRef.current === null) {
       baseHeightRef.current = window.innerHeight
@@ -419,9 +433,14 @@ function App() {
       } catch {
         // ignore
       }
+      setIsTelegramInitReady(Boolean(readTelegramInitData()))
     } else {
       // eslint-disable-next-line no-console
       console.log("Telegram WebApp не найден — браузерный режим")
+    }
+
+    const syncTelegramInitReady = () => {
+      setIsTelegramInitReady(!tg || Boolean(readTelegramInitData()))
     }
 
     const handleGesture = (e: Event) => {
@@ -431,10 +450,14 @@ function App() {
     document.addEventListener("gesturestart", handleGesture, { passive: false })
     document.addEventListener("gesturechange", handleGesture, { passive: false })
     document.addEventListener("gestureend", handleGesture, { passive: false })
+    window.addEventListener("focus", syncTelegramInitReady)
+    document.addEventListener("visibilitychange", syncTelegramInitReady)
     gestureBlockers.current = () => {
       document.removeEventListener("gesturestart", handleGesture)
       document.removeEventListener("gesturechange", handleGesture)
       document.removeEventListener("gestureend", handleGesture)
+      window.removeEventListener("focus", syncTelegramInitReady)
+      document.removeEventListener("visibilitychange", syncTelegramInitReady)
     }
 
     return () => {
@@ -632,6 +655,12 @@ function App() {
 
   const initApp = useCallback(async () => {
     if (initDone.current || initInFlightRef.current) return
+    if (isTelegram && !isTelegramInitReady) {
+      setAppLoading(true)
+      setAppSettling(true)
+      setAppInitError(null)
+      return
+    }
     if (!isTelegram && inviteCodeFromPathname) {
       initDone.current = true
       setAppLoading(false)
@@ -639,6 +668,30 @@ function App() {
       setAppInitError(null)
       return
     }
+
+    const requestTelegramAccessToken = async () => {
+      const telegramAuth = readTelegramInitData()
+      if (!telegramAuth) {
+        throw new Error("Нет Telegram initData")
+      }
+      const res = await timedFetch(
+        "https://babkin.onrender.com/api/v1/auth/telegram",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Telegram-InitData": telegramAuth.initData,
+          },
+          body: "{}",
+        },
+        { label: "auth" },
+      )
+      if (!res.ok) throw new Error(`Auth error: ${res.status}`)
+      const data: { accessToken?: string } = await res.json()
+      if (!data.accessToken) throw new Error("Auth error")
+      return data.accessToken
+    }
+
     initInFlightRef.current = true
     markTimingStage("initBegin")
     setAppLoading(true)
@@ -648,29 +701,19 @@ function App() {
     try {
       let token = localStorage.getItem("auth_access_token")
       if (!token) {
-        const initData = window.Telegram?.WebApp?.initData ?? ""
-        if (!initData) throw new Error("Нет Telegram initData")
-        const res = await timedFetch(
-          "https://babkin.onrender.com/api/v1/auth/telegram",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Telegram-InitData": initData,
-            },
-            body: "{}",
-          },
-          { label: "auth" },
-        )
-        if (!res.ok) throw new Error(`Auth error: ${res.status}`)
-        const data: { accessToken?: string } = await res.json()
-        if (!data.accessToken) throw new Error("Auth error")
-        token = data.accessToken
+        token = await requestTelegramAccessToken()
         localStorage.setItem("auth_access_token", token)
       }
       setAppToken(token)
 
-      const initialLoadResult = await refreshWorkspacesAndBootstrap(token)
+      let initialLoadResult = await refreshWorkspacesAndBootstrap(token)
+      if (!initialLoadResult.ok && isTelegram) {
+        token = await requestTelegramAccessToken()
+        localStorage.setItem("auth_access_token", token)
+        setAppToken(token)
+        initialLoadResult = await refreshWorkspacesAndBootstrap(token)
+      }
+
       if (!initialLoadResult.ok) {
         throw new Error("Workspaces error")
       }
@@ -698,7 +741,7 @@ function App() {
       initInFlightRef.current = false
       markTimingStage("initEnd")
     }
-  }, [inviteCodeFromPathname, isTelegram, pendingJoinInviteCode, refreshWorkspacesAndBootstrap])
+  }, [inviteCodeFromPathname, isTelegram, isTelegramInitReady, pendingJoinInviteCode, refreshWorkspacesAndBootstrap])
 
   useEffect(() => {
     if (!initDone.current && !initInFlightRef.current) {
