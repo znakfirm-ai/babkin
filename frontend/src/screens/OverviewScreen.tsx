@@ -26,6 +26,7 @@ type CardItem = {
   id: string
   title: string
   amount: number
+  secondaryAmount?: number
   secondaryText?: string
   goalCurrent?: number
   icon?: string | null
@@ -582,6 +583,20 @@ const Section: React.FC<{
                   {item.type === "category" && item.budget != null ? (
                     <div style={{ marginTop: 2, fontSize: 9, color: "#6b7280" }}>{formatMoney(item.budget, baseCurrency)}</div>
                   ) : null}
+                  {item.type === "account" && item.secondaryAmount != null ? (
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontSize: 11,
+                        lineHeight: "14px",
+                        color: secondaryColor ?? "#475569",
+                        textShadow: contentColor === "#FFFFFF" ? "0 1px 2px rgba(0,0,0,0.25)" : "none",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {formatMoney(item.secondaryAmount, baseCurrency)}
+                    </div>
+                  ) : null}
                   {item.secondaryText ? (
                     <div style={{ marginTop: 4, fontSize: 9, color: "#475569", fontWeight: 600 }}>{item.secondaryText}</div>
                   ) : null}
@@ -940,10 +955,35 @@ function OverviewScreen({
 
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
+  const activeGoals = useMemo(() => goals.filter((g) => g.status === "active"), [goals])
   const filteredGoals = useMemo(() => {
     if (isDebtsMode) return []
-    return goals.filter((g) => g.status === "active")
-  }, [goals, isDebtsMode])
+    return activeGoals
+  }, [activeGoals, isDebtsMode])
+  const activeGoalIds = useMemo(() => new Set(activeGoals.map((goal) => goal.id)), [activeGoals])
+  const reservedInActiveGoalsByAccountId = useMemo(() => {
+    const reservedByAccountId = new Map<string, number>()
+    transactions.forEach((tx) => {
+      if (tx.type !== "transfer" || !tx.goalId || !activeGoalIds.has(tx.goalId)) return
+      const amount = Number(tx.amount.amount ?? 0)
+      if (!Number.isFinite(amount)) return
+      const normalizedAmount = Math.abs(amount)
+      const sourceAccountId = tx.fromAccountId ?? tx.accountId
+      if (sourceAccountId && !tx.toAccountId) {
+        reservedByAccountId.set(sourceAccountId, (reservedByAccountId.get(sourceAccountId) ?? 0) + normalizedAmount)
+        return
+      }
+      if (!tx.fromAccountId && tx.toAccountId) {
+        reservedByAccountId.set(tx.toAccountId, (reservedByAccountId.get(tx.toAccountId) ?? 0) - normalizedAmount)
+      }
+    })
+    reservedByAccountId.forEach((value, accountId) => {
+      if (value <= 0) {
+        reservedByAccountId.delete(accountId)
+      }
+    })
+    return reservedByAccountId
+  }, [activeGoalIds, transactions])
   const receivablePaidByDebtorId = useMemo(() => {
     const paidById: Record<string, number> = {}
     transactions.forEach((tx) => {
@@ -2095,10 +2135,13 @@ function OverviewScreen({
   const accountItems: CardItem[] = accounts.map((account, idx) => {
     const bg = account.color ?? DEFAULT_ACCOUNT_COLOR
     const txt = getReadableTextColor(bg)
+    const reservedInGoals = reservedInActiveGoalsByAccountId.get(account.id) ?? 0
+    const factualBalance = account.balance.amount + reservedInGoals
     return {
       id: account.id,
       title: account.name,
       amount: account.balance.amount,
+      secondaryAmount: reservedInGoals > 0 ? factualBalance : undefined,
       financeIconKey: isFinanceIconKey(account.icon ?? "") ? (account.icon as string) : null,
       icon: idx % 2 === 0 ? "wallet" : "card",
       color: bg,
@@ -2238,7 +2281,6 @@ const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
 
   const expenseToRender = [...sizedExpenseItems]
 
-  const activeGoals = useMemo(() => goals.filter((g) => g.status === "active"), [goals])
   const goalsTotals = useMemo(() => {
     const current = activeGoals.reduce((sum, g) => {
       const val = Number(g.currentAmount ?? 0)
