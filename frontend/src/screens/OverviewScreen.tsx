@@ -9,7 +9,7 @@ import { DebtorList } from "../components/DebtorList"
 import { createAccount, getAccounts, updateAccount, deleteAccount, adjustAccountBalance } from "../api/accounts"
 import { createCategory, deleteCategory, getCategories, renameCategory } from "../api/categories"
 import { createIncomeSource, deleteIncomeSource, getIncomeSources, renameIncomeSource } from "../api/incomeSources"
-import { completeGoal, createGoal, getGoals, updateGoal } from "../api/goals"
+import { createGoal, getGoals, updateGoal } from "../api/goals"
 import { createDebtor, deleteDebtor, getDebtors, updateDebtor } from "../api/debtors"
 import { createTransaction, deleteTransaction, getTransactions, type CreateTransactionBody } from "../api/transactions"
 import { useSingleFlight } from "../hooks/useSingleFlight"
@@ -619,13 +619,11 @@ function OverviewScreen({
   const [isGoalsListOpen, setIsGoalsListOpen] = useState(false)
   const [isGoalsListLoading, setIsGoalsListLoading] = useState(false)
   const [isDebtorsListLoading, setIsDebtorsListLoading] = useState(false)
-  const [goalTab, setGoalTab] = useState<"active" | "completed">("active")
+  const [goalTab] = useState<"active" | "completed">("active")
   const [detailGoalId, setDetailGoalId] = useState<string | null>(null)
   const [detailDebtorId, setDetailDebtorId] = useState<string | null>(null)
   const [goalSearch, setGoalSearch] = useState("")
   const [isGoalCompleteSheetOpen, setIsGoalCompleteSheetOpen] = useState(false)
-  const [isGoalCompleteAccountPickerOpen, setIsGoalCompleteAccountPickerOpen] = useState(false)
-  const [goalCompleteAccountId, setGoalCompleteAccountId] = useState<string | null>(null)
   const [debtorSearch, setDebtorSearch] = useState("")
   const [isGoalSheetOpen, setIsGoalSheetOpen] = useState(false)
   const [goalName, setGoalName] = useState("")
@@ -824,8 +822,8 @@ function OverviewScreen({
 
   const filteredGoals = useMemo(() => {
     if (isDebtsMode) return []
-    return goals.filter((g) => g.status === goalTab)
-  }, [goalTab, goals, isDebtsMode])
+    return goals.filter((g) => g.status === "active")
+  }, [goals, isDebtsMode])
   const receivablePaidByDebtorId = useMemo(() => {
     const paidById: Record<string, number> = {}
     transactions.forEach((tx) => {
@@ -885,10 +883,6 @@ function OverviewScreen({
       )
   }, [currentDebtorDirection, debtors, goalTab, isDebtsMode, isGoalsListOpen, payablePaidByDebtorId, receivablePaidByDebtorId])
   const detailGoal = useMemo(() => goals.find((g) => g.id === detailGoalId) ?? null, [detailGoalId, goals])
-  const goalCompleteAccount = useMemo(
-    () => accounts.find((account) => account.id === goalCompleteAccountId) ?? null,
-    [accounts, goalCompleteAccountId],
-  )
   const detailDebtor = useMemo(() => debtors.find((d) => d.id === detailDebtorId) ?? null, [debtors, detailDebtorId])
   const incomeIconKeys = useMemo(() => {
     const section = FINANCE_ICON_SECTIONS.find((s) => s.id === "income")
@@ -1334,8 +1328,6 @@ function OverviewScreen({
 
   const closeDetails = useCallback(() => {
     setIsGoalCompleteSheetOpen(false)
-    setIsGoalCompleteAccountPickerOpen(false)
-    setGoalCompleteAccountId(null)
     setDetailAccountId(null)
     setDetailCategoryId(null)
     setDetailIncomeSourceId(null)
@@ -1418,15 +1410,14 @@ function OverviewScreen({
     })
   }, [closeDetails, currentDebtorDirection, detailDebtorId, refetchDebtors, runDebtorDelete, token])
 
-  const handleCompleteGoalWithAccount = useCallback(() => {
+  const handleArchiveGoalFromDetails = useCallback(() => {
     return runGoalComplete(async () => {
-      if (!token || !detailGoalId || !goalCompleteAccountId) return
+      if (!token || !detailGoalId) return
       try {
         setGoalError(null)
-        await completeGoal(token, detailGoalId, goalCompleteAccountId)
-        await refetchAccountsSeq()
-        await refetchTransactions()
+        await updateGoal(token, detailGoalId, { status: "completed" })
         await refetchGoals()
+        setIsGoalCompleteSheetOpen(false)
         closeDetails()
         setPendingOpenGoalsList(true)
       } catch (err) {
@@ -1440,12 +1431,10 @@ function OverviewScreen({
   }, [
     closeDetails,
     detailGoalId,
-    goalCompleteAccountId,
-    refetchAccountsSeq,
     refetchGoals,
-    refetchTransactions,
     runGoalComplete,
     token,
+    updateGoal,
   ])
 
   const handleDeleteTx = useCallback(() => {
@@ -4167,8 +4156,6 @@ function TransactionsPanel({
                     <button
                       type="button"
                       onClick={() => {
-                        setGoalCompleteAccountId(null)
-                        setIsGoalCompleteAccountPickerOpen(false)
                         setIsGoalCompleteSheetOpen(true)
                       }}
                       style={{
@@ -4182,7 +4169,7 @@ function TransactionsPanel({
                         cursor: "pointer",
                       }}
                     >
-                      Завершить цель
+                      Закрыть цель
                     </button>
                   </div>
                 </div>
@@ -4215,11 +4202,7 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => {
-            setIsGoalCompleteSheetOpen(false)
-            setIsGoalCompleteAccountPickerOpen(false)
-            setGoalCompleteAccountId(null)
-          }}
+          onClick={() => setIsGoalCompleteSheetOpen(false)}
           style={{
             position: "fixed",
             inset: 0,
@@ -4245,36 +4228,14 @@ function TransactionsPanel({
               gap: 12,
             }}
           >
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>На какой счёт перевести накопления?</div>
-            <button
-              type="button"
-              onClick={() => setIsGoalCompleteAccountPickerOpen(true)}
-              style={{
-                width: "100%",
-                padding: "12px 14px",
-                borderRadius: 12,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                color: "#0f172a",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
-              <span style={{ fontSize: 15 }}>
-                {goalCompleteAccount ? goalCompleteAccount.name : "Выберите счёт"}
-              </span>
-              <span style={{ fontSize: 14, color: "#6b7280" }}>▾</span>
-            </button>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Закрыть цель?</div>
+            <div style={{ fontSize: 14, color: "#0f172a", opacity: 0.75 }}>
+              Цель будет перемещена в архив и перестанет отображаться в списке целей. История операций сохранится.
+            </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <button
                 type="button"
-                onClick={() => {
-                  setIsGoalCompleteSheetOpen(false)
-                  setIsGoalCompleteAccountPickerOpen(false)
-                  setGoalCompleteAccountId(null)
-                }}
+                onClick={() => setIsGoalCompleteSheetOpen(false)}
                 style={{
                   padding: "10px 14px",
                   borderRadius: 12,
@@ -4289,101 +4250,21 @@ function TransactionsPanel({
               </button>
               <button
                 type="button"
-                disabled={isGoalCompleteRunning || !goalCompleteAccountId}
-                onClick={() => void handleCompleteGoalWithAccount()}
+                disabled={isGoalCompleteRunning}
+                onClick={() => void handleArchiveGoalFromDetails()}
                 style={{
                   padding: "10px 14px",
                   borderRadius: 12,
                   border: "1px solid #0f172a",
-                  background: isGoalCompleteRunning || !goalCompleteAccountId ? "#e5e7eb" : "#0f172a",
-                  color: isGoalCompleteRunning || !goalCompleteAccountId ? "#6b7280" : "#fff",
+                  background: isGoalCompleteRunning ? "#e5e7eb" : "#0f172a",
+                  color: isGoalCompleteRunning ? "#6b7280" : "#fff",
                   fontWeight: 700,
-                  cursor: isGoalCompleteRunning || !goalCompleteAccountId ? "not-allowed" : "pointer",
+                  cursor: isGoalCompleteRunning ? "not-allowed" : "pointer",
                 }}
               >
-                {isGoalCompleteRunning ? "Переводим…" : "Перевести и завершить"}
+                {isGoalCompleteRunning ? "Закрываем…" : "Закрыть цель"}
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
-
-      {isGoalCompleteAccountPickerOpen && isGoalCompleteSheetOpen && detailGoal && isGoalsMode ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-            zIndex: 60,
-            padding: "0 12px 12px",
-          }}
-          onClick={() => setIsGoalCompleteAccountPickerOpen(false)}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 520,
-              margin: "0 auto",
-              background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              padding: 16,
-              boxShadow: "none",
-              maxHeight: "70vh",
-              overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выберите счёт</div>
-            <div style={{ display: "grid", gap: 8 }}>
-              {accounts.map((acc) => (
-                <button
-                  key={acc.id}
-                  type="button"
-                  onClick={() => {
-                    setGoalCompleteAccountId(acc.id)
-                    setIsGoalCompleteAccountPickerOpen(false)
-                  }}
-                  style={{
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: goalCompleteAccountId === acc.id ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                    background: "#fff",
-                    color: "#0f172a",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {acc.name}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsGoalCompleteAccountPickerOpen(false)}
-              style={{
-                marginTop: 12,
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                cursor: "pointer",
-                width: "100%",
-              }}
-            >
-              Назад
-            </button>
           </div>
         </div>
       ) : null}
@@ -5005,41 +4886,6 @@ function TransactionsPanel({
                 </button>
               </div>
             </div>
-
-            {isGoalsMode ? (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setGoalTab("active")}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: goalTab === "active" ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                    background: goalTab === "active" ? "#0f172a" : "#f8fafc",
-                    color: goalTab === "active" ? "#fff" : "#0f172a",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Активные цели
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGoalTab("completed")}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: goalTab === "completed" ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                    background: goalTab === "completed" ? "#0f172a" : "#f8fafc",
-                    color: goalTab === "completed" ? "#fff" : "#0f172a",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Завершенные цели
-                </button>
-              </div>
-            ) : null}
 
             <div style={txListContainerStyle}>
               <div style={txScrollableStyle}>
