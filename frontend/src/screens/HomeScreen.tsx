@@ -322,6 +322,7 @@ function HomeScreen({
     const endMs = homePeriodRange.end.getTime()
     const periodExpenses = transactions.reduce((sum, tx) => {
       if (tx.type !== "expense") return sum
+      if (tx.debtorId) return sum
       const ts = new Date(tx.date).getTime()
       if (!Number.isFinite(ts) || ts < startMs || ts >= endMs) return sum
       const value = Number(tx.amount.amount ?? 0)
@@ -329,6 +330,7 @@ function HomeScreen({
     }, 0)
     const periodIncome = transactions.reduce((sum, tx) => {
       if (tx.type !== "income") return sum
+      if (tx.debtorId) return sum
       const ts = new Date(tx.date).getTime()
       if (!Number.isFinite(ts) || ts < startMs || ts >= endMs) return sum
       const value = Number(tx.amount.amount ?? 0)
