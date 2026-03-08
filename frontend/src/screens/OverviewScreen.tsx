@@ -2680,6 +2680,34 @@ function TransactionsPanel({
     },
     [accountNameById],
   )
+  const getAccountTransferCounterpartyName = useCallback(
+    (tx: Transaction) => {
+      if (!detailAccountId || tx.type !== "transfer" || tx.goalId || tx.debtorId) return "Перевод"
+
+      const fromAccountId = tx.fromAccountId ?? tx.accountId
+      if (fromAccountId && fromAccountId === detailAccountId) {
+        const toName = tx.toAccountName ?? (tx.toAccountId ? accountNameById.get(tx.toAccountId) ?? null : null)
+        return toName ?? "Счёт"
+      }
+
+      if (tx.toAccountId && tx.toAccountId === detailAccountId) {
+        const fromName =
+          tx.fromAccountName ??
+          tx.accountName ??
+          (fromAccountId ? accountNameById.get(fromAccountId) ?? null : null)
+        return fromName ?? "Счёт"
+      }
+
+      const fallbackName =
+        tx.toAccountName ??
+        tx.fromAccountName ??
+        tx.accountName ??
+        (tx.toAccountId ? accountNameById.get(tx.toAccountId) ?? null : null) ??
+        (fromAccountId ? accountNameById.get(fromAccountId) ?? null : null)
+      return fallbackName ?? "Счёт"
+    },
+    [accountNameById, detailAccountId],
+  )
   const getDebtTxDebtorName = useCallback((tx: Transaction) => tx.debtorName ?? "Должник", [])
   const getDebtTxAccountTitle = useCallback(
     (tx: Transaction) => {
@@ -2693,6 +2721,16 @@ function TransactionsPanel({
       return null
     },
     [getDebtTxDebtorName],
+  )
+  const getAccountTxTitle = useCallback(
+    (tx: Transaction) => {
+      if (tx.type === "income") return incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
+      if (tx.debtorId) return getDebtTxAccountTitle(tx) ?? "Долг"
+      if (tx.type === "expense") return categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
+      if (tx.goalId) return getGoalTransferTitle(tx)
+      return getAccountTransferCounterpartyName(tx)
+    },
+    [categoryNameById, getAccountTransferCounterpartyName, getDebtTxAccountTitle, getGoalTransferTitle, incomeSourceNameById],
   )
   const getDebtTxDebtorLabel = useCallback(
     (tx: Transaction) => {
@@ -2910,19 +2948,10 @@ function TransactionsPanel({
     return periodFiltered.filter((tx) => {
       const absAmount = Math.abs(tx.amount.amount)
       const amountText = String(absAmount)
-      const title =
-        tx.type === "income"
-          ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
-          : tx.debtorId
-          ? getDebtTxAccountTitle(tx) ?? "Долг"
-          : tx.type === "expense"
-          ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
-          : tx.goalId
-          ? getGoalTransferTitle(tx)
-          : "Перевод"
+      const title = getAccountTxTitle(tx)
       return title.toLowerCase().includes(query) || amountText.includes(query)
     })
-  }, [accountPeriod, accountSearch, accountTx, categoryNameById, detailAccountId, getDebtTxAccountTitle, getGoalTransferTitle, incomeSourceNameById])
+  }, [accountPeriod, accountSearch, accountTx, detailAccountId, getAccountTxTitle])
 
   const filteredCategoryTx = useMemo(() => {
     if (!detailCategoryId) return []
@@ -3518,7 +3547,6 @@ function TransactionsPanel({
                     ) : null
                   }}
                   renderRow={(tx, idx) => {
-                    const debtTitle = getDebtTxAccountTitle(tx)
                     const isDebtIncome = Boolean(tx.debtorId && tx.type === "transfer")
                     const isGoalReturnIncome = isGoalReturnTx(tx)
                     const isIncome = tx.type === "income" || isDebtIncome || isGoalReturnIncome
@@ -3528,6 +3556,7 @@ function TransactionsPanel({
                     const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
                     const creatorLabel = getTxCreatorLabel(tx)
                     const isTxDisabled = isTxEditDisabled(tx)
+                    const txTitle = getAccountTxTitle(tx)
                     return (
                       <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                         <div
@@ -3535,17 +3564,7 @@ function TransactionsPanel({
                           onClick={() => openTxActions(tx.id)}
                         >
                           <div style={{ display: "grid", gap: 2 }}>
-                            <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>
-                              {debtTitle
-                                ? debtTitle
-                                : tx.type === "income"
-                                ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
-                                : tx.type === "expense"
-                                ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
-                                : tx.goalId
-                                ? getGoalTransferTitle(tx)
-                                : "Перевод"}
-                            </div>
+                            <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>{txTitle}</div>
                             {creatorLabel ? (
                               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
                                 <span
