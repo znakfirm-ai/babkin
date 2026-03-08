@@ -4225,7 +4225,11 @@ function TransactionsPanel({
                     )}
                     renderRow={(tx, idx) => {
                       const displayName = getDebtTxDebtorLabel(tx) ?? "Операция"
-                      const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
+                      const isDebtIncoming = tx.type === "transfer" && Boolean(tx.debtorId)
+                      const isDebtOutgoing = tx.type === "expense" || isPayableDebtRepaymentTx(tx)
+                      const amountSign = isDebtIncoming ? "+" : isDebtOutgoing ? "-" : ""
+                      const amountColor = isDebtIncoming ? "#16a34a" : "#0f172a"
+                      const amountText = `${amountSign}${formatMoney(tx.amount.amount, baseCurrency)}`
                       const creatorLabel = getTxCreatorLabel(tx)
                       const isTxDisabled = isTxEditDisabled(tx)
                       return (
@@ -4261,7 +4265,7 @@ function TransactionsPanel({
                               ) : null}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                              <div style={{ fontWeight: 600, color: amountColor, fontSize: 14 }}>{amountText}</div>
                               <button
                                 type="button"
                                 onClick={(e) => {
