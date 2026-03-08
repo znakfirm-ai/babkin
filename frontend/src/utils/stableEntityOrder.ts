@@ -10,17 +10,12 @@ const parseCreatedAtMs = (createdAt: string | null | undefined): number | null =
 }
 
 export const sortByCreatedAtOrId = <T extends EntityWithStableOrder>(items: T[]): T[] =>
-  [...items].sort((left, right) => {
-    const leftCreatedAt = parseCreatedAtMs(left.createdAt)
-    const rightCreatedAt = parseCreatedAtMs(right.createdAt)
+  (() => {
+    const withCreatedAt = items.map((item) => ({ item, createdAtMs: parseCreatedAtMs(item.createdAt) }))
+    const hasFullCreatedAt = withCreatedAt.every((entry) => entry.createdAtMs !== null)
+    if (!hasFullCreatedAt) return [...items]
 
-    if (leftCreatedAt !== null && rightCreatedAt !== null && leftCreatedAt !== rightCreatedAt) {
-      return leftCreatedAt - rightCreatedAt
-    }
-
-    if (leftCreatedAt !== null && rightCreatedAt === null) return -1
-    if (leftCreatedAt === null && rightCreatedAt !== null) return 1
-
-    if (left.id === right.id) return 0
-    return left.id < right.id ? -1 : 1
-  })
+    return [...withCreatedAt]
+      .sort((left, right) => (left.createdAtMs as number) - (right.createdAtMs as number))
+      .map((entry) => entry.item)
+  })()
