@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { useAppStore } from "../store/useAppStore"
 import type { Debtor, Goal, Transaction } from "../types/finance"
 import "./OverviewScreen.css"
@@ -2819,7 +2820,7 @@ function TransactionsPanel({
     (tx: Transaction, isDisabled: boolean = isTxEditDisabled(tx)) => {
       if (disabledTxHintId !== tx.id || !isDisabled) return null
       if (!disabledTxHintPosition) return null
-      return (
+      const hint = (
         <div
           ref={disabledTxHintRef}
           data-disabled-tx-hint="true"
@@ -2833,6 +2834,8 @@ function TransactionsPanel({
           {ARCHIVED_TX_EDIT_HELP_TEXT}
         </div>
       )
+      if (typeof document === "undefined") return hint
+      return createPortal(hint, document.body)
     },
     [disabledTxHintId, disabledTxHintPosition, isTxEditDisabled],
   )
@@ -2847,14 +2850,26 @@ function TransactionsPanel({
       return
     }
     const anchorRect = anchor.getBoundingClientRect()
+    const sheetViewport = anchor.closest<HTMLElement>("[data-detail-sheet-viewport='true']")
+    const sheetRect = sheetViewport?.getBoundingClientRect()
+    const boundsLeft = sheetRect?.left ?? 0
+    const boundsRight = sheetRect?.right ?? window.innerWidth
+    const boundsTop = sheetRect?.top ?? 0
+    const boundsBottom = sheetRect?.bottom ?? window.innerHeight
     const hintHeight = disabledTxHintRef.current?.getBoundingClientRect().height ?? txDisabledHintFallbackHeight
-    const maxWidth = Math.min(340, window.innerWidth - txDisabledHintViewportPadding * 2)
-    const maxLeft = Math.max(txDisabledHintViewportPadding, window.innerWidth - txDisabledHintViewportPadding - maxWidth)
-    const left = Math.min(Math.max(anchorRect.left, txDisabledHintViewportPadding), maxLeft)
+    const maxWidth = Math.min(340, boundsRight - boundsLeft - txDisabledHintViewportPadding * 2)
+    if (maxWidth <= 0) {
+      setDisabledTxHintPosition(null)
+      return
+    }
+    const minLeft = boundsLeft + txDisabledHintViewportPadding
+    const maxLeft = Math.max(minLeft, boundsRight - txDisabledHintViewportPadding - maxWidth)
+    const left = Math.min(Math.max(anchorRect.left, minLeft), maxLeft)
 
     let top = anchorRect.top - hintHeight - txDisabledHintGap
-    const maxTop = Math.max(txDisabledHintViewportPadding, window.innerHeight - txDisabledHintViewportPadding - hintHeight)
-    top = Math.min(Math.max(top, txDisabledHintViewportPadding), maxTop)
+    const minTop = boundsTop + txDisabledHintViewportPadding
+    const maxTop = Math.max(minTop, boundsBottom - txDisabledHintViewportPadding - hintHeight)
+    top = Math.min(Math.max(top, minTop), maxTop)
 
     setDisabledTxHintPosition((prev) => {
       if (prev && prev.top === top && prev.left === left && prev.maxWidth === maxWidth) {
@@ -3414,6 +3429,7 @@ function TransactionsPanel({
           }}
         >
           <div
+            data-detail-sheet-viewport="true"
             onClick={(e) => e.stopPropagation()}
             style={{
               maxWidth: 520,
