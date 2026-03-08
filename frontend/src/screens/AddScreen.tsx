@@ -282,6 +282,7 @@ function AddScreen() {
                 const mappedAcc = accRes.accounts.map((a) => ({
                   id: a.id,
                   name: a.name,
+                  type: a.type,
                   balance: { amount: a.balance, currency: a.currency },
                 }))
                 setAccounts(mappedAcc)

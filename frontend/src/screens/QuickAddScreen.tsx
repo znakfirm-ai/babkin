@@ -640,6 +640,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         accountsData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
@@ -703,6 +704,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         accountsData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
@@ -995,6 +997,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         accountsData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
@@ -1105,6 +1108,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         accountsData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
@@ -1195,6 +1199,7 @@ export const QuickAddScreen: React.FC<Props> = ({
             accountsData.accounts.map((a) => ({
               id: a.id,
               name: a.name,
+              type: a.type,
               balance: { amount: a.balance, currency: a.currency },
               color: a.color ?? undefined,
               icon: a.icon ?? null,

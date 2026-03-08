@@ -539,6 +539,7 @@ function App() {
       const mappedAccounts = bootstrapData.accounts.map((a) => ({
         id: a.id,
         name: a.name,
+        type: a.type,
         balance: { amount: a.balance, currency: a.currency },
         color: a.color ?? undefined,
         icon: a.icon ?? null,
@@ -787,6 +788,7 @@ function App() {
         const mappedAccounts = accData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,

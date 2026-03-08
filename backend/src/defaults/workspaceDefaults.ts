@@ -234,8 +234,9 @@ export async function seedWorkspaceDefaults(
         updated_at: true,
       },
     })
-
-    for (const defaultAccount of DEFAULT_WORKSPACE_ACCOUNTS) {
+    const hasDefaultAccounts = existingAccounts.some((item) => item.is_default)
+    if (!hasDefaultAccounts) {
+      for (const defaultAccount of DEFAULT_WORKSPACE_ACCOUNTS) {
       const key = accountKey(defaultAccount)
       const matching = existingAccounts.filter((item) => accountKey(item) === key)
       const matchingDefault = matching.filter((item) => item.is_default)
@@ -319,6 +320,7 @@ export async function seedWorkspaceDefaults(
       })
       report.created.accounts += 1
     }
+    }
   }
 
   if (seedCategories) {
@@ -334,8 +336,9 @@ export async function seedWorkspaceDefaults(
         updated_at: true,
       },
     })
-
-    for (const defaultCategory of DEFAULT_WORKSPACE_CATEGORIES) {
+    const hasDefaultCategories = existingCategories.some((item) => item.is_default)
+    if (!hasDefaultCategories) {
+      for (const defaultCategory of DEFAULT_WORKSPACE_CATEGORIES) {
       const key = categoryKey(defaultCategory)
       const matching = existingCategories.filter((item) => categoryKey(item) === key)
       const matchingDefault = matching.filter((item) => item.is_default)
@@ -412,6 +415,7 @@ export async function seedWorkspaceDefaults(
       })
       report.created.categories += 1
     }
+    }
   }
 
   if (seedIncomeSources) {
@@ -426,8 +430,9 @@ export async function seedWorkspaceDefaults(
         updated_at: true,
       },
     })
-
-    for (const defaultSource of DEFAULT_WORKSPACE_INCOME_SOURCES) {
+    const hasDefaultIncomeSources = existingIncomeSources.some((item) => item.is_default)
+    if (!hasDefaultIncomeSources) {
+      for (const defaultSource of DEFAULT_WORKSPACE_INCOME_SOURCES) {
       const key = incomeSourceKey(defaultSource)
       const matching = existingIncomeSources.filter((item) => incomeSourceKey(item) === key)
       const matchingDefault = matching.filter((item) => item.is_default)
@@ -499,6 +504,7 @@ export async function seedWorkspaceDefaults(
         },
       })
       report.created.incomeSources += 1
+    }
     }
   }
 

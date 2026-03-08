@@ -491,6 +491,7 @@ function HomeScreen({
         const mapped = data.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
@@ -1757,6 +1758,7 @@ function HomeScreen({
                    const mapped = accounts.accounts.map((a) => ({
                      id: a.id,
                      name: a.name,
+                     type: a.type,
                      balance: { amount: a.balance, currency: a.currency },
                    }))
                     setAccounts(mapped)

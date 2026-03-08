@@ -895,7 +895,7 @@ function OverviewScreen({
       setEditingAccountId(accountId)
       setName(acc?.name ?? "")
       setBalance(acc ? String(acc.balance.amount) : "0")
-      const accType = (acc as { type?: string } | undefined)?.type ?? "cash"
+      const accType = acc?.type ?? "cash"
       setType(accType)
       const accClr = (acc as { color?: string } | undefined)?.color ?? accountColorOptions[0]
       setAccountColor(accClr)
@@ -1198,6 +1198,7 @@ function OverviewScreen({
     const mapped = data.accounts.map((a) => ({
       id: a.id,
       name: a.name,
+      type: a.type,
       balance: { amount: a.balance, currency: a.currency },
       color: a.color ?? undefined,
       icon: a.icon ?? null,
