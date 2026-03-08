@@ -3884,7 +3884,9 @@ function TransactionsPanel({
                     )}
                     renderRow={(tx, idx) => {
                       const displayAccountName = getTxAccountName(tx)
-                      const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
+                      const isIncomeEntry = tx.type === "income"
+                      const amountText = `${isIncomeEntry ? "+" : ""}${formatMoney(tx.amount.amount, baseCurrency)}`
+                      const amountColor = isIncomeEntry ? "#16a34a" : "#0f172a"
                       const creatorLabel = getTxCreatorLabel(tx)
                       return (
                         <div
@@ -3919,7 +3921,7 @@ function TransactionsPanel({
                             ) : null}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                            <div style={{ fontWeight: 600, color: amountColor, fontSize: 14 }}>{amountText}</div>
                             <button
                               type="button"
                               onClick={(e) => {
