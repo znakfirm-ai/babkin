@@ -64,6 +64,7 @@ export type Transaction = {
   id: string
   type: TransactionType
   date: string // ISO (YYYY-MM-DD)
+  createdAt?: string | null
   amount: Money
   accountName?: string | null
   fromAccountName?: string | null

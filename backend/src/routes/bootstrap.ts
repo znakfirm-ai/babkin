@@ -64,6 +64,7 @@ type BootstrapResponse = {
     kind: "income" | "expense" | "transfer" | "adjustment"
     amount: number
     happenedAt: string
+    createdAt: string
     note: string | null
     accountId: string | null
     accountName: string | null
@@ -135,6 +136,7 @@ const mapTx = (tx: {
   kind: TransactionKind
   amount: Prisma.Decimal
   happened_at: Date
+  created_at: Date
   note: string | null
   account_id: string | null
   category_id: string | null
@@ -155,6 +157,7 @@ const mapTx = (tx: {
   kind: tx.kind,
   amount: Number(tx.amount),
   happenedAt: tx.happened_at.toISOString(),
+  createdAt: tx.created_at.toISOString(),
   note: tx.note ?? null,
   accountId: tx.account_id ?? null,
   accountName: tx.account?.name ?? tx.from_account?.name ?? null,

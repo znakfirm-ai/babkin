@@ -5,6 +5,7 @@ export type TransactionDto = {
   kind: "income" | "expense" | "transfer"
   amount: number | string
   happenedAt: string
+  createdAt?: string | null
   note?: string | null
   accountId?: string | null
   accountName?: string | null

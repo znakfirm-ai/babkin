@@ -78,6 +78,7 @@ function mapTx(tx) {
         kind: tx.kind,
         amount: Number(tx.amount),
         happenedAt: tx.happened_at.toISOString(),
+        createdAt: tx.created_at.toISOString(),
         note: tx.note ?? null,
         accountId: tx.account_id ?? null,
         accountName: tx.account?.name ?? tx.from_account?.name ?? null,
