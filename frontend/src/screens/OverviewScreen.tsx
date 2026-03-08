@@ -4789,7 +4789,7 @@ function TransactionsPanel({
               </button>
               <button
                 type="button"
-                disabled={isDebtorSaveRunning || !debtorName.trim() || !(Number(debtorReturnAmount.trim().replace(",", ".")) > 0)}
+                disabled={isDebtorSaveRunning}
                 onClick={() => void handleSaveDebtor()}
                 style={{
                   padding: "10px 14px",
