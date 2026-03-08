@@ -305,6 +305,8 @@ function AddScreen() {
                   goalName: t.goalName ?? null,
                   debtorId: t.debtorId ?? undefined,
                   debtorName: t.debtorName ?? null,
+                  createdByUserId: t.createdByUserId ?? null,
+                  createdByName: t.createdByName ?? null,
                 }))
                 setTransactions(mappedTx)
 

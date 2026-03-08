@@ -602,6 +602,8 @@ function HomeScreen({
           categoryId: t.categoryId ?? undefined,
           incomeSourceId: t.incomeSourceId ?? undefined,
           toAccountId: t.toAccountId ?? undefined,
+          createdByUserId: t.createdByUserId ?? null,
+          createdByName: t.createdByName ?? null,
         }))
         setTransactions(mapped)
       } catch (err) {

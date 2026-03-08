@@ -665,6 +665,8 @@ export const QuickAddScreen: React.FC<Props> = ({
           goalName: (t as { goalName?: string | null }).goalName ?? null,
           debtorId: (t as { debtorId?: string | null }).debtorId ?? undefined,
           debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
+          createdByUserId: t.createdByUserId ?? null,
+          createdByName: t.createdByName ?? null,
         })),
       )
       onClose()
@@ -729,6 +731,8 @@ export const QuickAddScreen: React.FC<Props> = ({
           goalName: (t as { goalName?: string | null }).goalName ?? null,
           debtorId: (t as { debtorId?: string | null }).debtorId ?? undefined,
           debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
+          createdByUserId: t.createdByUserId ?? null,
+          createdByName: t.createdByName ?? null,
         })),
       )
       setSelectedIncomeSourceId(null)
@@ -1022,6 +1026,8 @@ export const QuickAddScreen: React.FC<Props> = ({
           goalName: (t as { goalName?: string | null }).goalName ?? null,
           debtorId: (t as { debtorId?: string | null }).debtorId ?? undefined,
           debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
+          createdByUserId: t.createdByUserId ?? null,
+          createdByName: t.createdByName ?? null,
         })),
       )
       if (transferTargetType === "goal") {
@@ -1133,6 +1139,8 @@ export const QuickAddScreen: React.FC<Props> = ({
           goalName: (t as { goalName?: string | null }).goalName ?? null,
           debtorId: (t as { debtorId?: string | null }).debtorId ?? undefined,
           debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
+          createdByUserId: t.createdByUserId ?? null,
+          createdByName: t.createdByName ?? null,
         })),
       )
       await ensureGoalsLoaded()
@@ -1225,6 +1233,8 @@ export const QuickAddScreen: React.FC<Props> = ({
               goalName: (t as { goalName?: string | null }).goalName ?? null,
               debtorId: (t as { debtorId?: string | null }).debtorId ?? undefined,
               debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
+          createdByUserId: t.createdByUserId ?? null,
+          createdByName: t.createdByName ?? null,
             })),
           )
 
