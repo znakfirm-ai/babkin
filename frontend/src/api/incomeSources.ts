@@ -3,6 +3,7 @@ import { timedFetch } from "../utils/debugTimings"
 export type IncomeSourceDto = {
   id: string
   name: string
+  createdAt?: string | null
   icon?: string | null
   isArchived?: boolean
 }

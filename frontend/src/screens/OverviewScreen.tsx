@@ -20,6 +20,7 @@ import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint 
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import { buildTransactionDaySections, sortTransactionsDesc } from "../utils/sortTransactions"
 import { registerDebugTimingsTap } from "../utils/debugTimings"
+import { sortByCreatedAtOrId } from "../utils/stableEntityOrder"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -1138,12 +1139,13 @@ function OverviewScreen({
     const mapped = data.categories.map((c) => ({
       id: c.id,
       name: c.name,
+      createdAt: c.createdAt ?? null,
       type: c.kind,
       icon: c.icon,
       budget: c.budget ?? null,
       isArchived: c.isArchived ?? false,
     }))
-    setCategories(mapped)
+    setCategories(sortByCreatedAtOrId(mapped))
   }, [setCategories, token])
 
   const refetchIncomeSources = useCallback(async () => {
@@ -1152,10 +1154,11 @@ function OverviewScreen({
     const mapped = data.incomeSources.map((s) => ({
       id: s.id,
       name: s.name,
+      createdAt: s.createdAt ?? null,
       icon: s.icon ?? null,
       isArchived: s.isArchived ?? false,
     }))
-    setIncomeSources(mapped)
+    setIncomeSources(sortByCreatedAtOrId(mapped))
   }, [setIncomeSources, token])
 
   const refetchGoals = useCallback(async () => {
@@ -1164,12 +1167,13 @@ function OverviewScreen({
     const mapped: Goal[] = data.goals.map((g) => ({
       id: g.id,
       name: g.name,
+      createdAt: g.createdAt ?? null,
       icon: g.icon,
       targetAmount: Number(g.targetAmount),
       currentAmount: Number(g.currentAmount),
       status: g.status,
     }))
-    setGoals(mapped)
+    setGoals(sortByCreatedAtOrId(mapped))
     goalsListLoadedOnceRef.current = true
     goalsListLastLoadedAtRef.current = Date.now()
   }, [setGoals, token])
@@ -1180,6 +1184,7 @@ function OverviewScreen({
     const mapped: Debtor[] = data.debtors.map((d) => ({
       id: d.id,
       name: d.name,
+      createdAt: d.createdAt ?? null,
       icon: d.icon,
       issuedDate: d.issuedAt.slice(0, 10),
       loanAmount: Number(d.principalAmount),
@@ -1190,7 +1195,7 @@ function OverviewScreen({
       direction: d.direction ?? currentDebtorDirection,
     }))
     const preserved = debtors.filter((debtor) => debtor.direction !== currentDebtorDirection)
-    setDebtors([...preserved, ...mapped])
+    setDebtors(sortByCreatedAtOrId([...preserved, ...mapped]))
     debtorsListLoadedOnceRef.current[currentDebtorDirection] = true
     debtorsListLastLoadedAtRef.current[currentDebtorDirection] = Date.now()
   }, [currentDebtorDirection, debtors, setDebtors, token])
@@ -1201,12 +1206,13 @@ function OverviewScreen({
     const mapped = data.accounts.map((a) => ({
       id: a.id,
       name: a.name,
+      createdAt: a.createdAt ?? null,
       type: a.type,
       balance: { amount: a.balance, currency: a.currency },
       color: a.color ?? undefined,
       icon: a.icon ?? null,
     }))
-    setAccounts(mapped)
+    setAccounts(sortByCreatedAtOrId(mapped))
   }, [setAccounts, token])
 
   const refetchTransactions = useCallback(async () => {
@@ -2332,8 +2338,7 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
 }))
   const incomeToRender = [...incomeItems]
 
-  const expenseItems: CardItem[] = expenseCategories
-    .map((cat, idx) => {
+  const expenseItems: CardItem[] = expenseCategories.map((cat, idx) => {
       const spent = expenseByCategory.get(cat.id) ?? 0
       const budget = (cat as { budget?: number | null }).budget ?? null
       let tone: CardItem["budgetTone"] = "normal"
@@ -2356,7 +2361,6 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
         budgetTone: tone,
       }
     })
-    .sort((a, b) => b.amount - a.amount)
 
   const uncategorizedExpense = expenseByCategory.get("uncategorized")
   if (uncategorizedExpense) {

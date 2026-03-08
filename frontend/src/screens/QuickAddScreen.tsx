@@ -15,6 +15,7 @@ import { useSingleFlight } from "../hooks/useSingleFlight"
 import { buildMonthlyTransactionMetrics, getLocalMonthPoint } from "../utils/monthlyTransactionMetrics"
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import type { Debtor } from "../types/finance"
+import { sortByCreatedAtOrId } from "../utils/stableEntityOrder"
 
 const getTodayLocalDate = () => {
   const now = new Date()
@@ -637,14 +638,15 @@ export const QuickAddScreen: React.FC<Props> = ({
       })
       const accountsData = await getAccounts(token)
       setAccounts(
-        accountsData.accounts.map((a) => ({
+        sortByCreatedAtOrId(accountsData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          createdAt: a.createdAt ?? null,
           type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
-        })),
+        }))),
       )
       const txData = await getTransactions(token)
       setTransactions(
@@ -703,14 +705,15 @@ export const QuickAddScreen: React.FC<Props> = ({
       })
       const accountsData = await getAccounts(token)
       setAccounts(
-        accountsData.accounts.map((a) => ({
+        sortByCreatedAtOrId(accountsData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          createdAt: a.createdAt ?? null,
           type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
-        })),
+        }))),
       )
       const txData = await getTransactions(token)
       setTransactions(
@@ -883,12 +886,13 @@ export const QuickAddScreen: React.FC<Props> = ({
       const mapped = data.goals.map((g: GoalDto) => ({
         id: g.id,
         name: g.name,
+        createdAt: g.createdAt ?? null,
         icon: g.icon ?? null,
         targetAmount: Number(g.targetAmount),
         currentAmount: Number(g.currentAmount),
         status: g.status,
       }))
-      setGoals(mapped)
+      setGoals(sortByCreatedAtOrId(mapped))
     } catch (err) {
       console.error(err)
     } finally {
@@ -900,9 +904,10 @@ export const QuickAddScreen: React.FC<Props> = ({
     if (!token) return
     const data = await getDebtors(token)
     setDebtors(
-      data.debtors.map((d) => ({
+      sortByCreatedAtOrId(data.debtors.map((d) => ({
         id: d.id,
         name: d.name,
+        createdAt: d.createdAt ?? null,
         icon: d.icon,
         issuedDate: d.issuedAt.slice(0, 10),
         loanAmount: Number(d.principalAmount),
@@ -910,7 +915,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         returnAmount: d.payoffAmount === null ? Number(d.principalAmount) : Number(d.payoffAmount),
         status: d.status,
         direction: d.direction ?? "receivable",
-      })),
+      }))),
     )
   }, [setDebtors, token])
 
@@ -998,14 +1003,15 @@ export const QuickAddScreen: React.FC<Props> = ({
       }
       const accountsData = await getAccounts(token)
       setAccounts(
-        accountsData.accounts.map((a) => ({
+        sortByCreatedAtOrId(accountsData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          createdAt: a.createdAt ?? null,
           type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
-        })),
+        }))),
       )
       const txData = await getTransactions(token)
       setTransactions(
@@ -1111,14 +1117,15 @@ export const QuickAddScreen: React.FC<Props> = ({
       })
       const accountsData = await getAccounts(token)
       setAccounts(
-        accountsData.accounts.map((a) => ({
+        sortByCreatedAtOrId(accountsData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          createdAt: a.createdAt ?? null,
           type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
-        })),
+        }))),
       )
       const txData = await getTransactions(token)
       setTransactions(
@@ -1204,14 +1211,15 @@ export const QuickAddScreen: React.FC<Props> = ({
         try {
           const accountsData = await getAccounts(token)
           setAccounts(
-            accountsData.accounts.map((a) => ({
+            sortByCreatedAtOrId(accountsData.accounts.map((a) => ({
               id: a.id,
               name: a.name,
+              createdAt: a.createdAt ?? null,
               type: a.type,
               balance: { amount: a.balance, currency: a.currency },
               color: a.color ?? undefined,
               icon: a.icon ?? null,
-            })),
+            }))),
           )
 
           const txData = await getTransactions(token)

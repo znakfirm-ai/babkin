@@ -3,6 +3,7 @@ import { timedFetch } from "../utils/debugTimings"
 export type CategoryDto = {
   id: string
   name: string
+  createdAt?: string | null
   kind: "income" | "expense"
   icon: string | null
   budget?: number | null

@@ -6,6 +6,7 @@ export type Money = {
 export type Account = {
   id: string
   name: string
+  createdAt?: string | null
   type?: string
   balance: Money
   color?: string
@@ -15,6 +16,7 @@ export type Account = {
 export type Category = {
   id: string
   name: string
+  createdAt?: string | null
   type: "income" | "expense"
   icon?: string | null
   budget?: number | null
@@ -24,6 +26,7 @@ export type Category = {
 export type IncomeSource = {
   id: string
   name: string
+  createdAt?: string | null
   icon?: string | null
   isArchived?: boolean
 }
@@ -31,6 +34,7 @@ export type IncomeSource = {
 export type Goal = {
   id: string
   name: string
+  createdAt?: string | null
   icon?: string | null
   targetAmount: number
   currentAmount: number
@@ -40,6 +44,7 @@ export type Goal = {
 export type Debtor = {
   id: string
   name: string
+  createdAt?: string | null
   icon?: string | null
   issuedDate: string
   loanAmount: number

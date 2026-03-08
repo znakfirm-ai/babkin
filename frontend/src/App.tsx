@@ -10,6 +10,7 @@ import { getBootstrap, type BootstrapResponse } from "./api/bootstrap"
 import DebugTimingsOverlay from "./components/DebugTimingsOverlay"
 import CenteredLoader from "./components/CenteredLoader"
 import { markTimingStage, timedFetch } from "./utils/debugTimings"
+import { sortByCreatedAtOrId } from "./utils/stableEntityOrder"
 import HomeScreen from "./screens/HomeScreen"
 import OverviewScreen from "./screens/OverviewScreen"
 import AddScreen from "./screens/AddScreen"
@@ -487,44 +488,49 @@ function App() {
       const mappedAccounts = bootstrapData.accounts.map((a) => ({
         id: a.id,
         name: a.name,
+        createdAt: a.createdAt ?? null,
         type: a.type,
         balance: { amount: a.balance, currency: a.currency },
         color: a.color ?? undefined,
         icon: a.icon ?? null,
       }))
-      setAccounts(mappedAccounts)
+      setAccounts(sortByCreatedAtOrId(mappedAccounts))
 
       const mappedCategories = bootstrapData.categories.map((c) => ({
         id: c.id,
         name: c.name,
+        createdAt: c.createdAt ?? null,
         type: c.kind,
         icon: c.icon,
         budget: c.budget ?? null,
         isArchived: c.isArchived ?? false,
       }))
-      setCategories(mappedCategories)
+      setCategories(sortByCreatedAtOrId(mappedCategories))
 
       const mappedIncomeSources = bootstrapData.incomeSources.map((s) => ({
         id: s.id,
         name: s.name,
+        createdAt: s.createdAt ?? null,
         icon: s.icon ?? null,
         isArchived: s.isArchived ?? false,
       }))
-      setIncomeSources(mappedIncomeSources)
+      setIncomeSources(sortByCreatedAtOrId(mappedIncomeSources))
 
       const mappedGoals = bootstrapData.goals.map((g) => ({
         id: g.id,
         name: g.name,
+        createdAt: g.createdAt ?? null,
         icon: g.icon,
         targetAmount: Number(g.targetAmount),
         currentAmount: Number(g.currentAmount),
         status: g.status,
       }))
-      setGoals(mappedGoals)
+      setGoals(sortByCreatedAtOrId(mappedGoals))
 
       const mappedDebtors = bootstrapData.debtors.map((d) => ({
         id: d.id,
         name: d.name,
+        createdAt: d.createdAt ?? null,
         icon: d.icon,
         issuedDate: d.issuedAt.slice(0, 10),
         loanAmount: Number(d.principalAmount),
@@ -533,7 +539,7 @@ function App() {
         status: d.status,
         direction: d.direction ?? "receivable",
       }))
-      setDebtors(mappedDebtors)
+      setDebtors(sortByCreatedAtOrId(mappedDebtors))
 
       const mappedTransactions = bootstrapData.transactions.map((t) => ({
         id: t.id,
@@ -736,12 +742,13 @@ function App() {
         const mappedAccounts = accData.accounts.map((a) => ({
           id: a.id,
           name: a.name,
+          createdAt: a.createdAt ?? null,
           type: a.type,
           balance: { amount: a.balance, currency: a.currency },
           color: a.color ?? undefined,
           icon: a.icon ?? null,
         }))
-        setAccounts(mappedAccounts)
+        setAccounts(sortByCreatedAtOrId(mappedAccounts))
 
         const catData = await getCategories(appToken)
         if (isStale()) {
@@ -750,12 +757,13 @@ function App() {
         const mappedCategories = catData.categories.map((c) => ({
           id: c.id,
           name: c.name,
+          createdAt: c.createdAt ?? null,
           type: c.kind,
           icon: c.icon,
           budget: c.budget ?? null,
           isArchived: c.isArchived ?? false,
         }))
-        setCategories(mappedCategories)
+        setCategories(sortByCreatedAtOrId(mappedCategories))
 
         const incData = await getIncomeSources(appToken)
         if (isStale()) {
@@ -764,10 +772,11 @@ function App() {
         const mappedIncomeSources = incData.incomeSources.map((s) => ({
           id: s.id,
           name: s.name,
+          createdAt: s.createdAt ?? null,
           icon: s.icon ?? null,
           isArchived: s.isArchived ?? false,
         }))
-        setIncomeSources(mappedIncomeSources)
+        setIncomeSources(sortByCreatedAtOrId(mappedIncomeSources))
 
         const goalsData = await getGoals(appToken)
         if (isStale()) {
@@ -776,12 +785,13 @@ function App() {
         const mappedGoals = goalsData.goals.map((g) => ({
           id: g.id,
           name: g.name,
+          createdAt: g.createdAt ?? null,
           icon: g.icon,
           targetAmount: Number(g.targetAmount),
           currentAmount: Number(g.currentAmount),
           status: g.status,
         }))
-        setGoals(mappedGoals)
+        setGoals(sortByCreatedAtOrId(mappedGoals))
 
         const debtorsData = await getDebtors(appToken)
         if (isStale()) {
@@ -790,6 +800,7 @@ function App() {
         const mappedDebtors = debtorsData.debtors.map((d) => ({
           id: d.id,
           name: d.name,
+          createdAt: d.createdAt ?? null,
           icon: d.icon,
           issuedDate: d.issuedAt.slice(0, 10),
           loanAmount: Number(d.principalAmount),
@@ -798,7 +809,7 @@ function App() {
           status: d.status,
           direction: d.direction ?? "receivable",
         }))
-        setDebtors(mappedDebtors)
+        setDebtors(sortByCreatedAtOrId(mappedDebtors))
 
         const txData = await getTransactions(appToken)
         if (isStale()) {

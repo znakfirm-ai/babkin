@@ -3,6 +3,7 @@ import { timedFetch } from "../utils/debugTimings"
 export type ApiAccount = {
   id: string
   name: string
+  createdAt?: string | null
   displayName?: string | null
   type: string
   currency: string

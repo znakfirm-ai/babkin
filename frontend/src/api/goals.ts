@@ -3,6 +3,7 @@ import { timedFetch } from "../utils/debugTimings"
 export type GoalDto = {
   id: string
   name: string
+  createdAt?: string | null
   icon: string | null
   targetAmount: string
   currentAmount: string
