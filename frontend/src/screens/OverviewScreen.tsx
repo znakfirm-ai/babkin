@@ -838,6 +838,7 @@ function OverviewScreen({
   const hasDebtorDuplicateNameError = isDuplicateNameError(debtorError)
   const hasGoalAmountRequiredError = isAmountRequiredError(goalError)
   const hasDebtorAmountRequiredError = isAmountRequiredError(debtorError)
+  const debtFormTitle = currentDebtorDirection === "payable" ? "Добавить кредитора" : "Добавить должника"
   const accountPreviewColor = accountColor || accountColorOptions[0]
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
@@ -4602,7 +4603,7 @@ function TransactionsPanel({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>Добавить должника</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{debtFormTitle}</div>
               <button
                 type="button"
                 onClick={() => {
@@ -4621,7 +4622,7 @@ function TransactionsPanel({
               </button>
             </div>
 
-            {debtorError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{debtorError}</div> : null}
+            {debtorError && !hasDebtorAmountRequiredError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{debtorError}</div> : null}
 
             <label style={{ display: "grid", gap: 6 }}>
               <span style={{ fontSize: 13, color: "#475569" }}>Имя должника</span>
@@ -4719,7 +4720,15 @@ function TransactionsPanel({
               <span style={{ fontSize: 13, color: "#475569" }}>Сумма к возврату</span>
               <input
                 value={debtorReturnAmount}
-                onChange={(e) => setDebtorReturnAmount(e.target.value)}
+                onChange={(e) => {
+                  const nextValue = e.target.value
+                  setDebtorReturnAmount(nextValue)
+                  if (!hasDebtorAmountRequiredError) return
+                  const parsedAmount = Number(nextValue.trim().replace(",", "."))
+                  if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
+                    setDebtorError(null)
+                  }
+                }}
                 placeholder="0"
                 inputMode="decimal"
                 style={{
@@ -4731,6 +4740,7 @@ function TransactionsPanel({
                   boxShadow: "none",
                 }}
               />
+              {hasDebtorAmountRequiredError ? <div style={{ color: "#b91c1c", fontSize: 12 }}>Введите сумму</div> : null}
             </label>
 
             <div style={{ display: "grid", gap: 6 }}>
@@ -4923,7 +4933,7 @@ function TransactionsPanel({
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
-                {isDebtsMode ? "Добавить должника" : "Создать цель"}
+                {isDebtsMode ? debtFormTitle : "Создать цель"}
               </div>
               <button
                 type="button"
@@ -4943,7 +4953,9 @@ function TransactionsPanel({
               </button>
             </div>
 
-            {goalError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{goalError}</div> : null}
+            {goalError && (!isDebtsMode || !hasGoalAmountRequiredError) ? (
+              <div style={{ color: "#b91c1c", fontSize: 13 }}>{goalError}</div>
+            ) : null}
 
             {isDebtsMode ? (
               <label style={{ display: "grid", gap: 6 }}>
@@ -4986,7 +4998,15 @@ function TransactionsPanel({
               <span style={{ fontSize: 13, color: "#475569" }}>{isDebtsMode ? "Сумма займа" : "Сумма"}</span>
               <input
                 value={goalTarget}
-                onChange={(e) => setGoalTarget(e.target.value)}
+                onChange={(e) => {
+                  const nextValue = e.target.value
+                  setGoalTarget(nextValue)
+                  if (!isDebtsMode || !hasGoalAmountRequiredError) return
+                  const parsedAmount = Number(nextValue.trim().replace(",", "."))
+                  if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
+                    setGoalError(null)
+                  }
+                }}
                 placeholder="0"
                 inputMode="decimal"
                 style={{
@@ -4998,6 +5018,9 @@ function TransactionsPanel({
                   boxShadow: "none",
                 }}
               />
+              {isDebtsMode && hasGoalAmountRequiredError ? (
+                <div style={{ color: "#b91c1c", fontSize: 12 }}>Введите сумму</div>
+              ) : null}
             </label>
 
             {isDebtsMode ? (
