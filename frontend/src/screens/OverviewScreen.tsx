@@ -2754,6 +2754,42 @@ function TransactionsPanel({
     },
     [accountNameById, isPayableDebtRepaymentTx],
   )
+  const goalStatusById = useMemo(() => {
+    const statusById = new Map<string, Goal["status"]>()
+    goals.forEach((goal) => {
+      statusById.set(goal.id, goal.status)
+    })
+    return statusById
+  }, [goals])
+  const debtorStatusById = useMemo(() => {
+    const statusById = new Map<string, Debtor["status"]>()
+    debtors.forEach((debtor) => {
+      statusById.set(debtor.id, debtor.status)
+    })
+    return statusById
+  }, [debtors])
+  const isAccountTxDisabledByArchivedGoalOrDebt = useCallback(
+    (tx: Transaction) => {
+      if (tx.goalId && goalStatusById.get(tx.goalId) === "completed") return true
+      if (tx.debtorId && debtorStatusById.get(tx.debtorId) === "completed") return true
+      return false
+    },
+    [debtorStatusById, goalStatusById],
+  )
+  const isAccountTxEditDisabled = useCallback(
+    (tx: Transaction) => isTxEditDisabled(tx) || isAccountTxDisabledByArchivedGoalOrDebt(tx),
+    [isAccountTxDisabledByArchivedGoalOrDebt, isTxEditDisabled],
+  )
+  const openAccountTxActions = useCallback(
+    (tx: Transaction) => {
+      if (isAccountTxEditDisabled(tx)) {
+        setDisabledTxHintId((current) => (current === tx.id ? null : tx.id))
+        return
+      }
+      openTxActions(tx.id)
+    },
+    [isAccountTxEditDisabled, openTxActions],
+  )
   const getTxCreatorLabel = useCallback(
     (tx: Transaction) => {
       if (activeSpaceKey !== "family") return null
@@ -2774,8 +2810,8 @@ function TransactionsPanel({
     [activeSpaceKey],
   )
   const renderTxArchivedHint = useCallback(
-    (tx: Transaction) => {
-      if (disabledTxHintId !== tx.id || !isTxEditDisabled(tx)) return null
+    (tx: Transaction, isDisabled: boolean = isTxEditDisabled(tx)) => {
+      if (disabledTxHintId !== tx.id || !isDisabled) return null
       return <div style={txDisabledHintStyle}>{ARCHIVED_TX_EDIT_HELP_TEXT}</div>
     },
     [disabledTxHintId, isTxEditDisabled],
@@ -3554,13 +3590,13 @@ function TransactionsPanel({
                     const color = isIncome ? "#16a34a" : isExpense ? "#b91c1c" : "#0f172a"
                     const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
                     const creatorLabel = getTxCreatorLabel(tx)
-                    const isTxDisabled = isTxEditDisabled(tx)
+                    const isTxDisabled = isAccountTxEditDisabled(tx)
                     const txTitle = getAccountTxTitle(tx)
                     return (
                       <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                         <div
                           style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
-                          onClick={() => openTxActions(tx.id)}
+                          onClick={() => openAccountTxActions(tx)}
                         >
                           <div style={{ display: "grid", gap: 2 }}>
                             <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>{txTitle}</div>
@@ -3595,7 +3631,7 @@ function TransactionsPanel({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                openTxActions(tx.id)
+                                openAccountTxActions(tx)
                               }}
                               style={{
                                 padding: "4px 6px",
@@ -3610,7 +3646,7 @@ function TransactionsPanel({
                             </button>
                           </div>
                         </div>
-                        {renderTxArchivedHint(tx)}
+                        {renderTxArchivedHint(tx, isTxDisabled)}
                       </div>
                     )
                   }}
