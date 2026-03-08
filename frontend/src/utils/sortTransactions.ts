@@ -12,13 +12,22 @@ const getCreatedUnixMs = (tx: Transaction) => {
 }
 
 export const compareTransactionsDesc = (left: Transaction, right: Transaction) => {
-  const happenedDiff = toUnixMs(right.date) - toUnixMs(left.date)
-  if (happenedDiff !== 0) return happenedDiff
+  const dayDiff = toLocalDayKey(right.date).localeCompare(toLocalDayKey(left.date))
+  if (dayDiff !== 0) return dayDiff
 
   const rightCreatedUnixMs = getCreatedUnixMs(right)
   const leftCreatedUnixMs = getCreatedUnixMs(left)
-  const createdDiff = rightCreatedUnixMs - leftCreatedUnixMs
-  if (createdDiff !== 0) return createdDiff
+  const rightHasCreated = rightCreatedUnixMs > 0
+  const leftHasCreated = leftCreatedUnixMs > 0
+  if (rightHasCreated && leftHasCreated) {
+    const createdDiff = rightCreatedUnixMs - leftCreatedUnixMs
+    if (createdDiff !== 0) return createdDiff
+    if (left.id === right.id) return 0
+    return right.id.localeCompare(left.id)
+  }
+  if (rightHasCreated !== leftHasCreated) {
+    return leftHasCreated ? -1 : 1
+  }
 
   if (left.id === right.id) return 0
   return right.id.localeCompare(left.id)
