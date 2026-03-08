@@ -2663,7 +2663,7 @@ function TransactionsPanel({
     (tx: Transaction) => {
       const goalName = tx.goalName ?? (tx.goalId ? goalNameById.get(tx.goalId) : null)
       if (isGoalReturnTx(tx)) {
-        return goalName ? `Пополнение с цели: ${goalName}` : "Пополнение с цели"
+        return goalName ?? "Цель"
       }
       return goalName ? `Цель: ${goalName}` : "Цель"
     },
@@ -3548,8 +3548,7 @@ function TransactionsPanel({
                   }}
                   renderRow={(tx, idx) => {
                     const isDebtIncome = Boolean(tx.debtorId && tx.type === "transfer")
-                    const isGoalReturnIncome = isGoalReturnTx(tx)
-                    const isIncome = tx.type === "income" || isDebtIncome || isGoalReturnIncome
+                    const isIncome = tx.type === "income" || isDebtIncome
                     const isExpense = tx.type === "expense"
                     const sign = isIncome ? "+" : isExpense ? "-" : ""
                     const color = isIncome ? "#16a34a" : isExpense ? "#b91c1c" : "#0f172a"
