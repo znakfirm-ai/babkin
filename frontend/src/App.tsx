@@ -551,10 +551,16 @@ function App() {
         type: c.kind,
         icon: c.icon,
         budget: c.budget ?? null,
+        isArchived: c.isArchived ?? false,
       }))
       setCategories(sortCategoriesCanonical(mappedCategories))
 
-      const mappedIncomeSources = bootstrapData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
+      const mappedIncomeSources = bootstrapData.incomeSources.map((s) => ({
+        id: s.id,
+        name: s.name,
+        icon: s.icon ?? null,
+        isArchived: s.isArchived ?? false,
+      }))
       setIncomeSources(sortIncomeSourcesCanonical(mappedIncomeSources))
 
       const mappedGoals = bootstrapData.goals.map((g) => ({
@@ -791,14 +797,26 @@ function App() {
         if (isStale()) {
           return false
         }
-        const mappedCategories = catData.categories.map((c) => ({ id: c.id, name: c.name, type: c.kind, icon: c.icon, budget: c.budget ?? null }))
+        const mappedCategories = catData.categories.map((c) => ({
+          id: c.id,
+          name: c.name,
+          type: c.kind,
+          icon: c.icon,
+          budget: c.budget ?? null,
+          isArchived: c.isArchived ?? false,
+        }))
         setCategories(sortCategoriesCanonical(mappedCategories))
 
         const incData = await getIncomeSources(appToken)
         if (isStale()) {
           return false
         }
-        const mappedIncomeSources = incData.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
+        const mappedIncomeSources = incData.incomeSources.map((s) => ({
+          id: s.id,
+          name: s.name,
+          icon: s.icon ?? null,
+          isArchived: s.isArchived ?? false,
+        }))
         setIncomeSources(sortIncomeSourcesCanonical(mappedIncomeSources))
 
         const goalsData = await getGoals(appToken)

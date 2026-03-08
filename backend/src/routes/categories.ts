@@ -15,7 +15,7 @@ type CategoryResponse = {
   kind: "income" | "expense"
   icon: string | null
   budget?: number | null
-  is_archived?: boolean | null
+  isArchived: boolean
 }
 
 const unauthorized = async (reply: FastifyReply, reason: string) => {
@@ -86,7 +86,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
 
     const categories = await prisma.categories.findMany({
       where: { workspace_id: workspaceId },
-      select: { id: true, name: true, kind: true, icon: true, budget: true },
+      select: { id: true, name: true, kind: true, icon: true, budget: true, is_archived: true },
     })
 
     const payload: { categories: CategoryResponse[] } = {
@@ -96,6 +96,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
         kind: c.kind,
         icon: c.icon,
         budget: c.budget ? Number(c.budget) : null,
+        isArchived: c.is_archived,
       })),
     }
 
@@ -124,7 +125,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
     }
 
     const sameKindCategories = await prisma.categories.findMany({
-      where: { workspace_id: user.active_workspace_id, kind },
+      where: { workspace_id: user.active_workspace_id, kind, is_archived: false, archived_at: null },
       select: { id: true, name: true },
     })
     if (hasEntityNameConflict(sameKindCategories, name)) {
@@ -138,6 +139,8 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
         kind,
         icon: body?.icon ?? null,
         is_default: false,
+        is_archived: false,
+        archived_at: null,
         budget: body?.budget ?? null,
       },
     })
@@ -148,6 +151,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       kind: created.kind,
       icon: created.icon,
       budget: created.budget ? Number(created.budget) : null,
+      isArchived: created.is_archived,
     }
 
     return reply.send({ category })
@@ -184,7 +188,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
     }
 
     const sameKindCategories = await prisma.categories.findMany({
-      where: { workspace_id: user.active_workspace_id, kind: existing.kind },
+      where: { workspace_id: user.active_workspace_id, kind: existing.kind, is_archived: false, archived_at: null },
       select: { id: true, name: true },
     })
     if (hasEntityNameConflict(sameKindCategories, name, categoryId)) {
@@ -224,6 +228,7 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       kind: updated.kind,
       icon: updated.icon,
       budget: updated.budget ? Number(updated.budget) : null,
+      isArchived: updated.is_archived,
     }
 
     return reply.send({ category })
@@ -250,14 +255,10 @@ export async function categoriesRoutes(fastify: FastifyInstance, _opts: FastifyP
       return reply.status(404).send({ error: "Not Found" })
     }
 
-    const txCount = await prisma.transactions.count({
-      where: { workspace_id: user.active_workspace_id, category_id: categoryId },
+    await prisma.categories.update({
+      where: { id: categoryId },
+      data: { is_archived: true, archived_at: new Date() },
     })
-    if (txCount > 0) {
-      return reply.status(409).send({ error: "Conflict", code: "CATEGORY_IN_USE" })
-    }
-
-    await prisma.categories.delete({ where: { id: categoryId } })
     return reply.status(204).send()
   })
 }

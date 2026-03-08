@@ -17,12 +17,14 @@ export type Category = {
   type: "income" | "expense"
   icon?: string | null
   budget?: number | null
+  isArchived?: boolean
 }
 
 export type IncomeSource = {
   id: string
   name: string
   icon?: string | null
+  isArchived?: boolean
 }
 
 export type Goal = {

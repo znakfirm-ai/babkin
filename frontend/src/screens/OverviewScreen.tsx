@@ -974,6 +974,14 @@ function OverviewScreen({
   const baseCurrency = normalizeCurrency(currency || "RUB")
 
   const activeGoals = useMemo(() => goals.filter((g) => g.status === "active"), [goals])
+  const activeExpenseCategories = useMemo(
+    () => categories.filter((category) => category.type === "expense" && !category.isArchived),
+    [categories],
+  )
+  const activeIncomeSources = useMemo(
+    () => incomeSources.filter((incomeSource) => !incomeSource.isArchived),
+    [incomeSources],
+  )
   const filteredGoals = useMemo(() => {
     if (isDebtsMode) return []
     return activeGoals
@@ -1106,6 +1114,7 @@ function OverviewScreen({
       type: c.kind,
       icon: c.icon,
       budget: c.budget ?? null,
+      isArchived: c.isArchived ?? false,
     }))
     setCategories(mapped)
   }, [setCategories, token])
@@ -1113,7 +1122,12 @@ function OverviewScreen({
   const refetchIncomeSources = useCallback(async () => {
     if (!token) return
     const data = await getIncomeSources(token)
-    const mapped = data.incomeSources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null }))
+    const mapped = data.incomeSources.map((s) => ({
+      id: s.id,
+      name: s.name,
+      icon: s.icon ?? null,
+      isArchived: s.isArchived ?? false,
+    }))
     setIncomeSources(mapped)
   }, [setIncomeSources, token])
 
@@ -1834,6 +1848,7 @@ function OverviewScreen({
     const duplicateCategory = categories.some(
       (category) =>
         category.type === "expense" &&
+        !category.isArchived &&
         category.id !== editingCategoryId &&
         normalizeEntityName(category.name) === normalizeEntityName(trimmed),
     )
@@ -1918,6 +1933,7 @@ function OverviewScreen({
       }
       const duplicateIncomeSource = incomeSources.some(
         (source) =>
+          !source.isArchived &&
           source.id !== editingIncomeSourceId &&
           normalizeEntityName(source.name) === normalizeEntityName(trimmed),
       )
@@ -2189,10 +2205,7 @@ function OverviewScreen({
   const handleDeleteCategory = useCallback(
     (id: string) =>
       runCategoryDelete(async () => {
-      if (!token) {
-        alert("Нет токена")
-        return
-      }
+      if (!token) return
       const confirmed = window.confirm("Удалить категорию?")
       if (!confirmed) return
       setDeletingCategoryId(id)
@@ -2201,12 +2214,8 @@ function OverviewScreen({
         await refetchCategories()
         closeCategorySheet()
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Ошибка"
-        if (msg.includes("CATEGORY_IN_USE")) {
-          alert("Категория используется в транзакциях и не может быть удалена")
-        } else {
-          alert(msg)
-        }
+        const msg = err instanceof Error ? err.message : "Не удалось архивировать категорию"
+        setCategorySaveError(msg)
       } finally {
         setDeletingCategoryId(null)
       }
@@ -2217,10 +2226,7 @@ function OverviewScreen({
   const handleDeleteIncomeSource = useCallback(
     (id: string) =>
       runIncomeDelete(async () => {
-      if (!token) {
-        alert("Нет токена")
-        return
-      }
+      if (!token) return
       const confirmed = window.confirm("Удалить источник дохода?")
       if (!confirmed) return
       setDeletingIncomeSourceId(id)
@@ -2229,12 +2235,8 @@ function OverviewScreen({
         await refetchIncomeSources()
         closeIncomeSourceSheet()
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Ошибка"
-        if (msg.includes("INCOME_SOURCE_IN_USE")) {
-          alert("Источник используется в транзакциях и не может быть удалён")
-        } else {
-          alert(msg)
-        }
+        const msg = err instanceof Error ? err.message : "Не удалось архивировать источник дохода"
+        setIncomeSourceError(msg)
       } finally {
         setDeletingIncomeSourceId(null)
       }
@@ -2263,9 +2265,9 @@ function OverviewScreen({
 
   const accountsToRender = accountItems
 
-  const expenseCategories = categories.filter((c) => c.type === "expense")
+  const expenseCategories = activeExpenseCategories
 
-const incomeItems: CardItem[] = incomeSources.map((src, idx) => ({
+const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
   id: src.id,
   title: src.name,
   amount: incomeBySource.get(src.id) ?? 0,

@@ -12,6 +12,7 @@ type IncomeSourceResponse = {
   id: string
   name: string
   icon?: string | null
+  isArchived: boolean
 }
 
 const unauthorized = async (reply: FastifyReply, reason: string) => {
@@ -83,7 +84,7 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
     const sources = await prisma.income_sources.findMany({ where: { workspace_id: workspaceId } })
 
     const payload: { incomeSources: IncomeSourceResponse[] } = {
-      incomeSources: sources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null })),
+      incomeSources: sources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null, isArchived: s.is_archived })),
     }
 
     return reply.send(payload)
@@ -108,7 +109,7 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
     }
 
     const sameWorkspaceSources = await prisma.income_sources.findMany({
-      where: { workspace_id: user.active_workspace_id },
+      where: { workspace_id: user.active_workspace_id, is_archived: false, archived_at: null },
       select: { id: true, name: true },
     })
     if (hasEntityNameConflict(sameWorkspaceSources, name)) {
@@ -121,11 +122,13 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
         name,
         icon: body?.icon ?? null,
         is_default: false,
+        is_archived: false,
+        archived_at: null,
       },
     })
 
     const payload: { incomeSource: IncomeSourceResponse } = {
-      incomeSource: { id: created.id, name: created.name, icon: created.icon ?? null },
+      incomeSource: { id: created.id, name: created.name, icon: created.icon ?? null, isArchived: created.is_archived },
     }
 
     return reply.send(payload)
@@ -162,7 +165,7 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
     }
 
     const sameWorkspaceSources = await prisma.income_sources.findMany({
-      where: { workspace_id: user.active_workspace_id },
+      where: { workspace_id: user.active_workspace_id, is_archived: false, archived_at: null },
       select: { id: true, name: true },
     })
     if (hasEntityNameConflict(sameWorkspaceSources, name, incomeSourceId)) {
@@ -174,7 +177,7 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       data: { name, icon: body?.icon ?? null },
     })
 
-    return reply.send({ incomeSource: { id: updated.id, name: updated.name, icon: updated.icon ?? null } })
+    return reply.send({ incomeSource: { id: updated.id, name: updated.name, icon: updated.icon ?? null, isArchived: updated.is_archived } })
   })
 
   fastify.delete("/income-sources/:id", async (request, reply) => {
@@ -198,14 +201,10 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       return reply.status(404).send({ error: "Not Found" })
     }
 
-    const txCount = await prisma.transactions.count({
-      where: { workspace_id: user.active_workspace_id, income_source_id: incomeSourceId },
+    await prisma.income_sources.update({
+      where: { id: incomeSourceId },
+      data: { is_archived: true, archived_at: new Date() },
     })
-    if (txCount > 0) {
-      return reply.status(409).send({ error: "Conflict", code: "INCOME_SOURCE_IN_USE" })
-    }
-
-    await prisma.income_sources.delete({ where: { id: incomeSourceId } })
     return reply.status(204).send()
   })
 }

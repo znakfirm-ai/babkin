@@ -166,13 +166,17 @@ export async function createWorkspaceTransaction(
       throw new CreateTransactionError(400, "missing_account")
     }
 
-    const account = await prisma.accounts.findFirst({ where: { id: body.accountId, workspace_id: workspaceId } })
+    const account = await prisma.accounts.findFirst({
+      where: { id: body.accountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
+    })
     if (!account) {
       throw new CreateTransactionError(403, "account_not_in_workspace")
     }
 
     if (body.categoryId) {
-      const cat = await prisma.categories.findFirst({ where: { id: body.categoryId, workspace_id: workspaceId } })
+      const cat = await prisma.categories.findFirst({
+        where: { id: body.categoryId, workspace_id: workspaceId, is_archived: false, archived_at: null },
+      })
       if (!cat) {
         throw new CreateTransactionError(403, "category_not_in_workspace")
       }
@@ -191,7 +195,7 @@ export async function createWorkspaceTransaction(
     let incomeSourceId: string | null = null
     if (kind === "income" && body.incomeSourceId) {
       const src = await prisma.income_sources.findFirst({
-        where: { id: body.incomeSourceId, workspace_id: workspaceId },
+        where: { id: body.incomeSourceId, workspace_id: workspaceId, is_archived: false, archived_at: null },
       })
       if (!src) {
         throw new CreateTransactionError(403, "income_source_not_in_workspace")
@@ -233,7 +237,9 @@ export async function createWorkspaceTransaction(
     if (debtor?.direction !== "RECEIVABLE") {
       throw new CreateTransactionError(400, "invalid_debtor_direction")
     }
-    const to = await prisma.accounts.findFirst({ where: { id: body.toAccountId ?? "", workspace_id: workspaceId } })
+    const to = await prisma.accounts.findFirst({
+      where: { id: body.toAccountId ?? "", workspace_id: workspaceId, is_archived: false, archived_at: null },
+    })
     if (!to) {
       throw new CreateTransactionError(403, "account_not_in_workspace")
     }
@@ -268,7 +274,9 @@ export async function createWorkspaceTransaction(
     throw new CreateTransactionError(400, "invalid_transfer_accounts")
   }
 
-  const from = await prisma.accounts.findFirst({ where: { id: body.fromAccountId, workspace_id: workspaceId } })
+  const from = await prisma.accounts.findFirst({
+    where: { id: body.fromAccountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
+  })
   if (!from) {
     throw new CreateTransactionError(403, "account_not_in_workspace")
   }
@@ -314,7 +322,9 @@ export async function createWorkspaceTransaction(
     throw new CreateTransactionError(400, "invalid_transfer_accounts")
   }
 
-  const to = await prisma.accounts.findFirst({ where: { id: body.toAccountId, workspace_id: workspaceId } })
+  const to = await prisma.accounts.findFirst({
+    where: { id: body.toAccountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
+  })
   if (!to) {
     throw new CreateTransactionError(403, "account_not_in_workspace")
   }

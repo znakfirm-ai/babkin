@@ -185,8 +185,11 @@ export const QuickAddScreen: React.FC<Props> = ({
   const debtPayableListRef = useRef<HTMLDivElement | null>(null)
   const { run, isRunning } = useSingleFlight()
 
-  const expenseCategories = useMemo(() => categories.filter((c) => c.type === "expense"), [categories])
-  const incomeSourcesList = useMemo(() => incomeSources, [incomeSources])
+  const expenseCategories = useMemo(
+    () => categories.filter((category) => category.type === "expense" && !category.isArchived),
+    [categories],
+  )
+  const incomeSourcesList = useMemo(() => incomeSources.filter((source) => !source.isArchived), [incomeSources])
   const activeGoals = useMemo(() => goals.filter((goal) => goal.status === "active"), [goals])
   const activeGoalIds = useMemo(() => new Set(activeGoals.map((goal) => goal.id)), [activeGoals])
   const reservedInActiveGoalsByAccountId = useMemo(() => {
@@ -330,6 +333,22 @@ export const QuickAddScreen: React.FC<Props> = ({
       offenders,
     })
   }, [])
+
+  useEffect(() => {
+    if (!selectedCategoryId) return
+    const existsInActive = expenseCategories.some((category) => category.id === selectedCategoryId)
+    if (!existsInActive) {
+      setSelectedCategoryId(null)
+    }
+  }, [expenseCategories, selectedCategoryId])
+
+  useEffect(() => {
+    if (!selectedIncomeSourceId) return
+    const existsInActive = incomeSourcesList.some((source) => source.id === selectedIncomeSourceId)
+    if (!existsInActive) {
+      setSelectedIncomeSourceId(null)
+    }
+  }, [incomeSourcesList, selectedIncomeSourceId])
 
   useEffect(() => {
     if (!selectedGoalId) return

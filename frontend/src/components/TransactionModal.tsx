@@ -13,6 +13,11 @@ type TxKind = "expense" | "income" | "transfer"
 
 export function TransactionModal({ transaction, onClose, onSave }: Props) {
   const { accounts, categories, incomeSources } = useAppStore()
+  const activeExpenseCategories = useMemo(
+    () => categories.filter((category) => category.type === "expense" && !category.isArchived),
+    [categories],
+  )
+  const activeIncomeSources = useMemo(() => incomeSources.filter((source) => !source.isArchived), [incomeSources])
 
   const initialType: TxKind = transaction?.type === "transfer" ? "transfer" : transaction?.type === "income" ? "income" : "expense"
 
@@ -20,7 +25,7 @@ export function TransactionModal({ transaction, onClose, onSave }: Props) {
 
   const [accountId, setAccountId] = useState<string>(transaction?.accountId ?? accounts[0]?.id ?? "")
   const [categoryId, setCategoryId] = useState<string>(transaction?.categoryId ?? "")
-  const [incomeSourceId, setIncomeSourceId] = useState<string>(transaction?.incomeSourceId ?? incomeSources[0]?.id ?? "")
+  const [incomeSourceId, setIncomeSourceId] = useState<string>(transaction?.incomeSourceId ?? activeIncomeSources[0]?.id ?? "")
 
   const [fromAccountId, setFromAccountId] = useState<string>(transaction?.accountId ?? accounts[0]?.id ?? "")
   const [toAccountId, setToAccountId] = useState<string>(transaction?.toAccountId ?? accounts[1]?.id ?? accounts[0]?.id ?? "")
@@ -33,10 +38,10 @@ export function TransactionModal({ transaction, onClose, onSave }: Props) {
 
   const filteredCategories = useMemo(() => {
     const catType = "expense"
-    return categories.filter((c) => c.type === catType)
-  }, [categories])
+    return activeExpenseCategories.filter((category) => category.type === catType)
+  }, [activeExpenseCategories])
 
-  const incomeSourceOptions = incomeSources
+  const incomeSourceOptions = activeIncomeSources
 
   const effectiveCategoryId = categoryId || filteredCategories[0]?.id || ""
   const effectiveIncomeSourceId = incomeSourceId || incomeSourceOptions[0]?.id || ""

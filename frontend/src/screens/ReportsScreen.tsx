@@ -677,6 +677,8 @@ const ReportsScreen: React.FC<Props> = ({
   const compareCustomToValue = compareCustomTo || todayDate
   const compareCustomFromLabel = formatLongRuDate(compareCustomFromValue)
   const compareCustomToLabel = formatLongRuDate(compareCustomToValue)
+  const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories])
+  const incomeSourceById = useMemo(() => new Map(incomeSources.map((source) => [source.id, source])), [incomeSources])
   const openCompareCustomDatePicker = (target: "from" | "to") => {
     const input = target === "from" ? compareCustomFromInputRef.current : compareCustomToInputRef.current
     if (!input) return
@@ -708,14 +710,19 @@ const ReportsScreen: React.FC<Props> = ({
     })
     return Array.from(totals.entries())
       .filter(([, amount]) => amount > 0)
-      .map(([id, amount]) => ({
-        id,
-        title: incomeSources.find((source) => source.id === id)?.name ?? "Без источника",
-        iconKey: incomeSources.find((source) => source.id === id)?.icon ?? null,
-        amount,
-      }))
+      .map(([id, amount]) => {
+        const source = incomeSourceById.get(id)
+        const isKnownGroup = id === REPORT_GROUP_UNCATEGORIZED_ID || id === REPORT_GROUP_DEBTS_ID || id === REPORT_GROUP_GOALS_ID
+        return {
+          id,
+          title: source?.name ?? "Без источника",
+          iconKey: source?.icon ?? null,
+          isArchived: source?.isArchived ?? (!isKnownGroup && !source),
+          amount,
+        }
+      })
       .sort((a, b) => b.amount - a.amount)
-  }, [compareActiveBin, incomeSources, transactions])
+  }, [compareActiveBin, incomeSourceById, transactions])
 
   const compareExpenseList = useMemo(() => {
     if (!compareActiveBin) return []
@@ -733,14 +740,19 @@ const ReportsScreen: React.FC<Props> = ({
     })
     return Array.from(totals.entries())
       .filter(([, amount]) => amount > 0)
-      .map(([id, amount]) => ({
-        id,
-        title: categories.find((category) => category.id === id)?.name ?? "Без категории",
-        iconKey: categories.find((category) => category.id === id)?.icon ?? null,
-        amount,
-      }))
+      .map(([id, amount]) => {
+        const category = categoryById.get(id)
+        const isKnownGroup = id === REPORT_GROUP_UNCATEGORIZED_ID || id === REPORT_GROUP_DEBTS_ID || id === REPORT_GROUP_GOALS_ID
+        return {
+          id,
+          title: category?.name ?? "Без категории",
+          iconKey: category?.icon ?? null,
+          isArchived: category?.isArchived ?? (!isKnownGroup && !category),
+          amount,
+        }
+      })
       .sort((a, b) => b.amount - a.amount)
-  }, [categories, compareActiveBin, transactions])
+  }, [categoryById, compareActiveBin, transactions])
   const compareIncomeTotal = useMemo(() => compareIncomeList.reduce((sum, item) => sum + item.amount, 0), [compareIncomeList])
   const compareExpenseTotal = useMemo(() => compareExpenseList.reduce((sum, item) => sum + item.amount, 0), [compareExpenseList])
   const compareDrilldownState = useMemo<CompareReportState>(
@@ -872,13 +884,15 @@ const ReportsScreen: React.FC<Props> = ({
       .filter(([, v]) => v > 0)
       .sort((a, b) => b[1] - a[1])
       .map(([categoryId, sum]) => {
-        const cat = categories.find((c) => c.id === categoryId)
+        const cat = categoryById.get(categoryId)
         const isGoals = categoryId === REPORT_GROUP_GOALS_ID
         const isDebts = categoryId === REPORT_GROUP_DEBTS_ID
+        const isKnownGroup = isGoals || isDebts || categoryId === REPORT_GROUP_UNCATEGORIZED_ID
         return {
           id: categoryId,
           title: isGoals ? "Цели" : isDebts ? "Долги / Кредиты" : cat?.name ?? "Без категории",
           iconKey: isDebts ? "debt" : cat?.icon ?? null,
+          isArchived: cat?.isArchived ?? (!isKnownGroup && !cat),
           sum,
         }
       })
@@ -895,7 +909,7 @@ const ReportsScreen: React.FC<Props> = ({
       return { ...i, percentText }
     })
     return { total, slices, sliceLabels, colors, list }
-  }, [categories, effectiveRange.end, effectiveRange.start, transactions])
+  }, [categoryById, effectiveRange.end, effectiveRange.start, transactions])
 
   const formatDisplayDate = (date: Date) =>
     new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric" }).format(date)
@@ -990,14 +1004,21 @@ const ReportsScreen: React.FC<Props> = ({
       .filter(([, v]) => v > 0)
       .sort((a, b) => b[1] - a[1])
       .map(([groupId, sum]) => {
-        const src = incomeSources.find((s) => s.id === groupId)
-        const cat = categories.find((c) => c.id === groupId)
+        const src = incomeSourceById.get(groupId)
+        const cat = categoryById.get(groupId)
         const isGoals = groupId === REPORT_GROUP_GOALS_ID
         const isDebts = groupId === REPORT_GROUP_DEBTS_ID
         const isUncategorized = groupId === REPORT_GROUP_UNCATEGORIZED_ID
         const title = isGoals ? "Цели" : isDebts ? "Долги / Кредиты" : src?.name ?? cat?.name ?? (isUncategorized ? "Без источника" : "Без источника")
         const iconKey = isDebts ? "debt" : src?.icon ?? cat?.icon ?? null
-        return { id: groupId, title, iconKey, sum }
+        const isKnownGroup = isGoals || isDebts || isUncategorized
+        return {
+          id: groupId,
+          title,
+          iconKey,
+          isArchived: src?.isArchived ?? cat?.isArchived ?? (!isKnownGroup && !src && !cat),
+          sum,
+        }
       })
 
     const top = items.slice(0, 6)
@@ -1015,7 +1036,7 @@ const ReportsScreen: React.FC<Props> = ({
     const segments = slices.map((value, idx) => ({ color: colors[idx % colors.length], value }))
 
     return { total, segments, list, sliceLabels }
-  }, [categories, effectiveRange.end, effectiveRange.start, incomeSources, transactions])
+  }, [categoryById, effectiveRange.end, effectiveRange.start, incomeSourceById, transactions])
 
   const incomeLegendItems = useMemo(() => {
     const palette = ["#9CC3FF", "#B9E4C9", "#FFD6A5", "#D9C2FF"]
@@ -1531,6 +1552,7 @@ const ReportsScreen: React.FC<Props> = ({
                         <div
                           key={item.id}
                           onClick={() => {
+                            if (item.isArchived) return
                             if (item.id === REPORT_GROUP_DEBTS_ID) {
                               onOpenPayableDebtsSheet?.()
                             } else {
@@ -1544,7 +1566,8 @@ const ReportsScreen: React.FC<Props> = ({
                             gap: 10,
                             borderBottom: "1px solid #e5e7eb",
                             paddingBottom: 8,
-                            cursor: "pointer",
+                            cursor: item.isArchived ? "default" : "pointer",
+                            opacity: item.isArchived ? 0.55 : 1,
                           }}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
@@ -1981,6 +2004,7 @@ const ReportsScreen: React.FC<Props> = ({
                               key={item.id}
                               onClick={() => {
                                 if (incomeData.total === 0) return
+                                if (item.isArchived) return
                                 if (!item.id || item.id === "uncategorized") return
                                 onOpenIncomeSourceSheet?.(item.id, {
                                   periodMode,
@@ -1998,7 +2022,8 @@ const ReportsScreen: React.FC<Props> = ({
                                 gap: 10,
                                 borderBottom: "1px solid #e5e7eb",
                                 paddingBottom: 8,
-                                cursor: incomeData.total > 0 ? "pointer" : "default",
+                                cursor: incomeData.total > 0 && !item.isArchived ? "pointer" : "default",
+                                opacity: item.isArchived ? 0.55 : 1,
                               }}
                             >
                           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
@@ -2640,7 +2665,7 @@ const ReportsScreen: React.FC<Props> = ({
                       const percent = compareActiveTotal > 0 ? Math.round((item.amount / compareActiveTotal) * 100) : 0
                       const isIncomeMode = compareListMode === "income"
                       const percentColor = isIncomeMode ? compareIncomeLineColor : compareExpenseLineColor
-                      const isOpenable = item.id !== REPORT_GROUP_UNCATEGORIZED_ID && !!onOpenCompareDrilldown
+                      const isOpenable = item.id !== REPORT_GROUP_UNCATEGORIZED_ID && !item.isArchived && !!onOpenCompareDrilldown
                       return (
                       <button
                         key={`${compareListMode}-${item.id}`}
@@ -2663,6 +2688,7 @@ const ReportsScreen: React.FC<Props> = ({
                           background: "transparent",
                           textAlign: "left",
                           cursor: isOpenable ? "pointer" : "default",
+                          opacity: item.isArchived ? 0.55 : 1,
                           width: "100%",
                         }}
                       >

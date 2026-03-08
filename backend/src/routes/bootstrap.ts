@@ -28,11 +28,13 @@ type BootstrapResponse = {
     kind: "income" | "expense"
     icon: string | null
     budget: number | null
+    isArchived: boolean
   }>
   incomeSources: Array<{
     id: string
     name: string
     icon: string | null
+    isArchived: boolean
   }>
   goals: Array<{
     id: string
@@ -212,12 +214,12 @@ export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPl
 
     const categories = await prisma.categories.findMany({
       where: { workspace_id: workspaceId },
-      select: { id: true, name: true, kind: true, icon: true, budget: true },
+      select: { id: true, name: true, kind: true, icon: true, budget: true, is_archived: true },
     })
 
     const incomeSources = await prisma.income_sources.findMany({
       where: { workspace_id: workspaceId },
-      select: { id: true, name: true, icon: true },
+      select: { id: true, name: true, icon: true, is_archived: true },
     })
 
     const goals = await prisma.goals.findMany({
@@ -261,11 +263,13 @@ export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPl
         kind: category.kind,
         icon: category.icon,
         budget: category.budget ? Number(category.budget) : null,
+        isArchived: category.is_archived,
       })),
       incomeSources: incomeSources.map((source) => ({
         id: source.id,
         name: source.name,
         icon: source.icon ?? null,
+        isArchived: source.is_archived,
       })),
       goals: goals.map((goal) => ({
         id: goal.id,

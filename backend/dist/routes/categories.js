@@ -71,7 +71,7 @@ async function categoriesRoutes(fastify, _opts) {
         });
         const categories = await prisma_1.prisma.categories.findMany({
             where: { workspace_id: workspaceId },
-            select: { id: true, name: true, kind: true, icon: true, budget: true },
+            select: { id: true, name: true, kind: true, icon: true, budget: true, is_archived: true },
         });
         const payload = {
             categories: categories.map((c) => ({
@@ -80,6 +80,7 @@ async function categoriesRoutes(fastify, _opts) {
                 kind: c.kind,
                 icon: c.icon,
                 budget: c.budget ? Number(c.budget) : null,
+                isArchived: c.is_archived,
             })),
         };
         return reply.send(payload);
@@ -102,7 +103,7 @@ async function categoriesRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "Bad Request", code: "CATEGORY_NAME_TOO_LONG" });
         }
         const sameKindCategories = await prisma_1.prisma.categories.findMany({
-            where: { workspace_id: user.active_workspace_id, kind },
+            where: { workspace_id: user.active_workspace_id, kind, is_archived: false, archived_at: null },
             select: { id: true, name: true },
         });
         if ((0, entityNameValidation_1.hasEntityNameConflict)(sameKindCategories, name)) {
@@ -115,6 +116,8 @@ async function categoriesRoutes(fastify, _opts) {
                 kind,
                 icon: body?.icon ?? null,
                 is_default: false,
+                is_archived: false,
+                archived_at: null,
                 budget: body?.budget ?? null,
             },
         });
@@ -124,6 +127,7 @@ async function categoriesRoutes(fastify, _opts) {
             kind: created.kind,
             icon: created.icon,
             budget: created.budget ? Number(created.budget) : null,
+            isArchived: created.is_archived,
         };
         return reply.send({ category });
     });
@@ -154,7 +158,7 @@ async function categoriesRoutes(fastify, _opts) {
             return reply.status(404).send({ error: "Not Found" });
         }
         const sameKindCategories = await prisma_1.prisma.categories.findMany({
-            where: { workspace_id: user.active_workspace_id, kind: existing.kind },
+            where: { workspace_id: user.active_workspace_id, kind: existing.kind, is_archived: false, archived_at: null },
             select: { id: true, name: true },
         });
         if ((0, entityNameValidation_1.hasEntityNameConflict)(sameKindCategories, name, categoryId)) {
@@ -187,6 +191,7 @@ async function categoriesRoutes(fastify, _opts) {
             kind: updated.kind,
             icon: updated.icon,
             budget: updated.budget ? Number(updated.budget) : null,
+            isArchived: updated.is_archived,
         };
         return reply.send({ category });
     });
@@ -208,13 +213,10 @@ async function categoriesRoutes(fastify, _opts) {
         if (!category) {
             return reply.status(404).send({ error: "Not Found" });
         }
-        const txCount = await prisma_1.prisma.transactions.count({
-            where: { workspace_id: user.active_workspace_id, category_id: categoryId },
+        await prisma_1.prisma.categories.update({
+            where: { id: categoryId },
+            data: { is_archived: true, archived_at: new Date() },
         });
-        if (txCount > 0) {
-            return reply.status(409).send({ error: "Conflict", code: "CATEGORY_IN_USE" });
-        }
-        await prisma_1.prisma.categories.delete({ where: { id: categoryId } });
         return reply.status(204).send();
     });
 }

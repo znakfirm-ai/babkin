@@ -9,13 +9,18 @@ type TxKind = "expense" | "income" | "transfer"
 
 function AddScreen() {
   const { accounts, categories, incomeSources, setTransactions, setAccounts } = useAppStore()
+  const activeExpenseCategories = useMemo(
+    () => categories.filter((category) => category.type === "expense" && !category.isArchived),
+    [categories],
+  )
+  const activeIncomeSources = useMemo(() => incomeSources.filter((source) => !source.isArchived), [incomeSources])
 
   const [type, setType] = useState<TxKind>("expense")
 
   // income/expense
   const [accountId, setAccountId] = useState<string>(accounts[0]?.id ?? "")
   const [categoryId, setCategoryId] = useState<string>("")
-  const [incomeSourceId, setIncomeSourceId] = useState<string>(incomeSources[0]?.id ?? "")
+  const [incomeSourceId, setIncomeSourceId] = useState<string>(activeIncomeSources[0]?.id ?? "")
 
   // transfer
   const [fromAccountId, setFromAccountId] = useState<string>(accounts[0]?.id ?? "")
@@ -27,10 +32,10 @@ function AddScreen() {
 
   const filteredCategories = useMemo(() => {
     const catType = "expense"
-    return categories.filter((c) => c.type === catType)
-  }, [categories])
+    return activeExpenseCategories.filter((category) => category.type === catType)
+  }, [activeExpenseCategories])
 
-  const incomeSourceOptions = incomeSources
+  const incomeSourceOptions = activeIncomeSources
 
   const effectiveCategoryId = categoryId || filteredCategories[0]?.id || ""
   const effectiveIncomeSourceId = incomeSourceId || incomeSourceOptions[0]?.id || ""

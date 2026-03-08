@@ -490,12 +490,12 @@ async function loadOperationContextByTelegramUserId(
   })
 
   const categories = await prisma.categories.findMany({
-    where: { workspace_id: workspaceId },
+    where: { workspace_id: workspaceId, is_archived: false, archived_at: null },
     select: { id: true, name: true, kind: true },
   })
 
   const incomeSources = await prisma.income_sources.findMany({
-    where: { workspace_id: workspaceId },
+    where: { workspace_id: workspaceId, is_archived: false, archived_at: null },
     select: { id: true, name: true },
   })
 

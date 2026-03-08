@@ -6,6 +6,7 @@ export type CategoryDto = {
   kind: "income" | "expense"
   icon: string | null
   budget?: number | null
+  isArchived?: boolean
 }
 
 export type GetCategoriesResponse = {

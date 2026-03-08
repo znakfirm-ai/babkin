@@ -4,6 +4,7 @@ export type IncomeSourceDto = {
   id: string
   name: string
   icon?: string | null
+  isArchived?: boolean
 }
 
 export type GetIncomeSourcesResponse = {
