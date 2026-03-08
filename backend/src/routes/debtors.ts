@@ -219,11 +219,14 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       return reply.status(400).send({ error: "Bad Request", reason: "invalid_direction" })
     }
 
-    const sameDirectionDebtors = await debtorsModel.findMany({
-      where: { workspace_id: user.active_workspace_id, direction },
-    })
-    if (hasEntityNameConflict(sameDirectionDebtors, name)) {
-      return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" })
+    const targetStatus = body.status === "completed" ? "completed" : "active"
+    if (targetStatus === "active") {
+      const sameDirectionDebtors = await debtorsModel.findMany({
+        where: { workspace_id: user.active_workspace_id, direction, status: "active" },
+      })
+      if (hasEntityNameConflict(sameDirectionDebtors, name)) {
+        return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" })
+      }
     }
 
     const created = await debtorsModel.create({
@@ -235,7 +238,7 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
         principal_amount: new Prisma.Decimal(principalAmount),
         due_at: dueAt,
         payoff_amount: payoffAmount === null ? null : new Prisma.Decimal(payoffAmount),
-        status: body.status === "completed" ? "completed" : "active",
+        status: targetStatus,
         direction,
       },
     })
@@ -283,6 +286,7 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
     if (!existing) {
       return reply.status(404).send({ error: "Not Found" })
     }
+    const targetStatus = body.status === "active" || body.status === "completed" ? body.status : existing.status
 
     const data: Record<string, unknown> = {}
 
@@ -294,17 +298,19 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       if (isEntityNameTooLong(name, DEBTOR_NAME_MAX_LENGTH)) {
         return reply.status(400).send({ error: "Bad Request", code: "DEBTOR_NAME_TOO_LONG" })
       }
-      const targetDirection = direction ?? existing.direction
-      const sameDirectionDebtors = await debtorsModel.findMany({
-        where: { workspace_id: user.active_workspace_id, direction: targetDirection },
-      })
-      if (hasEntityNameConflict(sameDirectionDebtors, name, debtorId)) {
-        return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" })
+      if (targetStatus === "active") {
+        const targetDirection = direction ?? existing.direction
+        const sameDirectionDebtors = await debtorsModel.findMany({
+          where: { workspace_id: user.active_workspace_id, direction: targetDirection, status: "active" },
+        })
+        if (hasEntityNameConflict(sameDirectionDebtors, name, debtorId)) {
+          return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" })
+        }
       }
       data.name = name
-    } else if (direction && direction !== existing.direction) {
+    } else if (targetStatus === "active" && direction && direction !== existing.direction) {
       const sameDirectionDebtors = await debtorsModel.findMany({
-        where: { workspace_id: user.active_workspace_id, direction },
+        where: { workspace_id: user.active_workspace_id, direction, status: "active" },
       })
       if (hasEntityNameConflict(sameDirectionDebtors, existing.name, debtorId)) {
         return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" })
@@ -360,6 +366,15 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
         return reply.status(400).send({ error: "Bad Request", reason: "invalid_status" })
       }
       data.status = body.status
+    }
+    if (body.name === undefined && targetStatus === "active" && (body.status === "active" || direction)) {
+      const targetDirection = direction ?? existing.direction
+      const sameDirectionDebtors = await debtorsModel.findMany({
+        where: { workspace_id: user.active_workspace_id, direction: targetDirection, status: "active" },
+      })
+      if (hasEntityNameConflict(sameDirectionDebtors, existing.name, debtorId)) {
+        return reply.status(409).send({ error: "Conflict", code: "DEBTOR_NAME_EXISTS" })
+      }
     }
     if (direction) {
       data.direction = direction

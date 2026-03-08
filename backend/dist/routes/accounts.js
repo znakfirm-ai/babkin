@@ -113,7 +113,7 @@ async function accountsRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "Bad Request", code: "ACCOUNT_NAME_TOO_LONG" });
         }
         const sameWorkspaceAccounts = await prisma_1.prisma.accounts.findMany({
-            where: { workspace_id: user.active_workspace_id },
+            where: { workspace_id: user.active_workspace_id, is_archived: false, archived_at: null },
             select: { id: true, name: true },
         });
         if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceAccounts, trimmedName)) {
@@ -178,7 +178,7 @@ async function accountsRoutes(fastify, _opts) {
         }
         if (body?.name !== undefined) {
             const sameWorkspaceAccounts = await prisma_1.prisma.accounts.findMany({
-                where: { workspace_id: user.active_workspace_id },
+                where: { workspace_id: user.active_workspace_id, is_archived: false, archived_at: null },
                 select: { id: true, name: true },
             });
             if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceAccounts, nextName, accountId)) {

@@ -92,6 +92,7 @@ const DEBTOR_NAME_MAX_LENGTH = 20
 const normalizeEntityName = (value: string) => value.trim().toLowerCase()
 const isEntityNameTooLong = (value: string, maxLength: number) => Array.from(value.trim()).length > maxLength
 const isDuplicateNameError = (error: string | null | undefined) => Boolean(error && error.includes("Такое название уже используется"))
+const isAmountRequiredError = (error: string | null | undefined) => Boolean(error && error.includes("Введите сумму"))
 
 type OpenPicker =
   | {
@@ -835,6 +836,8 @@ function OverviewScreen({
   const hasIncomeSourceDuplicateNameError = isDuplicateNameError(incomeSourceError)
   const hasGoalDuplicateNameError = isDuplicateNameError(goalError)
   const hasDebtorDuplicateNameError = isDuplicateNameError(debtorError)
+  const hasGoalAmountRequiredError = isAmountRequiredError(goalError)
+  const hasDebtorAmountRequiredError = isAmountRequiredError(debtorError)
   const accountPreviewColor = accountColor || accountColorOptions[0]
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
@@ -2026,6 +2029,7 @@ function OverviewScreen({
       const duplicateDebtor = debtors.some(
         (debtor) =>
           debtor.direction === currentDebtorDirection &&
+          debtor.status === "active" &&
           debtor.id !== editingDebtorId &&
           normalizeEntityName(debtor.name) === normalizeEntityName(trimmedName),
       )
@@ -2035,7 +2039,7 @@ function OverviewScreen({
       }
       const returnAmount = Number(debtorReturnAmount.trim().replace(",", "."))
       if (!Number.isFinite(returnAmount) || returnAmount <= 0) {
-        setDebtorError("Введите сумму к возврату")
+        setDebtorError("Введите сумму")
         return
       }
       const normalizedReturnAmount = Math.round(returnAmount * 100) / 100
@@ -2134,7 +2138,10 @@ function OverviewScreen({
       return
     }
     const duplicateGoal = goals.some(
-      (goal) => goal.id !== editingGoalId && normalizeEntityName(goal.name) === normalizeEntityName(trimmed),
+      (goal) =>
+        goal.status === "active" &&
+        goal.id !== editingGoalId &&
+        normalizeEntityName(goal.name) === normalizeEntityName(trimmed),
     )
     if (duplicateGoal) {
       setGoalError("Такое название уже используется")
@@ -2143,7 +2150,7 @@ function OverviewScreen({
     const targetRaw = goalTarget.trim().replace(",", ".")
     const target = Number(targetRaw)
     if (!Number.isFinite(target) || target <= 0) {
-      setGoalError("Введите сумму цели")
+      setGoalError("Введите сумму")
       return
     }
     setIsSavingGoal(true)
@@ -4718,7 +4725,7 @@ function TransactionsPanel({
                 style={{
                   padding: 12,
                   borderRadius: 12,
-                  border: "1px solid #e5e7eb",
+                  border: hasDebtorAmountRequiredError ? "1px solid #ef4444" : "1px solid #e5e7eb",
                   fontSize: 15,
                   outline: "none",
                   boxShadow: "none",
@@ -4985,7 +4992,7 @@ function TransactionsPanel({
                 style={{
                   padding: 12,
                   borderRadius: 12,
-                  border: "1px solid #e5e7eb",
+                  border: hasGoalAmountRequiredError ? "1px solid #ef4444" : "1px solid #e5e7eb",
                   fontSize: 15,
                   outline: "none",
                   boxShadow: "none",
@@ -6502,6 +6509,9 @@ function TransactionsPanel({
                       ))}
                     </div>
                   </div>
+                  {accountActionError ? (
+                    <div style={{ color: "#b91c1c", fontSize: 13, textAlign: "center" }}>{accountActionError}</div>
+                  ) : null}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <button
                       type="button"

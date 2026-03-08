@@ -128,7 +128,7 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
     }
 
     const sameWorkspaceGoals = await prisma.goals.findMany({
-      where: { workspace_id: user.active_workspace_id },
+      where: { workspace_id: user.active_workspace_id, status: "active" },
       select: { id: true, name: true },
     })
     if (hasEntityNameConflict(sameWorkspaceGoals, name)) {
@@ -174,18 +174,21 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
     }
 
     const data: Prisma.goalsUpdateInput = {}
+    const targetStatus = body.status === "active" || body.status === "completed" ? body.status : existing.status
     if (body.name !== undefined) {
       const nm = body.name.trim()
       if (!nm) return reply.status(400).send({ error: "Bad Request", reason: "invalid_name" })
       if (isEntityNameTooLong(nm, GOAL_NAME_MAX_LENGTH)) {
         return reply.status(400).send({ error: "Bad Request", code: "GOAL_NAME_TOO_LONG" })
       }
-      const sameWorkspaceGoals = await prisma.goals.findMany({
-        where: { workspace_id: user.active_workspace_id },
-        select: { id: true, name: true },
-      })
-      if (hasEntityNameConflict(sameWorkspaceGoals, nm, goalId)) {
-        return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" })
+      if (targetStatus === "active") {
+        const sameWorkspaceGoals = await prisma.goals.findMany({
+          where: { workspace_id: user.active_workspace_id, status: "active" },
+          select: { id: true, name: true },
+        })
+        if (hasEntityNameConflict(sameWorkspaceGoals, nm, goalId)) {
+          return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" })
+        }
       }
       data.name = nm
     }
@@ -201,6 +204,15 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
     if (body.status && (body.status === "active" || body.status === "completed")) {
       data.status = body.status
       data.completed_at = body.status === "completed" ? new Date() : null
+    }
+    if (body.name === undefined && targetStatus === "active") {
+      const sameWorkspaceGoals = await prisma.goals.findMany({
+        where: { workspace_id: user.active_workspace_id, status: "active" },
+        select: { id: true, name: true },
+      })
+      if (hasEntityNameConflict(sameWorkspaceGoals, existing.name, goalId)) {
+        return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" })
+      }
     }
 
     const updated = await prisma.goals.update({

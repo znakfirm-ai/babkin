@@ -145,7 +145,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
     }
 
     const sameWorkspaceAccounts = await prisma.accounts.findMany({
-      where: { workspace_id: user.active_workspace_id },
+      where: { workspace_id: user.active_workspace_id, is_archived: false, archived_at: null },
       select: { id: true, name: true },
     })
     if (hasEntityNameConflict(sameWorkspaceAccounts, trimmedName)) {
@@ -228,7 +228,7 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
 
     if (body?.name !== undefined) {
       const sameWorkspaceAccounts = await prisma.accounts.findMany({
-        where: { workspace_id: user.active_workspace_id },
+        where: { workspace_id: user.active_workspace_id, is_archived: false, archived_at: null },
         select: { id: true, name: true },
       })
       if (hasEntityNameConflict(sameWorkspaceAccounts, nextName, accountId)) {

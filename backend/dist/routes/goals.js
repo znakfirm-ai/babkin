@@ -99,7 +99,7 @@ async function goalsRoutes(fastify, _opts) {
             return reply.status(400).send({ error: "Bad Request", code: "GOAL_NAME_TOO_LONG" });
         }
         const sameWorkspaceGoals = await prisma_1.prisma.goals.findMany({
-            where: { workspace_id: user.active_workspace_id },
+            where: { workspace_id: user.active_workspace_id, status: "active" },
             select: { id: true, name: true },
         });
         if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceGoals, name)) {
@@ -137,6 +137,7 @@ async function goalsRoutes(fastify, _opts) {
             return reply.status(404).send({ error: "Not Found" });
         }
         const data = {};
+        const targetStatus = body.status === "active" || body.status === "completed" ? body.status : existing.status;
         if (body.name !== undefined) {
             const nm = body.name.trim();
             if (!nm)
@@ -144,12 +145,14 @@ async function goalsRoutes(fastify, _opts) {
             if ((0, entityNameValidation_1.isEntityNameTooLong)(nm, GOAL_NAME_MAX_LENGTH)) {
                 return reply.status(400).send({ error: "Bad Request", code: "GOAL_NAME_TOO_LONG" });
             }
-            const sameWorkspaceGoals = await prisma_1.prisma.goals.findMany({
-                where: { workspace_id: user.active_workspace_id },
-                select: { id: true, name: true },
-            });
-            if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceGoals, nm, goalId)) {
-                return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" });
+            if (targetStatus === "active") {
+                const sameWorkspaceGoals = await prisma_1.prisma.goals.findMany({
+                    where: { workspace_id: user.active_workspace_id, status: "active" },
+                    select: { id: true, name: true },
+                });
+                if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceGoals, nm, goalId)) {
+                    return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" });
+                }
             }
             data.name = nm;
         }
@@ -165,6 +168,15 @@ async function goalsRoutes(fastify, _opts) {
         if (body.status && (body.status === "active" || body.status === "completed")) {
             data.status = body.status;
             data.completed_at = body.status === "completed" ? new Date() : null;
+        }
+        if (body.name === undefined && targetStatus === "active") {
+            const sameWorkspaceGoals = await prisma_1.prisma.goals.findMany({
+                where: { workspace_id: user.active_workspace_id, status: "active" },
+                select: { id: true, name: true },
+            });
+            if ((0, entityNameValidation_1.hasEntityNameConflict)(sameWorkspaceGoals, existing.name, goalId)) {
+                return reply.status(409).send({ error: "Conflict", code: "GOAL_NAME_EXISTS" });
+            }
         }
         const updated = await prisma_1.prisma.goals.update({
             where: { id: goalId },
