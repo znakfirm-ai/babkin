@@ -2663,7 +2663,7 @@ function TransactionsPanel({
     (tx: Transaction) => {
       const goalName = tx.goalName ?? (tx.goalId ? goalNameById.get(tx.goalId) : null)
       if (isGoalReturnTx(tx)) {
-        return goalName ?? "Цель"
+        return goalName ? `Из цели: ${goalName}` : "Из цели"
       }
       return goalName ? `Цель: ${goalName}` : "Цель"
     },
