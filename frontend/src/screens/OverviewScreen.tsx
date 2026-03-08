@@ -3552,7 +3552,7 @@ function TransactionsPanel({
                     const isIncome = tx.type === "income" || isDebtIncome || isGoalReturnIncome
                     const isExpense = tx.type === "expense"
                     const sign = isIncome ? "+" : isExpense ? "-" : ""
-                    const color = isIncome ? "#16a34a" : "#0f172a"
+                    const color = isIncome ? "#16a34a" : isExpense ? "#b91c1c" : "#0f172a"
                     const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
                     const creatorLabel = getTxCreatorLabel(tx)
                     const isTxDisabled = isTxEditDisabled(tx)
@@ -3765,6 +3765,7 @@ function TransactionsPanel({
                     renderRow={(tx, idx) => {
                       const displayAccountName = getTxAccountName(tx)
                       const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
+                      const amountColor = "#b91c1c"
                       const creatorLabel = getTxCreatorLabel(tx)
                       const isTxDisabled = isTxEditDisabled(tx)
                       return (
@@ -3800,7 +3801,7 @@ function TransactionsPanel({
                               ) : null}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                              <div style={{ fontWeight: 600, color: amountColor, fontSize: 14 }}>{amountText}</div>
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -4228,7 +4229,7 @@ function TransactionsPanel({
                       const isDebtIncoming = tx.type === "transfer" && Boolean(tx.debtorId)
                       const isDebtOutgoing = tx.type === "expense" || isPayableDebtRepaymentTx(tx)
                       const amountSign = isDebtIncoming ? "+" : isDebtOutgoing ? "-" : ""
-                      const amountColor = isDebtIncoming ? "#16a34a" : "#0f172a"
+                      const amountColor = isDebtIncoming ? "#16a34a" : isDebtOutgoing ? "#b91c1c" : "#0f172a"
                       const amountText = `${amountSign}${formatMoney(tx.amount.amount, baseCurrency)}`
                       const creatorLabel = getTxCreatorLabel(tx)
                       const isTxDisabled = isTxEditDisabled(tx)
