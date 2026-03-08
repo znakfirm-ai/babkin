@@ -220,7 +220,7 @@ export async function seedWorkspaceDefaults(
 
   if (seedAccounts) {
     const existingAccounts = await db.accounts.findMany({
-      where: { workspace_id: workspaceId, archived_at: null, is_archived: false },
+      where: { workspace_id: workspaceId },
       select: {
         id: true,
         name: true,
