@@ -5,6 +5,7 @@ import { prisma } from "../db/prisma"
 import { TELEGRAM_INITDATA_HEADER, validateInitData } from "../middleware/telegramAuth"
 import { env } from "../env"
 import { hasEntityNameConflict, isEntityNameTooLong } from "../utils/entityNameValidation"
+import { recalculateGoalsCurrentAmount } from "../utils/recalculateGoalsCurrentAmount"
 
 const ACCOUNT_NAME_MAX_LENGTH = 12
 
@@ -310,13 +311,21 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
     if (!accountId) {
       return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" })
     }
+    const workspaceId = user.active_workspace_id
 
-    const updated = await prisma.accounts.updateMany({
-      where: { id: accountId, workspace_id: user.active_workspace_id },
-      data: { is_archived: true, archived_at: new Date() },
+    const updatedCount = await prisma.$transaction(async (tx) => {
+      const updated = await tx.accounts.updateMany({
+        where: { id: accountId, workspace_id: workspaceId },
+        data: { is_archived: true, archived_at: new Date() },
+      })
+      if (updated.count === 0) {
+        return 0
+      }
+      await recalculateGoalsCurrentAmount(tx, workspaceId)
+      return updated.count
     })
 
-    if (updated.count === 0) {
+    if (updatedCount === 0) {
       return reply.status(404).send({ error: "Not Found" })
     }
 

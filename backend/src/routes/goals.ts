@@ -260,6 +260,11 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
         happened_at: "asc",
       },
     })
+    const activeAccountRows = await prisma.accounts.findMany({
+      where: { workspace_id: workspaceId, is_archived: false, archived_at: null },
+      select: { id: true },
+    })
+    const activeAccountIds = new Set(activeAccountRows.map((account) => account.id))
 
     const returnByAccount = new Map<string, Prisma.Decimal>()
     const trackReturn = (accountId: string, delta: Prisma.Decimal) => {
@@ -269,10 +274,12 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
 
     goalTransactions.forEach((transaction) => {
       if (transaction.from_account_id && !transaction.to_account_id) {
+        if (!activeAccountIds.has(transaction.from_account_id)) return
         trackReturn(transaction.from_account_id, transaction.amount)
         return
       }
       if (!transaction.from_account_id && transaction.to_account_id) {
+        if (!activeAccountIds.has(transaction.to_account_id)) return
         trackReturn(transaction.to_account_id, transaction.amount.neg())
       }
     })
@@ -290,7 +297,7 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
       for (const [accountId, amountDec] of returnByAccount.entries()) {
         if (!amountDec.greaterThan(0)) continue
         await tx.accounts.updateMany({
-          where: { id: accountId, workspace_id: workspaceId },
+          where: { id: accountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
           data: { balance: { increment: amountDec } },
         })
 

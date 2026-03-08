@@ -217,6 +217,11 @@ async function goalsRoutes(fastify, _opts) {
                 happened_at: "asc",
             },
         });
+        const activeAccountRows = await prisma_1.prisma.accounts.findMany({
+            where: { workspace_id: workspaceId, is_archived: false, archived_at: null },
+            select: { id: true },
+        });
+        const activeAccountIds = new Set(activeAccountRows.map((account) => account.id));
         const returnByAccount = new Map();
         const trackReturn = (accountId, delta) => {
             const previous = returnByAccount.get(accountId) ?? new client_1.Prisma.Decimal(0);
@@ -224,10 +229,14 @@ async function goalsRoutes(fastify, _opts) {
         };
         goalTransactions.forEach((transaction) => {
             if (transaction.from_account_id && !transaction.to_account_id) {
+                if (!activeAccountIds.has(transaction.from_account_id))
+                    return;
                 trackReturn(transaction.from_account_id, transaction.amount);
                 return;
             }
             if (!transaction.from_account_id && transaction.to_account_id) {
+                if (!activeAccountIds.has(transaction.to_account_id))
+                    return;
                 trackReturn(transaction.to_account_id, transaction.amount.neg());
             }
         });
@@ -244,7 +253,7 @@ async function goalsRoutes(fastify, _opts) {
                 if (!amountDec.greaterThan(0))
                     continue;
                 await tx.accounts.updateMany({
-                    where: { id: accountId, workspace_id: workspaceId },
+                    where: { id: accountId, workspace_id: workspaceId, is_archived: false, archived_at: null },
                     data: { balance: { increment: amountDec } },
                 });
                 await tx.transactions.create({

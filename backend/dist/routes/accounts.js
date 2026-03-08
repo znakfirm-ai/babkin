@@ -10,6 +10,7 @@ const prisma_1 = require("../db/prisma");
 const telegramAuth_1 = require("../middleware/telegramAuth");
 const env_1 = require("../env");
 const entityNameValidation_1 = require("../utils/entityNameValidation");
+const recalculateGoalsCurrentAmount_1 = require("../utils/recalculateGoalsCurrentAmount");
 const ACCOUNT_NAME_MAX_LENGTH = 12;
 async function accountsRoutes(fastify, _opts) {
     const resolveUserId = async (request, reply) => {
@@ -251,11 +252,19 @@ async function accountsRoutes(fastify, _opts) {
         if (!accountId) {
             return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" });
         }
-        const updated = await prisma_1.prisma.accounts.updateMany({
-            where: { id: accountId, workspace_id: user.active_workspace_id },
-            data: { is_archived: true, archived_at: new Date() },
+        const workspaceId = user.active_workspace_id;
+        const updatedCount = await prisma_1.prisma.$transaction(async (tx) => {
+            const updated = await tx.accounts.updateMany({
+                where: { id: accountId, workspace_id: workspaceId },
+                data: { is_archived: true, archived_at: new Date() },
+            });
+            if (updated.count === 0) {
+                return 0;
+            }
+            await (0, recalculateGoalsCurrentAmount_1.recalculateGoalsCurrentAmount)(tx, workspaceId);
+            return updated.count;
         });
-        if (updated.count === 0) {
+        if (updatedCount === 0) {
             return reply.status(404).send({ error: "Not Found" });
         }
         return reply.status(204).send();

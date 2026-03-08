@@ -6455,6 +6455,7 @@ function TransactionsPanel({
                                 try {
                                   await deleteAccount(tokenLocal, editingAccountId)
                                   await refetchAccountsSeq()
+                                  await refetchGoals()
                                   closeAccountSheet()
                                 } catch (err) {
                                   if (err instanceof DOMException && err.name === "AbortError") return
