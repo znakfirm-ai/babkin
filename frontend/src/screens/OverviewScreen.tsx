@@ -2812,7 +2812,11 @@ function TransactionsPanel({
   const renderTxArchivedHint = useCallback(
     (tx: Transaction, isDisabled: boolean = isTxEditDisabled(tx)) => {
       if (disabledTxHintId !== tx.id || !isDisabled) return null
-      return <div style={txDisabledHintStyle}>{ARCHIVED_TX_EDIT_HELP_TEXT}</div>
+      return (
+        <div data-disabled-tx-hint="true" style={txDisabledHintStyle}>
+          {ARCHIVED_TX_EDIT_HELP_TEXT}
+        </div>
+      )
     },
     [disabledTxHintId, isTxEditDisabled],
   )
@@ -2823,6 +2827,21 @@ function TransactionsPanel({
       setDisabledTxHintId(null)
     }
   }, [disabledTxHintId, transactions])
+
+  useEffect(() => {
+    if (!disabledTxHintId || typeof document === "undefined") return
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest("[data-disabled-tx-hint='true']")) return
+      setDisabledTxHintId(null)
+    }
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown, true)
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown, true)
+    }
+  }, [disabledTxHintId])
 
   const displayTransactions = useMemo(() => transactions.filter((t) => t.type !== "adjustment"), [transactions])
 
