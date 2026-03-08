@@ -20,9 +20,6 @@ export const compareTransactionsDesc = (left: Transaction, right: Transaction) =
   const createdDiff = rightCreatedUnixMs - leftCreatedUnixMs
   if (createdDiff !== 0) return createdDiff
 
-  // Keep input order for equal happenedAt when creation timestamps are not available.
-  if (rightCreatedUnixMs <= 0 && leftCreatedUnixMs <= 0) return 0
-
   if (left.id === right.id) return 0
   return right.id.localeCompare(left.id)
 }
