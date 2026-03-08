@@ -11,6 +11,7 @@ const DEBTOR_NAME_MAX_LENGTH = 20
 type DebtorResponse = {
   id: string
   name: string
+  sortOrder: number
   icon: string | null
   issuedAt: string
   principalAmount: string
@@ -25,6 +26,7 @@ type DebtorResponse = {
 type DebtorRecord = {
   id: string
   name: string
+  sort_order: number
   icon: string | null
   issued_at: Date
   principal_amount: Prisma.Decimal
@@ -42,6 +44,7 @@ type DebtorsModel = {
   findFirst: (args: unknown) => Promise<DebtorRecord | null>
   update: (args: unknown) => Promise<DebtorRecord>
   delete: (args: unknown) => Promise<unknown>
+  aggregate: (args: unknown) => Promise<{ _max: { sort_order: number | null } }>
 }
 
 const debtorsModel = (prisma as unknown as { debtors?: DebtorsModel }).debtors
@@ -119,6 +122,7 @@ const parseDirection = (value: string | undefined | null): "RECEIVABLE" | "PAYAB
 const mapDebtor = (d: DebtorRecord): DebtorResponse => ({
   id: d.id,
   name: d.name,
+  sortOrder: d.sort_order,
   icon: d.icon,
   issuedAt: d.issued_at.toISOString(),
   principalAmount: d.principal_amount.toString(),
@@ -157,7 +161,9 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
         ...(status === "active" || status === "completed" ? { status } : {}),
         ...(direction ? { direction } : {}),
       },
-      orderBy: { created_at: "desc" },
+      orderBy: direction
+        ? [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }]
+        : [{ direction: "asc" }, { sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
     })
 
     return reply.send({ debtors: debtors.map(mapDebtor) })
@@ -233,6 +239,10 @@ export async function debtorsRoutes(fastify: FastifyInstance, _opts: FastifyPlug
       data: {
         workspace_id: user.active_workspace_id,
         name,
+        sort_order: ((await debtorsModel.aggregate({
+          where: { workspace_id: user.active_workspace_id, direction },
+          _max: { sort_order: true },
+        }))._max.sort_order ?? -1) + 1,
         icon: body.icon?.trim() || null,
         issued_at: issuedAt,
         principal_amount: new Prisma.Decimal(principalAmount),

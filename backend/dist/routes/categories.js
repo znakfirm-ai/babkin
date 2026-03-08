@@ -71,12 +71,15 @@ async function categoriesRoutes(fastify, _opts) {
         });
         const categories = await prisma_1.prisma.categories.findMany({
             where: { workspace_id: workspaceId },
-            select: { id: true, name: true, kind: true, icon: true, budget: true, is_archived: true },
+            orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
+            select: { id: true, name: true, sort_order: true, created_at: true, kind: true, icon: true, budget: true, is_archived: true },
         });
         const payload = {
             categories: categories.map((c) => ({
                 id: c.id,
                 name: c.name,
+                sortOrder: c.sort_order,
+                createdAt: c.created_at.toISOString(),
                 kind: c.kind,
                 icon: c.icon,
                 budget: c.budget ? Number(c.budget) : null,
@@ -113,6 +116,10 @@ async function categoriesRoutes(fastify, _opts) {
             data: {
                 workspace_id: user.active_workspace_id,
                 name,
+                sort_order: ((await prisma_1.prisma.categories.aggregate({
+                    where: { workspace_id: user.active_workspace_id },
+                    _max: { sort_order: true },
+                }))._max.sort_order ?? -1) + 1,
                 kind,
                 icon: body?.icon ?? null,
                 is_default: false,
@@ -124,6 +131,8 @@ async function categoriesRoutes(fastify, _opts) {
         const category = {
             id: created.id,
             name: created.name,
+            sortOrder: created.sort_order,
+            createdAt: created.created_at.toISOString(),
             kind: created.kind,
             icon: created.icon,
             budget: created.budget ? Number(created.budget) : null,
@@ -188,6 +197,8 @@ async function categoriesRoutes(fastify, _opts) {
         const category = {
             id: updated.id,
             name: updated.name,
+            sortOrder: updated.sort_order,
+            createdAt: updated.created_at.toISOString(),
             kind: updated.kind,
             icon: updated.icon,
             budget: updated.budget ? Number(updated.budget) : null,

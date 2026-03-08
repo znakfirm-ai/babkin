@@ -199,6 +199,7 @@ export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPl
 
     const accounts = await prisma.accounts.findMany({
       where: { workspace_id: workspaceId, archived_at: null, is_archived: false },
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
       select: {
         id: true,
         name: true,
@@ -214,22 +215,24 @@ export async function bootstrapRoutes(fastify: FastifyInstance, _opts: FastifyPl
 
     const categories = await prisma.categories.findMany({
       where: { workspace_id: workspaceId },
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
       select: { id: true, name: true, kind: true, icon: true, budget: true, is_archived: true },
     })
 
     const incomeSources = await prisma.income_sources.findMany({
       where: { workspace_id: workspaceId },
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
       select: { id: true, name: true, icon: true, is_archived: true },
     })
 
     const goals = await prisma.goals.findMany({
       where: { workspace_id: workspaceId },
-      orderBy: { created_at: "desc" },
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
     })
 
     const debtors = await prisma.debtors.findMany({
       where: { workspace_id: workspaceId },
-      orderBy: { created_at: "desc" },
+      orderBy: [{ direction: "asc" }, { sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
     })
 
     const transactions = await prisma.transactions.findMany({

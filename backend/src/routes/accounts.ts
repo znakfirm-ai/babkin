@@ -12,6 +12,8 @@ const ACCOUNT_NAME_MAX_LENGTH = 12
 type AccountResponse = {
   id: string
   name: string
+  sortOrder: number
+  createdAt: string
   displayName: string | null
   type: string
   currency: string
@@ -83,9 +85,12 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
 
     const accounts = await prisma.accounts.findMany({
       where: { workspace_id: user.active_workspace_id, archived_at: null, is_archived: false },
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
       select: {
         id: true,
         name: true,
+        sort_order: true,
+        created_at: true,
         display_name: true,
         type: true,
         currency: true,
@@ -100,6 +105,8 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       accounts: accounts.map((a) => ({
         id: a.id,
         name: a.name,
+        sortOrder: a.sort_order,
+        createdAt: a.created_at.toISOString(),
         displayName: a.display_name,
         type: a.type,
         currency: a.currency,
@@ -157,6 +164,10 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       data: {
         workspace_id: user.active_workspace_id,
         name: trimmedName,
+        sort_order: ((await prisma.accounts.aggregate({
+          where: { workspace_id: user.active_workspace_id },
+          _max: { sort_order: true },
+        }))._max.sort_order ?? -1) + 1,
         display_name: body.displayName?.trim() ? body.displayName.trim() : null,
         type: body.type,
         currency: body.currency,
@@ -171,6 +182,8 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
     const account: AccountResponse = {
       id: created.id,
       name: created.name,
+      sortOrder: created.sort_order,
+      createdAt: created.created_at.toISOString(),
       displayName: created.display_name,
       type: created.type,
       currency: created.currency,
@@ -265,6 +278,8 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       select: {
         id: true,
         name: true,
+        sort_order: true,
+        created_at: true,
         display_name: true,
         type: true,
         currency: true,
@@ -281,6 +296,8 @@ export async function accountsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
       account: {
         id: account.id,
         name: account.name,
+        sortOrder: account.sort_order,
+        createdAt: account.created_at.toISOString(),
         displayName: account.display_name,
         type: account.type,
         currency: account.currency,

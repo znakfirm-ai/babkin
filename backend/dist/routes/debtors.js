@@ -83,6 +83,7 @@ const parseDirection = (value) => {
 const mapDebtor = (d) => ({
     id: d.id,
     name: d.name,
+    sortOrder: d.sort_order,
     icon: d.icon,
     issuedAt: d.issued_at.toISOString(),
     principalAmount: d.principal_amount.toString(),
@@ -118,7 +119,9 @@ async function debtorsRoutes(fastify, _opts) {
                 ...(status === "active" || status === "completed" ? { status } : {}),
                 ...(direction ? { direction } : {}),
             },
-            orderBy: { created_at: "desc" },
+            orderBy: direction
+                ? [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }]
+                : [{ direction: "asc" }, { sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
         });
         return reply.send({ debtors: debtors.map(mapDebtor) });
     });
@@ -174,6 +177,10 @@ async function debtorsRoutes(fastify, _opts) {
             data: {
                 workspace_id: user.active_workspace_id,
                 name,
+                sort_order: ((await debtorsModel.aggregate({
+                    where: { workspace_id: user.active_workspace_id, direction },
+                    _max: { sort_order: true },
+                }))._max.sort_order ?? -1) + 1,
                 icon: body.icon?.trim() || null,
                 issued_at: issuedAt,
                 principal_amount: new client_1.Prisma.Decimal(principalAmount),

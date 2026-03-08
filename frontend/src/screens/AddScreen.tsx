@@ -4,7 +4,6 @@ import { createTransaction, getTransactions } from "../api/transactions"
 import { getAccounts } from "../api/accounts"
 import { useSingleFlight } from "../hooks/useSingleFlight"
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
-import { sortByCreatedAtOrId } from "../utils/stableEntityOrder"
 
 type TxKind = "expense" | "income" | "transfer"
 
@@ -287,7 +286,7 @@ function AddScreen() {
                   type: a.type,
                   balance: { amount: a.balance, currency: a.currency },
                 }))
-                setAccounts(sortByCreatedAtOrId(mappedAcc))
+                setAccounts(mappedAcc)
 
                 const txRes = await getTransactions(token)
                 const mappedTx = txRes.transactions.map((t) => ({

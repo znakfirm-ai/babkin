@@ -11,6 +11,7 @@ const GOAL_NAME_MAX_LENGTH = 20
 type GoalResponse = {
   id: string
   name: string
+  sortOrder: number
   icon: string | null
   targetAmount: string
   currentAmount: string
@@ -70,6 +71,7 @@ async function resolveUserId(request: FastifyRequest, reply: FastifyReply): Prom
 const mapGoal = (g: {
   id: string
   name: string
+  sort_order: number
   icon: string | null
   target_amount: Prisma.Decimal
   current_amount: Prisma.Decimal
@@ -79,6 +81,7 @@ const mapGoal = (g: {
 }): GoalResponse => ({
   id: g.id,
   name: g.name,
+  sortOrder: g.sort_order,
   icon: g.icon,
   targetAmount: g.target_amount.toString(),
   currentAmount: g.current_amount.toString(),
@@ -103,7 +106,7 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
         workspace_id: user.active_workspace_id,
         ...(status === "active" || status === "completed" ? { status } : {}),
       },
-      orderBy: { created_at: "desc" },
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
     })
 
     return reply.send({ goals: goals.map(mapGoal) })
@@ -144,6 +147,10 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
       data: {
         workspace_id: user.active_workspace_id,
         name,
+        sort_order: ((await prisma.goals.aggregate({
+          where: { workspace_id: user.active_workspace_id },
+          _max: { sort_order: true },
+        }))._max.sort_order ?? -1) + 1,
         icon: body.icon?.trim() || null,
         target_amount: new Prisma.Decimal(parsedAmount),
       },

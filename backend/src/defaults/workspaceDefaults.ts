@@ -57,18 +57,20 @@ export const DEFAULT_WORKSPACE_INCOME_SOURCES = [
 ] as const
 
 export const buildDefaultCategorySeed = (workspaceId: string) =>
-  DEFAULT_WORKSPACE_CATEGORIES.map((category) => ({
+  DEFAULT_WORKSPACE_CATEGORIES.map((category, index) => ({
     workspace_id: workspaceId,
     name: category.name,
     kind: category.kind,
+    sort_order: index,
     icon: category.icon,
     is_default: true,
   }))
 
 export const buildDefaultAccountSeed = (workspaceId: string) =>
-  DEFAULT_WORKSPACE_ACCOUNTS.map((account) => ({
+  DEFAULT_WORKSPACE_ACCOUNTS.map((account, index) => ({
     workspace_id: workspaceId,
     name: account.name,
+    sort_order: index,
     type: account.type,
     currency: account.currency,
     balance: account.balance,
@@ -78,9 +80,10 @@ export const buildDefaultAccountSeed = (workspaceId: string) =>
   }))
 
 export const buildDefaultIncomeSourceSeed = (workspaceId: string) =>
-  DEFAULT_WORKSPACE_INCOME_SOURCES.map((source) => ({
+  DEFAULT_WORKSPACE_INCOME_SOURCES.map((source, index) => ({
     workspace_id: workspaceId,
     name: source.name,
+    sort_order: index,
     icon: source.icon,
     is_default: true,
   }))
@@ -236,7 +239,7 @@ export async function seedWorkspaceDefaults(
     })
     const hasDefaultAccounts = existingAccounts.some((item) => item.is_default)
     if (!hasDefaultAccounts) {
-      for (const defaultAccount of DEFAULT_WORKSPACE_ACCOUNTS) {
+      for (const [defaultIndex, defaultAccount] of DEFAULT_WORKSPACE_ACCOUNTS.entries()) {
       const key = accountKey(defaultAccount)
       const matching = existingAccounts.filter((item) => accountKey(item) === key)
       const matchingDefault = matching.filter((item) => item.is_default)
@@ -247,6 +250,7 @@ export async function seedWorkspaceDefaults(
             where: { id: current.id },
             data: {
               name: defaultAccount.name,
+              sort_order: defaultIndex,
               type: defaultAccount.type,
               currency: defaultAccount.currency,
               icon: defaultAccount.icon,
@@ -271,6 +275,7 @@ export async function seedWorkspaceDefaults(
           where: { id: current.id },
           data: {
             name: defaultAccount.name,
+            sort_order: defaultIndex,
             type: defaultAccount.type,
             currency: defaultAccount.currency,
             icon: defaultAccount.icon,
@@ -291,6 +296,7 @@ export async function seedWorkspaceDefaults(
           where: { id: nonDefault[0].id },
           data: {
             name: defaultAccount.name,
+            sort_order: defaultIndex,
             type: defaultAccount.type,
             currency: defaultAccount.currency,
             icon: defaultAccount.icon,
@@ -310,6 +316,7 @@ export async function seedWorkspaceDefaults(
         data: {
           workspace_id: workspaceId,
           name: defaultAccount.name,
+          sort_order: defaultIndex,
           type: defaultAccount.type,
           currency: defaultAccount.currency,
           balance: defaultAccount.balance,
@@ -338,7 +345,7 @@ export async function seedWorkspaceDefaults(
     })
     const hasDefaultCategories = existingCategories.some((item) => item.is_default)
     if (!hasDefaultCategories) {
-      for (const defaultCategory of DEFAULT_WORKSPACE_CATEGORIES) {
+      for (const [defaultIndex, defaultCategory] of DEFAULT_WORKSPACE_CATEGORIES.entries()) {
       const key = categoryKey(defaultCategory)
       const matching = existingCategories.filter((item) => categoryKey(item) === key)
       const matchingDefault = matching.filter((item) => item.is_default)
@@ -350,6 +357,7 @@ export async function seedWorkspaceDefaults(
             data: {
               name: defaultCategory.name,
               kind: defaultCategory.kind,
+              sort_order: defaultIndex,
               icon: defaultCategory.icon,
               is_default: true,
             },
@@ -372,6 +380,7 @@ export async function seedWorkspaceDefaults(
           data: {
             name: defaultCategory.name,
             kind: defaultCategory.kind,
+            sort_order: defaultIndex,
             icon: defaultCategory.icon,
             is_default: true,
           },
@@ -391,6 +400,7 @@ export async function seedWorkspaceDefaults(
           data: {
             name: defaultCategory.name,
             kind: defaultCategory.kind,
+            sort_order: defaultIndex,
             icon: defaultCategory.icon,
             is_default: true,
           },
@@ -409,6 +419,7 @@ export async function seedWorkspaceDefaults(
           workspace_id: workspaceId,
           name: defaultCategory.name,
           kind: defaultCategory.kind,
+          sort_order: defaultIndex,
           icon: defaultCategory.icon,
           is_default: true,
         },
@@ -432,7 +443,7 @@ export async function seedWorkspaceDefaults(
     })
     const hasDefaultIncomeSources = existingIncomeSources.some((item) => item.is_default)
     if (!hasDefaultIncomeSources) {
-      for (const defaultSource of DEFAULT_WORKSPACE_INCOME_SOURCES) {
+      for (const [defaultIndex, defaultSource] of DEFAULT_WORKSPACE_INCOME_SOURCES.entries()) {
       const key = incomeSourceKey(defaultSource)
       const matching = existingIncomeSources.filter((item) => incomeSourceKey(item) === key)
       const matchingDefault = matching.filter((item) => item.is_default)
@@ -443,6 +454,7 @@ export async function seedWorkspaceDefaults(
             where: { id: current.id },
             data: {
               name: defaultSource.name,
+              sort_order: defaultIndex,
               icon: defaultSource.icon,
               is_default: true,
             },
@@ -464,6 +476,7 @@ export async function seedWorkspaceDefaults(
           where: { id: slotMatchingDefault[0].id },
           data: {
             name: defaultSource.name,
+            sort_order: defaultIndex,
             icon: defaultSource.icon,
             is_default: true,
           },
@@ -482,6 +495,7 @@ export async function seedWorkspaceDefaults(
           where: { id: nonDefault[0].id },
           data: {
             name: defaultSource.name,
+            sort_order: defaultIndex,
             icon: defaultSource.icon,
             is_default: true,
           },
@@ -499,6 +513,7 @@ export async function seedWorkspaceDefaults(
         data: {
           workspace_id: workspaceId,
           name: defaultSource.name,
+          sort_order: defaultIndex,
           icon: defaultSource.icon,
           is_default: true,
         },

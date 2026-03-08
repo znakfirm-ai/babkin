@@ -56,6 +56,7 @@ async function resolveUserId(request, reply) {
 const mapGoal = (g) => ({
     id: g.id,
     name: g.name,
+    sortOrder: g.sort_order,
     icon: g.icon,
     targetAmount: g.target_amount.toString(),
     currentAmount: g.current_amount.toString(),
@@ -78,7 +79,7 @@ async function goalsRoutes(fastify, _opts) {
                 workspace_id: user.active_workspace_id,
                 ...(status === "active" || status === "completed" ? { status } : {}),
             },
-            orderBy: { created_at: "desc" },
+            orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
         });
         return reply.send({ goals: goals.map(mapGoal) });
     });
@@ -113,6 +114,10 @@ async function goalsRoutes(fastify, _opts) {
             data: {
                 workspace_id: user.active_workspace_id,
                 name,
+                sort_order: ((await prisma_1.prisma.goals.aggregate({
+                    where: { workspace_id: user.active_workspace_id },
+                    _max: { sort_order: true },
+                }))._max.sort_order ?? -1) + 1,
                 icon: body.icon?.trim() || null,
                 target_amount: new client_1.Prisma.Decimal(parsedAmount),
             },

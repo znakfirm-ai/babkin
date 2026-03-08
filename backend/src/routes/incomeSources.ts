@@ -11,6 +11,8 @@ const INCOME_SOURCE_NAME_MAX_LENGTH = 12
 type IncomeSourceResponse = {
   id: string
   name: string
+  sortOrder: number
+  createdAt: string
   icon?: string | null
   isArchived: boolean
 }
@@ -81,10 +83,20 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       seedIncomeSources: true,
     })
 
-    const sources = await prisma.income_sources.findMany({ where: { workspace_id: workspaceId } })
+    const sources = await prisma.income_sources.findMany({
+      where: { workspace_id: workspaceId },
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }, { id: "asc" }],
+    })
 
     const payload: { incomeSources: IncomeSourceResponse[] } = {
-      incomeSources: sources.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? null, isArchived: s.is_archived })),
+      incomeSources: sources.map((s) => ({
+        id: s.id,
+        name: s.name,
+        sortOrder: s.sort_order,
+        createdAt: s.created_at.toISOString(),
+        icon: s.icon ?? null,
+        isArchived: s.is_archived,
+      })),
     }
 
     return reply.send(payload)
@@ -120,6 +132,10 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       data: {
         workspace_id: user.active_workspace_id,
         name,
+        sort_order: ((await prisma.income_sources.aggregate({
+          where: { workspace_id: user.active_workspace_id },
+          _max: { sort_order: true },
+        }))._max.sort_order ?? -1) + 1,
         icon: body?.icon ?? null,
         is_default: false,
         is_archived: false,
@@ -128,7 +144,14 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
     })
 
     const payload: { incomeSource: IncomeSourceResponse } = {
-      incomeSource: { id: created.id, name: created.name, icon: created.icon ?? null, isArchived: created.is_archived },
+      incomeSource: {
+        id: created.id,
+        name: created.name,
+        sortOrder: created.sort_order,
+        createdAt: created.created_at.toISOString(),
+        icon: created.icon ?? null,
+        isArchived: created.is_archived,
+      },
     }
 
     return reply.send(payload)
@@ -177,7 +200,16 @@ export async function incomeSourcesRoutes(fastify: FastifyInstance, _opts: Fasti
       data: { name, icon: body?.icon ?? null },
     })
 
-    return reply.send({ incomeSource: { id: updated.id, name: updated.name, icon: updated.icon ?? null, isArchived: updated.is_archived } })
+    return reply.send({
+      incomeSource: {
+        id: updated.id,
+        name: updated.name,
+        sortOrder: updated.sort_order,
+        createdAt: updated.created_at.toISOString(),
+        icon: updated.icon ?? null,
+        isArchived: updated.is_archived,
+      },
+    })
   })
 
   fastify.delete("/income-sources/:id", async (request, reply) => {

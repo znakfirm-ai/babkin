@@ -20,7 +20,6 @@ import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint 
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import { buildTransactionDaySections, sortTransactionsDesc } from "../utils/sortTransactions"
 import { registerDebugTimingsTap } from "../utils/debugTimings"
-import { sortByCreatedAtOrId } from "../utils/stableEntityOrder"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -1145,7 +1144,7 @@ function OverviewScreen({
       budget: c.budget ?? null,
       isArchived: c.isArchived ?? false,
     }))
-    setCategories(sortByCreatedAtOrId(mapped))
+    setCategories(mapped)
   }, [setCategories, token])
 
   const refetchIncomeSources = useCallback(async () => {
@@ -1158,7 +1157,7 @@ function OverviewScreen({
       icon: s.icon ?? null,
       isArchived: s.isArchived ?? false,
     }))
-    setIncomeSources(sortByCreatedAtOrId(mapped))
+    setIncomeSources(mapped)
   }, [setIncomeSources, token])
 
   const refetchGoals = useCallback(async () => {
@@ -1173,7 +1172,7 @@ function OverviewScreen({
       currentAmount: Number(g.currentAmount),
       status: g.status,
     }))
-    setGoals(sortByCreatedAtOrId(mapped))
+    setGoals(mapped)
     goalsListLoadedOnceRef.current = true
     goalsListLastLoadedAtRef.current = Date.now()
   }, [setGoals, token])
@@ -1195,7 +1194,7 @@ function OverviewScreen({
       direction: d.direction ?? currentDebtorDirection,
     }))
     const preserved = debtors.filter((debtor) => debtor.direction !== currentDebtorDirection)
-    setDebtors(sortByCreatedAtOrId([...preserved, ...mapped]))
+    setDebtors([...preserved, ...mapped])
     debtorsListLoadedOnceRef.current[currentDebtorDirection] = true
     debtorsListLastLoadedAtRef.current[currentDebtorDirection] = Date.now()
   }, [currentDebtorDirection, debtors, setDebtors, token])
@@ -1212,7 +1211,7 @@ function OverviewScreen({
       color: a.color ?? undefined,
       icon: a.icon ?? null,
     }))
-    setAccounts(sortByCreatedAtOrId(mapped))
+    setAccounts(mapped)
   }, [setAccounts, token])
 
   const refetchTransactions = useCallback(async () => {

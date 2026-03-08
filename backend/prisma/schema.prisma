@@ -45,6 +45,7 @@ model income_sources {
   id           String   @id @default(uuid())
   workspace_id String
   name         String
+  sort_order   Int      @default(0)
   icon         String?
   is_default   Boolean  @default(false)
   is_archived  Boolean  @default(false)
@@ -130,6 +131,7 @@ model accounts {
   id           String   @id @default(uuid())
   workspace_id String
   name         String
+  sort_order   Int      @default(0)
   display_name String?
   type         String
   currency     String
@@ -155,6 +157,7 @@ model categories {
   id           String   @id @default(uuid())
   workspace_id String
   name         String
+  sort_order   Int      @default(0)
   kind         CategoryKind
   icon         String?
   is_default   Boolean  @default(false)
@@ -211,6 +214,7 @@ model goals {
   id             String      @id @default(uuid())
   workspace_id   String
   name           String
+  sort_order     Int         @default(0)
   icon           String?
   target_amount  Decimal     @db.Decimal(18, 2)
   current_amount Decimal     @db.Decimal(18, 2) @default(0)
@@ -229,6 +233,7 @@ model debtors {
   id               String       @id @default(uuid())
   workspace_id     String
   name             String
+  sort_order       Int          @default(0)
   icon             String?
   issued_at        DateTime
   principal_amount Decimal      @db.Decimal(18, 2)
