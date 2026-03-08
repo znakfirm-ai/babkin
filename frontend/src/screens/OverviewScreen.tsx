@@ -841,6 +841,8 @@ function OverviewScreen({
   const [txError, setTxError] = useState<string | null>(null)
   const [txLoading, setTxLoading] = useState(false)
   const [disabledTxHintId, setDisabledTxHintId] = useState<string | null>(null)
+  const [disabledTxHintPosition, setDisabledTxHintPosition] = useState<{ top: number; left: number; maxWidth: number } | null>(null)
+  const disabledTxHintRef = useRef<HTMLDivElement | null>(null)
   const goalsListLoadingRef = useRef(false)
   const goalsListLoadedOnceRef = useRef(false)
   const goalsListLastLoadedAtRef = useRef(0)
@@ -2598,9 +2600,12 @@ const txDisabledHintStyle = {
   padding: "8px 10px",
   fontSize: 12,
   lineHeight: 1.35,
-  marginTop: 2,
-  maxWidth: "min(340px, calc(100vw - 72px))",
+  position: "fixed",
+  zIndex: 80,
 } as const
+const txDisabledHintViewportPadding = 12
+const txDisabledHintGap = 8
+const txDisabledHintFallbackHeight = 56
 
 type TxGroup = { dateLabel: string; items: Transaction[] }
 
@@ -2813,21 +2818,88 @@ function TransactionsPanel({
   const renderTxArchivedHint = useCallback(
     (tx: Transaction, isDisabled: boolean = isTxEditDisabled(tx)) => {
       if (disabledTxHintId !== tx.id || !isDisabled) return null
+      if (!disabledTxHintPosition) return null
       return (
-        <div data-disabled-tx-hint="true" style={txDisabledHintStyle}>
+        <div
+          ref={disabledTxHintRef}
+          data-disabled-tx-hint="true"
+          style={{
+            ...txDisabledHintStyle,
+            top: disabledTxHintPosition.top,
+            left: disabledTxHintPosition.left,
+            maxWidth: disabledTxHintPosition.maxWidth,
+          }}
+        >
           {ARCHIVED_TX_EDIT_HELP_TEXT}
         </div>
       )
     },
-    [disabledTxHintId, isTxEditDisabled],
+    [disabledTxHintId, disabledTxHintPosition, isTxEditDisabled],
   )
+
+  const updateDisabledTxHintPosition = useCallback(() => {
+    if (!disabledTxHintId || typeof document === "undefined" || typeof window === "undefined") return
+    const anchor = Array.from(document.querySelectorAll<HTMLElement>("[data-disabled-tx-row-id]")).find(
+      (node) => node.dataset.disabledTxRowId === disabledTxHintId,
+    )
+    if (!anchor) {
+      setDisabledTxHintPosition(null)
+      return
+    }
+    const anchorRect = anchor.getBoundingClientRect()
+    const hintHeight = disabledTxHintRef.current?.getBoundingClientRect().height ?? txDisabledHintFallbackHeight
+    const maxWidth = Math.min(340, window.innerWidth - txDisabledHintViewportPadding * 2)
+    const maxLeft = Math.max(txDisabledHintViewportPadding, window.innerWidth - txDisabledHintViewportPadding - maxWidth)
+    const left = Math.min(Math.max(anchorRect.left, txDisabledHintViewportPadding), maxLeft)
+
+    let top = anchorRect.top - hintHeight - txDisabledHintGap
+    const maxTop = Math.max(txDisabledHintViewportPadding, window.innerHeight - txDisabledHintViewportPadding - hintHeight)
+    top = Math.min(Math.max(top, txDisabledHintViewportPadding), maxTop)
+
+    setDisabledTxHintPosition((prev) => {
+      if (prev && prev.top === top && prev.left === left && prev.maxWidth === maxWidth) {
+        return prev
+      }
+      return { top, left, maxWidth }
+    })
+  }, [disabledTxHintId])
 
   useEffect(() => {
     if (!disabledTxHintId) return
     if (!transactions.some((transaction) => transaction.id === disabledTxHintId)) {
       setDisabledTxHintId(null)
+      setDisabledTxHintPosition(null)
     }
   }, [disabledTxHintId, transactions])
+
+  useEffect(() => {
+    if (!disabledTxHintId) {
+      setDisabledTxHintPosition(null)
+      return
+    }
+    updateDisabledTxHintPosition()
+  }, [disabledTxHintId, updateDisabledTxHintPosition])
+
+  useEffect(() => {
+    if (!disabledTxHintId || typeof window === "undefined") return
+    const frameId = window.requestAnimationFrame(updateDisabledTxHintPosition)
+    return () => {
+      window.cancelAnimationFrame(frameId)
+    }
+  }, [disabledTxHintId, updateDisabledTxHintPosition])
+
+  useEffect(() => {
+    if (!disabledTxHintId || typeof window === "undefined") return
+    const handleViewportChange = () => {
+      updateDisabledTxHintPosition()
+    }
+    window.addEventListener("resize", handleViewportChange)
+    window.addEventListener("scroll", handleViewportChange, true)
+    return () => {
+      window.removeEventListener("resize", handleViewportChange)
+      window.removeEventListener("scroll", handleViewportChange, true)
+    }
+  }, [disabledTxHintId, updateDisabledTxHintPosition])
 
   useEffect(() => {
     if (!disabledTxHintId || typeof document === "undefined") return
@@ -2836,6 +2908,7 @@ function TransactionsPanel({
       const target = event.target as HTMLElement | null
       if (target?.closest("[data-disabled-tx-hint='true']")) return
       setDisabledTxHintId(null)
+      setDisabledTxHintPosition(null)
     }
 
     document.addEventListener("pointerdown", handleOutsidePointerDown, true)
@@ -3615,6 +3688,7 @@ function TransactionsPanel({
                     return (
                       <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                         <div
+                          data-disabled-tx-row-id={tx.id}
                           style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
                           onClick={() => openAccountTxActions(tx)}
                         >
@@ -3826,6 +3900,7 @@ function TransactionsPanel({
                       return (
                         <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                           <div
+                            data-disabled-tx-row-id={tx.id}
                             style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
                             onClick={() => openTxActions(tx.id)}
                           >
@@ -4057,6 +4132,7 @@ function TransactionsPanel({
                       return (
                         <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                           <div
+                            data-disabled-tx-row-id={tx.id}
                             style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
                             onClick={() => openTxActions(tx.id)}
                           >
@@ -4291,6 +4367,7 @@ function TransactionsPanel({
                       return (
                         <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                           <div
+                            data-disabled-tx-row-id={tx.id}
                             style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
                             onClick={() => openTxActions(tx.id)}
                           >
@@ -4576,6 +4653,7 @@ function TransactionsPanel({
                       return (
                         <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                           <div
+                            data-disabled-tx-row-id={tx.id}
                             style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
                             onClick={() => openTxActions(tx.id)}
                           >
