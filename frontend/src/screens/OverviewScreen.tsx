@@ -93,6 +93,29 @@ const normalizeEntityName = (value: string) => value.trim().toLowerCase()
 const isEntityNameTooLong = (value: string, maxLength: number) => Array.from(value.trim()).length > maxLength
 const isDuplicateNameError = (error: string | null | undefined) => Boolean(error && error.includes("Такое название уже используется"))
 const isAmountRequiredError = (error: string | null | undefined) => Boolean(error && error.includes("Введите сумму"))
+const ARCHIVED_TX_EDIT_HELP_TEXT =
+  "Операция недоступна для редактирования, потому что связанный счет, источник или категория уже удалены из активного списка."
+
+const isMissingOrArchivedEntity = (id: string | undefined, archivedById: Map<string, boolean>) => {
+  if (!id) return false
+  const archived = archivedById.get(id)
+  return archived === undefined ? true : archived
+}
+
+const isTransactionLinkedToArchivedEntity = (
+  tx: Transaction,
+  activeAccountIds: Set<string>,
+  categoryArchivedById: Map<string, boolean>,
+  incomeSourceArchivedById: Map<string, boolean>,
+) => {
+  const linkedAccountIds = [tx.accountId, tx.fromAccountId, tx.toAccountId].filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  )
+  if (linkedAccountIds.some((accountId) => !activeAccountIds.has(accountId))) return true
+  if (isMissingOrArchivedEntity(tx.categoryId, categoryArchivedById)) return true
+  if (isMissingOrArchivedEntity(tx.incomeSourceId, incomeSourceArchivedById)) return true
+  return false
+}
 
 type OpenPicker =
   | {
@@ -817,6 +840,7 @@ function OverviewScreen({
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
   const [txLoading, setTxLoading] = useState(false)
+  const [disabledTxHintId, setDisabledTxHintId] = useState<string | null>(null)
   const goalsListLoadingRef = useRef(false)
   const goalsListLoadedOnceRef = useRef(false)
   const goalsListLastLoadedAtRef = useRef(0)
@@ -1503,19 +1527,44 @@ function OverviewScreen({
     }
   }, [detailIncomeSourceId, openEditIncomeSourceSheet, pendingIncomeSourceEdit])
 
+  const activeAccountIds = useMemo(() => new Set(accounts.map((account) => account.id)), [accounts])
+  const categoryArchivedById = useMemo(() => {
+    const archivedById = new Map<string, boolean>()
+    categories.forEach((category) => {
+      archivedById.set(category.id, Boolean(category.isArchived))
+    })
+    return archivedById
+  }, [categories])
+  const incomeSourceArchivedById = useMemo(() => {
+    const archivedById = new Map<string, boolean>()
+    incomeSources.forEach((incomeSource) => {
+      archivedById.set(incomeSource.id, Boolean(incomeSource.isArchived))
+    })
+    return archivedById
+  }, [incomeSources])
+  const isTxEditDisabled = useCallback(
+    (tx: Transaction) =>
+      isTransactionLinkedToArchivedEntity(tx, activeAccountIds, categoryArchivedById, incomeSourceArchivedById),
+    [activeAccountIds, categoryArchivedById, incomeSourceArchivedById],
+  )
+
   const openTxActions = useCallback(
     (id: string) => {
+      const tx = transactions.find((t) => t.id === id)
+      if (!tx) return
+      if (isTxEditDisabled(tx)) {
+        setDisabledTxHintId((current) => (current === id ? null : id))
+        return
+      }
       setTxError(null)
       setTxLoading(false)
+      setDisabledTxHintId(null)
       setTxActionId(id)
       setTxMode("actions")
-      const tx = transactions.find((t) => t.id === id)
-      if (tx) {
-        setEditAmount(String(tx.amount.amount))
-        setEditDate(tx.date.slice(0, 10) || getTodayLocalDate())
-      }
+      setEditAmount(String(tx.amount.amount))
+      setEditDate(tx.date.slice(0, 10) || getTodayLocalDate())
     },
-    [transactions]
+    [isTxEditDisabled, transactions],
   )
 
   const closeTxSheet = useCallback(() => {
@@ -1523,6 +1572,7 @@ function OverviewScreen({
     setTxActionId(null)
     setTxError(null)
     setTxLoading(false)
+    setDisabledTxHintId(null)
   }, [])
 
   const closeDetails = useCallback(() => {
@@ -2531,6 +2581,26 @@ const txRowStyle = {
   cursor: "pointer",
 } as const
 
+const txRowDisabledStyle = {
+  opacity: 0.72,
+  background: "#f1f5f9",
+  border: "1px solid #dbe4ee",
+  cursor: "not-allowed",
+} as const
+
+const txDisabledHintStyle = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  background: "#fff",
+  boxShadow: "0 4px 10px rgba(15, 23, 42, 0.08)",
+  color: "#334155",
+  padding: "8px 10px",
+  fontSize: 12,
+  lineHeight: 1.35,
+  marginTop: 2,
+  maxWidth: "min(340px, calc(100vw - 72px))",
+} as const
+
 type TxGroup = { dateLabel: string; items: Transaction[] }
 
 function TransactionsPanel({
@@ -2665,6 +2735,20 @@ function TransactionsPanel({
     },
     [activeSpaceKey],
   )
+  const renderTxArchivedHint = useCallback(
+    (tx: Transaction) => {
+      if (disabledTxHintId !== tx.id || !isTxEditDisabled(tx)) return null
+      return <div style={txDisabledHintStyle}>{ARCHIVED_TX_EDIT_HELP_TEXT}</div>
+    },
+    [disabledTxHintId, isTxEditDisabled],
+  )
+
+  useEffect(() => {
+    if (!disabledTxHintId) return
+    if (!transactions.some((transaction) => transaction.id === disabledTxHintId)) {
+      setDisabledTxHintId(null)
+    }
+  }, [disabledTxHintId, transactions])
 
   const displayTransactions = useMemo(() => transactions.filter((t) => t.type !== "adjustment"), [transactions])
 
@@ -3443,69 +3527,72 @@ function TransactionsPanel({
                     const color = isIncome ? "#16a34a" : "#0f172a"
                     const amountText = `${sign}${formatMoney(tx.amount.amount, baseCurrency)}`
                     const creatorLabel = getTxCreatorLabel(tx)
+                    const isTxDisabled = isTxEditDisabled(tx)
                     return (
-                      <div
-                        key={tx.id}
-                        style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
-                        onClick={() => openTxActions(tx.id)}
-                      >
-                        <div style={{ display: "grid", gap: 2 }}>
-                          <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>
-                            {debtTitle
-                              ? debtTitle
-                              : tx.type === "income"
-                              ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
-                              : tx.type === "expense"
-                              ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
-                              : tx.goalId
-                              ? getGoalTransferTitle(tx)
-                              : "Перевод"}
-                          </div>
-                          {creatorLabel ? (
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
-                              <span
-                                style={{
-                                  width: 18,
-                                  height: 18,
-                                  borderRadius: "50%",
-                                  background: "#e2e8f0",
-                                  color: "#475569",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  lineHeight: 1,
-                                  flex: "0 0 auto",
-                                }}
-                              >
-                                {creatorLabel.initials}
-                              </span>
-                              <span>{creatorLabel.name}</span>
+                      <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
+                        <div
+                          style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                          onClick={() => openTxActions(tx.id)}
+                        >
+                          <div style={{ display: "grid", gap: 2 }}>
+                            <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>
+                              {debtTitle
+                                ? debtTitle
+                                : tx.type === "income"
+                                ? incomeSourceNameById.get(tx.incomeSourceId ?? "") ?? "Доход"
+                                : tx.type === "expense"
+                                ? categoryNameById.get(tx.categoryId ?? "") ?? "Расход"
+                                : tx.goalId
+                                ? getGoalTransferTitle(tx)
+                                : "Перевод"}
                             </div>
-                          ) : null}
-                        </div>
+                            {creatorLabel ? (
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                                <span
+                                  style={{
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: "50%",
+                                    background: "#e2e8f0",
+                                    color: "#475569",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    lineHeight: 1,
+                                    flex: "0 0 auto",
+                                  }}
+                                >
+                                  {creatorLabel.initials}
+                                </span>
+                                <span>{creatorLabel.name}</span>
+                              </div>
+                            ) : null}
+                          </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ fontWeight: 600, color, textAlign: "right", fontSize: 13.5 }}>{amountText}</div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openTxActions(tx.id)
-                            }}
-                            style={{
-                              padding: "4px 6px",
-                              border: "none",
-                              background: "transparent",
-                              cursor: "pointer",
-                              fontSize: 16,
-                              lineHeight: 1,
-                            }}
-                          >
-                            ✎
-                          </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ fontWeight: 600, color, textAlign: "right", fontSize: 13.5 }}>{amountText}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openTxActions(tx.id)
+                              }}
+                              style={{
+                                padding: "4px 6px",
+                                border: "none",
+                                background: "transparent",
+                                cursor: isTxDisabled ? "not-allowed" : "pointer",
+                                fontSize: 16,
+                                lineHeight: 1,
+                              }}
+                            >
+                              ✎
+                            </button>
+                          </div>
                         </div>
+                        {renderTxArchivedHint(tx)}
                       </div>
                     )
                   }}
@@ -3660,58 +3747,61 @@ function TransactionsPanel({
                       const displayAccountName = getTxAccountName(tx)
                       const amountText = `-${formatMoney(tx.amount.amount, baseCurrency)}`
                       const creatorLabel = getTxCreatorLabel(tx)
+                      const isTxDisabled = isTxEditDisabled(tx)
                       return (
-                        <div
-                          key={tx.id}
-                          style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
-                          onClick={() => openTxActions(tx.id)}
-                        >
-                          <div style={{ display: "grid", gap: 2 }}>
-                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
-                            {creatorLabel ? (
-                              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
-                                <span
-                                  style={{
-                                    width: 18,
-                                    height: 18,
-                                    borderRadius: "50%",
-                                    background: "#e2e8f0",
-                                    color: "#475569",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    lineHeight: 1,
-                                    flex: "0 0 auto",
-                                  }}
-                                >
-                                  {creatorLabel.initials}
-                                </span>
-                                <span>{creatorLabel.name}</span>
-                              </div>
-                            ) : null}
+                        <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
+                          <div
+                            style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                            onClick={() => openTxActions(tx.id)}
+                          >
+                            <div style={{ display: "grid", gap: 2 }}>
+                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
+                              {creatorLabel ? (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                                  <span
+                                    style={{
+                                      width: 18,
+                                      height: 18,
+                                      borderRadius: "50%",
+                                      background: "#e2e8f0",
+                                      color: "#475569",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      lineHeight: 1,
+                                      flex: "0 0 auto",
+                                    }}
+                                  >
+                                    {creatorLabel.initials}
+                                  </span>
+                                  <span>{creatorLabel.name}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openTxActions(tx.id)
+                                }}
+                                style={{
+                                  padding: "4px 6px",
+                                  border: "none",
+                                  background: "transparent",
+                                  cursor: isTxDisabled ? "not-allowed" : "pointer",
+                                  fontSize: 16,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                ✎
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openTxActions(tx.id)
-                              }}
-                              style={{
-                                padding: "4px 6px",
-                                border: "none",
-                                background: "transparent",
-                                cursor: "pointer",
-                                fontSize: 16,
-                                lineHeight: 1,
-                              }}
-                            >
-                              ✎
-                            </button>
-                          </div>
+                          {renderTxArchivedHint(tx)}
                         </div>
                       )
                     }}
@@ -3888,58 +3978,61 @@ function TransactionsPanel({
                       const amountText = `${isIncomeEntry ? "+" : ""}${formatMoney(tx.amount.amount, baseCurrency)}`
                       const amountColor = isIncomeEntry ? "#16a34a" : "#0f172a"
                       const creatorLabel = getTxCreatorLabel(tx)
+                      const isTxDisabled = isTxEditDisabled(tx)
                       return (
-                        <div
-                          key={tx.id}
-                          style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
-                          onClick={() => openTxActions(tx.id)}
-                        >
-                          <div style={{ display: "grid", gap: 2 }}>
-                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
-                            {creatorLabel ? (
-                              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
-                                <span
-                                  style={{
-                                    width: 18,
-                                    height: 18,
-                                    borderRadius: "50%",
-                                    background: "#e2e8f0",
-                                    color: "#475569",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    lineHeight: 1,
-                                    flex: "0 0 auto",
-                                  }}
-                                >
-                                  {creatorLabel.initials}
-                                </span>
-                                <span>{creatorLabel.name}</span>
-                              </div>
-                            ) : null}
+                        <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
+                          <div
+                            style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                            onClick={() => openTxActions(tx.id)}
+                          >
+                            <div style={{ display: "grid", gap: 2 }}>
+                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
+                              {creatorLabel ? (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                                  <span
+                                    style={{
+                                      width: 18,
+                                      height: 18,
+                                      borderRadius: "50%",
+                                      background: "#e2e8f0",
+                                      color: "#475569",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      lineHeight: 1,
+                                      flex: "0 0 auto",
+                                    }}
+                                  >
+                                    {creatorLabel.initials}
+                                  </span>
+                                  <span>{creatorLabel.name}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ fontWeight: 600, color: amountColor, fontSize: 14 }}>{amountText}</div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openTxActions(tx.id)
+                                }}
+                                style={{
+                                  padding: "4px 6px",
+                                  border: "none",
+                                  background: "transparent",
+                                  cursor: isTxDisabled ? "not-allowed" : "pointer",
+                                  fontSize: 16,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                ✎
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ fontWeight: 600, color: amountColor, fontSize: 14 }}>{amountText}</div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openTxActions(tx.id)
-                              }}
-                              style={{
-                                padding: "4px 6px",
-                                border: "none",
-                                background: "transparent",
-                                cursor: "pointer",
-                                fontSize: 16,
-                                lineHeight: 1,
-                              }}
-                            >
-                              ✎
-                            </button>
-                          </div>
+                          {renderTxArchivedHint(tx)}
                         </div>
                       )
                     }}
@@ -4115,58 +4208,61 @@ function TransactionsPanel({
                       const displayName = getDebtTxDebtorLabel(tx) ?? "Операция"
                       const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
                       const creatorLabel = getTxCreatorLabel(tx)
+                      const isTxDisabled = isTxEditDisabled(tx)
                       return (
-                        <div
-                          key={tx.id}
-                          style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
-                          onClick={() => openTxActions(tx.id)}
-                        >
-                          <div style={{ display: "grid", gap: 2 }}>
-                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
-                            {creatorLabel ? (
-                              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
-                                <span
-                                  style={{
-                                    width: 18,
-                                    height: 18,
-                                    borderRadius: "50%",
-                                    background: "#e2e8f0",
-                                    color: "#475569",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    lineHeight: 1,
-                                    flex: "0 0 auto",
-                                  }}
-                                >
-                                  {creatorLabel.initials}
-                                </span>
-                                <span>{creatorLabel.name}</span>
-                              </div>
-                            ) : null}
+                        <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
+                          <div
+                            style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                            onClick={() => openTxActions(tx.id)}
+                          >
+                            <div style={{ display: "grid", gap: 2 }}>
+                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
+                              {creatorLabel ? (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                                  <span
+                                    style={{
+                                      width: 18,
+                                      height: 18,
+                                      borderRadius: "50%",
+                                      background: "#e2e8f0",
+                                      color: "#475569",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      lineHeight: 1,
+                                      flex: "0 0 auto",
+                                    }}
+                                  >
+                                    {creatorLabel.initials}
+                                  </span>
+                                  <span>{creatorLabel.name}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openTxActions(tx.id)
+                                }}
+                                style={{
+                                  padding: "4px 6px",
+                                  border: "none",
+                                  background: "transparent",
+                                  cursor: isTxDisabled ? "not-allowed" : "pointer",
+                                  fontSize: 16,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                ✎
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openTxActions(tx.id)
-                              }}
-                              style={{
-                                padding: "4px 6px",
-                                border: "none",
-                                background: "transparent",
-                                cursor: "pointer",
-                                fontSize: 16,
-                                lineHeight: 1,
-                              }}
-                            >
-                              ✎
-                            </button>
-                          </div>
+                          {renderTxArchivedHint(tx)}
                         </div>
                       )
                     }}
@@ -4397,58 +4493,61 @@ function TransactionsPanel({
                       const displayName = tx.accountName ?? "Операция"
                       const amountText = `${formatMoney(tx.amount.amount, baseCurrency)}`
                       const creatorLabel = getTxCreatorLabel(tx)
+                      const isTxDisabled = isTxEditDisabled(tx)
                       return (
-                        <div
-                          key={tx.id}
-                          style={{ ...txRowStyle, marginTop: idx === 0 ? 0 : 6 }}
-                          onClick={() => openTxActions(tx.id)}
-                        >
-                          <div style={{ display: "grid", gap: 2 }}>
-                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
-                            {creatorLabel ? (
-                              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
-                                <span
-                                  style={{
-                                    width: 18,
-                                    height: 18,
-                                    borderRadius: "50%",
-                                    background: "#e2e8f0",
-                                    color: "#475569",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    lineHeight: 1,
-                                    flex: "0 0 auto",
-                                  }}
-                                >
-                                  {creatorLabel.initials}
-                                </span>
-                                <span>{creatorLabel.name}</span>
-                              </div>
-                            ) : null}
+                        <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
+                          <div
+                            style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                            onClick={() => openTxActions(tx.id)}
+                          >
+                            <div style={{ display: "grid", gap: 2 }}>
+                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
+                              {creatorLabel ? (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
+                                  <span
+                                    style={{
+                                      width: 18,
+                                      height: 18,
+                                      borderRadius: "50%",
+                                      background: "#e2e8f0",
+                                      color: "#475569",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      lineHeight: 1,
+                                      flex: "0 0 auto",
+                                    }}
+                                  >
+                                    {creatorLabel.initials}
+                                  </span>
+                                  <span>{creatorLabel.name}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openTxActions(tx.id)
+                                }}
+                                style={{
+                                  padding: "4px 6px",
+                                  border: "none",
+                                  background: "transparent",
+                                  cursor: isTxDisabled ? "not-allowed" : "pointer",
+                                  fontSize: 16,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                ✎
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{amountText}</div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openTxActions(tx.id)
-                              }}
-                              style={{
-                                padding: "4px 6px",
-                                border: "none",
-                                background: "transparent",
-                                cursor: "pointer",
-                                fontSize: 16,
-                                lineHeight: 1,
-                              }}
-                            >
-                              ✎
-                            </button>
-                          </div>
+                          {renderTxArchivedHint(tx)}
                         </div>
                       )
                     }}
