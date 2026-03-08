@@ -2713,10 +2713,10 @@ function TransactionsPanel({
     (tx: Transaction) => {
       const debtorName = getDebtTxDebtorName(tx)
       if (tx.type === "transfer" && tx.debtorId) {
-        return `Возврат долга от ${debtorName}`
+        return `Возврат от: ${debtorName}`
       }
       if (isPayableDebtRepaymentTx(tx)) {
-        return `Погашение долга: ${debtorName}`
+        return `Долг: ${debtorName}`
       }
       return null
     },
