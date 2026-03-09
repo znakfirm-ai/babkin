@@ -168,6 +168,8 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isAmountFocused, setIsAmountFocused] = useState(false)
+  const [keyboardDockBottomPx, setKeyboardDockBottomPx] = useState(0)
+  const [footerHeightPx, setFooterHeightPx] = useState(148)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
@@ -180,6 +182,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const footerRef = useRef<HTMLDivElement | null>(null)
   const transferDebtListRef = useRef<HTMLDivElement | null>(null)
   const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
@@ -308,32 +311,41 @@ export const QuickAddScreen: React.FC<Props> = ({
       }) as const,
     [],
   )
-  const quickAddFooterBottomOffset = useMemo(
-    () =>
-      isAmountFocused
-        ? "calc(env(safe-area-inset-bottom,0px) + 8px)"
-        : "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
-    [isAmountFocused],
-  )
-  const stickyFooterStyle = useMemo(
+  const defaultFooterStyle = useMemo(
     () =>
       ({
         ...footerSectionStyle,
         position: "sticky",
-        bottom: quickAddFooterBottomOffset,
+        bottom: "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
         zIndex: 4,
         background: "#f5f6f8",
         paddingBottom: 8,
       }) as const,
-    [footerSectionStyle, quickAddFooterBottomOffset],
+    [footerSectionStyle],
   )
-  const stickyFooterCompactStyle = useMemo(
+  const defaultFooterCompactStyle = useMemo(
     () =>
       ({
-        ...stickyFooterStyle,
+        ...defaultFooterStyle,
         paddingTop: 8,
       }) as const,
-    [stickyFooterStyle],
+    [defaultFooterStyle],
+  )
+  const keyboardDockFooterStyle = useMemo(
+    () =>
+      ({
+        ...footerSectionStyle,
+        position: "fixed",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "min(480px, 100%)",
+        zIndex: 140,
+        bottom: `${keyboardDockBottomPx}px`,
+        background: "#f5f6f8",
+        padding: "12px 16px calc(env(safe-area-inset-bottom,0px) + 8px)",
+        boxShadow: "0 -8px 20px rgba(15,23,42,0.06)",
+      }) as const,
+    [footerSectionStyle, keyboardDockBottomPx],
   )
 
   useEffect(() => {
@@ -519,6 +531,41 @@ export const QuickAddScreen: React.FC<Props> = ({
       }
     }
   }, [])
+
+  useEffect(() => {
+    const footerNode = footerRef.current
+    if (!footerNode) return
+    const nextHeight = Math.round(footerNode.getBoundingClientRect().height)
+    if (nextHeight > 0) {
+      setFooterHeightPx(nextHeight)
+    }
+  }, [activeTab, error, isAmountFocused, isRunning])
+
+  useEffect(() => {
+    if (!isAmountFocused) {
+      setKeyboardDockBottomPx(0)
+      return
+    }
+    if (typeof window === "undefined") return
+    const viewport = window.visualViewport
+    if (!viewport) {
+      setKeyboardDockBottomPx(0)
+      return
+    }
+
+    const updateDockBottom = () => {
+      const next = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop))
+      setKeyboardDockBottomPx(next)
+    }
+
+    updateDockBottom()
+    viewport.addEventListener("resize", updateDockBottom)
+    viewport.addEventListener("scroll", updateDockBottom)
+    return () => {
+      viewport.removeEventListener("resize", updateDockBottom)
+      viewport.removeEventListener("scroll", updateDockBottom)
+    }
+  }, [isAmountFocused])
 
   const isEditableElement = (element: Element | null): element is HTMLElement =>
     element instanceof HTMLElement && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable)
@@ -1316,7 +1363,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       style={{
         background: "#f5f6f8",
         minHeight: "100%",
-        paddingBottom: 0,
+        paddingBottom: isAmountFocused ? footerHeightPx + 12 : 0,
         overscrollBehaviorY: "contain",
         touchAction: "pan-y",
       }}
@@ -1432,7 +1479,11 @@ export const QuickAddScreen: React.FC<Props> = ({
               </div>
             </div>
 
-            <div data-quick-add-footer="1" style={stickyFooterCompactStyle}>
+            <div
+              data-quick-add-footer="1"
+              ref={footerRef}
+              style={isAmountFocused ? keyboardDockFooterStyle : defaultFooterCompactStyle}
+            >
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1503,7 +1554,11 @@ export const QuickAddScreen: React.FC<Props> = ({
             </div>
             </div>
 
-            <div data-quick-add-footer="1" style={stickyFooterStyle}>
+            <div
+              data-quick-add-footer="1"
+              ref={footerRef}
+              style={isAmountFocused ? keyboardDockFooterStyle : defaultFooterStyle}
+            >
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1714,7 +1769,11 @@ export const QuickAddScreen: React.FC<Props> = ({
               )}
             </div>
 
-            <div data-quick-add-footer="1" style={stickyFooterStyle}>
+            <div
+              data-quick-add-footer="1"
+              ref={footerRef}
+              style={isAmountFocused ? keyboardDockFooterStyle : defaultFooterStyle}
+            >
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1940,7 +1999,11 @@ export const QuickAddScreen: React.FC<Props> = ({
               </>
             )}
 
-            <div data-quick-add-footer="1" style={stickyFooterStyle}>
+            <div
+              data-quick-add-footer="1"
+              ref={footerRef}
+              style={isAmountFocused ? keyboardDockFooterStyle : defaultFooterStyle}
+            >
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -2066,7 +2129,11 @@ export const QuickAddScreen: React.FC<Props> = ({
               )}
             </div>
 
-            <div data-quick-add-footer="1" style={stickyFooterStyle}>
+            <div
+              data-quick-add-footer="1"
+              ref={footerRef}
+              style={isAmountFocused ? keyboardDockFooterStyle : defaultFooterStyle}
+            >
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
