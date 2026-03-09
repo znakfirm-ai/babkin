@@ -311,10 +311,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       }) as const,
     [],
   )
-  const quickAddFooterDockBottom = useMemo(
-    () => `calc(env(safe-area-inset-bottom,0px) + ${keyboardDockBottomPx}px)`,
-    [keyboardDockBottomPx],
-  )
+  const quickAddFooterDockBottom = useMemo(() => `${keyboardDockBottomPx}px`, [keyboardDockBottomPx])
   const quickAddFooterDockStyle = useMemo(
     () =>
       ({
@@ -326,7 +323,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         zIndex: 140,
         bottom: quickAddFooterDockBottom,
         background: "#f5f6f8",
-        padding: "12px 16px 8px",
+        padding: "12px 16px calc(env(safe-area-inset-bottom,0px) + 8px)",
         boxShadow: "0 -8px 20px rgba(15,23,42,0.06)",
       }) as const,
     [footerSectionStyle, quickAddFooterDockBottom],
@@ -538,7 +535,9 @@ export const QuickAddScreen: React.FC<Props> = ({
     }
 
     const updateDockBottom = () => {
-      const next = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop))
+      const layoutHeight = Math.min(window.innerHeight, document.documentElement.clientHeight || window.innerHeight)
+      const viewportBottom = viewport.height + viewport.offsetTop
+      const next = Math.max(0, Math.round(layoutHeight - viewportBottom))
       setKeyboardDockBottomPx(next)
     }
 
