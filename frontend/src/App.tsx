@@ -8,6 +8,7 @@ import { getGoals } from "./api/goals"
 import { getDebtors } from "./api/debtors"
 import { getBootstrap, type BootstrapResponse } from "./api/bootstrap"
 import DebugTimingsOverlay from "./components/DebugTimingsOverlay"
+import DebugScrollOverlay from "./components/DebugScrollOverlay"
 import CenteredLoader from "./components/CenteredLoader"
 import { markTimingStage, timedFetch } from "./utils/debugTimings"
 import HomeScreen from "./screens/HomeScreen"
@@ -2560,6 +2561,7 @@ const appShell = shouldShowInviteLanding ? (
       <>
         {appShell}
         <DebugTimingsOverlay />
+        <DebugScrollOverlay activeScreen={activeScreen} />
       </>
     </AppErrorBoundary>
   )

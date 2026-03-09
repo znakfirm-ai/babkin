@@ -1388,6 +1388,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   return (
     <div
       ref={scrollRef}
+      data-quick-add-root="1"
       className="overview"
       onPointerDownCapture={handleChoicePointerDownCapture}
       onPointerMoveCapture={handleChoicePointerMoveCapture}
