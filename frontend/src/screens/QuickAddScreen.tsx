@@ -281,8 +281,6 @@ export const QuickAddScreen: React.FC<Props> = ({
         overflowX: "auto",
         overflowY: "hidden",
         WebkitOverflowScrolling: "touch",
-        touchAction: "pan-x",
-        overscrollBehaviorX: "contain",
       }) as const,
     [],
   )
@@ -462,29 +460,6 @@ export const QuickAddScreen: React.FC<Props> = ({
       setShowDebtPayableScrollHint(false)
     }
   }, [debtPayableListScrolled])
-
-  useEffect(() => {
-    const scrollHost = scrollRef.current
-    if (!scrollHost) return
-
-    const initialOverscrollBehaviorY = scrollHost.style.overscrollBehaviorY
-    const initialTouchAction = scrollHost.style.touchAction
-    const initialWebkitOverflowScrolling = scrollHost.style.getPropertyValue("-webkit-overflow-scrolling")
-
-    scrollHost.style.overscrollBehaviorY = "contain"
-    scrollHost.style.touchAction = "pan-y"
-    scrollHost.style.setProperty("-webkit-overflow-scrolling", "touch")
-
-    return () => {
-      scrollHost.style.overscrollBehaviorY = initialOverscrollBehaviorY
-      scrollHost.style.touchAction = initialTouchAction
-      if (initialWebkitOverflowScrolling) {
-        scrollHost.style.setProperty("-webkit-overflow-scrolling", initialWebkitOverflowScrolling)
-      } else {
-        scrollHost.style.removeProperty("-webkit-overflow-scrolling")
-      }
-    }
-  }, [])
 
   useEffect(() => {
     const footerNode = footerRef.current
@@ -1304,13 +1279,8 @@ export const QuickAddScreen: React.FC<Props> = ({
       onClick={handleDismissClick}
       style={{
         background: "#f5f6f8",
-        minHeight: 0,
-        height: "100%",
-        overflowY: "auto",
-        WebkitOverflowScrolling: "touch",
+        minHeight: "100%",
         paddingBottom: footerHeightPx + 16,
-        overscrollBehaviorY: "contain",
-        touchAction: "pan-y",
       }}
     >
       <div>
@@ -1339,8 +1309,6 @@ export const QuickAddScreen: React.FC<Props> = ({
               overflowY: "hidden",
               paddingBottom: 2,
               WebkitOverflowScrolling: "touch",
-              touchAction: "pan-x",
-              overscrollBehaviorX: "contain",
             }}
           >
             <div style={{ display: "flex", flexWrap: "nowrap", gap: 8, minWidth: 0 }}>
