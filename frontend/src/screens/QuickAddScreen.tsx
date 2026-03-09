@@ -307,6 +307,30 @@ export const QuickAddScreen: React.FC<Props> = ({
       }) as const,
     [],
   )
+  const quickAddFooterBottomOffset = useMemo(
+    () => `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + ${keyboardInsetPx}px)`,
+    [keyboardInsetPx],
+  )
+  const stickyFooterStyle = useMemo(
+    () =>
+      ({
+        ...footerSectionStyle,
+        position: "sticky",
+        bottom: quickAddFooterBottomOffset,
+        zIndex: 4,
+        background: "#f5f6f8",
+        paddingBottom: 8,
+      }) as const,
+    [footerSectionStyle, quickAddFooterBottomOffset],
+  )
+  const stickyFooterCompactStyle = useMemo(
+    () =>
+      ({
+        ...stickyFooterStyle,
+        paddingTop: 8,
+      }) as const,
+    [stickyFooterStyle],
+  )
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === "undefined" || typeof document === "undefined") return
@@ -496,6 +520,29 @@ export const QuickAddScreen: React.FC<Props> = ({
     }
   }, [])
 
+  useEffect(() => {
+    const scrollHost = scrollRef.current?.closest<HTMLElement>(".app-shell__inner")
+    if (!scrollHost) return
+
+    const initialOverscrollBehaviorY = scrollHost.style.overscrollBehaviorY
+    const initialTouchAction = scrollHost.style.touchAction
+    const initialWebkitOverflowScrolling = scrollHost.style.getPropertyValue("-webkit-overflow-scrolling")
+
+    scrollHost.style.overscrollBehaviorY = "contain"
+    scrollHost.style.touchAction = "pan-y"
+    scrollHost.style.setProperty("-webkit-overflow-scrolling", "touch")
+
+    return () => {
+      scrollHost.style.overscrollBehaviorY = initialOverscrollBehaviorY
+      scrollHost.style.touchAction = initialTouchAction
+      if (initialWebkitOverflowScrolling) {
+        scrollHost.style.setProperty("-webkit-overflow-scrolling", initialWebkitOverflowScrolling)
+      } else {
+        scrollHost.style.removeProperty("-webkit-overflow-scrolling")
+      }
+    }
+  }, [])
+
   const isEditableElement = (element: Element | null): element is HTMLElement =>
     element instanceof HTMLElement && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable)
 
@@ -546,7 +593,7 @@ export const QuickAddScreen: React.FC<Props> = ({
 
   const handleAmountFocus = useCallback((event: FocusEvent<HTMLInputElement>) => {
     const input = event.currentTarget
-    input.scrollIntoView({ block: "center" })
+    input.scrollIntoView({ block: "nearest" })
     const scrollHost = scrollRef.current?.closest<HTMLElement>(".app-shell__inner") ?? scrollRef.current
     if (!scrollHost) return
     const inputRect = input.getBoundingClientRect()
@@ -1287,7 +1334,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       style={{
         background: "#f5f6f8",
         minHeight: "100%",
-        paddingBottom: `calc(var(--qa-footer-h, 0px) + ${keyboardInsetPx}px)`,
+        paddingBottom: 0,
         overscrollBehaviorY: "contain",
         touchAction: "pan-y",
       }}
@@ -1403,7 +1450,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               </div>
             </div>
 
-            <div data-quick-add-footer="1" style={{ ...footerSectionStyle, paddingTop: 8 }}>
+            <div data-quick-add-footer="1" style={stickyFooterCompactStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1473,7 +1520,7 @@ export const QuickAddScreen: React.FC<Props> = ({
             </div>
             </div>
 
-            <div data-quick-add-footer="1" style={footerSectionStyle}>
+            <div data-quick-add-footer="1" style={stickyFooterStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1683,7 +1730,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               )}
             </div>
 
-            <div data-quick-add-footer="1" style={footerSectionStyle}>
+            <div data-quick-add-footer="1" style={stickyFooterStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1908,7 +1955,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               </>
             )}
 
-            <div data-quick-add-footer="1" style={footerSectionStyle}>
+            <div data-quick-add-footer="1" style={stickyFooterStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -2033,7 +2080,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               )}
             </div>
 
-            <div data-quick-add-footer="1" style={footerSectionStyle}>
+            <div data-quick-add-footer="1" style={stickyFooterStyle}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
