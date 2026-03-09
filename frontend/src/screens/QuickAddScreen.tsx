@@ -1166,7 +1166,14 @@ export const QuickAddScreen: React.FC<Props> = ({
     }
     return activeTab
   }, [activeTab, debtAction])
-  const operationChangeInitializedRef = useRef(false)
+  const emitQuickAddOperationSelected = useCallback((type: string) => {
+    if (typeof window === "undefined") return
+    window.dispatchEvent(
+      new CustomEvent("quick-add-operation-selected", {
+        detail: { type },
+      }),
+    )
+  }, [])
 
   const quickAddAmountEntryDockStyle = useMemo(
     () =>
@@ -1179,19 +1186,6 @@ export const QuickAddScreen: React.FC<Props> = ({
   )
 
   const activeFooterStyle = isAmountFocused ? quickAddAmountEntryDockStyle : quickAddFooterDockStyle
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    if (!operationChangeInitializedRef.current) {
-      operationChangeInitializedRef.current = true
-      return
-    }
-    window.dispatchEvent(
-      new CustomEvent("quick-add-operation-selected", {
-        detail: { type: selectedQuickAddType },
-      }),
-    )
-  }, [selectedQuickAddType])
 
   const labelMap: Record<QuickAddTab, string> = {
     expense: "Расход",
@@ -1467,6 +1461,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                     type="button"
                     onClick={() => {
                       setActiveTab(tab)
+                      emitQuickAddOperationSelected(tab === "debt" ? (debtAction === "receivable" ? "debt_in" : "debt_out") : tab)
                       setError(null)
                     }}
                     style={{
@@ -1773,6 +1768,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 type="button"
                 onClick={() => {
                   setDebtAction("receivable")
+                  emitQuickAddOperationSelected("debt_in")
                   setError(null)
                 }}
                 style={{
@@ -1791,6 +1787,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 type="button"
                 onClick={() => {
                   setDebtAction("payable")
+                  emitQuickAddOperationSelected("debt_out")
                   setError(null)
                 }}
                 style={{
