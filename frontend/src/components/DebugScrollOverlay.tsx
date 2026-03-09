@@ -32,6 +32,19 @@ type Snapshot = {
   at: string
   activeScreen: string
   selectedQuickAddType: string | null
+  lastScrollAttempt: {
+    at: string
+    container: string
+    pointerType?: string
+    scrollTopBefore: number
+    selectedQuickAddType: string | null
+  } | null
+  lastScrollResult: {
+    at: string
+    scrollTopAfter: number
+    scrollMoved: boolean
+    defaultPrevented?: boolean
+  } | null
   window: {
     innerHeight: number
     outerHeight: number
@@ -121,7 +134,11 @@ const getActiveElementInfo = () => {
   }
 }
 
-const collectSnapshot = (activeScreen: string): Snapshot => {
+const collectSnapshot = (
+  activeScreen: string,
+  lastScrollAttempt: Snapshot["lastScrollAttempt"],
+  lastScrollResult: Snapshot["lastScrollResult"],
+): Snapshot => {
   const body = document.body
   const html = document.documentElement
   const appShell = document.querySelector<HTMLElement>(".app-shell")
@@ -137,6 +154,8 @@ const collectSnapshot = (activeScreen: string): Snapshot => {
     at: new Date().toISOString(),
     activeScreen,
     selectedQuickAddType,
+    lastScrollAttempt,
+    lastScrollResult,
     window: getViewportInfo(),
     activeElement: getActiveElementInfo(),
     body: describeElement("body", body),
@@ -180,6 +199,8 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
   const [, setVersion] = useState(0)
   const eventsRef = useRef<EventRecord[]>([])
   const moveEventAtRef = useRef(0)
+  const lastScrollAttemptRef = useRef<Snapshot["lastScrollAttempt"]>(null)
+  const lastScrollResultRef = useRef<Snapshot["lastScrollResult"]>(null)
   const scrollAttemptRef = useRef<{
     pointerId: number | null
     scrollTopBefore: number
@@ -193,6 +214,11 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
     pointerType: null,
     defaultPrevented: false,
   })
+
+  const makeSnapshot = useCallback(
+    () => collectSnapshot(activeScreen, lastScrollAttemptRef.current, lastScrollResultRef.current),
+    [activeScreen],
+  )
 
   const debugEnabled = true
 
@@ -215,8 +241,8 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
         activeElement: getActiveElementInfo().tag,
       })
     }
-    setSnapshot(collectSnapshot(activeScreen))
-  }, [activeScreen, pushEvent])
+    setSnapshot(makeSnapshot())
+  }, [makeSnapshot, pushEvent])
 
   useEffect(() => {
     if (!debugEnabled) return
@@ -227,28 +253,28 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
     if (!debugEnabled) return
     const onResize = () => {
       pushEvent("window_resize", getViewportInfo())
-      if (isOpen) setSnapshot(collectSnapshot(activeScreen))
+      if (isOpen) setSnapshot(makeSnapshot())
     }
     const onFocusIn = (event: FocusEvent) => {
       pushEvent("focus_in", {
         target: targetSummary(event.target),
         activeElement: getActiveElementInfo(),
       })
-      if (isOpen) setSnapshot(collectSnapshot(activeScreen))
+      if (isOpen) setSnapshot(makeSnapshot())
     }
     const onFocusOut = (event: FocusEvent) => {
       pushEvent("focus_out", {
         target: targetSummary(event.target),
         activeElement: getActiveElementInfo(),
       })
-      if (isOpen) setSnapshot(collectSnapshot(activeScreen))
+      if (isOpen) setSnapshot(makeSnapshot())
     }
     const onQuickAddOperationSelected = (event: Event) => {
       const customEvent = event as CustomEvent<{ type?: string }>
       pushEvent("quick_add_operation_selected", {
         type: customEvent.detail?.type ?? null,
       })
-      if (isOpen) setSnapshot(collectSnapshot(activeScreen))
+      if (isOpen) setSnapshot(makeSnapshot())
     }
 
     window.addEventListener("resize", onResize)
@@ -259,11 +285,11 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
     const viewport = window.visualViewport
     const onViewportResize = () => {
       pushEvent("visual_viewport_resize", getViewportInfo())
-      if (isOpen) setSnapshot(collectSnapshot(activeScreen))
+      if (isOpen) setSnapshot(makeSnapshot())
     }
     const onViewportScroll = () => {
       pushEvent("visual_viewport_scroll", getViewportInfo())
-      if (isOpen) setSnapshot(collectSnapshot(activeScreen))
+      if (isOpen) setSnapshot(makeSnapshot())
     }
 
     viewport?.addEventListener("resize", onViewportResize)
@@ -277,7 +303,7 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
       viewport?.removeEventListener("resize", onViewportResize)
       viewport?.removeEventListener("scroll", onViewportScroll)
     }
-  }, [activeScreen, debugEnabled, isOpen, pushEvent])
+  }, [debugEnabled, isOpen, makeSnapshot, pushEvent])
 
   useEffect(() => {
     if (!debugEnabled || activeScreen !== "quick-add") return
@@ -294,16 +320,27 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
     pushEvent("quick_add_root_attached")
     const onPointerDown = (event: Event) => {
       const pointer = event as PointerEvent
+      const selectedQuickAddType = root.dataset.quickAddType ?? null
+      const scrollTopBefore = Math.round(contentContainer.scrollTop)
       scrollAttemptRef.current.pointerId = pointer.pointerId
-      scrollAttemptRef.current.scrollTopBefore = Math.round(contentContainer.scrollTop)
+      scrollAttemptRef.current.scrollTopBefore = scrollTopBefore
       scrollAttemptRef.current.logged = false
       scrollAttemptRef.current.pointerType = pointer.pointerType
       scrollAttemptRef.current.defaultPrevented = pointer.defaultPrevented
+      lastScrollAttemptRef.current = {
+        at: new Date().toISOString(),
+        container: "[data-quick-add-scroll='1']",
+        pointerType: pointer.pointerType,
+        scrollTopBefore,
+        selectedQuickAddType,
+      }
+      lastScrollResultRef.current = null
       pushEvent("quick_add_pointer_down", {
         target: targetSummary(pointer.target),
         defaultPrevented: pointer.defaultPrevented,
         pointerType: pointer.pointerType,
       })
+      if (isOpen) setSnapshot(makeSnapshot())
     }
     const onPointerMove = (event: Event) => {
       const pointer = event as PointerEvent
@@ -324,6 +361,12 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
         const defaultPrevented = scrollAttempt.defaultPrevented || pointer.defaultPrevented
         window.requestAnimationFrame(() => {
           const after = Math.round(contentContainer.scrollTop)
+          lastScrollResultRef.current = {
+            at: new Date().toISOString(),
+            scrollTopAfter: after,
+            scrollMoved: after !== before,
+            defaultPrevented,
+          }
           pushEvent("quick_add_scroll_attempt", {
             container: "[data-quick-add-scroll='1']",
             scrollTopBefore: before,
@@ -332,7 +375,7 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
             pointerType,
             defaultPrevented,
           })
-          if (isOpen) setSnapshot(collectSnapshot(activeScreen))
+          if (isOpen) setSnapshot(makeSnapshot())
         })
       }
     }
@@ -357,7 +400,7 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
     }
     const onScroll = () => {
       pushEvent("quick_add_scroll", {
-        scrollTop: Math.round(root.scrollTop),
+        scrollTop: Math.round(contentContainer.scrollTop),
       })
     }
 
@@ -365,16 +408,16 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
     contentContainer.addEventListener("pointermove", onPointerMove, { capture: true })
     contentContainer.addEventListener("pointerup", onPointerUp, { capture: true })
     contentContainer.addEventListener("pointercancel", onPointerCancel, { capture: true })
-    root.addEventListener("scroll", onScroll, { passive: true })
+    contentContainer.addEventListener("scroll", onScroll, { passive: true })
 
     return () => {
       contentContainer.removeEventListener("pointerdown", onPointerDown, true)
       contentContainer.removeEventListener("pointermove", onPointerMove, true)
       contentContainer.removeEventListener("pointerup", onPointerUp, true)
       contentContainer.removeEventListener("pointercancel", onPointerCancel, true)
-      root.removeEventListener("scroll", onScroll)
+      contentContainer.removeEventListener("scroll", onScroll)
     }
-  }, [activeScreen, debugEnabled, isOpen, pushEvent])
+  }, [activeScreen, debugEnabled, isOpen, makeSnapshot, pushEvent])
 
   const handleOpen = useCallback(() => {
     refreshSnapshot("debug_panel_opened")
