@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, type FocusEvent, type MouseEvent, type UIEvent } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type FocusEvent, type MouseEvent, type PointerEvent, type UIEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -187,6 +187,19 @@ export const QuickAddScreen: React.FC<Props> = ({
   const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
   const debtPayableListRef = useRef<HTMLDivElement | null>(null)
+  const choiceGestureRef = useRef<{
+    tracking: boolean
+    pointerId: number | null
+    moved: boolean
+    startX: number
+    startY: number
+  }>({
+    tracking: false,
+    pointerId: null,
+    moved: false,
+    startX: 0,
+    startY: 0,
+  })
   const { run, isRunning } = useSingleFlight()
 
   const expenseCategories = useMemo(
@@ -483,6 +496,56 @@ export const QuickAddScreen: React.FC<Props> = ({
       active.blur()
     }
   }, [isAmountFocused])
+
+  const handleChoicePointerDownCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch") return
+    const target = event.target as HTMLElement | null
+    if (!target) return
+    if (!target.closest("button")) return
+    choiceGestureRef.current.tracking = true
+    choiceGestureRef.current.pointerId = event.pointerId
+    choiceGestureRef.current.moved = false
+    choiceGestureRef.current.startX = event.clientX
+    choiceGestureRef.current.startY = event.clientY
+  }, [])
+
+  const handleChoicePointerMoveCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch") return
+    const gesture = choiceGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== event.pointerId || gesture.moved) return
+    const dx = Math.abs(event.clientX - gesture.startX)
+    const dy = Math.abs(event.clientY - gesture.startY)
+    if (Math.max(dx, dy) > 8) {
+      gesture.moved = true
+    }
+  }, [])
+
+  const handleChoicePointerUpCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch") return
+    const gesture = choiceGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.tracking = false
+    gesture.pointerId = null
+  }, [])
+
+  const handleChoicePointerCancelCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch") return
+    const gesture = choiceGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.tracking = false
+    gesture.pointerId = null
+    gesture.moved = false
+  }, [])
+
+  const handleChoiceClickCapture = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const gesture = choiceGestureRef.current
+    if (!gesture.moved) return
+    const target = event.target as HTMLElement | null
+    if (!target || !target.closest("button")) return
+    event.preventDefault()
+    event.stopPropagation()
+    gesture.moved = false
+  }, [])
 
   const handleAmountFocus = useCallback((event: FocusEvent<HTMLInputElement>) => {
     const amountInput = event.currentTarget
@@ -1276,6 +1339,11 @@ export const QuickAddScreen: React.FC<Props> = ({
     <div
       ref={scrollRef}
       className="overview"
+      onPointerDownCapture={handleChoicePointerDownCapture}
+      onPointerMoveCapture={handleChoicePointerMoveCapture}
+      onPointerUpCapture={handleChoicePointerUpCapture}
+      onPointerCancelCapture={handleChoicePointerCancelCapture}
+      onClickCapture={handleChoiceClickCapture}
       onClick={handleDismissClick}
       style={{
         background: "#f5f6f8",
