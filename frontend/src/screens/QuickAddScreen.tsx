@@ -168,7 +168,6 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isAmountFocused, setIsAmountFocused] = useState(false)
-  const [keyboardDockBottomPx, setKeyboardDockBottomPx] = useState(0)
   const [footerHeightPx, setFooterHeightPx] = useState(148)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
@@ -311,7 +310,6 @@ export const QuickAddScreen: React.FC<Props> = ({
       }) as const,
     [],
   )
-  const quickAddFooterDockBottom = useMemo(() => `${keyboardDockBottomPx}px`, [keyboardDockBottomPx])
   const quickAddFooterDockStyle = useMemo(
     () =>
       ({
@@ -321,41 +319,13 @@ export const QuickAddScreen: React.FC<Props> = ({
         transform: "translateX(-50%)",
         width: "min(480px, 100%)",
         zIndex: 140,
-        bottom: quickAddFooterDockBottom,
+        bottom: 0,
         background: "#f5f6f8",
         padding: "12px 16px calc(env(safe-area-inset-bottom,0px) + 8px)",
         boxShadow: "0 -8px 20px rgba(15,23,42,0.06)",
       }) as const,
-    [footerSectionStyle, quickAddFooterDockBottom],
+    [footerSectionStyle],
   )
-
-  useEffect(() => {
-    if (!import.meta.env.DEV || typeof window === "undefined" || typeof document === "undefined") return
-    const viewportWidth = window.innerWidth
-    const docWidth = document.documentElement.scrollWidth
-    if (docWidth <= viewportWidth + 1) return
-    const offenders = Array.from(document.body.querySelectorAll("*"))
-      .map((element) => {
-        const rect = element.getBoundingClientRect()
-        return { element, rect }
-      })
-      .filter(({ rect }) => rect.right > viewportWidth + 1 || rect.left < -1)
-      .slice(0, 20)
-      .map(({ element, rect }) => ({
-        tag: element.tagName.toLowerCase(),
-        className: (element as HTMLElement).className || "",
-        dataHscroll: (element as HTMLElement).dataset?.hscroll || "",
-        left: Math.round(rect.left),
-        right: Math.round(rect.right),
-        width: Math.round(rect.width),
-      }))
-
-    console.warn("[QuickAdd overflow-x]", {
-      viewportWidth,
-      docWidth,
-      offenders,
-    })
-  }, [])
 
   useEffect(() => {
     if (!selectedCategoryId) return
@@ -521,75 +491,6 @@ export const QuickAddScreen: React.FC<Props> = ({
       setFooterHeightPx(nextHeight)
     }
   }, [activeTab, error, isAmountFocused, isRunning])
-
-  useEffect(() => {
-    if (!isAmountFocused) {
-      setKeyboardDockBottomPx(0)
-      return
-    }
-    if (typeof window === "undefined") return
-    const viewport = window.visualViewport
-    if (!viewport) {
-      setKeyboardDockBottomPx(0)
-      return
-    }
-
-    let rafId: number | null = null
-    const scheduleDockMeasurement = () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId)
-      }
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null
-        const footerNode = footerRef.current
-        if (!footerNode) return
-        const footerRect = footerNode.getBoundingClientRect()
-        const parentRect = footerNode.parentElement?.getBoundingClientRect() ?? null
-        const viewportHeight = viewport.height
-
-        setKeyboardDockBottomPx((prev) => {
-          const delta = Math.round(footerRect.bottom - viewportHeight)
-          const next = Math.max(0, prev + delta)
-
-          if (import.meta.env.DEV) {
-            const footerStyle = window.getComputedStyle(footerNode)
-            // Temporary Quick Add keyboard diagnostics for iOS/Telegram viewport behavior.
-            console.debug("[QuickAdd keyboard dock]", {
-              innerHeight: window.innerHeight,
-              outerHeight: window.outerHeight,
-              visualViewportHeight: viewport.height,
-              visualViewportOffsetTop: viewport.offsetTop,
-              visualViewportPageTop: viewport.pageTop,
-              keyboardDockPrev: prev,
-              keyboardDockNext: next,
-              footerRectTop: footerRect.top,
-              footerRectBottom: footerRect.bottom,
-              footerRectHeight: footerRect.height,
-              footerParentTop: parentRect?.top ?? null,
-              footerParentBottom: parentRect?.bottom ?? null,
-              computedBottom: footerStyle.bottom,
-              computedPaddingBottom: footerStyle.paddingBottom,
-              computedTransform: footerStyle.transform,
-            })
-          }
-
-          if (Math.abs(next - prev) <= 1) return prev
-          return next
-        })
-      })
-    }
-
-    scheduleDockMeasurement()
-    viewport.addEventListener("resize", scheduleDockMeasurement)
-    viewport.addEventListener("scroll", scheduleDockMeasurement)
-    return () => {
-      viewport.removeEventListener("resize", scheduleDockMeasurement)
-      viewport.removeEventListener("scroll", scheduleDockMeasurement)
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId)
-      }
-    }
-  }, [isAmountFocused])
 
   const isEditableElement = (element: Element | null): element is HTMLElement =>
     element instanceof HTMLElement && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable)
@@ -1183,6 +1084,25 @@ export const QuickAddScreen: React.FC<Props> = ({
       Number(amount.replace(",", ".")) > 0 &&
       (debtAction === "receivable" ? selectedReceivableDebtorId : selectedPayableDebtorId),
   )
+  const activeTabReady = useMemo(() => {
+    if (activeTab === "expense") return expenseReady
+    if (activeTab === "income") return incomeReady
+    if (activeTab === "transfer") return transferReady
+    if (activeTab === "debt") return debtReady
+    return goalReady
+  }, [activeTab, debtReady, expenseReady, goalReady, incomeReady, transferReady])
+
+  const quickAddAmountEntryDockStyle = useMemo(
+    () =>
+      ({
+        ...quickAddFooterDockStyle,
+        zIndex: 260,
+        boxShadow: "0 -12px 28px rgba(15,23,42,0.14)",
+      }) as const,
+    [quickAddFooterDockStyle],
+  )
+
+  const activeFooterStyle = isAmountFocused ? quickAddAmountEntryDockStyle : quickAddFooterDockStyle
 
   const labelMap: Record<QuickAddTab, string> = {
     expense: "Расход",
@@ -1376,6 +1296,26 @@ export const QuickAddScreen: React.FC<Props> = ({
     transferDate,
   ])
 
+  const handleActiveTabSubmit = useCallback(() => {
+    if (activeTab === "expense") {
+      void submitExpense()
+      return
+    }
+    if (activeTab === "income") {
+      void submitIncome()
+      return
+    }
+    if (activeTab === "transfer") {
+      void submitTransfer()
+      return
+    }
+    if (activeTab === "debt") {
+      void submitDebt()
+      return
+    }
+    void submitGoal()
+  }, [activeTab, submitDebt, submitExpense, submitGoal, submitIncome, submitTransfer])
+
   return (
     <div
       ref={scrollRef}
@@ -1387,7 +1327,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       style={{
         background: "#f5f6f8",
         minHeight: "100%",
-        paddingBottom: footerHeightPx + keyboardDockBottomPx + 16,
+        paddingBottom: footerHeightPx + 16,
         overscrollBehaviorY: "contain",
         touchAction: "pan-y",
       }}
@@ -1503,40 +1443,6 @@ export const QuickAddScreen: React.FC<Props> = ({
               </div>
             </div>
 
-            <div
-              data-quick-add-footer="1"
-              ref={footerRef}
-              style={quickAddFooterDockStyle}
-            >
-              <AmountDateRow
-                amount={amount}
-                onAmountChange={setAmount}
-                date={transferDate}
-                onDateChange={setTransferDate}
-                onAmountFocus={handleAmountFocus}
-                onAmountBlur={handleAmountBlur}
-              />
-              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
-              <div style={{ paddingTop: 4 }}>
-                <button
-                  type="button"
-                  disabled={!expenseReady || isRunning}
-                  onClick={() => void submitExpense()}
-                  style={{
-                    width: "100%",
-                    padding: "14px 16px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: expenseReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
-                    color: expenseReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
-                    fontWeight: 700,
-                    cursor: expenseReady && !isRunning ? "pointer" : "not-allowed",
-                  }}
-                >
-                  {isRunning ? "Сохранение..." : "Готово"}
-                </button>
-              </div>
-            </div>
           </div>
         ) : activeTab === "income" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
@@ -1578,40 +1484,6 @@ export const QuickAddScreen: React.FC<Props> = ({
             </div>
             </div>
 
-            <div
-              data-quick-add-footer="1"
-              ref={footerRef}
-              style={quickAddFooterDockStyle}
-            >
-              <AmountDateRow
-                amount={amount}
-                onAmountChange={setAmount}
-                date={transferDate}
-                onDateChange={setTransferDate}
-                onAmountFocus={handleAmountFocus}
-                onAmountBlur={handleAmountBlur}
-              />
-              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
-              <div style={{ paddingTop: 8 }}>
-                <button
-                  type="button"
-                  disabled={!incomeReady || isRunning}
-                  onClick={() => void submitIncome()}
-                  style={{
-                    width: "100%",
-                    padding: "14px 16px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: incomeReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
-                    color: incomeReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
-                    fontWeight: 700,
-                    cursor: incomeReady && !isRunning ? "pointer" : "not-allowed",
-                  }}
-                >
-                  {isRunning ? "Сохранение..." : "Готово"}
-                </button>
-              </div>
-            </div>
           </div>
         ) : activeTab === "transfer" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
@@ -1793,40 +1665,6 @@ export const QuickAddScreen: React.FC<Props> = ({
               )}
             </div>
 
-            <div
-              data-quick-add-footer="1"
-              ref={footerRef}
-              style={quickAddFooterDockStyle}
-            >
-              <AmountDateRow
-                amount={amount}
-                onAmountChange={setAmount}
-                date={transferDate}
-                onDateChange={setTransferDate}
-                onAmountFocus={handleAmountFocus}
-                onAmountBlur={handleAmountBlur}
-              />
-              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
-              <div style={{ paddingTop: 8 }}>
-                <button
-                  type="button"
-                  disabled={!transferReady || isRunning}
-                  onClick={() => void submitTransfer()}
-                  style={{
-                    width: "100%",
-                    padding: "14px 16px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: transferReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
-                    color: transferReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
-                    fontWeight: 700,
-                    cursor: transferReady && !isRunning ? "pointer" : "not-allowed",
-                  }}
-                >
-                  {isRunning ? "Сохранение..." : "Готово"}
-                </button>
-              </div>
-            </div>
           </div>
         ) : activeTab === "debt" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
@@ -2023,40 +1861,6 @@ export const QuickAddScreen: React.FC<Props> = ({
               </>
             )}
 
-            <div
-              data-quick-add-footer="1"
-              ref={footerRef}
-              style={quickAddFooterDockStyle}
-            >
-              <AmountDateRow
-                amount={amount}
-                onAmountChange={setAmount}
-                date={transferDate}
-                onDateChange={setTransferDate}
-                onAmountFocus={handleAmountFocus}
-                onAmountBlur={handleAmountBlur}
-              />
-              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
-              <div style={{ paddingTop: 8 }}>
-                <button
-                  type="button"
-                  disabled={!debtReady || isRunning}
-                  onClick={() => void submitDebt()}
-                  style={{
-                    width: "100%",
-                    padding: "14px 16px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: debtReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
-                    color: debtReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
-                    fontWeight: 700,
-                    cursor: debtReady && !isRunning ? "pointer" : "not-allowed",
-                  }}
-                >
-                  {isRunning ? "Сохранение..." : "Готово"}
-                </button>
-              </div>
-            </div>
           </div>
         ) : activeTab === "goal" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
@@ -2153,45 +1957,45 @@ export const QuickAddScreen: React.FC<Props> = ({
               )}
             </div>
 
-            <div
-              data-quick-add-footer="1"
-              ref={footerRef}
-              style={quickAddFooterDockStyle}
-            >
-              <AmountDateRow
-                amount={amount}
-                onAmountChange={setAmount}
-                date={transferDate}
-                onDateChange={setTransferDate}
-                onAmountFocus={handleAmountFocus}
-                onAmountBlur={handleAmountBlur}
-              />
-              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
-              <div style={{ paddingTop: 8 }}>
-                <button
-                  type="button"
-                  disabled={!goalReady || isRunning}
-                  onClick={() => void submitGoal()}
-                  style={{
-                    width: "100%",
-                    padding: "14px 16px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: goalReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
-                    color: goalReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
-                    fontWeight: 700,
-                    cursor: goalReady && !isRunning ? "pointer" : "not-allowed",
-                  }}
-                >
-                  {isRunning ? "Сохранение..." : "Готово"}
-                </button>
-              </div>
-            </div>
           </div>
         ) : (
           <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
         )}
 
+        <div
+          data-quick-add-footer="1"
+          ref={footerRef}
+          style={activeFooterStyle}
+        >
+          <AmountDateRow
+            amount={amount}
+            onAmountChange={setAmount}
+            date={transferDate}
+            onDateChange={setTransferDate}
+            onAmountFocus={handleAmountFocus}
+            onAmountBlur={handleAmountBlur}
+          />
+          {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
+          <div style={{ paddingTop: 8 }}>
+            <button
+              type="button"
+              disabled={!activeTabReady || isRunning}
+              onClick={handleActiveTabSubmit}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                borderRadius: 12,
+                border: "none",
+                background: activeTabReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                color: activeTabReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
+                fontWeight: 700,
+                cursor: activeTabReady && !isRunning ? "pointer" : "not-allowed",
+              }}
+            >
+              {isRunning ? "Сохранение..." : "Готово"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
