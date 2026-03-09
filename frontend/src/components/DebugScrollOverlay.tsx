@@ -31,6 +31,7 @@ type ElementState = {
 type Snapshot = {
   at: string
   activeScreen: string
+  selectedQuickAddType: string | null
   window: {
     innerHeight: number
     outerHeight: number
@@ -126,6 +127,7 @@ const collectSnapshot = (activeScreen: string): Snapshot => {
   const appShell = document.querySelector<HTMLElement>(".app-shell")
   const appInner = document.querySelector<HTMLElement>(".app-shell__inner")
   const quickAddRoot = document.querySelector<HTMLElement>("[data-quick-add-root='1']")
+  const selectedQuickAddType = quickAddRoot?.dataset.quickAddType ?? null
   const quickAddScroll = document.querySelector<HTMLElement>("[data-quick-add-scroll='1']")
   const quickAddFooter = document.querySelector<HTMLElement>("[data-quick-add-footer='1']")
   const firstHorizontalList = document.querySelector<HTMLElement>("[data-quick-add-root='1'] [data-hscroll='1']")
@@ -134,6 +136,7 @@ const collectSnapshot = (activeScreen: string): Snapshot => {
   return {
     at: new Date().toISOString(),
     activeScreen,
+    selectedQuickAddType,
     window: getViewportInfo(),
     activeElement: getActiveElementInfo(),
     body: describeElement("body", body),
@@ -171,12 +174,51 @@ const targetSummary = (target: EventTarget | null) => {
   return `${tag}${id}${className}`
 }
 
+const elementSelector = (element: HTMLElement | null) => {
+  if (!element) return "none"
+  if (element.matches("[data-quick-add-scroll='1']")) return "[data-quick-add-scroll='1']"
+  if (element.matches("[data-quick-add-root='1']")) return "[data-quick-add-root='1']"
+  if (element.id) return `#${element.id}`
+  if (element.className && typeof element.className === "string") {
+    const className = element.className.trim().split(/\s+/)[0]
+    if (className) return `${element.tagName.toLowerCase()}.${className}`
+  }
+  return element.tagName.toLowerCase()
+}
+
+const resolveScrollableContainer = (target: EventTarget | null, root: HTMLElement) => {
+  let node = target instanceof HTMLElement ? target : null
+  while (node && node !== root) {
+    const style = window.getComputedStyle(node)
+    const overflowY = style.overflowY
+    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
+      return node
+    }
+    node = node.parentElement
+  }
+  const fallback = root.querySelector<HTMLElement>("[data-quick-add-scroll='1']")
+  return fallback ?? root
+}
+
 export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [, setVersion] = useState(0)
   const eventsRef = useRef<EventRecord[]>([])
   const moveEventAtRef = useRef(0)
+  const scrollAttemptRef = useRef<{
+    pointerId: number | null
+    container: HTMLElement | null
+    containerSelector: string
+    scrollTopBefore: number
+    logged: boolean
+  }>({
+    pointerId: null,
+    container: null,
+    containerSelector: "none",
+    scrollTopBefore: 0,
+    logged: false,
+  })
 
   const debugEnabled = true
 
@@ -227,10 +269,18 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
       })
       if (isOpen) setSnapshot(collectSnapshot(activeScreen))
     }
+    const onQuickAddOperationSelected = (event: Event) => {
+      const customEvent = event as CustomEvent<{ type?: string }>
+      pushEvent("quick_add_operation_selected", {
+        type: customEvent.detail?.type ?? null,
+      })
+      if (isOpen) setSnapshot(collectSnapshot(activeScreen))
+    }
 
     window.addEventListener("resize", onResize)
     document.addEventListener("focusin", onFocusIn)
     document.addEventListener("focusout", onFocusOut)
+    window.addEventListener("quick-add-operation-selected", onQuickAddOperationSelected as EventListener)
 
     const viewport = window.visualViewport
     const onViewportResize = () => {
@@ -249,6 +299,7 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
       window.removeEventListener("resize", onResize)
       document.removeEventListener("focusin", onFocusIn)
       document.removeEventListener("focusout", onFocusOut)
+      window.removeEventListener("quick-add-operation-selected", onQuickAddOperationSelected as EventListener)
       viewport?.removeEventListener("resize", onViewportResize)
       viewport?.removeEventListener("scroll", onViewportScroll)
     }
@@ -264,6 +315,12 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
     pushEvent("quick_add_root_attached")
     const onPointerDown = (event: Event) => {
       const pointer = event as PointerEvent
+      const container = resolveScrollableContainer(pointer.target, root)
+      scrollAttemptRef.current.pointerId = pointer.pointerId
+      scrollAttemptRef.current.container = container
+      scrollAttemptRef.current.containerSelector = elementSelector(container)
+      scrollAttemptRef.current.scrollTopBefore = Math.round(container?.scrollTop ?? 0)
+      scrollAttemptRef.current.logged = false
       pushEvent("quick_add_pointer_down", {
         target: targetSummary(pointer.target),
         defaultPrevented: pointer.defaultPrevented,
@@ -280,6 +337,24 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
         defaultPrevented: pointer.defaultPrevented,
         pointerType: pointer.pointerType,
       })
+
+      const scrollAttempt = scrollAttemptRef.current
+      if (scrollAttempt.pointerId === pointer.pointerId && !scrollAttempt.logged) {
+        scrollAttempt.logged = true
+        const before = scrollAttempt.scrollTopBefore
+        const container = scrollAttempt.container
+        const containerSelector = scrollAttempt.containerSelector
+        window.requestAnimationFrame(() => {
+          const after = Math.round(container?.scrollTop ?? before)
+          pushEvent("quick_add_scroll_attempt", {
+            container: containerSelector,
+            scrollTopBefore: before,
+            scrollTopAfter: after,
+            scrollMoved: after !== before,
+          })
+          if (isOpen) setSnapshot(collectSnapshot(activeScreen))
+        })
+      }
     }
     const onPointerUp = (event: Event) => {
       const pointer = event as PointerEvent
@@ -288,6 +363,15 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
         defaultPrevented: pointer.defaultPrevented,
         pointerType: pointer.pointerType,
       })
+      if (scrollAttemptRef.current.pointerId === pointer.pointerId) {
+        scrollAttemptRef.current.pointerId = null
+      }
+    }
+    const onPointerCancel = (event: Event) => {
+      const pointer = event as PointerEvent
+      if (scrollAttemptRef.current.pointerId === pointer.pointerId) {
+        scrollAttemptRef.current.pointerId = null
+      }
     }
     const onScroll = () => {
       pushEvent("quick_add_scroll", {
@@ -298,15 +382,17 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
     root.addEventListener("pointerdown", onPointerDown, { capture: true })
     root.addEventListener("pointermove", onPointerMove, { capture: true })
     root.addEventListener("pointerup", onPointerUp, { capture: true })
+    root.addEventListener("pointercancel", onPointerCancel, { capture: true })
     root.addEventListener("scroll", onScroll, { passive: true })
 
     return () => {
       root.removeEventListener("pointerdown", onPointerDown, true)
       root.removeEventListener("pointermove", onPointerMove, true)
       root.removeEventListener("pointerup", onPointerUp, true)
+      root.removeEventListener("pointercancel", onPointerCancel, true)
       root.removeEventListener("scroll", onScroll)
     }
-  }, [activeScreen, debugEnabled, pushEvent])
+  }, [activeScreen, debugEnabled, isOpen, pushEvent])
 
   const handleOpen = useCallback(() => {
     refreshSnapshot("debug_panel_opened")

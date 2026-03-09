@@ -1160,6 +1160,13 @@ export const QuickAddScreen: React.FC<Props> = ({
     if (activeTab === "debt") return debtReady
     return goalReady
   }, [activeTab, debtReady, expenseReady, goalReady, incomeReady, transferReady])
+  const selectedQuickAddType = useMemo(() => {
+    if (activeTab === "debt") {
+      return debtAction === "receivable" ? "debt_in" : "debt_out"
+    }
+    return activeTab
+  }, [activeTab, debtAction])
+  const operationChangeInitializedRef = useRef(false)
 
   const quickAddAmountEntryDockStyle = useMemo(
     () =>
@@ -1172,6 +1179,19 @@ export const QuickAddScreen: React.FC<Props> = ({
   )
 
   const activeFooterStyle = isAmountFocused ? quickAddAmountEntryDockStyle : quickAddFooterDockStyle
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!operationChangeInitializedRef.current) {
+      operationChangeInitializedRef.current = true
+      return
+    }
+    window.dispatchEvent(
+      new CustomEvent("quick-add-operation-selected", {
+        detail: { type: selectedQuickAddType },
+      }),
+    )
+  }, [selectedQuickAddType])
 
   const labelMap: Record<QuickAddTab, string> = {
     expense: "Расход",
@@ -1389,6 +1409,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     <div
       ref={scrollRef}
       data-quick-add-root="1"
+      data-quick-add-type={selectedQuickAddType}
       className="overview"
       onPointerDownCapture={handleChoicePointerDownCapture}
       onPointerMoveCapture={handleChoicePointerMoveCapture}
