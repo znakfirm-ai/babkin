@@ -421,6 +421,8 @@ function App() {
     const body = document.body
     let locked = false
     let lockedScrollY = 0
+    let lockedAppScrollTop = 0
+    let lockedAppScrollContainer: HTMLElement | null = null
 
     const bodyInitialStyle = {
       position: body.style.position,
@@ -434,10 +436,26 @@ function App() {
       overflow: root.style.overflow,
       overscrollBehavior: root.style.overscrollBehavior,
     }
+    const appInitialStyle = {
+      overflowY: "",
+      overscrollBehavior: "",
+      webkitOverflowScrolling: "",
+    }
 
     const lockScroll = () => {
       if (locked) return
       lockedScrollY = window.scrollY || window.pageYOffset || 0
+      const appScrollContainer = document.querySelector<HTMLElement>(".app-shell__inner")
+      if (appScrollContainer) {
+        lockedAppScrollContainer = appScrollContainer
+        lockedAppScrollTop = appScrollContainer.scrollTop
+        appInitialStyle.overflowY = appScrollContainer.style.overflowY
+        appInitialStyle.overscrollBehavior = appScrollContainer.style.overscrollBehavior
+        appInitialStyle.webkitOverflowScrolling = appScrollContainer.style.getPropertyValue("-webkit-overflow-scrolling")
+        appScrollContainer.style.overflowY = "hidden"
+        appScrollContainer.style.overscrollBehavior = "none"
+        appScrollContainer.style.setProperty("-webkit-overflow-scrolling", "auto")
+      }
       body.style.position = "fixed"
       body.style.top = `-${lockedScrollY}px`
       body.style.left = "0"
@@ -460,6 +478,17 @@ function App() {
       root.style.overflow = rootInitialStyle.overflow
       root.style.overscrollBehavior = rootInitialStyle.overscrollBehavior
       window.scrollTo(0, lockedScrollY)
+      if (lockedAppScrollContainer) {
+        lockedAppScrollContainer.style.overflowY = appInitialStyle.overflowY
+        lockedAppScrollContainer.style.overscrollBehavior = appInitialStyle.overscrollBehavior
+        if (appInitialStyle.webkitOverflowScrolling) {
+          lockedAppScrollContainer.style.setProperty("-webkit-overflow-scrolling", appInitialStyle.webkitOverflowScrolling)
+        } else {
+          lockedAppScrollContainer.style.removeProperty("-webkit-overflow-scrolling")
+        }
+        lockedAppScrollContainer.scrollTop = lockedAppScrollTop
+        lockedAppScrollContainer = null
+      }
       locked = false
     }
 
