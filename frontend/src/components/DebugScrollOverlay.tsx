@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { isDebugTimingsEnabled } from "../utils/debugTimings"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 type DebugScrollOverlayProps = {
   activeScreen: string
@@ -53,7 +52,6 @@ type Snapshot = {
 
 const MAX_EVENTS = 20
 const MOVE_EVENT_INTERVAL_MS = 220
-const DEBUG_SCROLL_STORAGE_KEY = "__debug_scroll__"
 
 const copyText = async (value: string) => {
   if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
@@ -174,16 +172,11 @@ const targetSummary = (target: EventTarget | null) => {
 export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
-  const [version, setVersion] = useState(0)
+  const [, setVersion] = useState(0)
   const eventsRef = useRef<EventRecord[]>([])
   const moveEventAtRef = useRef(0)
 
-  const debugEnabled = useMemo(() => {
-    if (typeof window === "undefined") return false
-    const fromStorage = window.localStorage.getItem(DEBUG_SCROLL_STORAGE_KEY) === "1"
-    const fromQuery = new URLSearchParams(window.location.search).get("debugScroll") === "1"
-    return fromStorage || fromQuery || isDebugTimingsEnabled() || import.meta.env.DEV
-  }, [])
+  const debugEnabled = true
 
   const pushEvent = useCallback((label: string, details: Record<string, unknown> = {}) => {
     const next: EventRecord = {
@@ -322,8 +315,7 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
     void copyText(buildReport(snapshot, eventsRef.current))
   }, [snapshot])
 
-  const events = eventsRef.current
-  const reportText = useMemo(() => buildReport(snapshot, events), [events, snapshot, version])
+  const reportText = buildReport(snapshot, eventsRef.current)
 
   if (!debugEnabled) return null
 
@@ -334,20 +326,24 @@ export default function DebugScrollOverlay({ activeScreen }: DebugScrollOverlayP
         onClick={handleOpen}
         style={{
           position: "fixed",
-          right: 12,
-          bottom: "calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 44px)",
-          zIndex: 99,
+          right: 16,
+          bottom: 90,
+          zIndex: 9999,
           border: "1px solid rgba(15,23,42,0.16)",
           background: "#fff",
           color: "#0f172a",
-          borderRadius: 10,
-          fontSize: 11,
+          borderRadius: 12,
+          width: 44,
+          height: 44,
+          minWidth: 44,
+          minHeight: 44,
+          fontSize: 10,
           fontWeight: 700,
-          padding: "6px 8px",
+          padding: 0,
           lineHeight: 1,
         }}
       >
-        SCR
+        DEBUG
       </button>
       {isOpen ? (
         <div
