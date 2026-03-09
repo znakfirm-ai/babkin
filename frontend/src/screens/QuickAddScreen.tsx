@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, type FocusEvent, type PointerEvent, type UIEvent } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type FocusEvent, type MouseEvent, type UIEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -180,9 +180,6 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
-  const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
-  const dismissStartScrollTopRef = useRef<number | null>(null)
-  const dismissMovedRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
   const amountInputRef = useRef<HTMLInputElement | null>(null)
@@ -500,72 +497,17 @@ export const QuickAddScreen: React.FC<Props> = ({
 
   const isEditableElement = (element: Element | null): element is HTMLElement =>
     element instanceof HTMLElement && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable)
-
-  const getQuickAddScrollHost = useCallback(
-    () => scrollRef.current?.closest<HTMLElement>(".app-shell__inner") ?? scrollRef.current,
-    [],
-  )
-
-  const handleDismissPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (!isAmountFocused) {
-      dismissStartPointRef.current = null
-      dismissStartScrollTopRef.current = null
-      dismissMovedRef.current = false
-      return
-    }
-    const active = document.activeElement
-    if (!isEditableElement(active)) {
-      dismissStartPointRef.current = null
-      dismissStartScrollTopRef.current = null
-      dismissMovedRef.current = false
-      return
-    }
-    dismissStartPointRef.current = { x: event.clientX, y: event.clientY }
-    const scrollHost = getQuickAddScrollHost()
-    dismissStartScrollTopRef.current = scrollHost?.scrollTop ?? null
-    dismissMovedRef.current = false
-  }, [getQuickAddScrollHost, isAmountFocused])
-
-  const handleDismissPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+  const handleDismissClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
     if (!isAmountFocused) return
-    const startPoint = dismissStartPointRef.current
-    if (!startPoint) return
-    if (dismissMovedRef.current) return
-    const dx = Math.abs(event.clientX - startPoint.x)
-    const dy = Math.abs(event.clientY - startPoint.y)
-    if (Math.max(dx, dy) > 6) {
-      dismissMovedRef.current = true
-    }
-  }, [isAmountFocused])
-
-  const handleDismissPointerCancel = useCallback(() => {
-    dismissStartPointRef.current = null
-    dismissStartScrollTopRef.current = null
-    dismissMovedRef.current = false
-  }, [])
-
-  const handleDismissPointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (!isAmountFocused) return
-    const startPoint = dismissStartPointRef.current
-    const startScrollTop = dismissStartScrollTopRef.current
-    const wasMoved = dismissMovedRef.current
-    dismissStartPointRef.current = null
-    dismissStartScrollTopRef.current = null
-    dismissMovedRef.current = false
-    if (!startPoint || wasMoved) return
-    const scrollHost = getQuickAddScrollHost()
-    if (scrollHost && startScrollTop != null && Math.abs(scrollHost.scrollTop - startScrollTop) > 1) return
-
     const target = event.target as HTMLElement | null
     if (!target) return
     if (target.closest("[data-quick-add-footer='1']")) return
     if (target.closest("input, textarea, [contenteditable='true']")) return
-
     const active = document.activeElement
     if (isEditableElement(active)) {
       active.blur()
     }
-  }, [getQuickAddScrollHost, isAmountFocused])
+  }, [isAmountFocused])
 
   const handleAmountFocus = useCallback((event: FocusEvent<HTMLInputElement>) => {
     const amountInput = event.currentTarget
@@ -589,19 +531,11 @@ export const QuickAddScreen: React.FC<Props> = ({
     if (!isAmountFocused) return
     const amountInput = amountInputRef.current
     if (!amountInput) return
-    const rafId = window.requestAnimationFrame(() => {
-      const active = document.activeElement
-      if (isEditableElement(active) && active !== amountInput) {
-        active.blur()
-      }
-      if (document.activeElement !== amountInput) {
-        amountInput.focus({ preventScroll: true })
-      }
-    })
-    return () => {
-      window.cancelAnimationFrame(rafId)
+    const active = document.activeElement
+    if (isEditableElement(active) && active !== amountInput) {
+      active.blur()
     }
-  }, [activeTab, isAmountFocused])
+  }, [isAmountFocused])
 
   const accountTiles = useMemo(
     () =>
@@ -1367,10 +1301,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     <div
       ref={scrollRef}
       className="overview"
-      onPointerDown={handleDismissPointerDown}
-      onPointerMove={handleDismissPointerMove}
-      onPointerUp={handleDismissPointerUp}
-      onPointerCancel={handleDismissPointerCancel}
+      onClick={handleDismissClick}
       style={{
         background: "#f5f6f8",
         minHeight: "100%",
