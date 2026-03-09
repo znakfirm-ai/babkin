@@ -534,19 +534,60 @@ export const QuickAddScreen: React.FC<Props> = ({
       return
     }
 
-    const updateDockBottom = () => {
-      const layoutHeight = Math.min(window.innerHeight, document.documentElement.clientHeight || window.innerHeight)
-      const viewportBottom = viewport.height + viewport.offsetTop
-      const next = Math.max(0, Math.round(layoutHeight - viewportBottom))
-      setKeyboardDockBottomPx(next)
+    let rafId: number | null = null
+    const scheduleDockMeasurement = () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null
+        const footerNode = footerRef.current
+        if (!footerNode) return
+        const footerRect = footerNode.getBoundingClientRect()
+        const parentRect = footerNode.parentElement?.getBoundingClientRect() ?? null
+        const viewportHeight = viewport.height
+
+        setKeyboardDockBottomPx((prev) => {
+          const delta = Math.round(footerRect.bottom - viewportHeight)
+          const next = Math.max(0, prev + delta)
+
+          if (import.meta.env.DEV) {
+            const footerStyle = window.getComputedStyle(footerNode)
+            // Temporary Quick Add keyboard diagnostics for iOS/Telegram viewport behavior.
+            console.debug("[QuickAdd keyboard dock]", {
+              innerHeight: window.innerHeight,
+              outerHeight: window.outerHeight,
+              visualViewportHeight: viewport.height,
+              visualViewportOffsetTop: viewport.offsetTop,
+              visualViewportPageTop: viewport.pageTop,
+              keyboardDockPrev: prev,
+              keyboardDockNext: next,
+              footerRectTop: footerRect.top,
+              footerRectBottom: footerRect.bottom,
+              footerRectHeight: footerRect.height,
+              footerParentTop: parentRect?.top ?? null,
+              footerParentBottom: parentRect?.bottom ?? null,
+              computedBottom: footerStyle.bottom,
+              computedPaddingBottom: footerStyle.paddingBottom,
+              computedTransform: footerStyle.transform,
+            })
+          }
+
+          if (Math.abs(next - prev) <= 1) return prev
+          return next
+        })
+      })
     }
 
-    updateDockBottom()
-    viewport.addEventListener("resize", updateDockBottom)
-    viewport.addEventListener("scroll", updateDockBottom)
+    scheduleDockMeasurement()
+    viewport.addEventListener("resize", scheduleDockMeasurement)
+    viewport.addEventListener("scroll", scheduleDockMeasurement)
     return () => {
-      viewport.removeEventListener("resize", updateDockBottom)
-      viewport.removeEventListener("scroll", updateDockBottom)
+      viewport.removeEventListener("resize", scheduleDockMeasurement)
+      viewport.removeEventListener("scroll", scheduleDockMeasurement)
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+      }
     }
   }, [isAmountFocused])
 
