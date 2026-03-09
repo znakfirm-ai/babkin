@@ -292,6 +292,8 @@ export const QuickAddScreen: React.FC<Props> = ({
         overflowY: "auto",
         overflowX: "hidden",
         WebkitOverflowScrolling: "touch",
+        overscrollBehaviorY: "contain",
+        touchAction: "pan-y",
       }) as const,
     [],
   )
@@ -545,7 +547,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   const handleAmountFocus = useCallback((event: FocusEvent<HTMLInputElement>) => {
     const input = event.currentTarget
     input.scrollIntoView({ block: "center" })
-    const scrollHost = scrollRef.current
+    const scrollHost = scrollRef.current?.closest<HTMLElement>(".app-shell__inner") ?? scrollRef.current
     if (!scrollHost) return
     const inputRect = input.getBoundingClientRect()
     const hostRect = scrollHost.getBoundingClientRect()
@@ -1276,29 +1278,21 @@ export const QuickAddScreen: React.FC<Props> = ({
 
   return (
     <div
-      className="app-shell"
+      ref={scrollRef}
+      className="overview"
+      onPointerDown={handleDismissPointerDown}
+      onPointerMove={handleDismissPointerMove}
+      onPointerUp={handleDismissPointerUp}
+      onPointerCancel={handleDismissPointerCancel}
       style={{
         background: "#f5f6f8",
-        position: "relative",
-        minHeight: "100dvh",
-        overflow: "visible",
+        minHeight: "100%",
+        paddingBottom: `calc(var(--qa-footer-h, 0px) + ${keyboardInsetPx}px)`,
+        overscrollBehaviorY: "contain",
+        touchAction: "pan-y",
       }}
     >
-      <div
-        className="app-shell__inner overview"
-        ref={scrollRef}
-        onPointerDown={handleDismissPointerDown}
-        onPointerMove={handleDismissPointerMove}
-        onPointerUp={handleDismissPointerUp}
-        onPointerCancel={handleDismissPointerCancel}
-        style={{
-          paddingBottom: `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + var(--qa-footer-h, 0px) + ${keyboardInsetPx}px)`,
-          overflowY: "auto",
-          overflowX: "hidden",
-          WebkitOverflowScrolling: "touch",
-          minHeight: "100dvh",
-        }}
-      >
+      <div>
         <div style={{ display: "grid", gap: 10, padding: "12px 16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 15, color: "#0f172a" }}>Выберите операцию</div>
