@@ -416,6 +416,89 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+    const root = document.documentElement
+    const body = document.body
+    let locked = false
+    let lockedScrollY = 0
+
+    const bodyInitialStyle = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    }
+    const rootInitialStyle = {
+      overflow: root.style.overflow,
+      overscrollBehavior: root.style.overscrollBehavior,
+    }
+
+    const lockScroll = () => {
+      if (locked) return
+      lockedScrollY = window.scrollY || window.pageYOffset || 0
+      body.style.position = "fixed"
+      body.style.top = `-${lockedScrollY}px`
+      body.style.left = "0"
+      body.style.right = "0"
+      body.style.width = "100%"
+      body.style.overflow = "hidden"
+      root.style.overflow = "hidden"
+      root.style.overscrollBehavior = "none"
+      locked = true
+    }
+
+    const unlockScroll = () => {
+      if (!locked) return
+      body.style.position = bodyInitialStyle.position
+      body.style.top = bodyInitialStyle.top
+      body.style.left = bodyInitialStyle.left
+      body.style.right = bodyInitialStyle.right
+      body.style.width = bodyInitialStyle.width
+      body.style.overflow = bodyInitialStyle.overflow
+      root.style.overflow = rootInitialStyle.overflow
+      root.style.overscrollBehavior = rootInitialStyle.overscrollBehavior
+      window.scrollTo(0, lockedScrollY)
+      locked = false
+    }
+
+    const isVisibleModal = (element: Element) => {
+      if (!(element instanceof HTMLElement)) return false
+      if (element.hidden) return false
+      if (element.getAttribute("aria-hidden") === "true") return false
+      const style = window.getComputedStyle(element)
+      if (style.display === "none" || style.visibility === "hidden") return false
+      return true
+    }
+
+    const syncScrollLock = () => {
+      const hasOpenModal = Array.from(document.querySelectorAll("[aria-modal='true']")).some((element) => isVisibleModal(element))
+      if (hasOpenModal) {
+        lockScroll()
+        return
+      }
+      unlockScroll()
+    }
+
+    const observer = new MutationObserver(() => {
+      syncScrollLock()
+    })
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["aria-modal", "aria-hidden", "hidden", "style", "class"],
+    })
+
+    syncScrollLock()
+    return () => {
+      observer.disconnect()
+      unlockScroll()
+    }
+  }, [])
+
+  useEffect(() => {
     const handleError = (event: ErrorEvent) => {
       if (event.error instanceof Error) setGlobalError(event.error)
     }
