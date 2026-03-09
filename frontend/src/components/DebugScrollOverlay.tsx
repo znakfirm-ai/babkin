@@ -126,9 +126,10 @@ const collectSnapshot = (activeScreen: string): Snapshot => {
   const appShell = document.querySelector<HTMLElement>(".app-shell")
   const appInner = document.querySelector<HTMLElement>(".app-shell__inner")
   const quickAddRoot = document.querySelector<HTMLElement>("[data-quick-add-root='1']")
+  const quickAddScroll = document.querySelector<HTMLElement>("[data-quick-add-scroll='1']")
   const quickAddFooter = document.querySelector<HTMLElement>("[data-quick-add-footer='1']")
   const firstHorizontalList = document.querySelector<HTMLElement>("[data-quick-add-root='1'] [data-hscroll='1']")
-  const quickAddForm = quickAddRoot?.firstElementChild instanceof HTMLElement ? quickAddRoot.firstElementChild : null
+  const quickAddHeader = quickAddRoot?.firstElementChild instanceof HTMLElement ? quickAddRoot.firstElementChild : null
 
   return {
     at: new Date().toISOString(),
@@ -141,7 +142,8 @@ const collectSnapshot = (activeScreen: string): Snapshot => {
       describeElement(".app-shell", appShell),
       describeElement(".app-shell__inner", appInner),
       describeElement("[data-quick-add-root='1']", quickAddRoot),
-      describeElement("[data-quick-add-root='1'] > div", quickAddForm),
+      describeElement("[data-quick-add-root='1'] > div:first-child", quickAddHeader),
+      describeElement("[data-quick-add-scroll='1']", quickAddScroll),
       describeElement("[data-quick-add-footer='1']", quickAddFooter),
       describeElement("[data-quick-add-root='1'] [data-hscroll='1']", firstHorizontalList),
     ],

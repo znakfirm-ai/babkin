@@ -1967,6 +1967,7 @@ const appShell = shouldShowInviteLanding ? (
           isQuickAddScreen
             ? {
                 paddingBottom: "env(safe-area-inset-bottom)",
+                overflowY: "hidden",
               }
             : undefined
         }

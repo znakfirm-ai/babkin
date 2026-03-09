@@ -1398,11 +1398,13 @@ export const QuickAddScreen: React.FC<Props> = ({
       style={{
         background: "#f5f6f8",
         minHeight: "100%",
-        paddingBottom: footerHeightPx + 16,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
       }}
     >
-      <div>
-        <div style={{ display: "grid", gap: 10, padding: "12px 16px" }}>
+      <div style={{ display: "grid", gap: 10, padding: "12px 16px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 15, color: "#0f172a" }}>Выберите операцию</div>
             <button
@@ -1467,7 +1469,17 @@ export const QuickAddScreen: React.FC<Props> = ({
             </div>
           </div>
           <div style={{ borderBottom: "1px solid #e5e7eb" }} />
-        </div>
+      </div>
+      <div
+        data-quick-add-scroll="1"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          paddingBottom: footerHeightPx + 16,
+        }}
+      >
 
         {activeTab === "expense" ? (
           <div style={{ display: "grid", gap: 10, padding: "0 16px 16px" }}>
@@ -2028,7 +2040,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         ) : (
           <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
         )}
-
+      </div>
         <div
           data-quick-add-footer="1"
           ref={footerRef}
@@ -2064,7 +2076,6 @@ export const QuickAddScreen: React.FC<Props> = ({
             </button>
           </div>
         </div>
-      </div>
     </div>
   )
 }
