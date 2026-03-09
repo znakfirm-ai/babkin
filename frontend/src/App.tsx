@@ -1887,6 +1887,8 @@ function App() {
     }
   }
 
+  const isQuickAddScreen = activeScreen === "quick-add"
+
 const appShell = shouldShowInviteLanding ? (
     <div className="app-shell" style={{ padding: 16 }}>
       <div
@@ -1958,27 +1960,38 @@ const appShell = shouldShowInviteLanding ? (
   ) : (
     <div className="app-shell">
       {!isTelegram ? <div className="dev-banner">Telegram WebApp не найден — браузерный режим</div> : null}
-      <div className="app-shell__inner">
-        {renderScreen()}
-        <BottomNav
-          active={activeNav}
-          onSelect={(key) => {
-            setActiveNav(key)
-            if (key === "add") {
-              setQuickAddInitialTab("expense")
-              setQuickAddInitialIncomeSourceId(null)
-              setQuickAddInitialCategoryId(null)
-              setQuickAddInitialDebtAction("receivable")
-              prevScreen.current = activeScreen
-              setActiveScreen("quick-add")
-            } else {
-              if (key === "overview") {
-                setGoalsListMode("goals")
+      <div
+        className="app-shell__inner"
+        style={
+          isQuickAddScreen
+            ? {
+                paddingBottom: "env(safe-area-inset-bottom)",
               }
-              setActiveScreen(key)
-            }
-          }}
-        />
+            : undefined
+        }
+      >
+        {renderScreen()}
+        {!isQuickAddScreen ? (
+          <BottomNav
+            active={activeNav}
+            onSelect={(key) => {
+              setActiveNav(key)
+              if (key === "add") {
+                setQuickAddInitialTab("expense")
+                setQuickAddInitialIncomeSourceId(null)
+                setQuickAddInitialCategoryId(null)
+                setQuickAddInitialDebtAction("receivable")
+                prevScreen.current = activeScreen
+                setActiveScreen("quick-add")
+              } else {
+                if (key === "overview") {
+                  setGoalsListMode("goals")
+                }
+                setActiveScreen(key)
+              }
+            }}
+          />
+        ) : null}
         {shouldShowJoinInviteSheet ? (
           <div
             role="dialog"
