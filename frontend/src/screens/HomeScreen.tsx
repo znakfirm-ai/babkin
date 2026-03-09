@@ -598,6 +598,7 @@ function HomeScreen({
             currency: "RUB",
           },
           date: t.happenedAt,
+          createdAt: t.createdAt ?? null,
           accountId: t.accountId ?? t.fromAccountId ?? "",
           categoryId: t.categoryId ?? undefined,
           incomeSourceId: t.incomeSourceId ?? undefined,

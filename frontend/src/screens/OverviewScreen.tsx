@@ -1225,6 +1225,7 @@ function OverviewScreen({
         currency: "RUB",
       },
       date: t.happenedAt,
+      createdAt: t.createdAt ?? null,
       accountId: t.accountId ?? t.fromAccountId ?? "",
       accountName: t.accountName ?? null,
       fromAccountId: t.fromAccountId ?? undefined,

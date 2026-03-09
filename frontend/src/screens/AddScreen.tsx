@@ -294,6 +294,7 @@ function AddScreen() {
                   type: t.kind,
                   amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
                   date: t.happenedAt,
+                  createdAt: t.createdAt ?? null,
                   accountId: t.accountId ?? t.fromAccountId ?? "",
                   accountName: t.accountName ?? null,
                   fromAccountId: t.fromAccountId ?? undefined,
