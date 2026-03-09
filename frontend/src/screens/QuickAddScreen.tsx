@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, type FocusEvent, type MouseEvent, type UIEvent } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type FocusEvent, type MouseEvent, type PointerEvent, type UIEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -187,6 +187,17 @@ export const QuickAddScreen: React.FC<Props> = ({
   const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
   const debtPayableListRef = useRef<HTMLDivElement | null>(null)
+  const choiceGestureRef = useRef<{
+    pointerId: number | null
+    startX: number
+    startY: number
+    suppressClick: boolean
+  }>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    suppressClick: false,
+  })
   const { run, isRunning } = useSingleFlight()
 
   const expenseCategories = useMemo(
@@ -281,7 +292,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         overflowX: "auto",
         overflowY: "hidden",
         WebkitOverflowScrolling: "touch",
-        touchAction: "pan-x",
+        touchAction: "pan-x pan-y",
         overscrollBehaviorX: "contain",
       }) as const,
     [],
@@ -525,6 +536,48 @@ export const QuickAddScreen: React.FC<Props> = ({
     const next = event.relatedTarget as HTMLElement | null
     if (next?.closest("[data-quick-add-footer='1']")) return
     setIsAmountFocused(false)
+  }, [])
+
+  const handleChoicePointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
+    if (event.pointerType !== "touch") return
+    choiceGestureRef.current.pointerId = event.pointerId
+    choiceGestureRef.current.startX = event.clientX
+    choiceGestureRef.current.startY = event.clientY
+    choiceGestureRef.current.suppressClick = false
+  }, [])
+
+  const handleChoicePointerMove = useCallback((event: PointerEvent<HTMLElement>) => {
+    if (event.pointerType !== "touch") return
+    if (choiceGestureRef.current.pointerId !== event.pointerId) return
+    if (choiceGestureRef.current.suppressClick) return
+    const dx = Math.abs(event.clientX - choiceGestureRef.current.startX)
+    const dy = Math.abs(event.clientY - choiceGestureRef.current.startY)
+    if (dy > 8 && dy > dx) {
+      choiceGestureRef.current.suppressClick = true
+    }
+  }, [])
+
+  const handleChoicePointerUp = useCallback((event: PointerEvent<HTMLElement>) => {
+    if (event.pointerType !== "touch") return
+    if (choiceGestureRef.current.pointerId === event.pointerId) {
+      choiceGestureRef.current.pointerId = null
+    }
+  }, [])
+
+  const handleChoicePointerCancel = useCallback((event: PointerEvent<HTMLElement>) => {
+    if (event.pointerType !== "touch") return
+    if (choiceGestureRef.current.pointerId === event.pointerId) {
+      choiceGestureRef.current.pointerId = null
+      choiceGestureRef.current.suppressClick = false
+    }
+  }, [])
+
+  const shouldSuppressChoiceClick = useCallback((event: MouseEvent<HTMLElement>) => {
+    if (!choiceGestureRef.current.suppressClick) return false
+    choiceGestureRef.current.suppressClick = false
+    event.preventDefault()
+    event.stopPropagation()
+    return true
   }, [])
 
   useEffect(() => {
@@ -789,7 +842,12 @@ export const QuickAddScreen: React.FC<Props> = ({
           key={item.id}
           type="button"
           className={`tile-card ${kind === "category" ? "tile-card--category" : "tile-card--account"}${active ? " tile-card--selected" : ""}`}
-          onClick={() => {
+          onPointerDown={handleChoicePointerDown}
+          onPointerMove={handleChoicePointerMove}
+          onPointerUp={handleChoicePointerUp}
+          onPointerCancel={handleChoicePointerCancel}
+          onClick={(event) => {
+            if (shouldSuppressChoiceClick(event)) return
             if (onSelect) {
               onSelect(item.id)
               return
@@ -804,7 +862,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               setSelectedGoalId(item.id)
             }
           }}
-          style={buttonStyle}
+          style={{ ...buttonStyle, touchAction: "manipulation" }}
         >
           {active ? <span className="tile-card__selected-check" aria-hidden="true">✓</span> : null}
           <div
@@ -1336,7 +1394,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               overflowY: "hidden",
               paddingBottom: 2,
               WebkitOverflowScrolling: "touch",
-              touchAction: "pan-x",
+              touchAction: "pan-x pan-y",
               overscrollBehaviorX: "contain",
             }}
           >
@@ -1353,7 +1411,12 @@ export const QuickAddScreen: React.FC<Props> = ({
                   <button
                     key={tab}
                     type="button"
-                    onClick={() => {
+                    onPointerDown={handleChoicePointerDown}
+                    onPointerMove={handleChoicePointerMove}
+                    onPointerUp={handleChoicePointerUp}
+                    onPointerCancel={handleChoicePointerCancel}
+                    onClick={(event) => {
+                      if (shouldSuppressChoiceClick(event)) return
                       setActiveTab(tab)
                       setError(null)
                     }}
@@ -1499,7 +1562,12 @@ export const QuickAddScreen: React.FC<Props> = ({
                   <button
                     key={opt.key}
                     type="button"
-                    onClick={() => {
+                    onPointerDown={handleChoicePointerDown}
+                    onPointerMove={handleChoicePointerMove}
+                    onPointerUp={handleChoicePointerUp}
+                    onPointerCancel={handleChoicePointerCancel}
+                    onClick={(event) => {
+                      if (shouldSuppressChoiceClick(event)) return
                       setTransferTargetType(opt.key as "account" | "goal" | "debt")
                       setError(null)
                     }}
@@ -1649,7 +1717,12 @@ export const QuickAddScreen: React.FC<Props> = ({
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
               <button
                 type="button"
-                onClick={() => {
+                onPointerDown={handleChoicePointerDown}
+                onPointerMove={handleChoicePointerMove}
+                onPointerUp={handleChoicePointerUp}
+                onPointerCancel={handleChoicePointerCancel}
+                onClick={(event) => {
+                  if (shouldSuppressChoiceClick(event)) return
                   setDebtAction("receivable")
                   setError(null)
                 }}
@@ -1667,7 +1740,12 @@ export const QuickAddScreen: React.FC<Props> = ({
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onPointerDown={handleChoicePointerDown}
+                onPointerMove={handleChoicePointerMove}
+                onPointerUp={handleChoicePointerUp}
+                onPointerCancel={handleChoicePointerCancel}
+                onClick={(event) => {
+                  if (shouldSuppressChoiceClick(event)) return
                   setDebtAction("payable")
                   setError(null)
                 }}
