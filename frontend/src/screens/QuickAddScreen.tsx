@@ -200,6 +200,19 @@ export const QuickAddScreen: React.FC<Props> = ({
     startX: 0,
     startY: 0,
   })
+  const dismissGestureRef = useRef<{
+    tracking: boolean
+    pointerId: number | null
+    moved: boolean
+    startX: number
+    startY: number
+  }>({
+    tracking: false,
+    pointerId: null,
+    moved: false,
+    startX: 0,
+    startY: 0,
+  })
   const { run, isRunning } = useSingleFlight()
 
   const expenseCategories = useMemo(
@@ -485,32 +498,43 @@ export const QuickAddScreen: React.FC<Props> = ({
 
   const isEditableElement = (element: Element | null): element is HTMLElement =>
     element instanceof HTMLElement && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable)
-  const handleDismissClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
-    if (!isAmountFocused) return
-    const target = event.target as HTMLElement | null
-    if (!target) return
-    if (target.closest("[data-quick-add-footer='1']")) return
-    if (target.closest("input, textarea, [contenteditable='true']")) return
-    const active = document.activeElement
-    if (isEditableElement(active)) {
-      active.blur()
-    }
-  }, [isAmountFocused])
 
   const handleChoicePointerDownCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "touch") return
     const target = event.target as HTMLElement | null
     if (!target) return
-    if (!target.closest("button")) return
-    choiceGestureRef.current.tracking = true
-    choiceGestureRef.current.pointerId = event.pointerId
-    choiceGestureRef.current.moved = false
-    choiceGestureRef.current.startX = event.clientX
-    choiceGestureRef.current.startY = event.clientY
-  }, [])
+    if (target.closest("button")) {
+      choiceGestureRef.current.tracking = true
+      choiceGestureRef.current.pointerId = event.pointerId
+      choiceGestureRef.current.moved = false
+      choiceGestureRef.current.startX = event.clientX
+      choiceGestureRef.current.startY = event.clientY
+    } else {
+      choiceGestureRef.current.tracking = false
+      choiceGestureRef.current.pointerId = null
+      choiceGestureRef.current.moved = false
+    }
+
+    if (!isAmountFocused) return
+    if (target.closest("[data-quick-add-footer='1']")) {
+      dismissGestureRef.current.tracking = false
+      dismissGestureRef.current.pointerId = null
+      dismissGestureRef.current.moved = false
+      return
+    }
+    if (target.closest("input, textarea, [contenteditable='true']")) {
+      dismissGestureRef.current.tracking = false
+      dismissGestureRef.current.pointerId = null
+      dismissGestureRef.current.moved = false
+      return
+    }
+    dismissGestureRef.current.tracking = true
+    dismissGestureRef.current.pointerId = event.pointerId
+    dismissGestureRef.current.moved = false
+    dismissGestureRef.current.startX = event.clientX
+    dismissGestureRef.current.startY = event.clientY
+  }, [isAmountFocused])
 
   const handleChoicePointerMoveCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "touch") return
     const gesture = choiceGestureRef.current
     if (!gesture.tracking || gesture.pointerId !== event.pointerId || gesture.moved) return
     const dx = Math.abs(event.clientX - gesture.startX)
@@ -518,23 +542,49 @@ export const QuickAddScreen: React.FC<Props> = ({
     if (Math.max(dx, dy) > 8) {
       gesture.moved = true
     }
+
+    const dismissGesture = dismissGestureRef.current
+    if (!dismissGesture.tracking || dismissGesture.pointerId !== event.pointerId || dismissGesture.moved) return
+    const dismissDx = Math.abs(event.clientX - dismissGesture.startX)
+    const dismissDy = Math.abs(event.clientY - dismissGesture.startY)
+    if (Math.max(dismissDx, dismissDy) > 8) {
+      dismissGesture.moved = true
+    }
   }, [])
 
   const handleChoicePointerUpCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "touch") return
     const gesture = choiceGestureRef.current
-    if (gesture.pointerId !== event.pointerId) return
-    gesture.tracking = false
-    gesture.pointerId = null
+    if (gesture.pointerId === event.pointerId) {
+      gesture.tracking = false
+      gesture.pointerId = null
+    }
+
+    const dismissGesture = dismissGestureRef.current
+    if (dismissGesture.pointerId !== event.pointerId) return
+    const shouldBlur = dismissGesture.tracking && !dismissGesture.moved
+    dismissGesture.tracking = false
+    dismissGesture.pointerId = null
+    dismissGesture.moved = false
+    if (!shouldBlur) return
+    const active = document.activeElement
+    if (isEditableElement(active)) {
+      active.blur()
+    }
   }, [])
 
   const handleChoicePointerCancelCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "touch") return
     const gesture = choiceGestureRef.current
-    if (gesture.pointerId !== event.pointerId) return
-    gesture.tracking = false
-    gesture.pointerId = null
-    gesture.moved = false
+    if (gesture.pointerId === event.pointerId) {
+      gesture.tracking = false
+      gesture.pointerId = null
+      gesture.moved = false
+    }
+
+    const dismissGesture = dismissGestureRef.current
+    if (dismissGesture.pointerId !== event.pointerId) return
+    dismissGesture.tracking = false
+    dismissGesture.pointerId = null
+    dismissGesture.moved = false
   }, [])
 
   const handleChoiceClickCapture = useCallback((event: MouseEvent<HTMLDivElement>) => {
@@ -1344,7 +1394,6 @@ export const QuickAddScreen: React.FC<Props> = ({
       onPointerUpCapture={handleChoicePointerUpCapture}
       onPointerCancelCapture={handleChoicePointerCancelCapture}
       onClickCapture={handleChoiceClickCapture}
-      onClick={handleDismissClick}
       style={{
         background: "#f5f6f8",
         minHeight: "100%",
