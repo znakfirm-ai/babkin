@@ -464,7 +464,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   }, [debtPayableListScrolled])
 
   useEffect(() => {
-    const scrollHost = scrollRef.current?.closest<HTMLElement>(".app-shell__inner")
+    const scrollHost = scrollRef.current
     if (!scrollHost) return
 
     const initialOverscrollBehaviorY = scrollHost.style.overscrollBehaviorY
@@ -1304,7 +1304,10 @@ export const QuickAddScreen: React.FC<Props> = ({
       onClick={handleDismissClick}
       style={{
         background: "#f5f6f8",
-        minHeight: "100%",
+        minHeight: 0,
+        height: "100%",
+        overflowY: "auto",
+        WebkitOverflowScrolling: "touch",
         paddingBottom: footerHeightPx + 16,
         overscrollBehaviorY: "contain",
         touchAction: "pan-y",
