@@ -3118,14 +3118,14 @@ function TransactionsPanel({
   }, [accountPeriod, categorySearch, categoryTx, detailCategoryId, getTxAccountName])
 
   const groupedAccountTx = useMemo(() => {
-    return buildTransactionDaySections(filteredAccountTx).map((section) => ({
+    return buildTransactionDaySections(sortTransactionsDesc(filteredAccountTx)).map((section) => ({
       dateLabel: section.dayLabel,
       items: section.items,
     }))
   }, [filteredAccountTx])
 
   const groupedCategoryTx = useMemo(() => {
-    return buildTransactionDaySections(filteredCategoryTx).map((section) => ({
+    return buildTransactionDaySections(sortTransactionsDesc(filteredCategoryTx)).map((section) => ({
       dateLabel: section.dayLabel,
       items: section.items,
     }))
@@ -3149,7 +3149,7 @@ function TransactionsPanel({
   }, [accountPeriod, getTxAccountName, incomeSourceSearch, incomeSourceTx, detailIncomeSourceId])
 
   const groupedIncomeSourceTx = useMemo(() => {
-    return buildTransactionDaySections(filteredIncomeSourceTx).map((section) => ({
+    return buildTransactionDaySections(sortTransactionsDesc(filteredIncomeSourceTx)).map((section) => ({
       dateLabel: section.dayLabel,
       items: section.items,
     }))
@@ -3185,7 +3185,7 @@ function TransactionsPanel({
   }, [accountPeriod, detailGoalId, getGoalTransferSourceLabel, goalSearch, goalTx])
 
   const groupedGoalTx = useMemo(() => {
-    return buildTransactionDaySections(filteredGoalTx).map((section) => ({
+    return buildTransactionDaySections(sortTransactionsDesc(filteredGoalTx)).map((section) => ({
       dateLabel: section.dayLabel,
       items: section.items,
     }))
@@ -3208,7 +3208,7 @@ function TransactionsPanel({
   }, [accountPeriod, debtorSearch, debtorTx, detailDebtorId, getDebtTxDebtorLabel])
 
   const groupedDebtorTx = useMemo(() => {
-    return buildTransactionDaySections(filteredDebtorTx).map((section) => ({
+    return buildTransactionDaySections(sortTransactionsDesc(filteredDebtorTx)).map((section) => ({
       dateLabel: section.dayLabel,
       items: section.items,
     }))
