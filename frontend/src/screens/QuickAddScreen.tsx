@@ -103,12 +103,14 @@ const AmountDateRow: React.FC<{
   date: string
   onDateChange: (val: string) => void
   onAmountFocus?: (event: FocusEvent<HTMLInputElement>) => void
-}> = ({ amount, onAmountChange, date, onDateChange, onAmountFocus }) => (
+  onAmountBlur?: (event: FocusEvent<HTMLInputElement>) => void
+}> = ({ amount, onAmountChange, date, onDateChange, onAmountFocus, onAmountBlur }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
     <input
       value={amount}
       onChange={(e) => onAmountChange(e.target.value)}
       onFocus={onAmountFocus}
+      onBlur={onAmountBlur}
       placeholder="Сумма"
       inputMode="decimal"
       style={{
@@ -165,7 +167,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [transferDate, setTransferDate] = useState(() => getTodayLocalDate())
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [keyboardInsetPx, setKeyboardInsetPx] = useState(0)
+  const [isAmountFocused, setIsAmountFocused] = useState(false)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
   const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
@@ -175,7 +177,6 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
   const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
-  const keyboardInsetRef = useRef(0)
   const dismissStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dismissMovedRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -308,8 +309,11 @@ export const QuickAddScreen: React.FC<Props> = ({
     [],
   )
   const quickAddFooterBottomOffset = useMemo(
-    () => `calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px) + ${keyboardInsetPx}px)`,
-    [keyboardInsetPx],
+    () =>
+      isAmountFocused
+        ? "calc(env(safe-area-inset-bottom,0px) + 8px)"
+        : "calc(var(--bottom-nav-height,56px) + env(safe-area-inset-bottom,0px))",
+    [isAmountFocused],
   )
   const stickyFooterStyle = useMemo(
     () =>
@@ -494,33 +498,6 @@ export const QuickAddScreen: React.FC<Props> = ({
   }, [debtPayableListScrolled])
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-    const viewport = window.visualViewport
-    if (!viewport) {
-      if (keyboardInsetRef.current === 0) return
-      keyboardInsetRef.current = 0
-      setKeyboardInsetPx(0)
-      return
-    }
-
-    const updateKeyboardInset = () => {
-      const nextInset = Math.max(0, Math.round(window.innerHeight - viewport.height))
-      if (Math.abs(nextInset - keyboardInsetRef.current) < 2) return
-      keyboardInsetRef.current = nextInset
-      setKeyboardInsetPx(nextInset)
-    }
-
-    updateKeyboardInset()
-    viewport.addEventListener("resize", updateKeyboardInset)
-    viewport.addEventListener("scroll", updateKeyboardInset)
-
-    return () => {
-      viewport.removeEventListener("resize", updateKeyboardInset)
-      viewport.removeEventListener("scroll", updateKeyboardInset)
-    }
-  }, [])
-
-  useEffect(() => {
     const scrollHost = scrollRef.current?.closest<HTMLElement>(".app-shell__inner")
     if (!scrollHost) return
 
@@ -592,6 +569,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   }, [])
 
   const handleAmountFocus = useCallback((event: FocusEvent<HTMLInputElement>) => {
+    setIsAmountFocused(true)
     const input = event.currentTarget
     input.scrollIntoView({ block: "nearest" })
     const scrollHost = scrollRef.current?.closest<HTMLElement>(".app-shell__inner") ?? scrollRef.current
@@ -600,6 +578,10 @@ export const QuickAddScreen: React.FC<Props> = ({
     const hostRect = scrollHost.getBoundingClientRect()
     if (inputRect.bottom <= hostRect.bottom - 12) return
     scrollHost.scrollTop += inputRect.bottom - (hostRect.bottom - 12)
+  }, [])
+
+  const handleAmountBlur = useCallback(() => {
+    setIsAmountFocused(false)
   }, [])
 
   const accountTiles = useMemo(
@@ -1457,6 +1439,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 date={transferDate}
                 onDateChange={setTransferDate}
                 onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 4 }}>
@@ -1527,6 +1510,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 date={transferDate}
                 onDateChange={setTransferDate}
                 onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -1737,6 +1721,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 date={transferDate}
                 onDateChange={setTransferDate}
                 onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -1962,6 +1947,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 date={transferDate}
                 onDateChange={setTransferDate}
                 onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
@@ -2087,6 +2073,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 date={transferDate}
                 onDateChange={setTransferDate}
                 onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
               />
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
               <div style={{ paddingTop: 8 }}>
