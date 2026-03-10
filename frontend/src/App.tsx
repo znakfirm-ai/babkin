@@ -1906,6 +1906,11 @@ function App() {
             initialCategoryId={quickAddInitialCategoryId}
             initialDebtAction={quickAddInitialDebtAction}
             onClose={() => setActiveScreen(prevScreen.current ?? "overview")}
+            onSaved={() => {
+              prevScreen.current = "overview"
+              setActiveNav("overview")
+              setActiveScreen("overview")
+            }}
             onOpenCreateGoal={openOverviewGoalCreateFromQuickAdd}
             onOpenCreateAccount={openOverviewAccountCreateFromQuickAdd}
             onOpenCreateCategory={openOverviewCategoryCreateFromQuickAdd}

@@ -192,6 +192,7 @@ type QuickAddPickerKey =
 
 type Props = {
   onClose: () => void
+  onSaved?: () => void
   onOpenCreateGoal?: (returnPicker: QuickAddPickerKey) => void
   onOpenCreateAccount?: (returnPicker: QuickAddPickerKey) => void
   onOpenCreateCategory?: (returnPicker: QuickAddPickerKey) => void
@@ -206,6 +207,7 @@ type Props = {
 
 export const QuickAddScreen: React.FC<Props> = ({
   onClose,
+  onSaved,
   onOpenCreateGoal,
   onOpenCreateAccount,
   onOpenCreateCategory,
@@ -839,12 +841,12 @@ export const QuickAddScreen: React.FC<Props> = ({
           createdByName: t.createdByName ?? null,
         })),
       )
-      onClose()
+      onSaved?.()
     } catch (err) {
       setError(getTransactionErrorMessage(err))
     }
     })
-  }, [amount, isRunning, onClose, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
+  }, [amount, isRunning, onSaved, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
 
   const openExpensePicker = useCallback((picker: QuickAddPickerKey) => {
     if (expensePickerCloseTimerRef.current !== null) {
@@ -1051,12 +1053,12 @@ export const QuickAddScreen: React.FC<Props> = ({
       setSelectedIncomeSourceId(null)
       setSelectedAccountId(null)
       setAmount("")
-      onClose()
+      onSaved?.()
     } catch (err) {
       setError(getTransactionErrorMessage(err))
     }
     })
-  }, [amount, isRunning, onClose, run, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
+  }, [amount, isRunning, onSaved, run, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
 
   const renderTile = (
     item: {
@@ -1356,7 +1358,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       } else if (transferTargetType === "debt") {
         await refetchDebtors()
       }
-      onClose()
+      onSaved?.()
     } catch (err) {
       setError(getTransactionErrorMessage(err))
     }
@@ -1366,7 +1368,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     ensureGoalsLoaded,
     isRunning,
     run,
-    onClose,
+    onSaved,
     refetchDebtors,
     selectedPayableDebtorId,
     selectedGoalId,
@@ -1488,12 +1490,12 @@ export const QuickAddScreen: React.FC<Props> = ({
         })),
       )
       await ensureGoalsLoaded()
-      onClose()
+      onSaved?.()
     } catch (err) {
       setError(getTransactionErrorMessage(err))
     }
     })
-  }, [amount, isRunning, onClose, run, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
+  }, [amount, isRunning, onSaved, run, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
 
   const submitDebt = useCallback(() => {
     if (isRunning) return
@@ -1544,50 +1546,46 @@ export const QuickAddScreen: React.FC<Props> = ({
           })
         }
 
-        onClose()
-        try {
-          const accountsData = await getAccounts(token)
-          setAccounts(
-            accountsData.accounts.map((a) => ({
-              id: a.id,
-              name: a.name,
-              createdAt: a.createdAt ?? null,
-              type: a.type,
-              balance: { amount: a.balance, currency: a.currency },
-              color: a.color ?? undefined,
-              icon: a.icon ?? null,
-            })),
-          )
+        const accountsData = await getAccounts(token)
+        setAccounts(
+          accountsData.accounts.map((a) => ({
+            id: a.id,
+            name: a.name,
+            createdAt: a.createdAt ?? null,
+            type: a.type,
+            balance: { amount: a.balance, currency: a.currency },
+            color: a.color ?? undefined,
+            icon: a.icon ?? null,
+          })),
+        )
 
-          const txData = await getTransactions(token)
-          setTransactions(
-            txData.transactions.map((t) => ({
-              id: t.id,
-              type: t.kind,
-              amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
-              date: t.happenedAt,
-              createdAt: t.createdAt ?? null,
-              accountId: t.accountId ?? t.fromAccountId ?? "",
-              accountName: t.accountName ?? null,
-              fromAccountId: t.fromAccountId ?? undefined,
-              fromAccountName: t.fromAccountName ?? null,
-              categoryId: t.categoryId ?? undefined,
-              incomeSourceId: t.incomeSourceId ?? undefined,
-              toAccountId: t.toAccountId ?? undefined,
-              toAccountName: t.toAccountName ?? null,
-              goalId: (t as { goalId?: string | null }).goalId ?? undefined,
-              goalName: (t as { goalName?: string | null }).goalName ?? null,
-              debtorId: (t as { debtorId?: string | null }).debtorId ?? undefined,
-              debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
-          createdByUserId: t.createdByUserId ?? null,
-          createdByName: t.createdByName ?? null,
-            })),
-          )
+        const txData = await getTransactions(token)
+        setTransactions(
+          txData.transactions.map((t) => ({
+            id: t.id,
+            type: t.kind,
+            amount: { amount: typeof t.amount === "string" ? Number(t.amount) : t.amount, currency: "RUB" },
+            date: t.happenedAt,
+            createdAt: t.createdAt ?? null,
+            accountId: t.accountId ?? t.fromAccountId ?? "",
+            accountName: t.accountName ?? null,
+            fromAccountId: t.fromAccountId ?? undefined,
+            fromAccountName: t.fromAccountName ?? null,
+            categoryId: t.categoryId ?? undefined,
+            incomeSourceId: t.incomeSourceId ?? undefined,
+            toAccountId: t.toAccountId ?? undefined,
+            toAccountName: t.toAccountName ?? null,
+            goalId: (t as { goalId?: string | null }).goalId ?? undefined,
+            goalName: (t as { goalName?: string | null }).goalName ?? null,
+            debtorId: (t as { debtorId?: string | null }).debtorId ?? undefined,
+            debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
+            createdByUserId: t.createdByUserId ?? null,
+            createdByName: t.createdByName ?? null,
+          })),
+        )
 
-          await refetchDebtors()
-        } catch (refreshErr) {
-          console.error(refreshErr)
-        }
+        await refetchDebtors()
+        onSaved?.()
       } catch (err) {
         setError(getTransactionErrorMessage(err))
       }
@@ -1596,7 +1594,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     amount,
     debtAction,
     isRunning,
-    onClose,
+    onSaved,
     refetchDebtors,
     run,
     selectedDebtAccountId,
