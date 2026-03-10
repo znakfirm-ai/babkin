@@ -170,6 +170,9 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isAmountFocused, setIsAmountFocused] = useState(false)
+  const [expensePicker, setExpensePicker] = useState<"account" | "category" | null>(null)
+  const [expenseAccountError, setExpenseAccountError] = useState(false)
+  const [expenseCategoryError, setExpenseCategoryError] = useState(false)
   const [footerHeightPx, setFooterHeightPx] = useState(148)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
@@ -361,6 +364,14 @@ export const QuickAddScreen: React.FC<Props> = ({
       setSelectedCategoryId(null)
     }
   }, [expenseCategories, selectedCategoryId])
+
+  useEffect(() => {
+    if (activeTab !== "expense") {
+      setExpensePicker(null)
+      setExpenseAccountError(false)
+      setExpenseCategoryError(false)
+    }
+  }, [activeTab])
 
   useEffect(() => {
     if (!selectedIncomeSourceId) return
@@ -682,6 +693,14 @@ export const QuickAddScreen: React.FC<Props> = ({
       }),
     [incomeBySource, incomeSourcesById, incomeSourcesList],
   )
+  const selectedAccountTile = useMemo(
+    () => accountTiles.find((tile) => tile.id === selectedAccountId) ?? null,
+    [accountTiles, selectedAccountId],
+  )
+  const selectedExpenseCategoryTile = useMemo(
+    () => expenseCategoryTiles.find((tile) => tile.id === selectedCategoryId) ?? null,
+    [expenseCategoryTiles, selectedCategoryId],
+  )
   const submitExpense = useCallback(() => {
     if (isRunning) return
     return run(async () => {
@@ -749,6 +768,43 @@ export const QuickAddScreen: React.FC<Props> = ({
     }
     })
   }, [amount, isRunning, onClose, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
+
+  const openExpensePicker = useCallback((picker: "account" | "category") => {
+    setExpensePicker(picker)
+    setError(null)
+  }, [])
+
+  const closeExpensePicker = useCallback(() => {
+    setExpensePicker(null)
+  }, [])
+
+  const selectExpenseAccount = useCallback((accountId: string) => {
+    setSelectedAccountId(accountId)
+    setExpenseAccountError(false)
+    setError(null)
+    setExpensePicker(null)
+  }, [])
+
+  const selectExpenseCategory = useCallback((categoryId: string) => {
+    setSelectedCategoryId(categoryId)
+    setExpenseCategoryError(false)
+    setError(null)
+    setExpensePicker(null)
+  }, [])
+
+  const handleExpenseSave = useCallback(() => {
+    const missingAccount = !selectedAccountId
+    const missingCategory = !selectedCategoryId
+    if (missingAccount || missingCategory) {
+      setExpenseAccountError(missingAccount)
+      setExpenseCategoryError(missingCategory)
+      setError(null)
+      return
+    }
+    setExpenseAccountError(false)
+    setExpenseCategoryError(false)
+    void submitExpense()
+  }, [selectedAccountId, selectedCategoryId, submitExpense])
 
   const submitIncome = useCallback(() => {
     if (isRunning) return
@@ -1412,10 +1468,12 @@ export const QuickAddScreen: React.FC<Props> = ({
       onClickCapture={handleChoiceClickCapture}
       style={{
         background: "#f5f6f8",
-        minHeight: "100%",
         height: "100%",
+        padding: 0,
         display: "flex",
         flexDirection: "column",
+        minWidth: 0,
+        minHeight: 0,
         overflow: "hidden",
       }}
     >
@@ -1437,107 +1495,214 @@ export const QuickAddScreen: React.FC<Props> = ({
               Закрыть
             </button>
           </div>
-          <div
-            data-hscroll="1"
-            style={{
-              overflowX: "auto",
-              overflowY: "hidden",
-              paddingBottom: 2,
-              WebkitOverflowScrolling: "touch",
-            }}
-          >
-            <div style={{ display: "flex", flexWrap: "nowrap", gap: 8, minWidth: 0 }}>
-              {(Object.keys(labelMap) as QuickAddTab[]).map((tab) => {
-                const iconMap: Record<QuickAddTab, IconName> = {
-                  expense: "report",
-                  income: "plus",
-                  transfer: "repeat",
-                  debt: "bank",
-                  goal: "goal",
-                }
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(tab)
-                      emitQuickAddOperationSelected(tab === "debt" ? (debtAction === "receivable" ? "debt_in" : "debt_out") : tab)
-                      setError(null)
-                    }}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 10,
-                      border: activeTab === tab ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                      background: activeTab === tab ? "#0f172a" : "#fff",
-                      color: activeTab === tab ? "#fff" : "#0f172a",
-                      fontWeight: 600,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    <AppIcon name={iconMap[tab]} size={14} />
-                    {labelMap[tab]}
-                  </button>
-                )
-              })}
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 8 }}>
+            {(Object.keys(labelMap) as QuickAddTab[]).map((tab) => {
+              const iconMap: Record<QuickAddTab, IconName> = {
+                expense: "report",
+                income: "plus",
+                transfer: "repeat",
+                debt: "bank",
+                goal: "goal",
+              }
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab)
+                    emitQuickAddOperationSelected(tab === "debt" ? (debtAction === "receivable" ? "debt_in" : "debt_out") : tab)
+                    setError(null)
+                  }}
+                  style={{
+                    minWidth: 0,
+                    padding: "8px 6px",
+                    borderRadius: 10,
+                    border: activeTab === tab ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                    background: activeTab === tab ? "#0f172a" : "#fff",
+                    color: activeTab === tab ? "#fff" : "#0f172a",
+                    fontWeight: 600,
+                    fontSize: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 4,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <AppIcon name={iconMap[tab]} size={13} />
+                  {labelMap[tab]}
+                </button>
+              )
+            })}
           </div>
           <div style={{ borderBottom: "1px solid #e5e7eb" }} />
       </div>
       <div
         data-quick-add-scroll="1"
         style={{
-          flex: 1,
+          flex: "1 1 auto",
           minHeight: 0,
+          minWidth: 0,
           overflowY: "auto",
+          overflowX: "hidden",
+          overscrollBehaviorY: "contain",
+          touchAction: "pan-y",
           WebkitOverflowScrolling: "touch",
-          paddingBottom: footerHeightPx + 16,
+          paddingBottom: activeTab === "expense" ? 16 : footerHeightPx + 16,
         }}
       >
 
         {activeTab === "expense" ? (
-          <div style={{ display: "grid", gap: 10, padding: "0 16px 16px" }}>
-            <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для списания</div>
-            <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
-              {accountTiles.map((acc) =>
-                renderTile(
-                    {
-                      id: acc.id,
-                      title: acc.title,
-                      icon: "wallet",
-                      iconKey: acc.iconKey,
-                      color: acc.color,
-                      amount: acc.amount,
-                      secondaryAmount: acc.secondaryAmount,
-                    },
-                    selectedAccountId === acc.id,
-                    "account",
-                  ),
+          <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>Сумма и дата</div>
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
+                amountInputRef={amountInputRef}
+              />
+              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              {selectedAccountTile ? (
+                <button
+                  type="button"
+                  onClick={() => openExpensePicker("account")}
+                  className="tile-card tile-card--account"
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    flex: "1 1 auto",
+                    background: selectedAccountTile.color ?? "#EEF2F7",
+                    color: getReadableTextColor(selectedAccountTile.color ?? "#EEF2F7"),
+                    border: "1px solid rgba(0,0,0,0.08)",
+                    boxShadow: "none",
+                  }}
+                >
+                  <div
+                    className="tile-card__icon"
+                    style={{
+                      background: "transparent",
+                      opacity: 1,
+                      color: getReadableTextColor(selectedAccountTile.color ?? "#EEF2F7"),
+                    }}
+                  >
+                    {selectedAccountTile.iconKey && isFinanceIconKey(selectedAccountTile.iconKey) ? (
+                      <FinanceIcon iconKey={selectedAccountTile.iconKey} size={16} />
+                    ) : (
+                      <AppIcon name="wallet" size={16} />
+                    )}
+                  </div>
+                  <div
+                    className="tile-card__title"
+                    style={{
+                      color: getReadableTextColor(selectedAccountTile.color ?? "#EEF2F7"),
+                      opacity: 0.9,
+                    }}
+                  >
+                    {selectedAccountTile.title}
+                  </div>
+                  <div
+                    className="tile-card__amount"
+                    style={{ color: getReadableTextColor(selectedAccountTile.color ?? "#EEF2F7") }}
+                  >
+                    {formatMoney(selectedAccountTile.amount, baseCurrency)}
+                  </div>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openExpensePicker("account")}
+                  style={{
+                    width: "100%",
+                    minHeight: 120,
+                    borderRadius: 12,
+                    border: expenseAccountError ? "1px solid #dc2626" : "1px solid #d1d5db",
+                    background: "#fff",
+                    display: "grid",
+                    placeItems: "center",
+                    gap: 4,
+                    color: "#0f172a",
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Счёт</div>
+                  <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
+                </button>
+              )}
+
+              {selectedExpenseCategoryTile ? (
+                <button
+                  type="button"
+                  onClick={() => openExpensePicker("category")}
+                  className="tile-card tile-card--category"
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    flex: "1 1 auto",
+                    border: "1px solid rgba(15,23,42,0.08)",
+                    boxShadow: "none",
+                  }}
+                >
+                  <div className="tile-card__icon">
+                    {selectedExpenseCategoryTile.iconKey && isFinanceIconKey(selectedExpenseCategoryTile.iconKey) ? (
+                      <FinanceIcon iconKey={selectedExpenseCategoryTile.iconKey} size={16} />
+                    ) : (
+                      <AppIcon name="report" size={16} />
+                    )}
+                  </div>
+                  <div className="tile-card__title">{selectedExpenseCategoryTile.title}</div>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openExpensePicker("category")}
+                  style={{
+                    width: "100%",
+                    minHeight: 120,
+                    borderRadius: 12,
+                    border: expenseCategoryError ? "1px solid #dc2626" : "1px solid #d1d5db",
+                    background: "#fff",
+                    display: "grid",
+                    placeItems: "center",
+                    gap: 4,
+                    color: "#0f172a",
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Категория</div>
+                  <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
+                </button>
               )}
             </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
-              <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Категория расходов</div>
-              <div className="overview-expenses-row">
-                {expenseCategoryTiles.map((cat) =>
-                  renderTile(
-                    {
-                      id: cat.id,
-                      title: cat.title,
-                      iconKey: cat.iconKey,
-                      amount: cat.amount,
-                      budget: cat.budget,
-                      budgetTone: cat.budgetTone,
-                    },
-                    selectedCategoryId === cat.id,
-                    "category",
-                  ),
-                )}
+            {(expenseAccountError || expenseCategoryError) ? (
+              <div style={{ display: "grid", gap: 4 }}>
+                {expenseAccountError ? <div style={{ fontSize: 12, color: "#b91c1c" }}>Выберите счёт</div> : null}
+                {expenseCategoryError ? <div style={{ fontSize: 12, color: "#b91c1c" }}>Выберите категорию</div> : null}
               </div>
-            </div>
+            ) : null}
 
+            <button
+              type="button"
+              disabled={isRunning}
+              onClick={handleExpenseSave}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                borderRadius: 12,
+                border: "none",
+                background: !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                color: !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
+                fontWeight: 700,
+                cursor: !isRunning ? "pointer" : "not-allowed",
+              }}
+            >
+              {isRunning ? "Сохранение..." : "Сохранить"}
+            </button>
           </div>
         ) : activeTab === "income" ? (
           <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
@@ -2059,6 +2224,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
         )}
       </div>
+      {activeTab !== "expense" ? (
         <div
           data-quick-add-footer="1"
           ref={footerRef}
@@ -2094,6 +2260,171 @@ export const QuickAddScreen: React.FC<Props> = ({
             </button>
           </div>
         </div>
+      ) : null}
+      {activeTab === "expense" && expensePicker ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 260,
+            background: "rgba(2,6,23,0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+          }}
+          onClick={closeExpensePicker}
+        >
+          <div
+            style={{
+              width: "min(480px, 100%)",
+              background: "#fff",
+              borderRadius: "16px 16px 0 0",
+              borderTop: "1px solid rgba(15,23,42,0.08)",
+              boxShadow: "0 -12px 30px rgba(15,23,42,0.2)",
+              maxHeight: "75vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 8px)",
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                {expensePicker === "account" ? "Выберите счёт" : "Выберите категорию"}
+              </div>
+              <button
+                type="button"
+                onClick={closeExpensePicker}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#0f172a",
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
+            <div style={{ padding: 12, overflowY: "auto", WebkitOverflowScrolling: "touch", minHeight: 0 }}>
+              {expensePicker === "account" ? (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {accountTiles.map((acc) => (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => selectExpenseAccount(acc.id)}
+                      style={{
+                        width: "100%",
+                        borderRadius: 12,
+                        border: selectedAccountId === acc.id ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                        background: "#fff",
+                        padding: "10px 12px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        color: "#0f172a",
+                      }}
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <span
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 999,
+                            background: acc.color ?? "#EEF2F7",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: getReadableTextColor(acc.color ?? "#EEF2F7"),
+                          }}
+                        >
+                          {acc.iconKey && isFinanceIconKey(acc.iconKey) ? (
+                            <FinanceIcon iconKey={acc.iconKey} size={14} />
+                          ) : (
+                            <AppIcon name="wallet" size={14} />
+                          )}
+                        </span>
+                        <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {acc.title}
+                        </span>
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{formatMoney(acc.amount, baseCurrency)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {expenseCategoryTiles.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => selectExpenseCategory(cat.id)}
+                      style={{
+                        width: "100%",
+                        borderRadius: 12,
+                        border: selectedCategoryId === cat.id ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                        background: "#fff",
+                        padding: "10px 12px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        color: "#0f172a",
+                      }}
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <span
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 999,
+                            background:
+                              cat.budgetTone === "alert"
+                                ? "rgba(248,113,113,0.14)"
+                                : cat.budgetTone === "warn"
+                                ? "rgba(251,191,36,0.14)"
+                                : "rgba(15,23,42,0.06)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#0f172a",
+                          }}
+                        >
+                          {cat.iconKey && isFinanceIconKey(cat.iconKey) ? (
+                            <FinanceIcon iconKey={cat.iconKey} size={14} />
+                          ) : (
+                            <AppIcon name="report" size={14} />
+                          )}
+                        </span>
+                        <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {cat.title}
+                        </span>
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{formatMoney(cat.amount, baseCurrency)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
