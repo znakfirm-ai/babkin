@@ -14,7 +14,6 @@ import { buildMonthlyTransactionMetrics, getLocalMonthPoint } from "../utils/mon
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import { GoalList } from "../components/GoalList"
 import { DebtorList } from "../components/DebtorList"
-import PageOverlayShell from "../components/PageOverlayShell"
 import type { Debtor } from "../types/finance"
 
 const getTodayLocalDate = () => {
@@ -1879,24 +1878,28 @@ export const QuickAddScreen: React.FC<Props> = ({
   )
 
   return (
-    <>
-    <PageOverlayShell
-      rootRef={scrollRef}
-      rootClassName="overview"
-      rootStyle={{
+    <div
+      ref={scrollRef}
+      data-quick-add-root="1"
+      data-quick-add-type={selectedQuickAddType}
+      className="overview"
+      onPointerDownCapture={handleChoicePointerDownCapture}
+      onPointerMoveCapture={handleChoicePointerMoveCapture}
+      onPointerUpCapture={handleChoicePointerUpCapture}
+      onPointerCancelCapture={handleChoicePointerCancelCapture}
+      onClickCapture={handleChoiceClickCapture}
+      style={{
         background: "#f5f6f8",
+        height: "100%",
+        padding: 0,
+        display: "flex",
+        flexDirection: "column",
+        minWidth: 0,
+        minHeight: 0,
+        overflow: "hidden",
       }}
-      rootProps={{
-        "data-quick-add-root": "1",
-        "data-quick-add-type": selectedQuickAddType,
-        onPointerDownCapture: handleChoicePointerDownCapture,
-        onPointerMoveCapture: handleChoicePointerMoveCapture,
-        onPointerUpCapture: handleChoicePointerUpCapture,
-        onPointerCancelCapture: handleChoicePointerCancelCapture,
-        onClickCapture: handleChoiceClickCapture,
-      }}
-      header={
-        <div style={{ display: "grid", gap: 10, padding: "12px 16px", flexShrink: 0 }}>
+    >
+      <div style={{ display: "grid", gap: 10, padding: "12px 16px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 15, color: "#0f172a" }}>Выберите операцию</div>
             <button
@@ -1960,17 +1963,22 @@ export const QuickAddScreen: React.FC<Props> = ({
             })}
           </div>
           <div style={{ borderBottom: "1px solid #e5e7eb" }} />
-        </div>
-      }
-      scrollProps={{
-        "data-quick-add-scroll": "1",
-      }}
-      scrollStyle={{
-        touchAction: "pan-y",
-        paddingBottom: 16,
-      }}
-      animate={false}
-    >
+      </div>
+      <div
+        data-quick-add-scroll="1"
+        style={{
+          flex: "1 1 auto",
+          minHeight: 0,
+          minWidth: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
+          overscrollBehaviorY: "contain",
+          touchAction: "pan-y",
+          WebkitOverflowScrolling: "touch",
+          paddingBottom: 16,
+        }}
+      >
+
         {activeTab === "expense" ? (
           <div
             style={{
@@ -2513,7 +2521,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         ) : (
           <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
         )}
-    </PageOverlayShell>
+      </div>
       {expensePicker ? (
         <div
           role="dialog"
@@ -2765,7 +2773,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   )
 }
 
