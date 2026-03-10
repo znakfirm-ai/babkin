@@ -173,6 +173,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [expensePicker, setExpensePicker] = useState<"account" | "category" | null>(null)
   const [expenseAccountError, setExpenseAccountError] = useState(false)
   const [expenseCategoryError, setExpenseCategoryError] = useState(false)
+  const [expensePickerDragOffset, setExpensePickerDragOffset] = useState(0)
   const [footerHeightPx, setFooterHeightPx] = useState(148)
   const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
   const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
@@ -190,6 +191,22 @@ export const QuickAddScreen: React.FC<Props> = ({
   const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
   const debtPayableListRef = useRef<HTMLDivElement | null>(null)
+  const expensePickerContentRef = useRef<HTMLDivElement | null>(null)
+  const expensePickerGestureRef = useRef<{
+    pointerId: number | null
+    startX: number
+    startY: number
+    tracking: boolean
+    draggingSheet: boolean
+    blockClick: boolean
+  }>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    draggingSheet: false,
+    blockClick: false,
+  })
   const choiceGestureRef = useRef<{
     tracking: boolean
     pointerId: number | null
@@ -372,6 +389,15 @@ export const QuickAddScreen: React.FC<Props> = ({
       setExpenseCategoryError(false)
     }
   }, [activeTab])
+
+  useEffect(() => {
+    if (expensePicker) return
+    setExpensePickerDragOffset(0)
+    expensePickerGestureRef.current.pointerId = null
+    expensePickerGestureRef.current.tracking = false
+    expensePickerGestureRef.current.draggingSheet = false
+    expensePickerGestureRef.current.blockClick = false
+  }, [expensePicker])
 
   useEffect(() => {
     if (!selectedIncomeSourceId) return
@@ -786,11 +812,17 @@ export const QuickAddScreen: React.FC<Props> = ({
 
   const openExpensePicker = useCallback((picker: "account" | "category") => {
     setExpensePicker(picker)
+    setExpensePickerDragOffset(0)
     setError(null)
   }, [])
 
   const closeExpensePicker = useCallback(() => {
     setExpensePicker(null)
+    setExpensePickerDragOffset(0)
+    expensePickerGestureRef.current.pointerId = null
+    expensePickerGestureRef.current.tracking = false
+    expensePickerGestureRef.current.draggingSheet = false
+    expensePickerGestureRef.current.blockClick = false
   }, [])
 
   const selectExpenseAccount = useCallback((accountId: string) => {
@@ -820,6 +852,74 @@ export const QuickAddScreen: React.FC<Props> = ({
     setExpenseCategoryError(false)
     void submitExpense()
   }, [selectedAccountId, selectedCategoryId, submitExpense])
+
+  const handleExpensePickerPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const gesture = expensePickerGestureRef.current
+    gesture.pointerId = event.pointerId
+    gesture.startX = event.clientX
+    gesture.startY = event.clientY
+    gesture.tracking = true
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+  }, [])
+
+  const handleExpensePickerPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const gesture = expensePickerGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
+    const content = expensePickerContentRef.current
+    const atTop = !content || content.scrollTop <= 0
+
+    if (!gesture.draggingSheet) {
+      if (absDy < 8 || absDy <= absDx) return
+      if (dy > 0 && atTop) {
+        gesture.draggingSheet = true
+        gesture.blockClick = true
+      } else {
+        gesture.tracking = false
+        gesture.pointerId = null
+        return
+      }
+    }
+
+    event.preventDefault()
+    const nextOffset = Math.max(0, dy)
+    setExpensePickerDragOffset(nextOffset)
+  }, [])
+
+  const handleExpensePickerPointerEnd = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const gesture = expensePickerGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+
+    const shouldClose = gesture.draggingSheet && expensePickerDragOffset > 72
+    gesture.pointerId = null
+    gesture.tracking = false
+    gesture.draggingSheet = false
+    setExpensePickerDragOffset(0)
+    if (shouldClose) {
+      closeExpensePicker()
+    }
+  }, [closeExpensePicker, expensePickerDragOffset])
+
+  const handleExpensePickerPointerCancel = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const gesture = expensePickerGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.pointerId = null
+    gesture.tracking = false
+    gesture.draggingSheet = false
+    setExpensePickerDragOffset(0)
+  }, [])
+
+  const handleExpensePickerClickCapture = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    if (!expensePickerGestureRef.current.blockClick) return
+    event.preventDefault()
+    event.stopPropagation()
+    expensePickerGestureRef.current.blockClick = false
+  }, [])
 
   const submitIncome = useCallback(() => {
     if (isRunning) return
@@ -2383,12 +2483,22 @@ export const QuickAddScreen: React.FC<Props> = ({
               borderRadius: "16px 16px 0 0",
               borderTop: "1px solid rgba(15,23,42,0.08)",
               boxShadow: "0 -12px 30px rgba(15,23,42,0.2)",
-              maxHeight: "75vh",
+              height: "min(70dvh, calc(var(--app-height, 100dvh) - 24px))",
+              minHeight: "min(70dvh, calc(var(--app-height, 100dvh) - 24px))",
+              maxHeight: "min(70dvh, calc(var(--app-height, 100dvh) - 24px))",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
               paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 8px)",
+              transform: expensePickerDragOffset > 0 ? `translateY(${expensePickerDragOffset}px)` : "translateY(0)",
+              transition: expensePickerDragOffset > 0 ? "none" : "transform 160ms ease-out",
+              touchAction: "pan-y",
             }}
+            onPointerDown={handleExpensePickerPointerDown}
+            onPointerMove={handleExpensePickerPointerMove}
+            onPointerUp={handleExpensePickerPointerEnd}
+            onPointerCancel={handleExpensePickerPointerCancel}
+            onClickCapture={handleExpensePickerClickCapture}
             onClick={(event) => event.stopPropagation()}
           >
             <div
@@ -2420,7 +2530,17 @@ export const QuickAddScreen: React.FC<Props> = ({
                 Закрыть
               </button>
             </div>
-            <div style={{ padding: 12, overflowY: "auto", WebkitOverflowScrolling: "touch", minHeight: 0 }}>
+            <div
+              ref={expensePickerContentRef}
+              style={{
+                padding: 12,
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+                minHeight: 0,
+                flex: "1 1 auto",
+              }}
+            >
               {expensePicker === "account" ? (
                 <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
                   {accountTiles.map((acc) =>
