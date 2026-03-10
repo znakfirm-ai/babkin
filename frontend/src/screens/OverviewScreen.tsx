@@ -4727,25 +4727,6 @@ function TransactionsPanel({
                     }}
                   />
 
-                  <button
-                    type="button"
-                    onClick={openIncomeFromSourceDetails}
-                    style={{
-                      padding: "14px 16px",
-                      borderRadius: 12,
-                      border: "1px solid #0f172a",
-                      background: "#0f172a",
-                      color: "#fff",
-                      fontWeight: 700,
-                      width: isIncomeSourceDetailPage ? "calc(100% - 32px)" : "100%",
-                      cursor: "pointer",
-                      marginTop: isIncomeSourceDetailPage ? -20 : 12,
-                      marginBottom: isIncomeSourceDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
-                      alignSelf: isIncomeSourceDetailPage ? "center" : undefined,
-                    }}
-                  >
-                    Добавить операцию
-                  </button>
                 </div>
               ) : detailDebtor ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
@@ -5351,6 +5332,27 @@ function TransactionsPanel({
                   alignSelf: isAccountDetailPage ? "center" : undefined,
                 }}
                 onClick={openTransferFromAccountDetails}
+              >
+                Добавить операцию
+              </button>
+            )}
+            {detailIncomeSourceId && (
+              <button
+                type="button"
+                style={{
+                  width: isIncomeSourceDetailPage ? "calc(100% - 32px)" : "100%",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 700,
+                  marginTop: isIncomeSourceDetailPage ? -20 : 12,
+                  marginBottom: isIncomeSourceDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
+                  alignSelf: isIncomeSourceDetailPage ? "center" : undefined,
+                  cursor: "pointer",
+                }}
+                onClick={openIncomeFromSourceDetails}
               >
                 Добавить операцию
               </button>
