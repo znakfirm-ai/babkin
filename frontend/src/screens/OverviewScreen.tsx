@@ -783,7 +783,6 @@ function OverviewScreen({
   const [isAccountIconPickerOpen, setIsAccountIconPickerOpen] = useState(false)
   const [accountIconPickerClosing, setAccountIconPickerClosing] = useState(false)
   const [accountIconPickerDragOffset, setAccountIconPickerDragOffset] = useState(0)
-  const [accountSheetIntent, setAccountSheetIntent] = useState<null | "openAccountIconPicker" | "returnToAccountSheet">(null)
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryName, setCategoryName] = useState("")
@@ -1469,25 +1468,10 @@ function OverviewScreen({
     }
   }, [isDebtorSheetOpen, isDebtsPayableMode])
 
-  useEffect(() => {
-    if (!isAccountSheetOpen && accountSheetIntent === "openAccountIconPicker") {
-      setIsAccountIconPickerOpen(true)
-      setAccountSheetIntent(null)
-    }
-  }, [accountSheetIntent, isAccountSheetOpen])
-
-  useEffect(() => {
-    if (!isAccountIconPickerOpen && accountSheetIntent === "returnToAccountSheet") {
-      setIsAccountSheetOpen(true)
-      setAccountSheetIntent(null)
-    }
-  }, [accountSheetIntent, isAccountIconPickerOpen])
-
   const finalizeAccountIconPickerClose = useCallback(() => {
     setIsAccountIconPickerOpen(false)
     setAccountIconPickerClosing(false)
     setAccountIconPickerDragOffset(0)
-    setAccountSheetIntent("returnToAccountSheet")
   }, [])
 
   const requestCloseAccountIconPicker = useCallback(() => {
@@ -6184,7 +6168,7 @@ function TransactionsPanel({
               style={{
                 padding: 12,
                 display: "grid",
-                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
                 gap: 10,
                 overflowY: "auto",
                 overflowX: "hidden",
@@ -6881,8 +6865,7 @@ function TransactionsPanel({
                       <button
                         type="button"
                         onClick={() => {
-                          setAccountSheetIntent("openAccountIconPicker")
-                          setIsAccountSheetOpen(false)
+                          setIsAccountIconPickerOpen(true)
                         }}
                         style={{
                           padding: 12,
@@ -7174,8 +7157,7 @@ function TransactionsPanel({
                       <button
                         type="button"
                         onClick={() => {
-                          setAccountSheetIntent("openAccountIconPicker")
-                          setIsAccountSheetOpen(false)
+                          setIsAccountIconPickerOpen(true)
                         }}
                         style={{
                           padding: 12,
