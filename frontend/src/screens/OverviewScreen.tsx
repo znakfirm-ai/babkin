@@ -4736,12 +4736,11 @@ function TransactionsPanel({
                       border: "1px solid #0f172a",
                       background: "#0f172a",
                       color: "#fff",
-                      fontSize: 15,
                       fontWeight: 700,
-                      cursor: "pointer",
                       width: isIncomeSourceDetailPage ? "calc(100% - 32px)" : "100%",
-                      marginTop: isIncomeSourceDetailPage ? -8 : 2,
-                      marginBottom: isIncomeSourceDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 0,
+                      cursor: "pointer",
+                      marginTop: isIncomeSourceDetailPage ? -20 : 12,
+                      marginBottom: isIncomeSourceDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
                       alignSelf: isIncomeSourceDetailPage ? "center" : undefined,
                     }}
                   >
@@ -7936,10 +7935,7 @@ function TransactionsPanel({
                       cursor:
                         deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "not-allowed" : "pointer",
                       width: "100%",
-                      minHeight: 40,
-                      fontSize: 14,
                       fontWeight: 600,
-                      textAlign: "center",
                     }}
                   >
                     {deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "Удаляем…" : "Удалить"}
@@ -7954,10 +7950,6 @@ function TransactionsPanel({
                       background: "#fff",
                       cursor: "pointer",
                       width: "100%",
-                      minHeight: 40,
-                      fontSize: 14,
-                      fontWeight: 600,
-                      textAlign: "center",
                     }}
                   >
                     Отмена
@@ -7967,17 +7959,14 @@ function TransactionsPanel({
                     onClick={handleSaveIncomeSource}
                     disabled={isSavingIncomeSource || isIncomeSaveRunning}
                     style={{
-                      padding: "10px 12px",
+                      padding: "10px 14px",
                       borderRadius: 10,
                       border: "1px solid #e5e7eb",
                       background: isSavingIncomeSource || isIncomeSaveRunning ? "#e5e7eb" : "#0f172a",
                       color: isSavingIncomeSource || isIncomeSaveRunning ? "#6b7280" : "#fff",
                       cursor: isSavingIncomeSource || isIncomeSaveRunning ? "not-allowed" : "pointer",
                       width: "100%",
-                      minHeight: 40,
-                      fontSize: 14,
                       fontWeight: 600,
-                      textAlign: "center",
                     }}
                   >
                     {isSavingIncomeSource || isIncomeSaveRunning ? "Сохраняем…" : "Сохранить"}
