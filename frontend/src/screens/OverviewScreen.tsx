@@ -692,6 +692,12 @@ type OverviewScreenProps = {
   onConsumeAutoOpenGoalsList?: () => void
   autoOpenGoalCreate?: boolean
   onConsumeAutoOpenGoalCreate?: () => void
+  autoOpenAccountCreate?: boolean
+  onConsumeAutoOpenAccountCreate?: () => void
+  autoOpenCategoryCreate?: boolean
+  onConsumeAutoOpenCategoryCreate?: () => void
+  onAccountCreated?: () => void
+  onCategoryCreated?: () => void
   goalsListMode?: "goals" | "debtsReceivable" | "debtsPayable"
   skipGoalsListRefetch?: boolean
   workspaceAccountLabel?: string
@@ -726,6 +732,12 @@ function OverviewScreen({
   onConsumeAutoOpenGoalsList,
   autoOpenGoalCreate = false,
   onConsumeAutoOpenGoalCreate,
+  autoOpenAccountCreate = false,
+  onConsumeAutoOpenAccountCreate,
+  autoOpenCategoryCreate = false,
+  onConsumeAutoOpenCategoryCreate,
+  onAccountCreated,
+  onCategoryCreated,
   goalsListMode = "goals",
   skipGoalsListRefetch = false,
   workspaceAccountLabel = "Личный",
@@ -909,6 +921,18 @@ function OverviewScreen({
     },
     [accounts],
   )
+
+  const openCreateAccountSheet = useCallback(() => {
+    setEditingAccountId(null)
+    setName("")
+    setBalance("0")
+    setType("cash")
+    setAccountColor(accountColorOptions[0])
+    setAccountIcon(null)
+    setAccountActionError(null)
+    setIsConfirmingDelete(false)
+    setIsAccountSheetOpen(true)
+  }, [])
 
 
   const closeAccountSheet = useCallback(() => {
@@ -1417,6 +1441,24 @@ function OverviewScreen({
       setAccountSheetIntent(null)
     }
   }, [accountSheetIntent, isAccountIconPickerOpen])
+
+  const autoOpenAccountCreateInFlightRef = useRef(false)
+  useEffect(() => {
+    if (!autoOpenAccountCreate || autoOpenAccountCreateInFlightRef.current) return
+    autoOpenAccountCreateInFlightRef.current = true
+    openCreateAccountSheet()
+    onConsumeAutoOpenAccountCreate?.()
+    autoOpenAccountCreateInFlightRef.current = false
+  }, [autoOpenAccountCreate, onConsumeAutoOpenAccountCreate, openCreateAccountSheet])
+
+  const autoOpenCategoryCreateInFlightRef = useRef(false)
+  useEffect(() => {
+    if (!autoOpenCategoryCreate || autoOpenCategoryCreateInFlightRef.current) return
+    autoOpenCategoryCreateInFlightRef.current = true
+    openCreateCategory()
+    onConsumeAutoOpenCategoryCreate?.()
+    autoOpenCategoryCreateInFlightRef.current = false
+  }, [autoOpenCategoryCreate, onConsumeAutoOpenCategoryCreate, openCreateCategory])
 
   useEffect(() => {
     if (!detailGoalId && pendingGoalEdit) {
@@ -1927,6 +1969,7 @@ function OverviewScreen({
     setCategorySaveError(null)
     setIsSavingCategory(true)
     try {
+      const isCreateMode = categorySheetMode === "create"
       if (categorySheetMode === "create") {
         await createCategory(token, { name: trimmed, kind: "expense", icon: categoryIcon ?? null, budget: budgetNumber })
       } else if (categorySheetMode === "edit" && editingCategoryId) {
@@ -1946,6 +1989,9 @@ function OverviewScreen({
       }
       await refetchCategories()
       closeCategorySheet()
+      if (isCreateMode) {
+        onCategoryCreated?.()
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         return
@@ -1971,6 +2017,7 @@ function OverviewScreen({
     categorySheetMode,
     closeCategorySheet,
     editingCategoryId,
+    onCategoryCreated,
     refetchCategories,
     runCategorySave,
     token,
@@ -2411,6 +2458,7 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
       const balanceNumber = Math.round(parsed * 100) / 100
       try {
         setAccountActionError(null)
+        const isCreateMode = !editingAccountId
         const currentAccount = accounts.find((a) => a.id === editingAccountId)
         const currentBalance = currentAccount?.balance.amount
         const balanceChanged =
@@ -2446,6 +2494,9 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
         }
         await refetchAccountsSeq()
         closeAccountSheet()
+        if (isCreateMode) {
+          onAccountCreated?.()
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return
         const msg = err instanceof Error ? err.message : "Не удалось сохранить счёт"
@@ -2470,6 +2521,7 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
     refetchAccountsSeq,
     runAccountFlight,
     type,
+    onAccountCreated,
   ])
 
   const maxExpenseAmount = Math.max(0, ...expenseItems.map((i) => i.amount))
@@ -3341,17 +3393,7 @@ function TransactionsPanel({
         items={[...accountsToRender, addCard("accounts")]}
         rowScroll
         rowClass="overview-accounts-row"
-        onAddAccounts={() => {
-          setEditingAccountId(null)
-          setName("")
-          setBalance("0")
-          setType("cash")
-          setAccountColor(accountColorOptions[0])
-          setAccountIcon(null)
-          setAccountActionError(null)
-          setIsConfirmingDelete(false)
-          setIsAccountSheetOpen(true)
-        }}
+        onAddAccounts={openCreateAccountSheet}
         onAccountClick={(id, title) => {
           setDetailAccountId(id)
           setDetailTitle(title || "Счёт")

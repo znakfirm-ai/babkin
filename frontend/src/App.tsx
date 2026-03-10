@@ -302,6 +302,10 @@ function App() {
   const [quickAddInitialIncomeSourceId, setQuickAddInitialIncomeSourceId] = useState<string | null>(null)
   const [quickAddInitialCategoryId, setQuickAddInitialCategoryId] = useState<string | null>(null)
   const [quickAddInitialDebtAction, setQuickAddInitialDebtAction] = useState<QuickAddDebtAction>("receivable")
+  const [quickAddReopenExpensePicker, setQuickAddReopenExpensePicker] = useState<"account" | "category" | null>(null)
+  const [quickAddCreateReturnTarget, setQuickAddCreateReturnTarget] = useState<"account" | "category" | null>(null)
+  const [autoOpenAccountCreate, setAutoOpenAccountCreate] = useState(false)
+  const [autoOpenCategoryCreate, setAutoOpenCategoryCreate] = useState(false)
   const [autoOpenGoalsList, setAutoOpenGoalsList] = useState(false)
   const [autoOpenGoalCreate, setAutoOpenGoalCreate] = useState(false)
   const [savedIncomeReportState, setSavedIncomeReportState] = useState<{
@@ -1588,6 +1592,45 @@ function App() {
     },
     [activeScreen],
   )
+
+  const openOverviewAccountCreateFromQuickAdd = useCallback(() => {
+    setQuickAddCreateReturnTarget("account")
+    setAutoOpenAccountCreate(true)
+    setActiveNav("overview")
+    setActiveScreen("overview")
+  }, [])
+
+  const openOverviewCategoryCreateFromQuickAdd = useCallback(() => {
+    setQuickAddCreateReturnTarget("category")
+    setAutoOpenCategoryCreate(true)
+    setActiveNav("overview")
+    setActiveScreen("overview")
+  }, [])
+
+  const handleOverviewAccountCreated = useCallback(() => {
+    if (quickAddCreateReturnTarget !== "account") return
+    setQuickAddCreateReturnTarget(null)
+    setQuickAddInitialTab("expense")
+    setQuickAddInitialIncomeSourceId(null)
+    setQuickAddInitialCategoryId(null)
+    setQuickAddInitialDebtAction("receivable")
+    setQuickAddReopenExpensePicker("account")
+    setActiveNav("add")
+    setActiveScreen("quick-add")
+  }, [quickAddCreateReturnTarget])
+
+  const handleOverviewCategoryCreated = useCallback(() => {
+    if (quickAddCreateReturnTarget !== "category") return
+    setQuickAddCreateReturnTarget(null)
+    setQuickAddInitialTab("expense")
+    setQuickAddInitialIncomeSourceId(null)
+    setQuickAddInitialCategoryId(null)
+    setQuickAddInitialDebtAction("receivable")
+    setQuickAddReopenExpensePicker("category")
+    setActiveNav("add")
+    setActiveScreen("quick-add")
+  }, [quickAddCreateReturnTarget])
+
   const overviewDataLoadingForActiveSpace =
     activeOverviewUiPhase === "loading" || activeOverviewUiPhase === "idle"
 
@@ -1692,6 +1735,12 @@ function App() {
             }}
             autoOpenGoalCreate={autoOpenGoalCreate}
             onConsumeAutoOpenGoalCreate={() => setAutoOpenGoalCreate(false)}
+            autoOpenAccountCreate={autoOpenAccountCreate}
+            onConsumeAutoOpenAccountCreate={() => setAutoOpenAccountCreate(false)}
+            autoOpenCategoryCreate={autoOpenCategoryCreate}
+            onConsumeAutoOpenCategoryCreate={() => setAutoOpenCategoryCreate(false)}
+            onAccountCreated={handleOverviewAccountCreated}
+            onCategoryCreated={handleOverviewCategoryCreated}
             goalsListMode={goalsListMode}
             skipGoalsListRefetch={skipGoalsListRefetch}
             workspaceAccountLabel={accountLabel}
@@ -1779,6 +1828,12 @@ function App() {
             }}
             autoOpenGoalCreate={autoOpenGoalCreate}
             onConsumeAutoOpenGoalCreate={() => setAutoOpenGoalCreate(false)}
+            autoOpenAccountCreate={autoOpenAccountCreate}
+            onConsumeAutoOpenAccountCreate={() => setAutoOpenAccountCreate(false)}
+            autoOpenCategoryCreate={autoOpenCategoryCreate}
+            onConsumeAutoOpenCategoryCreate={() => setAutoOpenCategoryCreate(false)}
+            onAccountCreated={handleOverviewAccountCreated}
+            onCategoryCreated={handleOverviewCategoryCreated}
             goalsListMode={goalsListMode}
             skipGoalsListRefetch={skipGoalsListRefetch}
             workspaceAccountLabel={accountLabel}
@@ -1806,6 +1861,10 @@ function App() {
               setActiveNav("overview")
               setActiveScreen("overview")
             }}
+            onOpenCreateAccount={openOverviewAccountCreateFromQuickAdd}
+            onOpenCreateCategory={openOverviewCategoryCreateFromQuickAdd}
+            reopenExpensePicker={quickAddReopenExpensePicker}
+            onConsumeReopenExpensePicker={() => setQuickAddReopenExpensePicker(null)}
           />
         )
       case "reports":
