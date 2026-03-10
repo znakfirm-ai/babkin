@@ -3635,6 +3635,7 @@ function TransactionsPanel({
                 flexDirection: "column",
                 gap: 10,
                 padding: isAccountDetailPage ? "0 16px 8px" : undefined,
+                marginBottom: isAccountDetailPage ? 20 : undefined,
                 WebkitOverflowScrolling: "touch",
                 overscrollBehaviorY: "contain",
               }}
@@ -4921,16 +4922,16 @@ function TransactionsPanel({
               <button
                 type="button"
                 style={{
-                  width: "100%",
+                  width: isAccountDetailPage ? "calc(100% - 32px)" : "100%",
                   padding: "14px 16px",
                   borderRadius: 12,
                   border: "1px solid #0f172a",
                   background: "#0f172a",
                   color: "#fff",
                   fontWeight: 700,
-                  marginTop: isAccountDetailPage ? 0 : 12,
+                  marginTop: isAccountDetailPage ? -20 : 12,
                   marginBottom: isAccountDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
-                  marginInline: isAccountDetailPage ? 16 : undefined,
+                  alignSelf: isAccountDetailPage ? "center" : undefined,
                 }}
                 onClick={openTransferFromAccountDetails}
               >
