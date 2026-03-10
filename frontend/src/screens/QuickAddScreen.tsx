@@ -191,6 +191,8 @@ export const QuickAddScreen: React.FC<Props> = ({
   const transferGoalListRef = useRef<HTMLDivElement | null>(null)
   const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
   const debtPayableListRef = useRef<HTMLDivElement | null>(null)
+  const expensePickerSheetRef = useRef<HTMLDivElement | null>(null)
+  const expensePickerOverlayRef = useRef<HTMLDivElement | null>(null)
   const expensePickerContentRef = useRef<HTMLDivElement | null>(null)
   const expensePickerGestureRef = useRef<{
     pointerId: number | null
@@ -206,6 +208,15 @@ export const QuickAddScreen: React.FC<Props> = ({
     tracking: false,
     draggingSheet: false,
     blockClick: false,
+  })
+  const expensePickerTouchRef = useRef<{
+    identifier: number | null
+    startX: number
+    startY: number
+  }>({
+    identifier: null,
+    startX: 0,
+    startY: 0,
   })
   const choiceGestureRef = useRef<{
     tracking: boolean
@@ -397,6 +408,86 @@ export const QuickAddScreen: React.FC<Props> = ({
     expensePickerGestureRef.current.tracking = false
     expensePickerGestureRef.current.draggingSheet = false
     expensePickerGestureRef.current.blockClick = false
+  }, [expensePicker])
+
+  useEffect(() => {
+    if (!expensePicker) return
+    const overlay = expensePickerOverlayRef.current
+    const sheet = expensePickerSheetRef.current
+    if (!overlay || !sheet) return
+
+    const resetTouchState = () => {
+      expensePickerTouchRef.current.identifier = null
+      expensePickerTouchRef.current.startX = 0
+      expensePickerTouchRef.current.startY = 0
+    }
+
+    const getTrackedTouch = (event: TouchEvent) => {
+      const trackedId = expensePickerTouchRef.current.identifier
+      if (trackedId == null) return event.touches[0] ?? event.changedTouches[0] ?? null
+      for (let i = 0; i < event.touches.length; i += 1) {
+        const touch = event.touches.item(i)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      for (let i = 0; i < event.changedTouches.length; i += 1) {
+        const touch = event.changedTouches.item(i)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      return null
+    }
+
+    const onTouchStartCapture = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0]
+      if (!touch) return
+      expensePickerTouchRef.current.identifier = touch.identifier
+      expensePickerTouchRef.current.startX = touch.clientX
+      expensePickerTouchRef.current.startY = touch.clientY
+    }
+
+    const onTouchMoveCapture = (event: TouchEvent) => {
+      const touch = getTrackedTouch(event)
+      if (!touch) return
+      const dx = touch.clientX - expensePickerTouchRef.current.startX
+      const dy = touch.clientY - expensePickerTouchRef.current.startY
+      if (Math.abs(dy) <= Math.abs(dx)) return
+
+      const targetNode = event.target instanceof Node ? event.target : null
+      const content = expensePickerContentRef.current
+      const targetInSheet = targetNode ? sheet.contains(targetNode) : false
+      const targetInContent = targetNode ? Boolean(content?.contains(targetNode)) : false
+
+      if (!targetInSheet || !targetInContent || !content) {
+        event.preventDefault()
+        return
+      }
+
+      const atTop = content.scrollTop <= 0
+      const atBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 1
+      if ((dy > 0 && atTop) || (dy < 0 && atBottom)) {
+        event.preventDefault()
+      }
+    }
+
+    const onTouchEndCapture = () => {
+      resetTouchState()
+    }
+
+    const onTouchCancelCapture = () => {
+      resetTouchState()
+    }
+
+    overlay.addEventListener("touchstart", onTouchStartCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchmove", onTouchMoveCapture, { capture: true, passive: false })
+    overlay.addEventListener("touchend", onTouchEndCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchcancel", onTouchCancelCapture, { capture: true, passive: true })
+
+    return () => {
+      overlay.removeEventListener("touchstart", onTouchStartCapture, true)
+      overlay.removeEventListener("touchmove", onTouchMoveCapture, true)
+      overlay.removeEventListener("touchend", onTouchEndCapture, true)
+      overlay.removeEventListener("touchcancel", onTouchCancelCapture, true)
+      resetTouchState()
+    }
   }, [expensePicker])
 
   useEffect(() => {
@@ -823,6 +914,9 @@ export const QuickAddScreen: React.FC<Props> = ({
     expensePickerGestureRef.current.tracking = false
     expensePickerGestureRef.current.draggingSheet = false
     expensePickerGestureRef.current.blockClick = false
+    expensePickerTouchRef.current.identifier = null
+    expensePickerTouchRef.current.startX = 0
+    expensePickerTouchRef.current.startY = 0
   }, [])
 
   const selectExpenseAccount = useCallback((accountId: string) => {
@@ -854,6 +948,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   }, [selectedAccountId, selectedCategoryId, submitExpense])
 
   const handleExpensePickerPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
     const gesture = expensePickerGestureRef.current
     gesture.pointerId = event.pointerId
     gesture.startX = event.clientX
@@ -864,6 +959,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   }, [])
 
   const handleExpensePickerPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
     const gesture = expensePickerGestureRef.current
     if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
 
@@ -892,6 +988,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   }, [])
 
   const handleExpensePickerPointerEnd = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
     const gesture = expensePickerGestureRef.current
     if (gesture.pointerId !== event.pointerId) return
 
@@ -906,6 +1003,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   }, [closeExpensePicker, expensePickerDragOffset])
 
   const handleExpensePickerPointerCancel = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
     const gesture = expensePickerGestureRef.current
     if (gesture.pointerId !== event.pointerId) return
     gesture.pointerId = null
@@ -2465,6 +2563,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         <div
           role="dialog"
           aria-modal="true"
+          ref={expensePickerOverlayRef}
           style={{
             position: "fixed",
             inset: 0,
@@ -2477,6 +2576,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           onClick={closeExpensePicker}
         >
           <div
+            ref={expensePickerSheetRef}
             style={{
               width: "min(480px, 100%)",
               background: "#fff",
