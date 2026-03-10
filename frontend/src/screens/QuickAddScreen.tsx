@@ -243,10 +243,8 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [expenseAccountError, setExpenseAccountError] = useState(false)
   const [expenseCategoryError, setExpenseCategoryError] = useState(false)
   const [expensePickerDragOffset, setExpensePickerDragOffset] = useState(0)
-  const [footerHeightPx, setFooterHeightPx] = useState(148)
   const goalsFetchInFlight = useRef(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const footerRef = useRef<HTMLDivElement | null>(null)
   const amountInputRef = useRef<HTMLInputElement | null>(null)
   const expensePickerSheetRef = useRef<HTMLDivElement | null>(null)
   const expensePickerOverlayRef = useRef<HTMLDivElement | null>(null)
@@ -389,35 +387,6 @@ export const QuickAddScreen: React.FC<Props> = ({
   const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts])
   const categoriesById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
   const incomeSourcesById = useMemo(() => Object.fromEntries(incomeSources.map((s) => [s.id, s])), [incomeSources])
-  const footerSectionStyle = useMemo(
-    () =>
-      ({
-        borderTop: "1px solid #e5e7eb",
-        paddingTop: 12,
-        display: "grid",
-        gap: 6,
-      }) as const,
-    [],
-  )
-  const quickAddFooterDockStyle = useMemo(
-    () =>
-      ({
-        ...footerSectionStyle,
-        position: "fixed",
-        left: 0,
-        right: 0,
-        width: "100%",
-        maxWidth: 480,
-        marginInline: "auto",
-        zIndex: 140,
-        bottom: 0,
-        background: "#f5f6f8",
-        padding: "12px 16px calc(env(safe-area-inset-bottom,0px) + 8px)",
-        boxShadow: "0 -8px 20px rgba(15,23,42,0.06)",
-      }) as const,
-    [footerSectionStyle],
-  )
-
   useEffect(() => {
     if (!selectedCategoryId) return
     const existsInActive = expenseCategories.some((category) => category.id === selectedCategoryId)
@@ -564,15 +533,6 @@ export const QuickAddScreen: React.FC<Props> = ({
       setSelectedPayableDebtorId(null)
     }
   }, [activePayableDebtors, selectedPayableDebtorId])
-
-  useEffect(() => {
-    const footerNode = footerRef.current
-    if (!footerNode) return
-    const nextHeight = Math.round(footerNode.getBoundingClientRect().height)
-    if (nextHeight > 0) {
-      setFooterHeightPx(nextHeight)
-    }
-  }, [activeTab, error, isAmountFocused, isRunning])
 
   const isEditableElement = (element: Element | null): element is HTMLElement =>
     element instanceof HTMLElement && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable)
@@ -1456,18 +1416,6 @@ export const QuickAddScreen: React.FC<Props> = ({
     )
   }, [])
 
-  const quickAddAmountEntryDockStyle = useMemo(
-    () =>
-      ({
-        ...quickAddFooterDockStyle,
-        zIndex: 260,
-        boxShadow: "0 -12px 28px rgba(15,23,42,0.14)",
-      }) as const,
-    [quickAddFooterDockStyle],
-  )
-
-  const activeFooterStyle = isAmountFocused ? quickAddAmountEntryDockStyle : quickAddFooterDockStyle
-
   const labelMap: Record<QuickAddTab, string> = {
     expense: "Расход",
     income: "Доход",
@@ -2029,7 +1977,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           overscrollBehaviorY: "contain",
           touchAction: "pan-y",
           WebkitOverflowScrolling: "touch",
-          paddingBottom: activeTab === "expense" || activeTab === "income" || activeTab === "transfer" ? 16 : footerHeightPx + 16,
+          paddingBottom: 16,
         }}
       >
 
@@ -2484,6 +2432,23 @@ export const QuickAddScreen: React.FC<Props> = ({
                 renderEmptyChoiceTile("Кому", () => openExpensePicker("debt-payable-debtor"))
               )}
             </div>
+            <button
+              type="button"
+              disabled={!activeTabReady || isRunning}
+              onClick={handleActiveTabSubmit}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                borderRadius: 12,
+                border: "none",
+                background: activeTabReady && !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                color: activeTabReady && !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
+                fontWeight: 700,
+                cursor: activeTabReady && !isRunning ? "pointer" : "not-allowed",
+              }}
+            >
+              {isRunning ? "Сохранение..." : "Сохранить"}
+            </button>
           </div>
         ) : activeTab === "goal" ? (
           <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
@@ -2537,18 +2502,6 @@ export const QuickAddScreen: React.FC<Props> = ({
                 renderEmptyChoiceTile("Цель", () => openExpensePicker("goal-target"))
               )}
             </div>
-          </div>
-        ) : (
-          <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
-        )}
-      </div>
-      {activeTab !== "expense" && activeTab !== "income" && activeTab !== "transfer" ? (
-        <div
-          data-quick-add-footer="1"
-          ref={footerRef}
-          style={activeFooterStyle}
-        >
-          <div style={{ paddingTop: 8 }}>
             <button
               type="button"
               disabled={!activeTabReady || isRunning}
@@ -2564,11 +2517,13 @@ export const QuickAddScreen: React.FC<Props> = ({
                 cursor: activeTabReady && !isRunning ? "pointer" : "not-allowed",
               }}
             >
-              {isRunning ? "Сохранение..." : "Готово"}
+              {isRunning ? "Сохранение..." : "Сохранить"}
             </button>
           </div>
-        </div>
-      ) : null}
+        ) : (
+          <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
+        )}
+      </div>
       {expensePicker ? (
         <div
           role="dialog"
