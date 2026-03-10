@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { useAppStore } from "../store/useAppStore"
 import type { Debtor, Goal, Transaction } from "../types/finance"
@@ -781,6 +781,8 @@ function OverviewScreen({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [accountActionError, setAccountActionError] = useState<string | null>(null)
   const [isAccountIconPickerOpen, setIsAccountIconPickerOpen] = useState(false)
+  const [accountIconPickerClosing, setAccountIconPickerClosing] = useState(false)
+  const [accountIconPickerDragOffset, setAccountIconPickerDragOffset] = useState(0)
   const [accountSheetIntent, setAccountSheetIntent] = useState<null | "openAccountIconPicker" | "returnToAccountSheet">(null)
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
@@ -857,6 +859,33 @@ function OverviewScreen({
   const accountCustomToInputRef = useRef<HTMLInputElement | null>(null)
   const accountPeriodButtonRef = useRef<HTMLButtonElement | null>(null)
   const [accountPeriodPopoverWidth, setAccountPeriodPopoverWidth] = useState<number | null>(null)
+  const accountIconPickerOverlayRef = useRef<HTMLDivElement | null>(null)
+  const accountIconPickerSheetRef = useRef<HTMLDivElement | null>(null)
+  const accountIconPickerContentRef = useRef<HTMLDivElement | null>(null)
+  const accountIconPickerGestureRef = useRef<{
+    pointerId: number | null
+    startX: number
+    startY: number
+    tracking: boolean
+    draggingSheet: boolean
+    blockClick: boolean
+  }>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    draggingSheet: false,
+    blockClick: false,
+  })
+  const accountIconPickerTouchRef = useRef<{
+    identifier: number | null
+    startX: number
+    startY: number
+  }>({
+    identifier: null,
+    startX: 0,
+    startY: 0,
+  })
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
   const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
@@ -1453,6 +1482,190 @@ function OverviewScreen({
       setAccountSheetIntent(null)
     }
   }, [accountSheetIntent, isAccountIconPickerOpen])
+
+  const finalizeAccountIconPickerClose = useCallback(() => {
+    setIsAccountIconPickerOpen(false)
+    setAccountIconPickerClosing(false)
+    setAccountIconPickerDragOffset(0)
+    setAccountSheetIntent("returnToAccountSheet")
+  }, [])
+
+  const requestCloseAccountIconPicker = useCallback(() => {
+    if (!isAccountIconPickerOpen || accountIconPickerClosing) return
+    setAccountIconPickerClosing(true)
+    setAccountIconPickerDragOffset(0)
+  }, [accountIconPickerClosing, isAccountIconPickerOpen])
+
+  useEffect(() => {
+    if (isAccountIconPickerOpen) return
+    setAccountIconPickerClosing(false)
+    setAccountIconPickerDragOffset(0)
+    accountIconPickerGestureRef.current.pointerId = null
+    accountIconPickerGestureRef.current.tracking = false
+    accountIconPickerGestureRef.current.draggingSheet = false
+    accountIconPickerGestureRef.current.blockClick = false
+    accountIconPickerTouchRef.current.identifier = null
+    accountIconPickerTouchRef.current.startX = 0
+    accountIconPickerTouchRef.current.startY = 0
+  }, [isAccountIconPickerOpen])
+
+  useEffect(() => {
+    if (!isAccountIconPickerOpen) return
+    const overlay = accountIconPickerOverlayRef.current
+    const sheet = accountIconPickerSheetRef.current
+    if (!overlay || !sheet) return
+
+    const resetTouchState = () => {
+      accountIconPickerTouchRef.current.identifier = null
+      accountIconPickerTouchRef.current.startX = 0
+      accountIconPickerTouchRef.current.startY = 0
+    }
+
+    const getTrackedTouch = (event: TouchEvent) => {
+      const trackedId = accountIconPickerTouchRef.current.identifier
+      if (trackedId == null) return event.touches[0] ?? event.changedTouches[0] ?? null
+      for (let index = 0; index < event.touches.length; index += 1) {
+        const touch = event.touches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      for (let index = 0; index < event.changedTouches.length; index += 1) {
+        const touch = event.changedTouches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      return null
+    }
+
+    const onTouchStartCapture = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0]
+      if (!touch) return
+      accountIconPickerTouchRef.current.identifier = touch.identifier
+      accountIconPickerTouchRef.current.startX = touch.clientX
+      accountIconPickerTouchRef.current.startY = touch.clientY
+    }
+
+    const onTouchMoveCapture = (event: TouchEvent) => {
+      const touch = getTrackedTouch(event)
+      if (!touch) return
+      const dx = touch.clientX - accountIconPickerTouchRef.current.startX
+      const dy = touch.clientY - accountIconPickerTouchRef.current.startY
+      if (Math.abs(dy) <= Math.abs(dx)) return
+
+      const targetNode = event.target instanceof Node ? event.target : null
+      const content = accountIconPickerContentRef.current
+      const targetInSheet = targetNode ? sheet.contains(targetNode) : false
+      const targetInContent = targetNode ? Boolean(content?.contains(targetNode)) : false
+
+      if (!targetInSheet || !targetInContent || !content) {
+        event.preventDefault()
+        return
+      }
+
+      const atTop = content.scrollTop <= 0
+      const atBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 1
+      if ((dy > 0 && atTop) || (dy < 0 && atBottom)) {
+        event.preventDefault()
+      }
+    }
+
+    const onTouchEndCapture = () => {
+      resetTouchState()
+    }
+
+    const onTouchCancelCapture = () => {
+      resetTouchState()
+    }
+
+    overlay.addEventListener("touchstart", onTouchStartCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchmove", onTouchMoveCapture, { capture: true, passive: false })
+    overlay.addEventListener("touchend", onTouchEndCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchcancel", onTouchCancelCapture, { capture: true, passive: true })
+
+    return () => {
+      overlay.removeEventListener("touchstart", onTouchStartCapture, true)
+      overlay.removeEventListener("touchmove", onTouchMoveCapture, true)
+      overlay.removeEventListener("touchend", onTouchEndCapture, true)
+      overlay.removeEventListener("touchcancel", onTouchCancelCapture, true)
+      resetTouchState()
+    }
+  }, [isAccountIconPickerOpen])
+
+  const handleAccountIconPickerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = accountIconPickerGestureRef.current
+    gesture.pointerId = event.pointerId
+    gesture.startX = event.clientX
+    gesture.startY = event.clientY
+    gesture.tracking = true
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+  }, [])
+
+  const handleAccountIconPickerPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = accountIconPickerGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
+    const content = accountIconPickerContentRef.current
+    const atTop = !content || content.scrollTop <= 0
+
+    if (!gesture.draggingSheet) {
+      if (absDy < 8 || absDy <= absDx) return
+      if (dy > 0 && atTop) {
+        gesture.draggingSheet = true
+        gesture.blockClick = true
+      } else {
+        gesture.tracking = false
+        gesture.pointerId = null
+        return
+      }
+    }
+
+    event.preventDefault()
+    setAccountIconPickerDragOffset(Math.max(0, dy))
+  }, [])
+
+  const handleAccountIconPickerPointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.stopPropagation()
+      const gesture = accountIconPickerGestureRef.current
+      if (gesture.pointerId !== event.pointerId) return
+
+      const shouldClose = gesture.draggingSheet && accountIconPickerDragOffset > 72
+      gesture.pointerId = null
+      gesture.tracking = false
+      gesture.draggingSheet = false
+      gesture.blockClick = false
+
+      if (shouldClose) {
+        requestCloseAccountIconPicker()
+        return
+      }
+      setAccountIconPickerDragOffset(0)
+    },
+    [accountIconPickerDragOffset, requestCloseAccountIconPicker],
+  )
+
+  const handleAccountIconPickerPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = accountIconPickerGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.pointerId = null
+    gesture.tracking = false
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+    setAccountIconPickerDragOffset(0)
+  }, [])
+
+  const handleAccountIconPickerClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!accountIconPickerGestureRef.current.blockClick) return
+    event.preventDefault()
+    event.stopPropagation()
+    accountIconPickerGestureRef.current.blockClick = false
+  }, [])
 
   const autoOpenAccountCreateInFlightRef = useRef(false)
   useEffect(() => {
@@ -5886,6 +6099,7 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
+          ref={accountIconPickerOverlayRef}
           style={{
             position: "fixed",
             inset: 0,
@@ -5893,39 +6107,91 @@ function TransactionsPanel({
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            zIndex: 45,
-            padding: "0 12px 12px",
+            zIndex: 250,
+            opacity: accountIconPickerClosing ? 0 : 1,
+            transition: "opacity 180ms ease-out",
           }}
-          onClick={() => {
-            setIsAccountIconPickerOpen(false)
-            setAccountSheetIntent("returnToAccountSheet")
-          }}
+          onClick={requestCloseAccountIconPicker}
         >
           <div
+            ref={accountIconPickerSheetRef}
             style={{
-              width: "100%",
-              maxWidth: 520,
-              margin: "0 auto",
+              width: "min(480px, 100%)",
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              padding: 16,
-              boxShadow: "none",
-              maxHeight: "70vh",
-              overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              borderRadius: "16px 16px 0 0",
+              borderTop: "1px solid rgba(15,23,42,0.08)",
+              boxShadow: "0 -12px 30px rgba(15,23,42,0.2)",
+              height: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              minHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              maxHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+              transform: accountIconPickerClosing
+                ? "translateY(100%)"
+                : accountIconPickerDragOffset > 0
+                ? `translateY(${accountIconPickerDragOffset}px)`
+                : "translateY(0)",
+              transition:
+                accountIconPickerDragOffset > 0 && !accountIconPickerClosing
+                  ? "none"
+                  : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              touchAction: "pan-y",
+            }}
+            onPointerDown={handleAccountIconPickerPointerDown}
+            onPointerMove={handleAccountIconPickerPointerMove}
+            onPointerUp={handleAccountIconPickerPointerEnd}
+            onPointerCancel={handleAccountIconPickerPointerCancel}
+            onClickCapture={handleAccountIconPickerClickCapture}
+            onTransitionEnd={(event) => {
+              if (event.propertyName !== "transform") return
+              if (!accountIconPickerClosing) return
+              finalizeAccountIconPickerClose()
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выбор иконки</div>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
                 gap: 10,
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>Выбор иконки</div>
+              <button
+                type="button"
+                onClick={requestCloseAccountIconPicker}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#0f172a",
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
+            <div
+              ref={accountIconPickerContentRef}
+              style={{
+                padding: 12,
+                display: "grid",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gap: 10,
+                overflowY: "auto",
+                overflowX: "hidden",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+                minHeight: 0,
+                flex: "1 1 auto",
               }}
             >
               {(accountIconKeys ?? []).length === 0 ? (
@@ -5937,8 +6203,7 @@ function TransactionsPanel({
                     type="button"
                     onClick={() => {
                       setAccountIcon(key)
-                      setIsAccountIconPickerOpen(false)
-                      setAccountSheetIntent("returnToAccountSheet")
+                      requestCloseAccountIconPicker()
                     }}
                     style={{
                       padding: 10,
@@ -5955,24 +6220,6 @@ function TransactionsPanel({
                 ))
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setIsAccountIconPickerOpen(false)
-                setAccountSheetIntent("returnToAccountSheet")
-              }}
-              style={{
-                marginTop: 12,
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                cursor: "pointer",
-                width: "100%",
-              }}
-            >
-              Назад
-            </button>
           </div>
         </div>
       ) : null}
