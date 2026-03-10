@@ -1,0 +1,55 @@
+.page-overlay-shell {
+  contain: layout paint;
+}
+
+.page-overlay-shell--safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.page-overlay-shell--safe-bottom .page-overlay-shell__scroll {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.page-overlay-shell__header {
+  flex-shrink: 0;
+}
+
+.page-overlay-shell__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.page-overlay-shell__scroll {
+  min-width: 0;
+}
+
+.page-overlay-shell--animated {
+  animation: page-overlay-shell-enter 200ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.page-overlay-shell--animated.page-overlay-shell--closing {
+  animation: page-overlay-shell-exit 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes page-overlay-shell-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-overlay-shell-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
