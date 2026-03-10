@@ -771,6 +771,7 @@ function OverviewScreen({
     currency,
   } = useAppStore()
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false)
+  const [accountSheetPresentation, setAccountSheetPresentation] = useState<"sheet" | "page">("sheet")
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null)
   const [name, setName] = useState("")
   const [type, setType] = useState("cash")
@@ -913,7 +914,7 @@ function OverviewScreen({
   }, [customFromDraft, customToDraft])
 
   const openEditAccountSheet = useCallback(
-    (accountId: string) => {
+    (accountId: string, presentation: "sheet" | "page" = "sheet") => {
       const acc = accounts.find((a) => a.id === accountId)
       setEditingAccountId(accountId)
       setName(acc?.name ?? "")
@@ -925,12 +926,13 @@ function OverviewScreen({
       setAccountIcon((acc as { icon?: string | null } | undefined)?.icon ?? null)
       setIsConfirmingDelete(false)
       setAccountActionError(null)
+      setAccountSheetPresentation(presentation)
       setIsAccountSheetOpen(true)
     },
     [accounts],
   )
 
-  const openCreateAccountSheet = useCallback(() => {
+  const openCreateAccountSheet = useCallback((presentation: "sheet" | "page" = "sheet") => {
     setEditingAccountId(null)
     setName("")
     setBalance("0")
@@ -939,12 +941,14 @@ function OverviewScreen({
     setAccountIcon(null)
     setAccountActionError(null)
     setIsConfirmingDelete(false)
+    setAccountSheetPresentation(presentation)
     setIsAccountSheetOpen(true)
   }, [])
 
 
   const closeAccountSheet = useCallback(() => {
     setIsAccountSheetOpen(false)
+    setAccountSheetPresentation("sheet")
     setEditingAccountId(null)
     setIsConfirmingDelete(false)
     setAccountActionError(null)
@@ -1675,10 +1679,9 @@ function OverviewScreen({
 
   const openEditAccountFromDetails = useCallback(
     (accountId: string) => {
-      closeDetails()
-      queueMicrotask(() => openEditAccountSheet(accountId))
+      openEditAccountSheet(accountId, "page")
     },
-    [closeDetails, openEditAccountSheet],
+    [openEditAccountSheet],
   )
 
   const openTransferFromAccountDetails = useCallback(() => {
@@ -3374,6 +3377,7 @@ function TransactionsPanel({
   const isAccountDetailPage = Boolean(
     detailAccountId && !detailCategoryId && !detailIncomeSourceId && !detailGoalId && !detailDebtorId,
   )
+  const isAccountSheetPage = accountSheetPresentation === "page"
 
   return (
     <div className="overview">
@@ -3423,7 +3427,7 @@ function TransactionsPanel({
         items={[...accountsToRender, addCard("accounts")]}
         rowScroll
         rowClass="overview-accounts-row"
-        onAddAccounts={openCreateAccountSheet}
+        onAddAccounts={() => openCreateAccountSheet("page")}
         onAccountClick={(id, title) => {
           setDetailAccountId(id)
           setDetailTitle(title || "Счёт")
@@ -6481,47 +6485,101 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
+          data-page-overlay={isAccountSheetPage ? "account-editor" : undefined}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: isAccountSheetPage ? "#f5f6f8" : "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isAccountSheetPage ? "stretch" : "center",
             justifyContent: "center",
-            zIndex: 40,
-            paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
-            paddingLeft: 16,
-            paddingRight: 16,
-            paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
+            zIndex: isAccountSheetPage ? 235 : 40,
+            paddingTop: isAccountSheetPage ? 0 : "calc(env(safe-area-inset-top, 0px) + 24px)",
+            paddingLeft: isAccountSheetPage ? 0 : 16,
+            paddingRight: isAccountSheetPage ? 0 : 16,
+            paddingBottom: isAccountSheetPage ? 0 : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
+            overflow: "hidden",
           }}
-          onClick={closeAccountSheet}
+          onClick={isAccountSheetPage ? undefined : closeAccountSheet}
         >
           <div
             style={{
-              width: "100%",
-              maxWidth: editingAccountId ? 420 : 540,
-              background: "#fff",
-              borderRadius: editingAccountId ? 20 : 16,
-              padding: editingAccountId ? "18px 18px 20px" : "16px 16px 20px",
+              width: isAccountSheetPage ? "min(480px, 100%)" : "100%",
+              maxWidth: isAccountSheetPage ? 480 : editingAccountId ? 420 : 540,
+              background: isAccountSheetPage ? "#f5f6f8" : "#fff",
+              borderRadius: isAccountSheetPage ? 0 : editingAccountId ? 20 : 16,
+              padding: isAccountSheetPage ? 0 : editingAccountId ? "18px 18px 20px" : "16px 16px 20px",
               boxShadow: "none",
-              maxHeight: editingAccountId ? "calc(100vh - 80px)" : "70vh",
-              overflow: editingAccountId ? "hidden" : undefined,
-              overflowX: editingAccountId ? "hidden" : "hidden",
-              overflowY: editingAccountId ? undefined : "auto",
-              paddingBottom: editingAccountId
+              maxHeight: isAccountSheetPage ? "100%" : editingAccountId ? "calc(100vh - 80px)" : "70vh",
+              height: isAccountSheetPage ? "100%" : undefined,
+              overflow: isAccountSheetPage ? "hidden" : editingAccountId ? "hidden" : undefined,
+              overflowX: "hidden",
+              overflowY: isAccountSheetPage ? "hidden" : editingAccountId ? undefined : "auto",
+              paddingBottom: isAccountSheetPage
+                ? 0
+                : editingAccountId
                 ? "calc(env(safe-area-inset-bottom, 0px) + 12px)"
                 : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {isAccountSheetPage ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px",
+                  borderBottom: "1px solid #e5e7eb",
+                  background: "#f5f6f8",
+                }}
+              >
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
+                  {editingAccountId ? "Редактировать счёт" : "Создать счёт"}
+                </div>
+                <button
+                  type="button"
+                  onClick={closeAccountSheet}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    borderRadius: 10,
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                  }}
+                >
+                  Закрыть
+                </button>
+              </div>
+            ) : null}
             {editingAccountId ? (
-              <div style={{ maxHeight: "calc(100vh - 120px)", overflowY: "auto", paddingBottom: "4px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-                  <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-                </div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-                  Редактировать счёт
-                </div>
+              <div
+                style={{
+                  maxHeight: isAccountSheetPage ? "none" : "calc(100vh - 120px)",
+                  overflowY: "auto",
+                  paddingBottom: isAccountSheetPage ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : "4px",
+                  paddingTop: isAccountSheetPage ? 12 : 0,
+                  paddingLeft: isAccountSheetPage ? 16 : 0,
+                  paddingRight: isAccountSheetPage ? 16 : 0,
+                  minHeight: 0,
+                  flex: isAccountSheetPage ? "1 1 auto" : undefined,
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehaviorY: "contain",
+                }}
+              >
+                {!isAccountSheetPage ? (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                      <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+                      Редактировать счёт
+                    </div>
+                  </>
+                ) : null}
                 <div style={{ display: "grid", gap: 16 }}>
                   <div
                     style={{
@@ -6778,13 +6836,29 @@ function TransactionsPanel({
                 </div>
               </div>
             ) : (
-              <>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-                  <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-                </div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-                  Создание счёта
-                </div>
+              <div
+                style={{
+                  overflowY: isAccountSheetPage ? "auto" : undefined,
+                  paddingTop: isAccountSheetPage ? 12 : 0,
+                  paddingLeft: isAccountSheetPage ? 16 : 0,
+                  paddingRight: isAccountSheetPage ? 16 : 0,
+                  paddingBottom: isAccountSheetPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 0,
+                  minHeight: 0,
+                  flex: isAccountSheetPage ? "1 1 auto" : undefined,
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehaviorY: "contain",
+                }}
+              >
+                {!isAccountSheetPage ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                    <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+                  </div>
+                ) : null}
+                {!isAccountSheetPage ? (
+                  <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
+                    Создание счёта
+                  </div>
+                ) : null}
                 <div style={{ display: "grid", gap: 16 }}>
                   <div
                     style={{
@@ -6949,7 +7023,7 @@ function TransactionsPanel({
                     </button>
                   </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
