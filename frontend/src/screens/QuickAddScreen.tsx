@@ -701,6 +701,19 @@ export const QuickAddScreen: React.FC<Props> = ({
     () => expenseCategoryTiles.find((tile) => tile.id === selectedCategoryId) ?? null,
     [expenseCategoryTiles, selectedCategoryId],
   )
+  const selectedAccountVisual = useMemo(() => {
+    if (!selectedAccountTile) return null
+    const background = selectedAccountTile.color ?? "#EEF2F7"
+    const contentColor = getReadableTextColor(background)
+    const secondaryColor = contentColor === "#FFFFFF" ? "rgba(255,255,255,0.85)" : "rgba(17,17,17,0.75)"
+    const shadow = contentColor === "#FFFFFF" ? "0 1px 2px rgba(0,0,0,0.25)" : "none"
+    return {
+      background,
+      contentColor,
+      secondaryColor,
+      shadow,
+    }
+  }, [selectedAccountTile])
   const submitExpense = useCallback(() => {
     if (isRunning) return
     return run(async () => {
@@ -1568,115 +1581,193 @@ export const QuickAddScreen: React.FC<Props> = ({
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-              {selectedAccountTile ? (
-                <button
-                  type="button"
-                  onClick={() => openExpensePicker("account")}
-                  className="tile-card tile-card--account"
-                  style={{
-                    width: "100%",
-                    minWidth: 0,
-                    flex: "1 1 auto",
-                    background: selectedAccountTile.color ?? "#EEF2F7",
-                    color: getReadableTextColor(selectedAccountTile.color ?? "#EEF2F7"),
-                    border: "1px solid rgba(0,0,0,0.08)",
-                    boxShadow: "none",
-                  }}
-                >
-                  <div
-                    className="tile-card__icon"
+            <div style={{ position: "relative" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+                {selectedAccountTile && selectedAccountVisual ? (
+                  <button
+                    type="button"
+                    onClick={() => openExpensePicker("account")}
+                    className="tile-card tile-card--account"
                     style={{
-                      background: "transparent",
-                      opacity: 1,
-                      color: getReadableTextColor(selectedAccountTile.color ?? "#EEF2F7"),
+                      width: "100%",
+                      minWidth: 0,
+                      height: 136,
+                      minHeight: 136,
+                      maxHeight: 136,
+                      overflow: "hidden",
+                      background: selectedAccountVisual.background,
+                      color: selectedAccountVisual.contentColor,
+                      border: "1px solid rgba(0,0,0,0.08)",
+                      boxShadow: "none",
+                      justifyContent: "center",
                     }}
                   >
-                    {selectedAccountTile.iconKey && isFinanceIconKey(selectedAccountTile.iconKey) ? (
-                      <FinanceIcon iconKey={selectedAccountTile.iconKey} size={16} />
-                    ) : (
-                      <AppIcon name="wallet" size={16} />
-                    )}
-                  </div>
-                  <div
-                    className="tile-card__title"
+                    <div
+                      className="tile-card__icon"
+                      style={{
+                        background: "transparent",
+                        opacity: 1,
+                        color: selectedAccountVisual.contentColor,
+                        filter: selectedAccountVisual.contentColor === "#FFFFFF" ? "drop-shadow(0 1px 2px rgba(0,0,0,0.25))" : "none",
+                      }}
+                    >
+                      {selectedAccountTile.iconKey && isFinanceIconKey(selectedAccountTile.iconKey) ? (
+                        <FinanceIcon iconKey={selectedAccountTile.iconKey} size={16} />
+                      ) : (
+                        <AppIcon name="wallet" size={16} />
+                      )}
+                    </div>
+                    <div
+                      className="tile-card__title"
+                      style={{
+                        width: "100%",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        fontWeight: 600,
+                        color: selectedAccountVisual.secondaryColor,
+                        textShadow: selectedAccountVisual.shadow,
+                      }}
+                    >
+                      {selectedAccountTile.title}
+                    </div>
+                    <div
+                      className="tile-card__amount"
+                      style={{
+                        color: selectedAccountVisual.contentColor,
+                        textShadow: selectedAccountVisual.shadow,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {formatMoney(selectedAccountTile.amount, baseCurrency)}
+                    </div>
+                    {selectedAccountTile.secondaryAmount !== undefined ? (
+                      <div
+                        style={{
+                          marginTop: 2,
+                          fontSize: 11,
+                          lineHeight: "14px",
+                          color: selectedAccountVisual.secondaryColor,
+                          textShadow: selectedAccountVisual.shadow,
+                          fontWeight: 600,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {formatMoney(selectedAccountTile.secondaryAmount, baseCurrency)}
+                      </div>
+                    ) : null}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openExpensePicker("account")}
                     style={{
-                      color: getReadableTextColor(selectedAccountTile.color ?? "#EEF2F7"),
-                      opacity: 0.9,
+                      width: "100%",
+                      minWidth: 0,
+                      height: 136,
+                      minHeight: 136,
+                      maxHeight: 136,
+                      borderRadius: 12,
+                      border: expenseAccountError ? "1px solid #dc2626" : "1px solid #d1d5db",
+                      background: "#fff",
+                      display: "grid",
+                      placeItems: "center",
+                      gap: 4,
+                      color: "#0f172a",
+                      overflow: "hidden",
                     }}
                   >
-                    {selectedAccountTile.title}
-                  </div>
-                  <div
-                    className="tile-card__amount"
-                    style={{ color: getReadableTextColor(selectedAccountTile.color ?? "#EEF2F7") }}
-                  >
-                    {formatMoney(selectedAccountTile.amount, baseCurrency)}
-                  </div>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => openExpensePicker("account")}
-                  style={{
-                    width: "100%",
-                    minHeight: 120,
-                    borderRadius: 12,
-                    border: expenseAccountError ? "1px solid #dc2626" : "1px solid #d1d5db",
-                    background: "#fff",
-                    display: "grid",
-                    placeItems: "center",
-                    gap: 4,
-                    color: "#0f172a",
-                  }}
-                >
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>Счёт</div>
-                  <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
-                </button>
-              )}
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>Счёт</div>
+                    <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
+                  </button>
+                )}
 
-              {selectedExpenseCategoryTile ? (
-                <button
-                  type="button"
-                  onClick={() => openExpensePicker("category")}
-                  className="tile-card tile-card--category"
-                  style={{
-                    width: "100%",
-                    minWidth: 0,
-                    flex: "1 1 auto",
-                    border: "1px solid rgba(15,23,42,0.08)",
-                    boxShadow: "none",
-                  }}
-                >
-                  <div className="tile-card__icon">
-                    {selectedExpenseCategoryTile.iconKey && isFinanceIconKey(selectedExpenseCategoryTile.iconKey) ? (
-                      <FinanceIcon iconKey={selectedExpenseCategoryTile.iconKey} size={16} />
-                    ) : (
-                      <AppIcon name="report" size={16} />
-                    )}
-                  </div>
-                  <div className="tile-card__title">{selectedExpenseCategoryTile.title}</div>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => openExpensePicker("category")}
-                  style={{
-                    width: "100%",
-                    minHeight: 120,
-                    borderRadius: 12,
-                    border: expenseCategoryError ? "1px solid #dc2626" : "1px solid #d1d5db",
-                    background: "#fff",
-                    display: "grid",
-                    placeItems: "center",
-                    gap: 4,
-                    color: "#0f172a",
-                  }}
-                >
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>Категория</div>
-                  <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
-                </button>
-              )}
+                {selectedExpenseCategoryTile ? (
+                  <button
+                    type="button"
+                    onClick={() => openExpensePicker("category")}
+                    className="tile-card tile-card--category"
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      height: 136,
+                      minHeight: 136,
+                      maxHeight: 136,
+                      overflow: "hidden",
+                      border: "1px solid rgba(15,23,42,0.08)",
+                      boxShadow: "none",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div className="tile-card__icon">
+                      {selectedExpenseCategoryTile.iconKey && isFinanceIconKey(selectedExpenseCategoryTile.iconKey) ? (
+                        <FinanceIcon iconKey={selectedExpenseCategoryTile.iconKey} size={16} />
+                      ) : (
+                        <AppIcon name="report" size={16} />
+                      )}
+                    </div>
+                    <div
+                      className="tile-card__title"
+                      style={{
+                        width: "100%",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {selectedExpenseCategoryTile.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>Категория</div>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openExpensePicker("category")}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      height: 136,
+                      minHeight: 136,
+                      maxHeight: 136,
+                      borderRadius: 12,
+                      border: expenseCategoryError ? "1px solid #dc2626" : "1px solid #d1d5db",
+                      background: "#fff",
+                      display: "grid",
+                      placeItems: "center",
+                      gap: 4,
+                      color: "#0f172a",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>Категория</div>
+                    <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
+                  </button>
+                )}
+              </div>
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: 24,
+                  height: 24,
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.45)",
+                  background: "rgba(255,255,255,0.92)",
+                  color: "#475569",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 8px rgba(15,23,42,0.12)",
+                  pointerEvents: "none",
+                }}
+              >
+                →
+              </div>
             </div>
 
             {(expenseAccountError || expenseCategoryError) ? (
