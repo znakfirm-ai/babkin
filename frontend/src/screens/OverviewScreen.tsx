@@ -784,6 +784,7 @@ function OverviewScreen({
   const [accountIconPickerClosing, setAccountIconPickerClosing] = useState(false)
   const [accountIconPickerDragOffset, setAccountIconPickerDragOffset] = useState(0)
   const [categorySheetMode, setCategorySheetMode] = useState<"create" | "edit" | null>(null)
+  const [categorySheetPresentation, setCategorySheetPresentation] = useState<"sheet" | "page">("sheet")
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryName, setCategoryName] = useState("")
   const [categoryBudget, setCategoryBudget] = useState("")
@@ -791,9 +792,36 @@ function OverviewScreen({
   const [isSavingCategory, setIsSavingCategory] = useState(false)
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
   const [categorySaveError, setCategorySaveError] = useState<string | null>(null)
-  const [pendingCategoryEdit, setPendingCategoryEdit] = useState<{ id: string; title: string } | null>(null)
   const [isCategoryIconPickerOpen, setIsCategoryIconPickerOpen] = useState(false)
-  const lastCategorySheetModeRef = useRef<"create" | "edit" | null>(null)
+  const [categoryIconPickerClosing, setCategoryIconPickerClosing] = useState(false)
+  const [categoryIconPickerDragOffset, setCategoryIconPickerDragOffset] = useState(0)
+  const categoryIconPickerOverlayRef = useRef<HTMLDivElement | null>(null)
+  const categoryIconPickerSheetRef = useRef<HTMLDivElement | null>(null)
+  const categoryIconPickerContentRef = useRef<HTMLDivElement | null>(null)
+  const categoryIconPickerGestureRef = useRef<{
+    pointerId: number | null
+    startX: number
+    startY: number
+    tracking: boolean
+    draggingSheet: boolean
+    blockClick: boolean
+  }>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    draggingSheet: false,
+    blockClick: false,
+  })
+  const categoryIconPickerTouchRef = useRef<{
+    identifier: number | null
+    startX: number
+    startY: number
+  }>({
+    identifier: null,
+    startX: 0,
+    startY: 0,
+  })
   const [incomeSourceSheetMode, setIncomeSourceSheetMode] = useState<"create" | "edit" | null>(null)
   const [incomeSourceSheetPresentation, setIncomeSourceSheetPresentation] = useState<"sheet" | "page">("sheet")
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState<string | null>(null)
@@ -1355,9 +1383,9 @@ function OverviewScreen({
     }
   }, [debtors])
 
-  const openCreateCategory = useCallback(() => {
+  const openCreateCategory = useCallback((presentation: "sheet" | "page" = "sheet") => {
     setCategorySheetMode("create")
-    lastCategorySheetModeRef.current = "create"
+    setCategorySheetPresentation(presentation)
     setEditingCategoryId(null)
     setCategoryName("")
     setCategoryBudget("")
@@ -1679,6 +1707,189 @@ function OverviewScreen({
     accountIconPickerGestureRef.current.blockClick = false
   }, [])
 
+  const finalizeCategoryIconPickerClose = useCallback(() => {
+    setIsCategoryIconPickerOpen(false)
+    setCategoryIconPickerClosing(false)
+    setCategoryIconPickerDragOffset(0)
+  }, [])
+
+  const requestCloseCategoryIconPicker = useCallback(() => {
+    if (!isCategoryIconPickerOpen || categoryIconPickerClosing) return
+    setCategoryIconPickerClosing(true)
+    setCategoryIconPickerDragOffset(0)
+  }, [categoryIconPickerClosing, isCategoryIconPickerOpen])
+
+  useEffect(() => {
+    if (isCategoryIconPickerOpen) return
+    setCategoryIconPickerClosing(false)
+    setCategoryIconPickerDragOffset(0)
+    categoryIconPickerGestureRef.current.pointerId = null
+    categoryIconPickerGestureRef.current.tracking = false
+    categoryIconPickerGestureRef.current.draggingSheet = false
+    categoryIconPickerGestureRef.current.blockClick = false
+    categoryIconPickerTouchRef.current.identifier = null
+    categoryIconPickerTouchRef.current.startX = 0
+    categoryIconPickerTouchRef.current.startY = 0
+  }, [isCategoryIconPickerOpen])
+
+  useEffect(() => {
+    if (!isCategoryIconPickerOpen) return
+    const overlay = categoryIconPickerOverlayRef.current
+    const sheet = categoryIconPickerSheetRef.current
+    if (!overlay || !sheet) return
+
+    const resetTouchState = () => {
+      categoryIconPickerTouchRef.current.identifier = null
+      categoryIconPickerTouchRef.current.startX = 0
+      categoryIconPickerTouchRef.current.startY = 0
+    }
+
+    const getTrackedTouch = (event: TouchEvent) => {
+      const trackedId = categoryIconPickerTouchRef.current.identifier
+      if (trackedId == null) return event.touches[0] ?? event.changedTouches[0] ?? null
+      for (let index = 0; index < event.touches.length; index += 1) {
+        const touch = event.touches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      for (let index = 0; index < event.changedTouches.length; index += 1) {
+        const touch = event.changedTouches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      return null
+    }
+
+    const onTouchStartCapture = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0]
+      if (!touch) return
+      categoryIconPickerTouchRef.current.identifier = touch.identifier
+      categoryIconPickerTouchRef.current.startX = touch.clientX
+      categoryIconPickerTouchRef.current.startY = touch.clientY
+    }
+
+    const onTouchMoveCapture = (event: TouchEvent) => {
+      const touch = getTrackedTouch(event)
+      if (!touch) return
+      const dx = touch.clientX - categoryIconPickerTouchRef.current.startX
+      const dy = touch.clientY - categoryIconPickerTouchRef.current.startY
+      if (Math.abs(dy) <= Math.abs(dx)) return
+
+      const targetNode = event.target instanceof Node ? event.target : null
+      const content = categoryIconPickerContentRef.current
+      const targetInSheet = targetNode ? sheet.contains(targetNode) : false
+      const targetInContent = targetNode ? Boolean(content?.contains(targetNode)) : false
+
+      if (!targetInSheet || !targetInContent || !content) {
+        event.preventDefault()
+        return
+      }
+
+      const atTop = content.scrollTop <= 0
+      const atBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 1
+      if ((dy > 0 && atTop) || (dy < 0 && atBottom)) {
+        event.preventDefault()
+      }
+    }
+
+    const onTouchEndCapture = () => {
+      resetTouchState()
+    }
+
+    const onTouchCancelCapture = () => {
+      resetTouchState()
+    }
+
+    overlay.addEventListener("touchstart", onTouchStartCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchmove", onTouchMoveCapture, { capture: true, passive: false })
+    overlay.addEventListener("touchend", onTouchEndCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchcancel", onTouchCancelCapture, { capture: true, passive: true })
+
+    return () => {
+      overlay.removeEventListener("touchstart", onTouchStartCapture, true)
+      overlay.removeEventListener("touchmove", onTouchMoveCapture, true)
+      overlay.removeEventListener("touchend", onTouchEndCapture, true)
+      overlay.removeEventListener("touchcancel", onTouchCancelCapture, true)
+      resetTouchState()
+    }
+  }, [isCategoryIconPickerOpen])
+
+  const handleCategoryIconPickerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = categoryIconPickerGestureRef.current
+    gesture.pointerId = event.pointerId
+    gesture.startX = event.clientX
+    gesture.startY = event.clientY
+    gesture.tracking = true
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+  }, [])
+
+  const handleCategoryIconPickerPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = categoryIconPickerGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
+    const content = categoryIconPickerContentRef.current
+    const atTop = !content || content.scrollTop <= 0
+
+    if (!gesture.draggingSheet) {
+      if (absDy < 8 || absDy <= absDx) return
+      if (dy > 0 && atTop) {
+        gesture.draggingSheet = true
+        gesture.blockClick = true
+      } else {
+        gesture.tracking = false
+        gesture.pointerId = null
+        return
+      }
+    }
+
+    event.preventDefault()
+    setCategoryIconPickerDragOffset(Math.max(0, dy))
+  }, [])
+
+  const handleCategoryIconPickerPointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.stopPropagation()
+      const gesture = categoryIconPickerGestureRef.current
+      if (gesture.pointerId !== event.pointerId) return
+
+      const shouldClose = gesture.draggingSheet && categoryIconPickerDragOffset > 72
+      gesture.pointerId = null
+      gesture.tracking = false
+      gesture.draggingSheet = false
+      gesture.blockClick = false
+
+      if (shouldClose) {
+        requestCloseCategoryIconPicker()
+        return
+      }
+      setCategoryIconPickerDragOffset(0)
+    },
+    [categoryIconPickerDragOffset, requestCloseCategoryIconPicker],
+  )
+
+  const handleCategoryIconPickerPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = categoryIconPickerGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.pointerId = null
+    gesture.tracking = false
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+    setCategoryIconPickerDragOffset(0)
+  }, [])
+
+  const handleCategoryIconPickerClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!categoryIconPickerGestureRef.current.blockClick) return
+    event.preventDefault()
+    event.stopPropagation()
+    categoryIconPickerGestureRef.current.blockClick = false
+  }, [])
+
   const finalizeIncomeIconPickerClose = useCallback(() => {
     setIsIncomeIconPickerOpen(false)
     setIncomeIconPickerClosing(false)
@@ -1930,6 +2141,7 @@ function OverviewScreen({
   const closeCategorySheet = useCallback(
     (opts?: { preserveForm?: boolean }) => {
       setCategorySheetMode(null)
+      setCategorySheetPresentation("sheet")
       setCategorySaveError(null)
       if (!opts?.preserveForm) {
         setEditingCategoryId(null)
@@ -1964,9 +2176,9 @@ function OverviewScreen({
   )
 
   const openEditCategorySheet = useCallback(
-    (id: string, title: string) => {
+    (id: string, title: string, presentation: "sheet" | "page" = "sheet") => {
       setCategorySheetMode("edit")
-      lastCategorySheetModeRef.current = "edit"
+      setCategorySheetPresentation(presentation)
       setEditingCategoryId(id)
       setCategoryName(title)
       setCategorySaveError(null)
@@ -1989,13 +2201,6 @@ function OverviewScreen({
     },
     [incomeSources],
   )
-
-  useEffect(() => {
-    if (!detailCategoryId && pendingCategoryEdit) {
-      openEditCategorySheet(pendingCategoryEdit.id, pendingCategoryEdit.title)
-      setPendingCategoryEdit(null)
-    }
-  }, [detailCategoryId, openEditCategorySheet, pendingCategoryEdit])
 
   useEffect(() => {
     // no-op
@@ -2090,6 +2295,13 @@ function OverviewScreen({
       openEditIncomeSourceSheet(incomeSourceId, title, "page")
     },
     [openEditIncomeSourceSheet],
+  )
+
+  const openEditCategoryFromDetails = useCallback(
+    (categoryId: string, title: string) => {
+      openEditCategorySheet(categoryId, title, "page")
+    },
+    [openEditCategorySheet],
   )
 
   const openTransferFromAccountDetails = useCallback(() => {
@@ -3785,11 +3997,15 @@ function TransactionsPanel({
   const isAccountDetailPage = Boolean(
     detailAccountId && !detailCategoryId && !detailIncomeSourceId && !detailGoalId && !detailDebtorId,
   )
+  const isCategoryDetailPage = Boolean(
+    detailCategoryId && !detailAccountId && !detailIncomeSourceId && !detailGoalId && !detailDebtorId,
+  )
   const isIncomeSourceDetailPage = Boolean(
     detailIncomeSourceId && !detailAccountId && !detailCategoryId && !detailGoalId && !detailDebtorId,
   )
-  const isDetailPageOverlay = isAccountDetailPage || isIncomeSourceDetailPage
+  const isDetailPageOverlay = isAccountDetailPage || isIncomeSourceDetailPage || isCategoryDetailPage
   const isAccountSheetPage = accountSheetPresentation === "page"
+  const isCategorySheetPage = categorySheetPresentation === "page"
   const isIncomeSourceSheetPage = incomeSourceSheetPresentation === "page"
 
   return (
@@ -3862,7 +4078,7 @@ function TransactionsPanel({
         items={[...expenseToRender, addCard("category")]}
         rowScroll
         rowClass="overview-expenses-row"
-        onAddCategory={openCreateCategory}
+        onAddCategory={() => openCreateCategory("page")}
         onCategoryClick={(id, title) => openEditCategory(id, title)}
         baseCurrency={baseCurrency}
       />
@@ -3911,7 +4127,13 @@ function TransactionsPanel({
           aria-modal="true"
           onClick={isDetailPageOverlay ? undefined : closeDetails}
           data-page-overlay={
-            isAccountDetailPage ? "account-detail" : isIncomeSourceDetailPage ? "income-source-detail" : undefined
+            isAccountDetailPage
+              ? "account-detail"
+              : isIncomeSourceDetailPage
+              ? "income-source-detail"
+              : isCategoryDetailPage
+              ? "category-detail"
+              : undefined
           }
           style={{
             position: "fixed",
@@ -4011,8 +4233,7 @@ function TransactionsPanel({
                     type="button"
                     onClick={() => {
                       if (detailCategoryId) {
-                        setPendingCategoryEdit({ id: detailCategoryId, title: detailTitle || "Категория" })
-                        closeDetails()
+                        openEditCategoryFromDetails(detailCategoryId, detailTitle || "Категория")
                       }
                     }}
                     style={{
@@ -4494,26 +4715,6 @@ function TransactionsPanel({
                       )
                     }}
                   />
-                    <button
-                      type="button"
-                      onClick={openExpenseFromCategoryDetails}
-                      style={{
-                        padding: "12px 14px",
-                        borderRadius: 12,
-                        border: "1px solid #e5e7eb",
-                        background: "#0f172a",
-                        color: "#fff",
-                        fontSize: 14,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        alignSelf: "center",
-                        width: "100%",
-                        maxWidth: 260,
-                        marginTop: 2,
-                      }}
-                    >
-                      Добавить операцию
-                    </button>
                   </div>
               ) : detailIncomeSourceId ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
@@ -5315,7 +5516,6 @@ function TransactionsPanel({
                   </div>
                 </div>
               ) : null}
-                </div>
             {detailAccountId && (!searchFocused && !accountSearch) && (
               <button
                 type="button"
@@ -5357,7 +5557,29 @@ function TransactionsPanel({
                 Добавить операцию
               </button>
             )}
+            {detailCategoryId && (
+              <button
+                type="button"
+                style={{
+                  width: isCategoryDetailPage ? "calc(100% - 32px)" : "100%",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 700,
+                  marginTop: isCategoryDetailPage ? -20 : 12,
+                  marginBottom: isCategoryDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
+                  alignSelf: isCategoryDetailPage ? "center" : undefined,
+                  cursor: "pointer",
+                }}
+                onClick={openExpenseFromCategoryDetails}
+              >
+                Добавить операцию
+              </button>
+            )}
           </div>
+        </div>
         </div>
       )}
 
@@ -7522,43 +7744,101 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
+          data-page-overlay={isCategorySheetPage ? "category-editor" : undefined}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: isCategorySheetPage ? "#f5f6f8" : "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isCategorySheetPage ? "stretch" : "center",
             justifyContent: "center",
-            zIndex: 45,
-            paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
-            paddingLeft: 16,
-            paddingRight: 16,
-            paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
+            zIndex: isCategorySheetPage ? 236 : 45,
+            paddingTop: isCategorySheetPage ? 0 : "calc(env(safe-area-inset-top, 0px) + 24px)",
+            paddingLeft: isCategorySheetPage ? 0 : 16,
+            paddingRight: isCategorySheetPage ? 0 : 16,
+            paddingBottom: isCategorySheetPage
+              ? 0
+              : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
+            overflow: "hidden",
           }}
-          onClick={() => closeCategorySheet()}
+          onClick={isCategorySheetPage ? undefined : () => closeCategorySheet()}
         >
           <div
             style={{
-              width: "100%",
-              maxWidth: 520,
-              margin: "0 auto",
-              background: "#fff",
-              borderRadius: 16,
-              padding: 16,
+              width: isCategorySheetPage ? "min(480px, 100%)" : "100%",
+              maxWidth: isCategorySheetPage ? 480 : 520,
+              margin: isCategorySheetPage ? undefined : "0 auto",
+              background: isCategorySheetPage ? "#f5f6f8" : "#fff",
+              borderRadius: isCategorySheetPage ? 0 : 16,
+              padding: isCategorySheetPage ? 0 : 16,
               boxShadow: "none",
-              maxHeight: "calc(100vh - 120px)",
-              overflowY: "auto",
-              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+              maxHeight: isCategorySheetPage ? "100%" : "calc(100vh - 120px)",
+              height: isCategorySheetPage ? "100%" : undefined,
+              overflowY: isCategorySheetPage ? "hidden" : "auto",
+              overflowX: "hidden",
+              paddingBottom: isCategorySheetPage ? 0 : "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+              display: isCategorySheetPage ? "flex" : undefined,
+              flexDirection: isCategorySheetPage ? "column" : undefined,
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-              {categorySheetMode === "create" ? "Новая категория" : "Редактировать категорию"}
-            </div>
-            <div style={{ display: "grid", gap: 14 }}>
+            {isCategorySheetPage ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px",
+                  borderBottom: "1px solid #e5e7eb",
+                  background: "#f5f6f8",
+                }}
+              >
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
+                  {categorySheetMode === "create" ? "Создать категорию" : "Редактировать категорию"}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => closeCategorySheet()}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    borderRadius: 10,
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                  }}
+                >
+                  Закрыть
+                </button>
+              </div>
+            ) : null}
+            <div
+              style={{
+                display: "grid",
+                gap: 14,
+                overflowY: isCategorySheetPage ? "auto" : undefined,
+                paddingTop: isCategorySheetPage ? 12 : 0,
+                paddingLeft: isCategorySheetPage ? 16 : 0,
+                paddingRight: isCategorySheetPage ? 16 : 0,
+                paddingBottom: isCategorySheetPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 0,
+                minHeight: 0,
+                flex: isCategorySheetPage ? "1 1 auto" : undefined,
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+              }}
+            >
+              {!isCategorySheetPage ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 0 }}>
+                  <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+                </div>
+              ) : null}
+              {!isCategorySheetPage ? (
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 0 }}>
+                  {categorySheetMode === "create" ? "Новая категория" : "Редактировать категорию"}
+                </div>
+              ) : null}
               <div style={{ display: "grid", gap: 6 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Название</label>
                 <input
@@ -7589,8 +7869,6 @@ function TransactionsPanel({
                 <button
                   type="button"
                   onClick={() => {
-                    lastCategorySheetModeRef.current = categorySheetMode
-                    closeCategorySheet({ preserveForm: true })
                     setIsCategoryIconPickerOpen(true)
                   }}
                   style={{
@@ -7616,35 +7894,35 @@ function TransactionsPanel({
                   </span>
                   <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
                 </button>
-            </div>
-            {categorySaveError ? (
-              <div style={{ color: "#b91c1c", fontSize: 12, marginTop: -4 }}>{categorySaveError}</div>
-            ) : null}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: categorySheetMode === "edit" && editingCategoryId ? "1fr 1fr 1fr" : "1fr 1fr",
-                gap: 10,
-              }}
-            >
-              {categorySheetMode === "edit" && editingCategoryId ? (
-                <button
-                  type="button"
-                  onClick={() => handleDeleteCategory(editingCategoryId)}
-                  disabled={deletingCategoryId === editingCategoryId || isCategoryDeleteRunning}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #fee2e2",
-                    background: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "#fecdd3" : "#fff",
-                    color: "#b91c1c",
-                    cursor: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "not-allowed" : "pointer",
-                    width: "100%",
-                  }}
-                >
-                  {deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "Удаляем…" : "Удалить"}
-                </button>
+              </div>
+              {categorySaveError ? (
+                <div style={{ color: "#b91c1c", fontSize: 12, marginTop: -4 }}>{categorySaveError}</div>
               ) : null}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: categorySheetMode === "edit" && editingCategoryId ? "1fr 1fr 1fr" : "1fr 1fr",
+                  gap: 10,
+                }}
+              >
+                {categorySheetMode === "edit" && editingCategoryId ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCategory(editingCategoryId)}
+                    disabled={deletingCategoryId === editingCategoryId || isCategoryDeleteRunning}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #fee2e2",
+                      background: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "#fecdd3" : "#fff",
+                      color: "#b91c1c",
+                      cursor: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "not-allowed" : "pointer",
+                      width: "100%",
+                    }}
+                  >
+                    {deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "Удаляем…" : "Удалить"}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => closeCategorySheet()}
@@ -7686,6 +7964,7 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
+          ref={categoryIconPickerOverlayRef}
           style={{
             position: "fixed",
             inset: 0,
@@ -7693,88 +7972,124 @@ function TransactionsPanel({
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            zIndex: 45,
-            padding: "0 12px 12px",
+            zIndex: 250,
+            opacity: categoryIconPickerClosing ? 0 : 1,
+            transition: "opacity 180ms ease-out",
           }}
-          onClick={() => {
-            setIsCategoryIconPickerOpen(false)
-            if (lastCategorySheetModeRef.current) {
-              setCategorySheetMode(lastCategorySheetModeRef.current)
-            }
-          }}
+          onClick={requestCloseCategoryIconPicker}
         >
           <div
+            ref={categoryIconPickerSheetRef}
             style={{
-              width: "100%",
-              maxWidth: 520,
-              margin: "0 auto",
+              width: "min(480px, 100%)",
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              padding: 16,
-              boxShadow: "none",
-              maxHeight: "70vh",
-              overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              borderRadius: "16px 16px 0 0",
+              borderTop: "1px solid rgba(15,23,42,0.08)",
+              boxShadow: "0 -12px 30px rgba(15,23,42,0.2)",
+              height: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              minHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              maxHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+              transform: categoryIconPickerClosing
+                ? "translateY(100%)"
+                : categoryIconPickerDragOffset > 0
+                ? `translateY(${categoryIconPickerDragOffset}px)`
+                : "translateY(0)",
+              transition:
+                categoryIconPickerDragOffset > 0 && !categoryIconPickerClosing
+                  ? "none"
+                  : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              touchAction: "pan-y",
+            }}
+            onPointerDown={handleCategoryIconPickerPointerDown}
+            onPointerMove={handleCategoryIconPickerPointerMove}
+            onPointerUp={handleCategoryIconPickerPointerEnd}
+            onPointerCancel={handleCategoryIconPickerPointerCancel}
+            onClickCapture={handleCategoryIconPickerClickCapture}
+            onTransitionEnd={(event) => {
+              if (event.propertyName !== "transform") return
+              if (!categoryIconPickerClosing) return
+              finalizeCategoryIconPickerClose()
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выбор иконки</div>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
                 gap: 10,
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                flexShrink: 0,
               }}
             >
-              {categoryIconKeys.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    setCategoryIcon(key)
-                    setIsCategoryIconPickerOpen(false)
-                    if (lastCategorySheetModeRef.current) {
-                      setCategorySheetMode(lastCategorySheetModeRef.current)
-                    }
-                  }}
-                  style={{
-                    padding: 10,
-                    borderRadius: 12,
-                    border: categoryIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                    background: "#fff",
-                    display: "grid",
-                    placeItems: "center",
-                    cursor: "pointer",
-                  }}
-                >
-                  <FinanceIcon iconKey={key} size="lg" />
-                </button>
-              ))}
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>Выбор иконки</div>
+              <button
+                type="button"
+                onClick={requestCloseCategoryIconPicker}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#0f172a",
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Закрыть
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setIsCategoryIconPickerOpen(false)
-                if (lastCategorySheetModeRef.current) {
-                  setCategorySheetMode(lastCategorySheetModeRef.current)
-                }
-              }}
+            <div
+              ref={categoryIconPickerContentRef}
               style={{
-                marginTop: 12,
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                cursor: "pointer",
-                width: "100%",
+                padding: 12,
+                display: "grid",
+                gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+                columnGap: 10,
+                rowGap: 6,
+                alignContent: "start",
+                overflowY: "auto",
+                overflowX: "hidden",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+                minHeight: 0,
+                flex: "1 1 auto",
               }}
             >
-              Назад
-            </button>
+              {(categoryIconKeys ?? []).length === 0 ? (
+                <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Нет иконок</div>
+              ) : (
+                categoryIconKeys.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setCategoryIcon(key)
+                      requestCloseCategoryIconPicker()
+                    }}
+                    style={{
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      padding: 0,
+                      borderRadius: 12,
+                      border: categoryIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                      background: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isFinanceIconKey(key) ? <FinanceIcon iconKey={key} size="lg" /> : null}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       ) : null}
