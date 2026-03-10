@@ -6190,12 +6190,15 @@ function TransactionsPanel({
                       requestCloseAccountIconPicker()
                     }}
                     style={{
-                      padding: 10,
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      padding: 0,
                       borderRadius: 12,
                       border: accountIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
                       background: "#fff",
-                      display: "grid",
-                      placeItems: "center",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       cursor: "pointer",
                     }}
                   >
