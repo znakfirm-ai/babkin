@@ -4731,18 +4731,18 @@ function TransactionsPanel({
                     type="button"
                     onClick={openIncomeFromSourceDetails}
                     style={{
-                      padding: "12px 14px",
+                      padding: "14px 16px",
                       borderRadius: 12,
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid #0f172a",
                       background: "#0f172a",
                       color: "#fff",
-                      fontSize: 14,
-                      fontWeight: 600,
+                      fontSize: 15,
+                      fontWeight: 700,
                       cursor: "pointer",
-                      alignSelf: "center",
-                      width: "100%",
-                      maxWidth: 260,
-                      marginTop: 2,
+                      width: isIncomeSourceDetailPage ? "calc(100% - 32px)" : "100%",
+                      marginTop: isIncomeSourceDetailPage ? -8 : 2,
+                      marginBottom: isIncomeSourceDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 0,
+                      alignSelf: isIncomeSourceDetailPage ? "center" : undefined,
                     }}
                   >
                     Добавить операцию
@@ -7920,43 +7920,70 @@ function TransactionsPanel({
               {incomeSourceError ? (
                 <div style={{ color: "#b91c1c", fontSize: 13 }}>{incomeSourceError}</div>
               ) : null}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
-                      disabled={deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning}
-                      style={{
-                        padding: "10px 14px",
-                        borderRadius: 10,
-                        border: "1px solid #fee2e2",
-                        background:
-                          deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "#fecdd3" : "#fff",
-                        color: "#b91c1c",
-                        cursor:
-                          deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "not-allowed" : "pointer",
-                        width: "auto",
-                      }}
-                    >
-                      {deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "Удаляем…" : "Удалить"}
-                    </button>
-                  ) : null}
+              {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
+                    disabled={deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #fee2e2",
+                      background:
+                        deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "#fecdd3" : "#fff",
+                      color: "#b91c1c",
+                      cursor:
+                        deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "not-allowed" : "pointer",
+                      width: "100%",
+                      minHeight: 40,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      textAlign: "center",
+                    }}
+                  >
+                    {deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "Удаляем…" : "Удалить"}
+                  </button>
                   <button
                     type="button"
                     onClick={() => closeIncomeSourceSheet()}
                     style={{
-                      padding: "10px 14px",
+                      padding: "10px 12px",
                       borderRadius: 10,
                       border: "1px solid #e5e7eb",
                       background: "#fff",
                       cursor: "pointer",
-                      width: "auto",
+                      width: "100%",
+                      minHeight: 40,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      textAlign: "center",
                     }}
                   >
                     Отмена
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveIncomeSource}
+                    disabled={isSavingIncomeSource || isIncomeSaveRunning}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: isSavingIncomeSource || isIncomeSaveRunning ? "#e5e7eb" : "#0f172a",
+                      color: isSavingIncomeSource || isIncomeSaveRunning ? "#6b7280" : "#fff",
+                      cursor: isSavingIncomeSource || isIncomeSaveRunning ? "not-allowed" : "pointer",
+                      width: "100%",
+                      minHeight: 40,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      textAlign: "center",
+                    }}
+                  >
+                    {isSavingIncomeSource || isIncomeSaveRunning ? "Сохраняем…" : "Сохранить"}
+                  </button>
                 </div>
+              ) : (
                 <button
                   type="button"
                   onClick={handleSaveIncomeSource}
@@ -7970,11 +7997,12 @@ function TransactionsPanel({
                     cursor: isSavingIncomeSource || isIncomeSaveRunning ? "not-allowed" : "pointer",
                     width: "100%",
                     fontWeight: 600,
+                    textAlign: "center",
                   }}
                 >
                   {isSavingIncomeSource || isIncomeSaveRunning ? "Сохраняем…" : "Сохранить"}
                 </button>
-              </div>
+              )}
             </div>
           </div>
         </div>
