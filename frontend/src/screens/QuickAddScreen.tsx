@@ -2379,6 +2379,18 @@ export const QuickAddScreen: React.FC<Props> = ({
           </div>
         ) : activeTab === "debt" ? (
           <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
+            <div style={{ display: "grid", gap: 8, width: "100%" }}>
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
+                amountInputRef={amountInputRef}
+              />
+              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
+            </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
               <button
                 type="button"
@@ -2475,6 +2487,18 @@ export const QuickAddScreen: React.FC<Props> = ({
           </div>
         ) : activeTab === "goal" ? (
           <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
+            <div style={{ display: "grid", gap: 8, width: "100%" }}>
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
+                amountInputRef={amountInputRef}
+              />
+              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)", alignItems: "center", gap: 16, width: "100%" }}>
               {selectedAccountTile ? (
                 renderTile(
@@ -2524,16 +2548,6 @@ export const QuickAddScreen: React.FC<Props> = ({
           ref={footerRef}
           style={activeFooterStyle}
         >
-          <AmountDateRow
-            amount={amount}
-            onAmountChange={setAmount}
-            date={transferDate}
-            onDateChange={setTransferDate}
-            onAmountFocus={handleAmountFocus}
-            onAmountBlur={handleAmountBlur}
-            amountInputRef={amountInputRef}
-          />
-          {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
           <div style={{ paddingTop: 8 }}>
             <button
               type="button"
