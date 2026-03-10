@@ -56,6 +56,21 @@ type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "q
 type GoalsListMode = "goals" | "debtsReceivable" | "debtsPayable"
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 type QuickAddDebtAction = "receivable" | "payable"
+type QuickAddReturnPicker =
+  | "expense-account"
+  | "expense-category"
+  | "income-source"
+  | "income-account"
+  | "transfer-from-account"
+  | "transfer-to-account"
+  | "transfer-goal"
+  | "transfer-debt"
+  | "debt-receivable-debtor"
+  | "debt-receivable-account"
+  | "debt-payable-account"
+  | "debt-payable-debtor"
+  | "goal-account"
+  | "goal-target"
 type WorkspaceModalView = "list" | "settings" | "edit-name" | "edit-icon"
 type CompareReportState = {
   periodMode: "day" | "week" | "month" | "quarter" | "year" | "custom"
@@ -302,10 +317,11 @@ function App() {
   const [quickAddInitialIncomeSourceId, setQuickAddInitialIncomeSourceId] = useState<string | null>(null)
   const [quickAddInitialCategoryId, setQuickAddInitialCategoryId] = useState<string | null>(null)
   const [quickAddInitialDebtAction, setQuickAddInitialDebtAction] = useState<QuickAddDebtAction>("receivable")
-  const [quickAddReopenExpensePicker, setQuickAddReopenExpensePicker] = useState<"account" | "category" | null>(null)
-  const [quickAddCreateReturnTarget, setQuickAddCreateReturnTarget] = useState<"account" | "category" | null>(null)
+  const [quickAddReopenPicker, setQuickAddReopenPicker] = useState<QuickAddReturnPicker | null>(null)
+  const [quickAddCreateReturnPicker, setQuickAddCreateReturnPicker] = useState<QuickAddReturnPicker | null>(null)
   const [autoOpenAccountCreate, setAutoOpenAccountCreate] = useState(false)
   const [autoOpenCategoryCreate, setAutoOpenCategoryCreate] = useState(false)
+  const [autoOpenIncomeSourceCreate, setAutoOpenIncomeSourceCreate] = useState(false)
   const [autoOpenGoalsList, setAutoOpenGoalsList] = useState(false)
   const [autoOpenGoalCreate, setAutoOpenGoalCreate] = useState(false)
   const [savedIncomeReportState, setSavedIncomeReportState] = useState<{
@@ -1593,43 +1609,70 @@ function App() {
     [activeScreen],
   )
 
-  const openOverviewAccountCreateFromQuickAdd = useCallback(() => {
-    setQuickAddCreateReturnTarget("account")
+  const returnToQuickAddPicker = useCallback((picker: QuickAddReturnPicker) => {
+    const nextTab: QuickAddTab =
+      picker.startsWith("income-") ? "income" : picker.startsWith("transfer-") ? "transfer" : picker.startsWith("debt-") ? "debt" : picker.startsWith("goal-") ? "goal" : "expense"
+    const nextDebtAction: QuickAddDebtAction = picker.startsWith("debt-receivable-") ? "receivable" : "payable"
+    setQuickAddCreateReturnPicker(null)
+    setQuickAddInitialTab(nextTab)
+    setQuickAddInitialIncomeSourceId(null)
+    setQuickAddInitialCategoryId(null)
+    setQuickAddInitialDebtAction(nextDebtAction)
+    setQuickAddReopenPicker(picker)
+    setActiveNav("add")
+    setActiveScreen("quick-add")
+  }, [])
+
+  const openOverviewAccountCreateFromQuickAdd = useCallback((returnPicker: QuickAddReturnPicker) => {
+    setQuickAddCreateReturnPicker(returnPicker)
     setAutoOpenAccountCreate(true)
     setActiveNav("overview")
     setActiveScreen("overview")
   }, [])
 
-  const openOverviewCategoryCreateFromQuickAdd = useCallback(() => {
-    setQuickAddCreateReturnTarget("category")
+  const openOverviewCategoryCreateFromQuickAdd = useCallback((returnPicker: QuickAddReturnPicker) => {
+    setQuickAddCreateReturnPicker(returnPicker)
     setAutoOpenCategoryCreate(true)
     setActiveNav("overview")
     setActiveScreen("overview")
   }, [])
 
+  const openOverviewIncomeSourceCreateFromQuickAdd = useCallback((returnPicker: QuickAddReturnPicker) => {
+    setQuickAddCreateReturnPicker(returnPicker)
+    setAutoOpenIncomeSourceCreate(true)
+    setActiveNav("overview")
+    setActiveScreen("overview")
+  }, [])
+
+  const openOverviewGoalCreateFromQuickAdd = useCallback((returnPicker: QuickAddReturnPicker) => {
+    setQuickAddCreateReturnPicker(returnPicker)
+    setGoalsListMode("goals")
+    setAutoOpenGoalCreate(true)
+    setActiveNav("overview")
+    setActiveScreen("overview")
+  }, [])
+
   const handleOverviewAccountCreated = useCallback(() => {
-    if (quickAddCreateReturnTarget !== "account") return
-    setQuickAddCreateReturnTarget(null)
-    setQuickAddInitialTab("expense")
-    setQuickAddInitialIncomeSourceId(null)
-    setQuickAddInitialCategoryId(null)
-    setQuickAddInitialDebtAction("receivable")
-    setQuickAddReopenExpensePicker("account")
-    setActiveNav("add")
-    setActiveScreen("quick-add")
-  }, [quickAddCreateReturnTarget])
+    if (!quickAddCreateReturnPicker) return
+    if (!quickAddCreateReturnPicker.includes("account")) return
+    returnToQuickAddPicker(quickAddCreateReturnPicker)
+  }, [quickAddCreateReturnPicker, returnToQuickAddPicker])
 
   const handleOverviewCategoryCreated = useCallback(() => {
-    if (quickAddCreateReturnTarget !== "category") return
-    setQuickAddCreateReturnTarget(null)
-    setQuickAddInitialTab("expense")
-    setQuickAddInitialIncomeSourceId(null)
-    setQuickAddInitialCategoryId(null)
-    setQuickAddInitialDebtAction("receivable")
-    setQuickAddReopenExpensePicker("category")
-    setActiveNav("add")
-    setActiveScreen("quick-add")
-  }, [quickAddCreateReturnTarget])
+    if (!quickAddCreateReturnPicker || quickAddCreateReturnPicker !== "expense-category") return
+    returnToQuickAddPicker(quickAddCreateReturnPicker)
+  }, [quickAddCreateReturnPicker, returnToQuickAddPicker])
+
+  const handleOverviewIncomeSourceCreated = useCallback(() => {
+    if (!quickAddCreateReturnPicker || quickAddCreateReturnPicker !== "income-source") return
+    returnToQuickAddPicker(quickAddCreateReturnPicker)
+  }, [quickAddCreateReturnPicker, returnToQuickAddPicker])
+
+  const handleOverviewGoalCreated = useCallback(() => {
+    if (!quickAddCreateReturnPicker) return
+    if (quickAddCreateReturnPicker !== "goal-target" && quickAddCreateReturnPicker !== "transfer-goal") return
+    returnToQuickAddPicker(quickAddCreateReturnPicker)
+  }, [quickAddCreateReturnPicker, returnToQuickAddPicker])
 
   const overviewDataLoadingForActiveSpace =
     activeOverviewUiPhase === "loading" || activeOverviewUiPhase === "idle"
@@ -1739,8 +1782,12 @@ function App() {
             onConsumeAutoOpenAccountCreate={() => setAutoOpenAccountCreate(false)}
             autoOpenCategoryCreate={autoOpenCategoryCreate}
             onConsumeAutoOpenCategoryCreate={() => setAutoOpenCategoryCreate(false)}
+            autoOpenIncomeSourceCreate={autoOpenIncomeSourceCreate}
+            onConsumeAutoOpenIncomeSourceCreate={() => setAutoOpenIncomeSourceCreate(false)}
             onAccountCreated={handleOverviewAccountCreated}
             onCategoryCreated={handleOverviewCategoryCreated}
+            onIncomeSourceCreated={handleOverviewIncomeSourceCreated}
+            onGoalCreated={handleOverviewGoalCreated}
             goalsListMode={goalsListMode}
             skipGoalsListRefetch={skipGoalsListRefetch}
             workspaceAccountLabel={accountLabel}
@@ -1832,8 +1879,12 @@ function App() {
             onConsumeAutoOpenAccountCreate={() => setAutoOpenAccountCreate(false)}
             autoOpenCategoryCreate={autoOpenCategoryCreate}
             onConsumeAutoOpenCategoryCreate={() => setAutoOpenCategoryCreate(false)}
+            autoOpenIncomeSourceCreate={autoOpenIncomeSourceCreate}
+            onConsumeAutoOpenIncomeSourceCreate={() => setAutoOpenIncomeSourceCreate(false)}
             onAccountCreated={handleOverviewAccountCreated}
             onCategoryCreated={handleOverviewCategoryCreated}
+            onIncomeSourceCreated={handleOverviewIncomeSourceCreated}
+            onGoalCreated={handleOverviewGoalCreated}
             goalsListMode={goalsListMode}
             skipGoalsListRefetch={skipGoalsListRefetch}
             workspaceAccountLabel={accountLabel}
@@ -1855,16 +1906,12 @@ function App() {
             initialCategoryId={quickAddInitialCategoryId}
             initialDebtAction={quickAddInitialDebtAction}
             onClose={() => setActiveScreen(prevScreen.current ?? "overview")}
-            onOpenCreateGoal={() => {
-              setGoalsListMode("goals")
-              setAutoOpenGoalCreate(true)
-              setActiveNav("overview")
-              setActiveScreen("overview")
-            }}
+            onOpenCreateGoal={openOverviewGoalCreateFromQuickAdd}
             onOpenCreateAccount={openOverviewAccountCreateFromQuickAdd}
             onOpenCreateCategory={openOverviewCategoryCreateFromQuickAdd}
-            reopenExpensePicker={quickAddReopenExpensePicker}
-            onConsumeReopenExpensePicker={() => setQuickAddReopenExpensePicker(null)}
+            onOpenCreateIncomeSource={openOverviewIncomeSourceCreateFromQuickAdd}
+            reopenPicker={quickAddReopenPicker}
+            onConsumeReopenPicker={() => setQuickAddReopenPicker(null)}
           />
         )
       case "reports":

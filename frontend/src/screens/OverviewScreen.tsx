@@ -696,8 +696,12 @@ type OverviewScreenProps = {
   onConsumeAutoOpenAccountCreate?: () => void
   autoOpenCategoryCreate?: boolean
   onConsumeAutoOpenCategoryCreate?: () => void
+  autoOpenIncomeSourceCreate?: boolean
+  onConsumeAutoOpenIncomeSourceCreate?: () => void
   onAccountCreated?: () => void
   onCategoryCreated?: () => void
+  onIncomeSourceCreated?: () => void
+  onGoalCreated?: () => void
   goalsListMode?: "goals" | "debtsReceivable" | "debtsPayable"
   skipGoalsListRefetch?: boolean
   workspaceAccountLabel?: string
@@ -736,8 +740,12 @@ function OverviewScreen({
   onConsumeAutoOpenAccountCreate,
   autoOpenCategoryCreate = false,
   onConsumeAutoOpenCategoryCreate,
+  autoOpenIncomeSourceCreate = false,
+  onConsumeAutoOpenIncomeSourceCreate,
   onAccountCreated,
   onCategoryCreated,
+  onIncomeSourceCreated,
+  onGoalCreated,
   goalsListMode = "goals",
   skipGoalsListRefetch = false,
   workspaceAccountLabel = "Личный",
@@ -1490,6 +1498,15 @@ function OverviewScreen({
     setIncomeSourceError(null)
   }, [])
 
+  const autoOpenIncomeSourceCreateInFlightRef = useRef(false)
+  useEffect(() => {
+    if (!autoOpenIncomeSourceCreate || autoOpenIncomeSourceCreateInFlightRef.current) return
+    autoOpenIncomeSourceCreateInFlightRef.current = true
+    openCreateIncomeSource()
+    onConsumeAutoOpenIncomeSourceCreate?.()
+    autoOpenIncomeSourceCreateInFlightRef.current = false
+  }, [autoOpenIncomeSourceCreate, onConsumeAutoOpenIncomeSourceCreate, openCreateIncomeSource])
+
   const openIncomeSourceDetails = useCallback((id: string, title: string) => {
     if (!id) return
     setDetailIncomeSourceId(id)
@@ -2051,6 +2068,7 @@ function OverviewScreen({
       setIsSavingIncomeSource(true)
       setIncomeSourceError(null)
       try {
+        const isCreateMode = incomeSourceSheetMode === "create"
         if (incomeSourceSheetMode === "create") {
           await createIncomeSource(token, trimmed, incomeSourceIcon ?? undefined)
         } else if (incomeSourceSheetMode === "edit" && editingIncomeSourceId) {
@@ -2058,6 +2076,9 @@ function OverviewScreen({
         }
         await refetchIncomeSources()
         closeIncomeSourceSheet()
+        if (isCreateMode) {
+          onIncomeSourceCreated?.()
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Ошибка"
         if (msg.includes("INCOME_SOURCE_NAME_EXISTS")) {
@@ -2078,6 +2099,7 @@ function OverviewScreen({
     incomeSourceName,
     incomeSourceSheetMode,
     incomeSourceIcon,
+    onIncomeSourceCreated,
     refetchIncomeSources,
     runIncomeSave,
     token,
@@ -2279,6 +2301,7 @@ function OverviewScreen({
     }
     setIsSavingGoal(true)
     try {
+      const isCreateMode = goalSheetMode === "create"
       const currentGoalIcon =
         goalIcon?.trim() ??
         (goalSheetMode === "edit" && editingGoalId ? goals.find((g) => g.id === editingGoalId)?.icon ?? null : null)
@@ -2295,6 +2318,9 @@ function OverviewScreen({
       setPendingOpenGoalsList(true)
       setIsGoalSheetOpen(false)
       setEditingGoalId(null)
+      if (isCreateMode) {
+        onGoalCreated?.()
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось создать цель"
       if (msg.includes("GOAL_NAME_EXISTS")) {
@@ -2307,7 +2333,7 @@ function OverviewScreen({
     } finally {
       setIsSavingGoal(false)
     }
-  }, [editingGoalId, goalIcon, goalName, goalTarget, goals, refetchGoals, token])
+  }, [editingGoalId, goalIcon, goalName, goalTarget, goalSheetMode, goals, onGoalCreated, refetchGoals, token])
 
   const handleDeleteCategory = useCallback(
     (id: string) =>

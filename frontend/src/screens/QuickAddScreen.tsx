@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, type CSSProperties, type FocusEvent, type MouseEvent, type PointerEvent, type UIEvent } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type CSSProperties, type FocusEvent, type MouseEvent, type PointerEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -6,8 +6,6 @@ import { getAccounts } from "../api/accounts"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { getAccountDisplay, getCategoryDisplay, getIncomeSourceDisplay } from "../shared/display"
-import { GoalList } from "../components/GoalList"
-import { DebtorList } from "../components/DebtorList"
 import { contributeGoal, getGoals, type GoalDto } from "../api/goals"
 import { getDebtors } from "../api/debtors"
 import { getReadableTextColor } from "../utils/getReadableTextColor"
@@ -174,14 +172,30 @@ const AmountDateRow: React.FC<{
 )
 
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
+type QuickAddPickerKey =
+  | "expense-account"
+  | "expense-category"
+  | "income-source"
+  | "income-account"
+  | "transfer-from-account"
+  | "transfer-to-account"
+  | "transfer-goal"
+  | "transfer-debt"
+  | "debt-receivable-debtor"
+  | "debt-receivable-account"
+  | "debt-payable-account"
+  | "debt-payable-debtor"
+  | "goal-account"
+  | "goal-target"
 
 type Props = {
   onClose: () => void
-  onOpenCreateGoal?: () => void
-  onOpenCreateAccount?: () => void
-  onOpenCreateCategory?: () => void
-  reopenExpensePicker?: "account" | "category" | null
-  onConsumeReopenExpensePicker?: () => void
+  onOpenCreateGoal?: (returnPicker: QuickAddPickerKey) => void
+  onOpenCreateAccount?: (returnPicker: QuickAddPickerKey) => void
+  onOpenCreateCategory?: (returnPicker: QuickAddPickerKey) => void
+  onOpenCreateIncomeSource?: (returnPicker: QuickAddPickerKey) => void
+  reopenPicker?: QuickAddPickerKey | null
+  onConsumeReopenPicker?: () => void
   initialTab?: QuickAddTab
   initialIncomeSourceId?: string | null
   initialCategoryId?: string | null
@@ -193,8 +207,9 @@ export const QuickAddScreen: React.FC<Props> = ({
   onOpenCreateGoal,
   onOpenCreateAccount,
   onOpenCreateCategory,
-  reopenExpensePicker = null,
-  onConsumeReopenExpensePicker,
+  onOpenCreateIncomeSource,
+  reopenPicker = null,
+  onConsumeReopenPicker,
   initialTab = "expense",
   initialIncomeSourceId = null,
   initialCategoryId = null,
@@ -221,28 +236,16 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isAmountFocused, setIsAmountFocused] = useState(false)
-  const [expensePicker, setExpensePicker] = useState<"account" | "category" | null>(null)
+  const [expensePicker, setExpensePicker] = useState<QuickAddPickerKey | null>(null)
   const [expensePickerClosing, setExpensePickerClosing] = useState(false)
   const [expenseAccountError, setExpenseAccountError] = useState(false)
   const [expenseCategoryError, setExpenseCategoryError] = useState(false)
   const [expensePickerDragOffset, setExpensePickerDragOffset] = useState(0)
   const [footerHeightPx, setFooterHeightPx] = useState(148)
-  const [showTransferDebtScrollHint, setShowTransferDebtScrollHint] = useState(false)
-  const [transferDebtListScrolled, setTransferDebtListScrolled] = useState(false)
-  const [showTransferGoalScrollHint, setShowTransferGoalScrollHint] = useState(false)
-  const [transferGoalListScrolled, setTransferGoalListScrolled] = useState(false)
-  const [showDebtReceivableScrollHint, setShowDebtReceivableScrollHint] = useState(false)
-  const [debtReceivableListScrolled, setDebtReceivableListScrolled] = useState(false)
-  const [showDebtPayableScrollHint, setShowDebtPayableScrollHint] = useState(false)
-  const [debtPayableListScrolled, setDebtPayableListScrolled] = useState(false)
   const goalsFetchInFlight = useRef(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
   const amountInputRef = useRef<HTMLInputElement | null>(null)
-  const transferDebtListRef = useRef<HTMLDivElement | null>(null)
-  const transferGoalListRef = useRef<HTMLDivElement | null>(null)
-  const debtReceivableListRef = useRef<HTMLDivElement | null>(null)
-  const debtPayableListRef = useRef<HTMLDivElement | null>(null)
   const expensePickerSheetRef = useRef<HTMLDivElement | null>(null)
   const expensePickerOverlayRef = useRef<HTMLDivElement | null>(null)
   const expensePickerContentRef = useRef<HTMLDivElement | null>(null)
@@ -384,31 +387,6 @@ export const QuickAddScreen: React.FC<Props> = ({
   const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts])
   const categoriesById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
   const incomeSourcesById = useMemo(() => Object.fromEntries(incomeSources.map((s) => [s.id, s])), [incomeSources])
-  const hScrollRowStyle = useMemo(
-    () =>
-      ({
-        paddingBottom: 6,
-        overflowX: "auto",
-        overflowY: "hidden",
-        WebkitOverflowScrolling: "touch",
-      }) as const,
-    [],
-  )
-  const debtListScrollContainerStyle = useMemo(
-    () =>
-      ({
-        border: "1px solid #e5e7eb",
-        borderRadius: 14,
-        padding: 8,
-        maxHeight: 181,
-        overflowY: "auto",
-        overflowX: "hidden",
-        WebkitOverflowScrolling: "touch",
-        overscrollBehaviorY: "contain",
-        touchAction: "pan-y",
-      }) as const,
-    [],
-  )
   const footerSectionStyle = useMemo(
     () =>
       ({
@@ -584,99 +562,6 @@ export const QuickAddScreen: React.FC<Props> = ({
       setSelectedPayableDebtorId(null)
     }
   }, [activePayableDebtors, selectedPayableDebtorId])
-
-  useEffect(() => {
-    if (activeTab !== "transfer" || transferTargetType !== "debt") {
-      setShowTransferDebtScrollHint(false)
-      setTransferDebtListScrolled(false)
-      return
-    }
-    const el = transferDebtListRef.current
-    if (!el) {
-      setShowTransferDebtScrollHint(false)
-      return
-    }
-    const canScroll = el.scrollHeight > el.clientHeight + 1
-    setShowTransferDebtScrollHint(canScroll && !transferDebtListScrolled && el.scrollTop <= 0)
-  }, [activePayableDebtors.length, activeTab, transferDebtListScrolled, transferTargetType])
-
-  const handleTransferDebtListScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
-    if (transferDebtListScrolled) return
-    if (event.currentTarget.scrollTop > 0) {
-      setTransferDebtListScrolled(true)
-      setShowTransferDebtScrollHint(false)
-    }
-  }, [transferDebtListScrolled])
-
-  useEffect(() => {
-    const isGoalSelectionMode = activeTab === "goal" || (activeTab === "transfer" && transferTargetType === "goal")
-    if (!isGoalSelectionMode) {
-      setShowTransferGoalScrollHint(false)
-      setTransferGoalListScrolled(false)
-      return
-    }
-    const el = transferGoalListRef.current
-    if (!el) {
-      setShowTransferGoalScrollHint(false)
-      return
-    }
-    const canScroll = el.scrollHeight > el.clientHeight + 1
-    setShowTransferGoalScrollHint(canScroll && !transferGoalListScrolled && el.scrollTop <= 0)
-  }, [activeGoals.length, activeTab, transferGoalListScrolled, transferTargetType])
-
-  const handleTransferGoalListScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
-    if (transferGoalListScrolled) return
-    if (event.currentTarget.scrollTop > 0) {
-      setTransferGoalListScrolled(true)
-      setShowTransferGoalScrollHint(false)
-    }
-  }, [transferGoalListScrolled])
-
-  useEffect(() => {
-    if (activeTab !== "debt" || debtAction !== "receivable") {
-      setShowDebtReceivableScrollHint(false)
-      setDebtReceivableListScrolled(false)
-      return
-    }
-    const el = debtReceivableListRef.current
-    if (!el) {
-      setShowDebtReceivableScrollHint(false)
-      return
-    }
-    const canScroll = el.scrollHeight > el.clientHeight + 1
-    setShowDebtReceivableScrollHint(canScroll && !debtReceivableListScrolled && el.scrollTop <= 0)
-  }, [activeReceivableDebtors.length, activeTab, debtAction, debtReceivableListScrolled])
-
-  const handleDebtReceivableListScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
-    if (debtReceivableListScrolled) return
-    if (event.currentTarget.scrollTop > 0) {
-      setDebtReceivableListScrolled(true)
-      setShowDebtReceivableScrollHint(false)
-    }
-  }, [debtReceivableListScrolled])
-
-  useEffect(() => {
-    if (activeTab !== "debt" || debtAction !== "payable") {
-      setShowDebtPayableScrollHint(false)
-      setDebtPayableListScrolled(false)
-      return
-    }
-    const el = debtPayableListRef.current
-    if (!el) {
-      setShowDebtPayableScrollHint(false)
-      return
-    }
-    const canScroll = el.scrollHeight > el.clientHeight + 1
-    setShowDebtPayableScrollHint(canScroll && !debtPayableListScrolled && el.scrollTop <= 0)
-  }, [activePayableDebtors.length, activeTab, debtAction, debtPayableListScrolled])
-
-  const handleDebtPayableListScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
-    if (debtPayableListScrolled) return
-    if (event.currentTarget.scrollTop > 0) {
-      setDebtPayableListScrolled(true)
-      setShowDebtPayableScrollHint(false)
-    }
-  }, [debtPayableListScrolled])
 
   useEffect(() => {
     const footerNode = footerRef.current
@@ -881,6 +766,31 @@ export const QuickAddScreen: React.FC<Props> = ({
     () => expenseCategoryTiles.find((tile) => tile.id === selectedCategoryId) ?? null,
     [expenseCategoryTiles, selectedCategoryId],
   )
+  const selectedIncomeSourceTile = useMemo(
+    () => incomeSourceTiles.find((tile) => tile.id === selectedIncomeSourceId) ?? null,
+    [incomeSourceTiles, selectedIncomeSourceId],
+  )
+  const selectedTransferFromAccountTile = useMemo(
+    () => accountTiles.find((tile) => tile.id === transferFromAccountId) ?? null,
+    [accountTiles, transferFromAccountId],
+  )
+  const selectedTransferToAccountTile = useMemo(
+    () => accountTiles.find((tile) => tile.id === transferToAccountId) ?? null,
+    [accountTiles, transferToAccountId],
+  )
+  const selectedDebtAccountTile = useMemo(
+    () => accountTiles.find((tile) => tile.id === selectedDebtAccountId) ?? null,
+    [accountTiles, selectedDebtAccountId],
+  )
+  const selectedGoalTarget = useMemo(() => activeGoals.find((goal) => goal.id === selectedGoalId) ?? null, [activeGoals, selectedGoalId])
+  const selectedReceivableDebtor = useMemo(
+    () => activeReceivableDebtors.find((debtor) => debtor.id === selectedReceivableDebtorId) ?? null,
+    [activeReceivableDebtors, selectedReceivableDebtorId],
+  )
+  const selectedPayableDebtor = useMemo(
+    () => activePayableDebtors.find((debtor) => debtor.id === selectedPayableDebtorId) ?? null,
+    [activePayableDebtors, selectedPayableDebtorId],
+  )
   const expenseCompactTileHeight = 98
   const expenseCompactTileStyle = useMemo(
     () =>
@@ -974,7 +884,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     })
   }, [amount, isRunning, onClose, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
 
-  const openExpensePicker = useCallback((picker: "account" | "category") => {
+  const openExpensePicker = useCallback((picker: QuickAddPickerKey) => {
     if (expensePickerCloseTimerRef.current !== null) {
       window.clearTimeout(expensePickerCloseTimerRef.current)
       expensePickerCloseTimerRef.current = null
@@ -1013,25 +923,18 @@ export const QuickAddScreen: React.FC<Props> = ({
     }, 190)
   }, [expensePicker, expensePickerClosing, finalizeExpensePickerClose])
 
-  const selectExpenseAccount = useCallback((accountId: string) => {
-    setSelectedAccountId(accountId)
-    setExpenseAccountError(false)
-    setError(null)
-    requestCloseExpensePicker()
-  }, [requestCloseExpensePicker])
-
-  const selectExpenseCategory = useCallback((categoryId: string) => {
-    setSelectedCategoryId(categoryId)
-    setExpenseCategoryError(false)
-    setError(null)
-    requestCloseExpensePicker()
-  }, [requestCloseExpensePicker])
-
   useEffect(() => {
-    if (activeTab !== "expense" || !reopenExpensePicker) return
-    openExpensePicker(reopenExpensePicker)
-    onConsumeReopenExpensePicker?.()
-  }, [activeTab, onConsumeReopenExpensePicker, openExpensePicker, reopenExpensePicker])
+    if (!reopenPicker) return
+    const debtPicker = reopenPicker.startsWith("debt-")
+    if (debtPicker) {
+      const nextDebtAction = reopenPicker.startsWith("debt-receivable-") ? "receivable" : "payable"
+      if (debtAction !== nextDebtAction) {
+        setDebtAction(nextDebtAction)
+      }
+    }
+    openExpensePicker(reopenPicker)
+    onConsumeReopenPicker?.()
+  }, [debtAction, onConsumeReopenPicker, openExpensePicker, reopenPicker])
 
   const handleExpenseSave = useCallback(() => {
     const missingAccount = !selectedAccountId
@@ -1775,6 +1678,247 @@ export const QuickAddScreen: React.FC<Props> = ({
     void submitGoal()
   }, [activeTab, submitDebt, submitExpense, submitGoal, submitIncome, submitTransfer])
 
+  const renderEmptyChoiceTile = useCallback(
+    (label: string, onClick: () => void, hasError = false) => (
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          ...expenseCompactTileStyle,
+          borderRadius: 12,
+          border: hasError ? "1px solid #dc2626" : "1px solid #d1d5db",
+          background: "#fff",
+          display: "grid",
+          placeItems: "center",
+          gap: 2,
+          color: "#0f172a",
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 500, transform: "translateY(6px)" }}>{label}</div>
+        <TapHintIcon size={22} color="#94a3b8" />
+        <div style={{ fontSize: 13, color: "#64748b", transform: "translateY(-6px)" }}>Выбрать</div>
+      </button>
+    ),
+    [expenseCompactTileStyle],
+  )
+
+  const renderDirectionArrow = useCallback(
+    () => (
+      <div
+        aria-hidden="true"
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: 999,
+          border: "1px solid rgba(148,163,184,0.45)",
+          background: "rgba(255,255,255,0.92)",
+          color: "#475569",
+          fontSize: 12,
+          fontWeight: 700,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 2px 8px rgba(15,23,42,0.12)",
+          pointerEvents: "none",
+          flexShrink: 0,
+        }}
+      >
+        →
+      </div>
+    ),
+    [],
+  )
+
+  const renderDebtorTile = useCallback(
+    (debtor: (typeof activeReceivableDebtors)[number], onClick: () => void) => (
+      <button
+        type="button"
+        onClick={onClick}
+        className="tile-card tile-card--category tile-card--selected"
+        style={{
+          ...expenseCompactTileStyle,
+          borderRadius: 12,
+          border: "1px solid #0f172a",
+          background: "#fff",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}
+      >
+        <span className="tile-card__selected-check" aria-hidden="true">
+          ✓
+        </span>
+        <div className="tile-card__icon">
+          {debtor.icon && isFinanceIconKey(debtor.icon) ? <FinanceIcon iconKey={debtor.icon} size={16} /> : <AppIcon name="bank" size={16} />}
+        </div>
+        <div className="tile-card__title">{debtor.name}</div>
+        <div className="tile-card__amount">{formatMoney(pickDebtTotal(debtor), baseCurrency)}</div>
+      </button>
+    ),
+    [baseCurrency, expenseCompactTileStyle],
+  )
+
+  const pickerTitle = useMemo(() => {
+    switch (expensePicker) {
+      case "expense-account":
+      case "income-account":
+      case "transfer-from-account":
+      case "transfer-to-account":
+      case "debt-receivable-account":
+      case "debt-payable-account":
+      case "goal-account":
+        return "Выберите счёт"
+      case "expense-category":
+        return "Выберите категорию"
+      case "income-source":
+        return "Выберите источник дохода"
+      case "transfer-goal":
+      case "goal-target":
+        return "Выберите цель"
+      case "transfer-debt":
+      case "debt-payable-debtor":
+        return "Выберите долг"
+      case "debt-receivable-debtor":
+        return "Выберите должника"
+      default:
+        return ""
+    }
+  }, [expensePicker])
+
+  const pickerSelectedId = useMemo(() => {
+    switch (expensePicker) {
+      case "expense-account":
+      case "income-account":
+      case "goal-account":
+        return selectedAccountId
+      case "transfer-from-account":
+        return transferFromAccountId
+      case "transfer-to-account":
+        return transferToAccountId
+      case "debt-receivable-account":
+      case "debt-payable-account":
+        return selectedDebtAccountId
+      case "expense-category":
+        return selectedCategoryId
+      case "income-source":
+        return selectedIncomeSourceId
+      case "transfer-goal":
+      case "goal-target":
+        return selectedGoalId
+      case "transfer-debt":
+      case "debt-payable-debtor":
+        return selectedPayableDebtorId
+      case "debt-receivable-debtor":
+        return selectedReceivableDebtorId
+      default:
+        return null
+    }
+  }, [
+    expensePicker,
+    selectedAccountId,
+    selectedCategoryId,
+    selectedDebtAccountId,
+    selectedGoalId,
+    selectedIncomeSourceId,
+    selectedPayableDebtorId,
+    selectedReceivableDebtorId,
+    transferFromAccountId,
+    transferToAccountId,
+  ])
+
+  const handlePickerSelect = useCallback(
+    (id: string) => {
+      if (!expensePicker) return
+      switch (expensePicker) {
+        case "expense-account":
+          setSelectedAccountId(id)
+          setExpenseAccountError(false)
+          break
+        case "income-account":
+        case "goal-account":
+          setSelectedAccountId(id)
+          break
+        case "transfer-from-account":
+          setTransferFromAccountId(id)
+          break
+        case "transfer-to-account":
+          setTransferToAccountId(id)
+          break
+        case "debt-receivable-account":
+        case "debt-payable-account":
+          setSelectedDebtAccountId(id)
+          break
+        case "expense-category":
+          setSelectedCategoryId(id)
+          setExpenseCategoryError(false)
+          break
+        case "income-source":
+          setSelectedIncomeSourceId(id)
+          break
+        case "transfer-goal":
+        case "goal-target":
+          setSelectedGoalId(id)
+          break
+        case "transfer-debt":
+        case "debt-payable-debtor":
+          setSelectedPayableDebtorId(id)
+          break
+        case "debt-receivable-debtor":
+          setSelectedReceivableDebtorId(id)
+          break
+      }
+      setError(null)
+      requestCloseExpensePicker()
+    },
+    [expensePicker, requestCloseExpensePicker],
+  )
+
+  const handlePickerCreate = useCallback(() => {
+    if (!expensePicker) return
+    requestCloseExpensePicker()
+    switch (expensePicker) {
+      case "expense-account":
+      case "income-account":
+      case "transfer-from-account":
+      case "transfer-to-account":
+      case "debt-receivable-account":
+      case "debt-payable-account":
+      case "goal-account":
+        onOpenCreateAccount?.(expensePicker)
+        return
+      case "expense-category":
+        onOpenCreateCategory?.(expensePicker)
+        return
+      case "income-source":
+        onOpenCreateIncomeSource?.(expensePicker)
+        return
+      case "transfer-goal":
+      case "goal-target":
+        onOpenCreateGoal?.(expensePicker)
+        return
+      default:
+        return
+    }
+  }, [expensePicker, onOpenCreateAccount, onOpenCreateCategory, onOpenCreateGoal, onOpenCreateIncomeSource, requestCloseExpensePicker])
+
+  const pickerAllowsCreate = useMemo(
+    () =>
+      Boolean(
+        expensePicker &&
+          (expensePicker === "expense-account" ||
+            expensePicker === "income-account" ||
+            expensePicker === "transfer-from-account" ||
+            expensePicker === "transfer-to-account" ||
+            expensePicker === "debt-receivable-account" ||
+            expensePicker === "debt-payable-account" ||
+            expensePicker === "goal-account" ||
+            expensePicker === "expense-category" ||
+            expensePicker === "income-source" ||
+            expensePicker === "transfer-goal" ||
+            expensePicker === "goal-target"),
+      ),
+    [expensePicker],
+  )
+
   return (
     <div
       ref={scrollRef}
@@ -1915,13 +2059,13 @@ export const QuickAddScreen: React.FC<Props> = ({
                   },
                   true,
                   "account",
-                  () => openExpensePicker("account"),
+                  () => openExpensePicker("expense-account"),
                   expenseCompactTileStyle,
                 )
               ) : (
                 <button
                   type="button"
-                  onClick={() => openExpensePicker("account")}
+                  onClick={() => openExpensePicker("expense-account")}
                   style={{
                     ...expenseCompactTileStyle,
                     borderRadius: 12,
@@ -1973,13 +2117,13 @@ export const QuickAddScreen: React.FC<Props> = ({
                   },
                   true,
                   "category",
-                  () => openExpensePicker("category"),
+                  () => openExpensePicker("expense-category"),
                   expenseCompactTileStyle,
                 )
               ) : (
                 <button
                   type="button"
-                  onClick={() => openExpensePicker("category")}
+                  onClick={() => openExpensePicker("expense-category")}
                   style={{
                     ...expenseCompactTileStyle,
                     borderRadius: 12,
@@ -2024,73 +2168,52 @@ export const QuickAddScreen: React.FC<Props> = ({
             </button>
           </div>
         ) : activeTab === "income" ? (
-          <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
-            <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Источник дохода</div>
-            <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
-              {incomeSourceTiles.map((src) =>
+          <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)", alignItems: "center", gap: 16, width: "100%" }}>
+              {selectedIncomeSourceTile ? (
                 renderTile(
                   {
-                    id: src.id,
-                    title: src.title,
-                    iconKey: src.iconKey,
-                    amount: src.amount,
-                    color: src.color,
+                    id: selectedIncomeSourceTile.id,
+                    title: selectedIncomeSourceTile.title,
+                    iconKey: selectedIncomeSourceTile.iconKey,
+                    amount: selectedIncomeSourceTile.amount,
+                    color: selectedIncomeSourceTile.color,
                   },
-                  selectedIncomeSourceId === src.id,
+                  true,
                   "income-source",
-                ),
+                  () => openExpensePicker("income-source"),
+                  expenseCompactTileStyle,
+                )
+              ) : (
+                renderEmptyChoiceTile("Источник", () => openExpensePicker("income-source"))
               )}
-            </div>
 
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
-              <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для зачисления</div>
-              <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
-              {accountTiles.map((acc) =>
+              {renderDirectionArrow()}
+
+              {selectedAccountTile ? (
                 renderTile(
                   {
-                    id: acc.id,
-                    title: acc.title,
+                    id: selectedAccountTile.id,
+                    title: selectedAccountTile.title,
                     icon: "wallet",
-                    iconKey: acc.iconKey,
-                    color: acc.color,
-                    amount: acc.amount,
-                    secondaryAmount: acc.secondaryAmount,
+                    iconKey: selectedAccountTile.iconKey,
+                    color: selectedAccountTile.color,
+                    amount: selectedAccountTile.amount,
+                    secondaryAmount: selectedAccountTile.secondaryAmount,
                   },
-                  selectedAccountId === acc.id,
+                  true,
                   "account",
-                  ),
+                  () => openExpensePicker("income-account"),
+                  expenseCompactTileStyle,
+                )
+              ) : (
+                renderEmptyChoiceTile("Счёт", () => openExpensePicker("income-account"))
               )}
             </div>
-            </div>
-
           </div>
         ) : activeTab === "transfer" ? (
-          <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
-            <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт — откуда</div>
-            <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
-              {accountTiles.map((acc) =>
-                renderTile(
-                  {
-                    id: acc.id,
-                    title: acc.title,
-                    icon: "wallet",
-                    iconKey: acc.iconKey,
-                    color: acc.color,
-                    amount: acc.amount,
-                    secondaryAmount: acc.secondaryAmount,
-                  },
-                  transferFromAccountId === acc.id,
-                  "account",
-                  (id) => {
-                    setTransferFromAccountId(id)
-                    setError(null)
-                  },
-                ),
-              )}
-            </div>
-
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
-              <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Куда</div>
+          <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
+            <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                 {[
                   { key: "account", label: "Счёт" },
@@ -2118,135 +2241,74 @@ export const QuickAddScreen: React.FC<Props> = ({
                   </button>
                 ))}
               </div>
-
-              {transferTargetType === "account" ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт — куда</div>
-                  <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
-                    {accountTiles.map((acc) =>
-                      renderTile(
-                        {
-                          id: acc.id,
-                          title: acc.title,
-                          icon: "wallet",
-                          iconKey: acc.iconKey,
-                          color: acc.color,
-                          amount: acc.amount,
-                          secondaryAmount: acc.secondaryAmount,
-                        },
-                        transferToAccountId === acc.id,
-                        "account",
-                        (id) => {
-                          setTransferToAccountId(id)
-                          setError(null)
-                        },
-                      ),
-                    )}
-                  </div>
-                </div>
-              ) : transferTargetType === "goal" ? (
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
-                  <div style={{ position: "relative" }}>
-                    <div
-                      ref={transferGoalListRef}
-                      onScroll={handleTransferGoalListScroll}
-                      style={debtListScrollContainerStyle}
-                    >
-                      <GoalList
-                        goals={activeGoals}
-                        selectedGoalId={selectedGoalId}
-                        onSelectGoal={(goal) => {
-                          setSelectedGoalId(goal.id)
-                          setError(null)
-                        }}
-                        emptyText="Нет актуальных целей"
-                        currency={baseCurrency}
-                        showSelectedCheck
-                        selectedCheckOnly
-                      />
-                    </div>
-                    {showTransferGoalScrollHint ? (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: "50%",
-                          bottom: 8,
-                          transform: "translateX(-50%)",
-                          pointerEvents: "none",
-                          color: "rgba(71,85,105,0.9)",
-                          fontSize: 14,
-                          lineHeight: 1,
-                          width: 20,
-                          height: 20,
-                          borderRadius: 999,
-                          background: "rgba(255,255,255,0.88)",
-                          border: "1px solid rgba(148,163,184,0.45)",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        ↓
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)", alignItems: "center", gap: 16, width: "100%" }}>
+              {selectedTransferFromAccountTile ? (
+                renderTile(
+                  {
+                    id: selectedTransferFromAccountTile.id,
+                    title: selectedTransferFromAccountTile.title,
+                    icon: "wallet",
+                    iconKey: selectedTransferFromAccountTile.iconKey,
+                    color: selectedTransferFromAccountTile.color,
+                    amount: selectedTransferFromAccountTile.amount,
+                    secondaryAmount: selectedTransferFromAccountTile.secondaryAmount,
+                  },
+                  true,
+                  "account",
+                  () => openExpensePicker("transfer-from-account"),
+                  expenseCompactTileStyle,
+                )
               ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список моих долгов</div>
-                  <div style={{ position: "relative" }}>
-                    <div
-                      ref={transferDebtListRef}
-                      onScroll={handleTransferDebtListScroll}
-                      style={debtListScrollContainerStyle}
-                    >
-                      <DebtorList
-                        debtors={activePayableDebtors}
-                        direction="payable"
-                        emptyText="Нет актуальных долгов"
-                        selectedDebtorId={selectedPayableDebtorId}
-                        selectedBorder={false}
-                        selectedCheckOnly
-                        currency={baseCurrency}
-                        onSelectDebtor={(debtor) => {
-                          setSelectedPayableDebtorId(debtor.id)
-                          setError(null)
-                        }}
-                      />
-                    </div>
-                    {showTransferDebtScrollHint ? (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: "50%",
-                          bottom: 8,
-                          transform: "translateX(-50%)",
-                          pointerEvents: "none",
-                          color: "rgba(71,85,105,0.9)",
-                          fontSize: 14,
-                          lineHeight: 1,
-                          width: 20,
-                          height: 20,
-                          borderRadius: 999,
-                          background: "rgba(255,255,255,0.88)",
-                          border: "1px solid rgba(148,163,184,0.45)",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        ↓
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
+                renderEmptyChoiceTile("Откуда", () => openExpensePicker("transfer-from-account"))
+              )}
+              {renderDirectionArrow()}
+              {transferTargetType === "account" ? (
+                selectedTransferToAccountTile ? (
+                  renderTile(
+                    {
+                      id: selectedTransferToAccountTile.id,
+                      title: selectedTransferToAccountTile.title,
+                      icon: "wallet",
+                      iconKey: selectedTransferToAccountTile.iconKey,
+                      color: selectedTransferToAccountTile.color,
+                      amount: selectedTransferToAccountTile.amount,
+                      secondaryAmount: selectedTransferToAccountTile.secondaryAmount,
+                    },
+                    true,
+                    "account",
+                    () => openExpensePicker("transfer-to-account"),
+                    expenseCompactTileStyle,
+                  )
+                ) : (
+                  renderEmptyChoiceTile("Куда", () => openExpensePicker("transfer-to-account"))
+                )
+              ) : transferTargetType === "goal" ? (
+                selectedGoalTarget ? (
+                  renderTile(
+                    {
+                      id: selectedGoalTarget.id,
+                      title: selectedGoalTarget.name,
+                      icon: "goal",
+                      amount: selectedGoalTarget.currentAmount,
+                    },
+                    true,
+                    "goal",
+                    () => openExpensePicker("transfer-goal"),
+                    expenseCompactTileStyle,
+                  )
+                ) : (
+                  renderEmptyChoiceTile("Цель", () => openExpensePicker("transfer-goal"))
+                )
+              ) : selectedPayableDebtor ? (
+                renderDebtorTile(selectedPayableDebtor, () => openExpensePicker("transfer-debt"))
+              ) : (
+                renderEmptyChoiceTile("Долг", () => openExpensePicker("transfer-debt"))
               )}
             </div>
-
           </div>
         ) : activeTab === "debt" ? (
-          <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
+          <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
               <button
                 type="button"
@@ -2287,257 +2349,100 @@ export const QuickAddScreen: React.FC<Props> = ({
                 Я вернул
               </button>
             </div>
-
-            {debtAction === "receivable" ? (
-              <>
-                <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список должников</div>
-                {activeReceivableDebtors.length > 0 ? (
-                  <div style={{ position: "relative" }}>
-                    <div
-                      ref={debtReceivableListRef}
-                      onScroll={handleDebtReceivableListScroll}
-                      style={debtListScrollContainerStyle}
-                    >
-                      <DebtorList
-                        debtors={activeReceivableDebtors}
-                        direction="receivable"
-                        selectedDebtorId={selectedReceivableDebtorId}
-                        selectedCheckOnly
-                        currency={baseCurrency}
-                        onSelectDebtor={(debtor) => {
-                          setSelectedReceivableDebtorId(debtor.id)
-                          setError(null)
-                        }}
-                      />
-                    </div>
-                    {showDebtReceivableScrollHint ? (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: "50%",
-                          bottom: 8,
-                          transform: "translateX(-50%)",
-                          pointerEvents: "none",
-                          color: "rgba(71,85,105,0.9)",
-                          fontSize: 14,
-                          lineHeight: 1,
-                          width: 20,
-                          height: 20,
-                          borderRadius: 999,
-                          background: "rgba(255,255,255,0.88)",
-                          border: "1px solid rgba(148,163,184,0.45)",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        ↓
-                      </div>
-                    ) : null}
-                  </div>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)", alignItems: "center", gap: 16, width: "100%" }}>
+              {debtAction === "receivable" ? (
+                selectedReceivableDebtor ? (
+                  renderDebtorTile(selectedReceivableDebtor, () => openExpensePicker("debt-receivable-debtor"))
                 ) : (
-                  <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13 }}>Нет актуальных должников</div>
-                )}
-
-                <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
-                  <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для зачисления</div>
-                  <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
-                    {accountTiles.map((acc) =>
-                      renderTile(
-                        {
-                          id: acc.id,
-                          title: acc.title,
-                          icon: "wallet",
-                          iconKey: acc.iconKey,
-                          color: acc.color,
-                          amount: acc.amount,
-                          secondaryAmount: acc.secondaryAmount,
-                        },
-                        selectedDebtAccountId === acc.id,
-                        "account",
-                        (id) => {
-                          setSelectedDebtAccountId(id)
-                          setError(null)
-                        },
-                      ),
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт для списания</div>
-                <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
-                  {accountTiles.map((acc) =>
-                    renderTile(
-                      {
-                        id: acc.id,
-                        title: acc.title,
-                        icon: "wallet",
-                        iconKey: acc.iconKey,
-                        color: acc.color,
-                        amount: acc.amount,
-                        secondaryAmount: acc.secondaryAmount,
-                      },
-                      selectedDebtAccountId === acc.id,
-                      "account",
-                      (id) => {
-                        setSelectedDebtAccountId(id)
-                        setError(null)
-                      },
-                    ),
-                  )}
-                </div>
-
-                <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 10 }}>
-                  <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Список моих долгов</div>
-                  {activePayableDebtors.length > 0 ? (
-                    <div style={{ position: "relative" }}>
-                      <div
-                        ref={debtPayableListRef}
-                        onScroll={handleDebtPayableListScroll}
-                        style={debtListScrollContainerStyle}
-                      >
-                        <DebtorList
-                          debtors={activePayableDebtors}
-                          direction="payable"
-                          selectedDebtorId={selectedPayableDebtorId}
-                          selectedCheckOnly
-                          currency={baseCurrency}
-                          onSelectDebtor={(debtor) => {
-                            setSelectedPayableDebtorId(debtor.id)
-                            setError(null)
-                          }}
-                        />
-                      </div>
-                      {showDebtPayableScrollHint ? (
-                        <div
-                          style={{
-                            position: "absolute",
-                            left: "50%",
-                            bottom: 8,
-                            transform: "translateX(-50%)",
-                            pointerEvents: "none",
-                            color: "rgba(71,85,105,0.9)",
-                            fontSize: 14,
-                            lineHeight: 1,
-                            width: 20,
-                            height: 20,
-                            borderRadius: 999,
-                            background: "rgba(255,255,255,0.88)",
-                            border: "1px solid rgba(148,163,184,0.45)",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          ↓
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13 }}>Нет актуальных долгов</div>
-                  )}
-                </div>
-              </>
-            )}
-
-          </div>
-        ) : activeTab === "goal" ? (
-          <div style={{ display: "grid", gap: 16, padding: "0 16px 24px" }}>
-            <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Счёт</div>
-            <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
-              {accountTiles.map((acc) =>
+                  renderEmptyChoiceTile("От кого", () => openExpensePicker("debt-receivable-debtor"))
+                )
+              ) : selectedDebtAccountTile ? (
                 renderTile(
                   {
-                    id: acc.id,
-                    title: acc.title,
+                    id: selectedDebtAccountTile.id,
+                    title: selectedDebtAccountTile.title,
                     icon: "wallet",
-                    iconKey: acc.iconKey,
-                    color: acc.color,
-                    amount: acc.amount,
-                    secondaryAmount: acc.secondaryAmount,
+                    iconKey: selectedDebtAccountTile.iconKey,
+                    color: selectedDebtAccountTile.color,
+                    amount: selectedDebtAccountTile.amount,
+                    secondaryAmount: selectedDebtAccountTile.secondaryAmount,
                   },
-                  selectedAccountId === acc.id,
+                  true,
                   "account",
-                  ),
-              )}
-            </div>
-
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "grid", gap: 12 }}>
-              <div style={{ textAlign: "center", fontSize: 14, color: "#475569" }}>Цель</div>
-              {activeGoals.length > 0 ? (
-                <div style={{ position: "relative" }}>
-                  <div
-                    ref={transferGoalListRef}
-                    onScroll={handleTransferGoalListScroll}
-                    style={debtListScrollContainerStyle}
-                  >
-                    <GoalList
-                      goals={activeGoals}
-                      selectedGoalId={selectedGoalId}
-                      onSelectGoal={(goal) => {
-                        setSelectedGoalId(goal.id)
-                        setError(null)
-                      }}
-                      currency={baseCurrency}
-                      showSelectedCheck
-                      selectedCheckOnly
-                    />
-                  </div>
-                  {showTransferGoalScrollHint && activeGoals.length > 2 ? (
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: "50%",
-                        bottom: 8,
-                        transform: "translateX(-50%)",
-                        pointerEvents: "none",
-                        color: "rgba(71,85,105,0.9)",
-                        fontSize: 14,
-                        lineHeight: 1,
-                        width: 24,
-                        height: 24,
-                        borderRadius: 999,
-                        border: "1px solid rgba(148,163,184,0.45)",
-                        background: "rgba(255,255,255,0.88)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      ↓
-                    </div>
-                  ) : null}
-                </div>
+                  () => openExpensePicker("debt-payable-account"),
+                  expenseCompactTileStyle,
+                )
               ) : (
-                <div style={{ display: "grid", justifyItems: "center", gap: 10, padding: "16px 8px" }}>
-                  <div style={{ fontSize: 14, color: "#64748b", textAlign: "center" }}>Нет актуальных целей</div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onOpenCreateGoal) {
-                        onOpenCreateGoal()
-                      } else {
-                        onClose()
-                      }
-                    }}
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      border: "1px solid #0f172a",
-                      background: "#0f172a",
-                      color: "#fff",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
-                    + Создать цель
-                  </button>
-                </div>
+                renderEmptyChoiceTile("Откуда", () => openExpensePicker("debt-payable-account"))
+              )}
+              {renderDirectionArrow()}
+              {debtAction === "receivable" ? (
+                selectedDebtAccountTile ? (
+                  renderTile(
+                    {
+                      id: selectedDebtAccountTile.id,
+                      title: selectedDebtAccountTile.title,
+                      icon: "wallet",
+                      iconKey: selectedDebtAccountTile.iconKey,
+                      color: selectedDebtAccountTile.color,
+                      amount: selectedDebtAccountTile.amount,
+                      secondaryAmount: selectedDebtAccountTile.secondaryAmount,
+                    },
+                    true,
+                    "account",
+                    () => openExpensePicker("debt-receivable-account"),
+                    expenseCompactTileStyle,
+                  )
+                ) : (
+                  renderEmptyChoiceTile("Куда", () => openExpensePicker("debt-receivable-account"))
+                )
+              ) : selectedPayableDebtor ? (
+                renderDebtorTile(selectedPayableDebtor, () => openExpensePicker("debt-payable-debtor"))
+              ) : (
+                renderEmptyChoiceTile("Кому", () => openExpensePicker("debt-payable-debtor"))
               )}
             </div>
-
+          </div>
+        ) : activeTab === "goal" ? (
+          <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)", alignItems: "center", gap: 16, width: "100%" }}>
+              {selectedAccountTile ? (
+                renderTile(
+                  {
+                    id: selectedAccountTile.id,
+                    title: selectedAccountTile.title,
+                    icon: "wallet",
+                    iconKey: selectedAccountTile.iconKey,
+                    color: selectedAccountTile.color,
+                    amount: selectedAccountTile.amount,
+                    secondaryAmount: selectedAccountTile.secondaryAmount,
+                  },
+                  true,
+                  "account",
+                  () => openExpensePicker("goal-account"),
+                  expenseCompactTileStyle,
+                )
+              ) : (
+                renderEmptyChoiceTile("Откуда", () => openExpensePicker("goal-account"))
+              )}
+              {renderDirectionArrow()}
+              {selectedGoalTarget ? (
+                renderTile(
+                  {
+                    id: selectedGoalTarget.id,
+                    title: selectedGoalTarget.name,
+                    icon: "goal",
+                    amount: selectedGoalTarget.currentAmount,
+                  },
+                  true,
+                  "goal",
+                  () => openExpensePicker("goal-target"),
+                  expenseCompactTileStyle,
+                )
+              ) : (
+                renderEmptyChoiceTile("Цель", () => openExpensePicker("goal-target"))
+              )}
+            </div>
           </div>
         ) : (
           <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
@@ -2580,7 +2485,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           </div>
         </div>
       ) : null}
-      {activeTab === "expense" && expensePicker ? (
+      {expensePicker ? (
         <div
           role="dialog"
           aria-modal="true"
@@ -2644,7 +2549,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               }}
             >
               <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
-                {expensePicker === "account" ? "Выберите счёт" : "Выберите категорию"}
+                {pickerTitle}
               </div>
               <button
                 type="button"
@@ -2673,81 +2578,117 @@ export const QuickAddScreen: React.FC<Props> = ({
                 flex: "1 1 auto",
               }}
             >
-              {expensePicker === "account" ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                  gap: 10,
+                  justifyItems: "stretch",
+                }}
+              >
+                {expensePicker === "expense-account" ||
+                expensePicker === "income-account" ||
+                expensePicker === "transfer-from-account" ||
+                expensePicker === "transfer-to-account" ||
+                expensePicker === "debt-receivable-account" ||
+                expensePicker === "debt-payable-account" ||
+                expensePicker === "goal-account"
+                  ? accountTiles.map((acc) =>
+                      renderTile(
+                        {
+                          id: acc.id,
+                          title: acc.title,
+                          icon: "wallet",
+                          iconKey: acc.iconKey,
+                          color: acc.color,
+                          amount: acc.amount,
+                          secondaryAmount: acc.secondaryAmount,
+                        },
+                        pickerSelectedId === acc.id,
+                        "account",
+                        handlePickerSelect,
+                        {
+                          width: "100%",
+                          minWidth: 0,
+                          maxWidth: "100%",
+                          minHeight: 124,
+                        },
+                      ),
+                    )
+                  : expensePicker === "expense-category"
+                  ? expenseCategoryTiles.map((cat) =>
+                      renderTile(
+                        {
+                          id: cat.id,
+                          title: cat.title,
+                          iconKey: cat.iconKey,
+                          amount: cat.amount,
+                          budget: cat.budget,
+                          budgetTone: cat.budgetTone,
+                        },
+                        pickerSelectedId === cat.id,
+                        "category",
+                        handlePickerSelect,
+                        expenseCompactCategorySheetTileStyle,
+                      ),
+                    )
+                  : expensePicker === "income-source"
+                  ? incomeSourceTiles.map((source) =>
+                      renderTile(
+                        {
+                          id: source.id,
+                          title: source.title,
+                          iconKey: source.iconKey,
+                          amount: source.amount,
+                          color: source.color,
+                        },
+                        pickerSelectedId === source.id,
+                        "income-source",
+                        handlePickerSelect,
+                        {
+                          width: "100%",
+                          minWidth: 0,
+                          maxWidth: "100%",
+                          minHeight: 124,
+                        },
+                      ),
+                    )
+                  : expensePicker === "transfer-goal" || expensePicker === "goal-target"
+                  ? activeGoals.map((goal) =>
+                      renderTile(
+                        {
+                          id: goal.id,
+                          title: goal.name,
+                          icon: "goal",
+                          amount: goal.currentAmount,
+                        },
+                        pickerSelectedId === goal.id,
+                        "goal",
+                        handlePickerSelect,
+                        {
+                          width: "100%",
+                          minWidth: 0,
+                          maxWidth: "100%",
+                          minHeight: 124,
+                        },
+                      ),
+                    )
+                  : (expensePicker === "debt-receivable-debtor" ? activeReceivableDebtors : activePayableDebtors).map((debtor) =>
+                      renderDebtorTile(debtor, () => handlePickerSelect(debtor.id)),
+                    )}
+              </div>
+              {pickerAllowsCreate ? (
                 <div
                   style={{
+                    marginTop: 10,
                     display: "grid",
                     gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                     gap: 10,
-                    justifyItems: "stretch",
                   }}
                 >
-                  {accountTiles.map((acc) =>
-                    renderTile(
-                      {
-                        id: acc.id,
-                        title: acc.title,
-                        icon: "wallet",
-                        iconKey: acc.iconKey,
-                        color: acc.color,
-                        amount: acc.amount,
-                        secondaryAmount: acc.secondaryAmount,
-                      },
-                      selectedAccountId === acc.id,
-                      "account",
-                      selectExpenseAccount,
-                      {
-                        width: "100%",
-                        minWidth: 0,
-                        maxWidth: "100%",
-                        minHeight: 124,
-                      },
-                    ),
-                  )}
                   <button
                     type="button"
-                    onClick={() => {
-                      requestCloseExpensePicker()
-                      onOpenCreateAccount?.()
-                    }}
-                    className="tile-card tile-card--add overview-add-tile"
-                    style={{ width: "100%", minWidth: 0, maxWidth: "100%", minHeight: 124 }}
-                  >
-                    <div className="tile-card__icon">+</div>
-                    <div className="tile-card__title">Добавить</div>
-                  </button>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                    gap: 10,
-                    justifyItems: "stretch",
-                  }}
-                >
-                  {expenseCategoryTiles.map((cat) =>
-                    renderTile(
-                      {
-                        id: cat.id,
-                        title: cat.title,
-                        iconKey: cat.iconKey,
-                        amount: cat.amount,
-                        budget: cat.budget,
-                        budgetTone: cat.budgetTone,
-                      },
-                      selectedCategoryId === cat.id,
-                      "category",
-                      selectExpenseCategory,
-                      expenseCompactCategorySheetTileStyle,
-                    ),
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      requestCloseExpensePicker()
-                      onOpenCreateCategory?.()
-                    }}
+                    onClick={handlePickerCreate}
                     className="tile-card tile-card--add overview-add-tile"
                     style={{ width: "100%", minWidth: 0, maxWidth: "100%", minHeight: 96 }}
                   >
@@ -2755,7 +2696,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                     <div className="tile-card__title">Добавить</div>
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
