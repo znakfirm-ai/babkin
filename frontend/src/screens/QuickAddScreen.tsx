@@ -171,6 +171,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null)
   const [isAmountFocused, setIsAmountFocused] = useState(false)
   const [expensePicker, setExpensePicker] = useState<"account" | "category" | null>(null)
+  const [expensePickerClosing, setExpensePickerClosing] = useState(false)
   const [expenseAccountError, setExpenseAccountError] = useState(false)
   const [expenseCategoryError, setExpenseCategoryError] = useState(false)
   const [expensePickerDragOffset, setExpensePickerDragOffset] = useState(0)
@@ -218,6 +219,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     startX: 0,
     startY: 0,
   })
+  const expensePickerCloseTimerRef = useRef<number | null>(null)
   const choiceGestureRef = useRef<{
     tracking: boolean
     pointerId: number | null
@@ -396,6 +398,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   useEffect(() => {
     if (activeTab !== "expense") {
       setExpensePicker(null)
+      setExpensePickerClosing(false)
       setExpenseAccountError(false)
       setExpenseCategoryError(false)
     }
@@ -404,11 +407,20 @@ export const QuickAddScreen: React.FC<Props> = ({
   useEffect(() => {
     if (expensePicker) return
     setExpensePickerDragOffset(0)
+    setExpensePickerClosing(false)
     expensePickerGestureRef.current.pointerId = null
     expensePickerGestureRef.current.tracking = false
     expensePickerGestureRef.current.draggingSheet = false
     expensePickerGestureRef.current.blockClick = false
   }, [expensePicker])
+
+  useEffect(() => {
+    return () => {
+      if (expensePickerCloseTimerRef.current !== null) {
+        window.clearTimeout(expensePickerCloseTimerRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!expensePicker) return
@@ -902,13 +914,23 @@ export const QuickAddScreen: React.FC<Props> = ({
   }, [amount, isRunning, onClose, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
 
   const openExpensePicker = useCallback((picker: "account" | "category") => {
+    if (expensePickerCloseTimerRef.current !== null) {
+      window.clearTimeout(expensePickerCloseTimerRef.current)
+      expensePickerCloseTimerRef.current = null
+    }
     setExpensePicker(picker)
+    setExpensePickerClosing(false)
     setExpensePickerDragOffset(0)
     setError(null)
   }, [])
 
-  const closeExpensePicker = useCallback(() => {
+  const finalizeExpensePickerClose = useCallback(() => {
+    if (expensePickerCloseTimerRef.current !== null) {
+      window.clearTimeout(expensePickerCloseTimerRef.current)
+      expensePickerCloseTimerRef.current = null
+    }
     setExpensePicker(null)
+    setExpensePickerClosing(false)
     setExpensePickerDragOffset(0)
     expensePickerGestureRef.current.pointerId = null
     expensePickerGestureRef.current.tracking = false
@@ -919,19 +941,30 @@ export const QuickAddScreen: React.FC<Props> = ({
     expensePickerTouchRef.current.startY = 0
   }, [])
 
+  const requestCloseExpensePicker = useCallback(() => {
+    if (!expensePicker || expensePickerClosing) return
+    setExpensePickerClosing(true)
+    if (expensePickerCloseTimerRef.current !== null) {
+      window.clearTimeout(expensePickerCloseTimerRef.current)
+    }
+    expensePickerCloseTimerRef.current = window.setTimeout(() => {
+      finalizeExpensePickerClose()
+    }, 190)
+  }, [expensePicker, expensePickerClosing, finalizeExpensePickerClose])
+
   const selectExpenseAccount = useCallback((accountId: string) => {
     setSelectedAccountId(accountId)
     setExpenseAccountError(false)
     setError(null)
-    setExpensePicker(null)
-  }, [])
+    requestCloseExpensePicker()
+  }, [requestCloseExpensePicker])
 
   const selectExpenseCategory = useCallback((categoryId: string) => {
     setSelectedCategoryId(categoryId)
     setExpenseCategoryError(false)
     setError(null)
-    setExpensePicker(null)
-  }, [])
+    requestCloseExpensePicker()
+  }, [requestCloseExpensePicker])
 
   const handleExpenseSave = useCallback(() => {
     const missingAccount = !selectedAccountId
@@ -996,11 +1029,13 @@ export const QuickAddScreen: React.FC<Props> = ({
     gesture.pointerId = null
     gesture.tracking = false
     gesture.draggingSheet = false
-    setExpensePickerDragOffset(0)
+    gesture.blockClick = false
     if (shouldClose) {
-      closeExpensePicker()
+      requestCloseExpensePicker()
+      return
     }
-  }, [closeExpensePicker, expensePickerDragOffset])
+    setExpensePickerDragOffset(0)
+  }, [expensePickerDragOffset, requestCloseExpensePicker])
 
   const handleExpensePickerPointerCancel = useCallback((event: PointerEvent<HTMLDivElement>) => {
     event.stopPropagation()
@@ -1009,6 +1044,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     gesture.pointerId = null
     gesture.tracking = false
     gesture.draggingSheet = false
+    gesture.blockClick = false
     setExpensePickerDragOffset(0)
   }, [])
 
@@ -2569,11 +2605,13 @@ export const QuickAddScreen: React.FC<Props> = ({
             inset: 0,
             zIndex: 260,
             background: "rgba(2,6,23,0.35)",
+            opacity: expensePickerClosing ? 0 : 1,
+            transition: "opacity 180ms ease-out",
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
           }}
-          onClick={closeExpensePicker}
+          onClick={requestCloseExpensePicker}
         >
           <div
             ref={expensePickerSheetRef}
@@ -2590,8 +2628,12 @@ export const QuickAddScreen: React.FC<Props> = ({
               flexDirection: "column",
               overflow: "hidden",
               paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 8px)",
-              transform: expensePickerDragOffset > 0 ? `translateY(${expensePickerDragOffset}px)` : "translateY(0)",
-              transition: expensePickerDragOffset > 0 ? "none" : "transform 160ms ease-out",
+              transform: expensePickerClosing
+                ? "translateY(100%)"
+                : expensePickerDragOffset > 0
+                ? `translateY(${expensePickerDragOffset}px)`
+                : "translateY(0)",
+              transition: expensePickerDragOffset > 0 && !expensePickerClosing ? "none" : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
               touchAction: "pan-y",
             }}
             onPointerDown={handleExpensePickerPointerDown}
@@ -2599,6 +2641,11 @@ export const QuickAddScreen: React.FC<Props> = ({
             onPointerUp={handleExpensePickerPointerEnd}
             onPointerCancel={handleExpensePickerPointerCancel}
             onClickCapture={handleExpensePickerClickCapture}
+            onTransitionEnd={(event) => {
+              if (event.propertyName !== "transform") return
+              if (!expensePickerClosing) return
+              finalizeExpensePickerClose()
+            }}
             onClick={(event) => event.stopPropagation()}
           >
             <div
@@ -2616,7 +2663,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               </div>
               <button
                 type="button"
-                onClick={closeExpensePicker}
+                onClick={requestCloseExpensePicker}
                 style={{
                   border: "1px solid #e5e7eb",
                   borderRadius: 10,
