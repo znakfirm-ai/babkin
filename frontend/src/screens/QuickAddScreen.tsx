@@ -1705,7 +1705,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   )
 
   const renderDirectionArrow = useCallback(
-    () => (
+    (mode: "arrow" | "swap" = "arrow") => (
       <div
         aria-hidden="true"
         style={{
@@ -1725,7 +1725,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           flexShrink: 0,
         }}
       >
-        →
+        {mode === "swap" ? <AppIcon name="repeat" size={11} /> : "→"}
       </div>
     ),
     [],
@@ -2269,8 +2269,8 @@ export const QuickAddScreen: React.FC<Props> = ({
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                 {[
-                  { key: "account", label: "Счёт", flowIcon: true },
-                  { key: "goal", label: "Мои цели", flowIcon: true },
+                  { key: "account", label: "Счёт" },
+                  { key: "goal", label: "Мои цели" },
                   { key: "debt", label: "Долг" },
                 ].map((opt) => (
                   <button
@@ -2290,26 +2290,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                       minWidth: 90,
                     }}
                   >
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      {opt.flowIcon ? (
-                        <span
-                          style={{
-                            width: 18,
-                            height: 18,
-                            borderRadius: 999,
-                            border: transferTargetType === opt.key ? "1px solid rgba(255,255,255,0.7)" : "1px solid rgba(71,85,105,0.35)",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: transferTargetType === opt.key ? "rgba(255,255,255,0.12)" : "rgba(148,163,184,0.12)",
-                            lineHeight: 1,
-                          }}
-                        >
-                          <AppIcon name="repeat" size={10} />
-                        </span>
-                      ) : null}
-                      <span>{opt.label}</span>
-                    </span>
+                    {opt.label}
                   </button>
                 ))}
               </div>
@@ -2334,7 +2315,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               ) : (
                 renderEmptyChoiceTile("Откуда", () => openExpensePicker("transfer-from-account"))
               )}
-              {renderDirectionArrow()}
+              {renderDirectionArrow(transferTargetType === "account" || transferTargetType === "goal" ? "swap" : "arrow")}
               {transferTargetType === "account" ? (
                 selectedTransferToAccountTile ? (
                   renderTile(
