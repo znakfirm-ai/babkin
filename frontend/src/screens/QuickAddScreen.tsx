@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, type FocusEvent, type MouseEvent, type PointerEvent, type UIEvent } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect, type CSSProperties, type FocusEvent, type MouseEvent, type PointerEvent, type UIEvent } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
@@ -47,54 +47,150 @@ const pickDebtTotal = (debtor: Debtor) => {
   return 0
 }
 
-export const DateIconButton: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => (
-  <label
-    style={{
-      position: "relative",
-      width: 48,
-      height: 48,
-      flex: "0 0 48px",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 12,
-      border: "1px solid #e5e7eb",
-      background: "#fff",
-    }}
-  >
-    <input
-      type="date"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        position: "absolute",
-        inset: 0,
-        opacity: 0,
-        width: "100%",
-        height: "100%",
-        cursor: "pointer",
-      }}
-    />
-    <svg
-      width={22}
-      height={22}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
+export const DateIconButton: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => {
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const pickerRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (!isCalendarOpen) return
+    const input = pickerRef.current
+    if (!input) return
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void }
+    if (typeof pickerInput.showPicker === "function") {
+      try {
+        pickerInput.showPicker()
+      } catch {
+        input.focus()
+      }
+      return
+    }
+    input.focus()
+  }, [isCalendarOpen])
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsCalendarOpen(true)}
+        style={{
+          width: 48,
+          height: 48,
+          flex: "0 0 48px",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 12,
+          border: "1px solid #e5e7eb",
+          background: "#fff",
+          color: "#0f172a",
+          cursor: "pointer",
+        }}
+      >
+        <svg
+          width={22}
+          height={22}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+          <path d="M16 14h-2.5a2.5 2.5 0 1 0 0 5H16" />
+          <path d="M18 20v-6" />
+        </svg>
+      </button>
+      {isCalendarOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 320,
+            background: "rgba(2,6,23,0.28)",
+            display: "grid",
+            placeItems: "center",
+            padding: 16,
+          }}
+          onClick={() => setIsCalendarOpen(false)}
+        >
+          <div
+            style={{
+              width: "min(280px, 100%)",
+              borderRadius: 14,
+              border: "1px solid rgba(15,23,42,0.08)",
+              background: "#fff",
+              boxShadow: "0 14px 36px rgba(15,23,42,0.24)",
+              padding: "12px 14px",
+              display: "grid",
+              gap: 10,
+              justifyItems: "center",
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Выберите дату</div>
+            <div style={{ transform: "scale(0.7)", transformOrigin: "center center", width: "142%" }}>
+              <input
+                ref={pickerRef}
+                type="date"
+                value={value}
+                onChange={(event) => {
+                  onChange(event.target.value)
+                  setIsCalendarOpen(false)
+                }}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid #d1d5db",
+                  fontSize: 16,
+                  color: "#0f172a",
+                  background: "#fff",
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCalendarOpen(false)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid #2563eb",
+                background: "#2563eb",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: 12,
+              }}
+            >
+              Готово
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+const TapHintIcon: React.FC<{ size?: number; color?: string }> = ({ size = 24, color = "#0f172a" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M7 9.5C7 6.46 9.46 4 12.5 4C15.54 4 18 6.46 18 9.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M9.2 10.1C9.2 8.31 10.66 6.85 12.45 6.85C14.24 6.85 15.7 8.31 15.7 10.1" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M12.1 12.1V18.1" stroke={color} strokeWidth="2.1" strokeLinecap="round" />
+    <path
+      d="M9.35 14.1V18.4C9.35 19.84 10.51 21 11.95 21H13.4C14.75 21 15.88 19.98 16 18.64L16.16 16.8C16.25 15.73 15.41 14.8 14.34 14.8V17"
+      stroke={color}
+      strokeWidth="1.9"
       strokeLinecap="round"
       strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-      <path d="M16 14h-2.5a2.5 2.5 0 1 0 0 5H16" />
-      <path d="M18 20v-6" />
-    </svg>
-  </label>
+    />
+  </svg>
 )
 
 const AmountDateRow: React.FC<{
@@ -830,21 +926,32 @@ export const QuickAddScreen: React.FC<Props> = ({
     () => expenseCategoryTiles.find((tile) => tile.id === selectedCategoryId) ?? null,
     [expenseCategoryTiles, selectedCategoryId],
   )
-  const selectedAccountVisual = useMemo(() => {
-    if (!selectedAccountTile) return null
-    const background = selectedAccountTile.color ?? "#EEF2F7"
-    const contentColor = getReadableTextColor(background)
-    const secondaryColor = contentColor === "#FFFFFF" ? "rgba(255,255,255,0.85)" : "rgba(17,17,17,0.75)"
-    const shadow = contentColor === "#FFFFFF" ? "0 1px 2px rgba(0,0,0,0.25)" : "none"
-    return {
-      background,
-      contentColor,
-      secondaryColor,
-      shadow,
-    }
-  }, [selectedAccountTile])
-  const expenseCompactTileWidth = 134
-  const expenseCompactTileHeight = 112
+  const expenseCompactTileWidth = 118
+  const expenseCompactTileHeight = 98
+  const expenseCompactTileStyle = useMemo(
+    () =>
+      ({
+        width: expenseCompactTileWidth,
+        minWidth: expenseCompactTileWidth,
+        maxWidth: expenseCompactTileWidth,
+        height: expenseCompactTileHeight,
+        minHeight: expenseCompactTileHeight,
+        maxHeight: expenseCompactTileHeight,
+        overflow: "hidden",
+        justifyContent: "center",
+      }) satisfies CSSProperties,
+    [expenseCompactTileHeight, expenseCompactTileWidth],
+  )
+  const expenseCompactCategorySheetTileStyle = useMemo(
+    () =>
+      ({
+        width: 96,
+        minWidth: 96,
+        maxWidth: 96,
+        minHeight: 88,
+      }) satisfies CSSProperties,
+    [],
+  )
   const submitExpense = useCallback(() => {
     if (isRunning) return
     return run(async () => {
@@ -1142,6 +1249,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     active: boolean,
     kind: "account" | "category" | "income-source" | "goal",
     onSelect?: (id: string) => void,
+    tileStyle?: CSSProperties,
   ) => (
     (() => {
       const isAccount = kind === "account"
@@ -1197,7 +1305,10 @@ export const QuickAddScreen: React.FC<Props> = ({
               setSelectedGoalId(item.id)
             }
           }}
-          style={buttonStyle}
+          style={{
+            ...buttonStyle,
+            ...(tileStyle ?? {}),
+          }}
         >
           {active ? <span className="tile-card__selected-check" aria-hidden="true">✓</span> : null}
           <div
@@ -1735,9 +1846,9 @@ export const QuickAddScreen: React.FC<Props> = ({
               style={{
                 padding: "8px 12px",
                 borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                color: "#0f172a",
+                border: "1px solid #2563eb",
+                background: "#2563eb",
+                color: "#fff",
                 fontWeight: 600,
               }}
             >
@@ -1764,7 +1875,8 @@ export const QuickAddScreen: React.FC<Props> = ({
                   }}
                   style={{
                     minWidth: 0,
-                    padding: "8px 6px",
+                    height: 40,
+                    padding: "0 8px",
                     borderRadius: 10,
                     border: activeTab === tab ? "1px solid #0f172a" : "1px solid #e5e7eb",
                     background: activeTab === tab ? "#0f172a" : "#fff",
@@ -1774,8 +1886,9 @@ export const QuickAddScreen: React.FC<Props> = ({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: 4,
+                    gap: 5,
                     whiteSpace: "nowrap",
+                    lineHeight: 1,
                   }}
                 >
                   <AppIcon name={iconMap[tab]} size={13} />
@@ -1802,9 +1915,17 @@ export const QuickAddScreen: React.FC<Props> = ({
       >
 
         {activeTab === "expense" ? (
-          <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
-            <div style={{ display: "grid", gap: 8 }}>
-              <div style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>Сумма и дата</div>
+          <div
+            style={{
+              display: "grid",
+              gap: 14,
+              padding: "0 16px 16px",
+              width: "min(100%, 360px)",
+              marginInline: "auto",
+              justifyItems: "center",
+            }}
+          >
+            <div style={{ display: "grid", gap: 8, width: "100%" }}>
               <AmountDateRow
                 amount={amount}
                 onAmountChange={setAmount}
@@ -1817,200 +1938,101 @@ export const QuickAddScreen: React.FC<Props> = ({
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
-                {selectedAccountTile && selectedAccountVisual ? (
-                  <button
-                    type="button"
-                    onClick={() => openExpensePicker("account")}
-                    className="tile-card tile-card--account"
-                    style={{
-                      width: expenseCompactTileWidth,
-                      minWidth: expenseCompactTileWidth,
-                      maxWidth: expenseCompactTileWidth,
-                      height: expenseCompactTileHeight,
-                      minHeight: expenseCompactTileHeight,
-                      maxHeight: expenseCompactTileHeight,
-                      overflow: "hidden",
-                      background: selectedAccountVisual.background,
-                      color: selectedAccountVisual.contentColor,
-                      border: "1px solid rgba(0,0,0,0.08)",
-                      boxShadow: "none",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div
-                      className="tile-card__icon"
-                      style={{
-                        background: "transparent",
-                        opacity: 1,
-                        color: selectedAccountVisual.contentColor,
-                        filter: selectedAccountVisual.contentColor === "#FFFFFF" ? "drop-shadow(0 1px 2px rgba(0,0,0,0.25))" : "none",
-                      }}
-                    >
-                      {selectedAccountTile.iconKey && isFinanceIconKey(selectedAccountTile.iconKey) ? (
-                        <FinanceIcon iconKey={selectedAccountTile.iconKey} size={16} />
-                      ) : (
-                        <AppIcon name="wallet" size={16} />
-                      )}
-                    </div>
-                    <div
-                      className="tile-card__title"
-                      style={{
-                        width: "100%",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        fontWeight: 600,
-                        color: selectedAccountVisual.secondaryColor,
-                        textShadow: selectedAccountVisual.shadow,
-                      }}
-                    >
-                      {selectedAccountTile.title}
-                    </div>
-                    <div
-                      className="tile-card__amount"
-                      style={{
-                        color: selectedAccountVisual.contentColor,
-                        textShadow: selectedAccountVisual.shadow,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {formatMoney(selectedAccountTile.amount, baseCurrency)}
-                    </div>
-                    {selectedAccountTile.secondaryAmount !== undefined ? (
-                      <div
-                        style={{
-                          marginTop: 2,
-                          fontSize: 11,
-                          lineHeight: "14px",
-                          color: selectedAccountVisual.secondaryColor,
-                          textShadow: selectedAccountVisual.shadow,
-                          fontWeight: 600,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {formatMoney(selectedAccountTile.secondaryAmount, baseCurrency)}
-                      </div>
-                    ) : null}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => openExpensePicker("account")}
-                    style={{
-                      width: expenseCompactTileWidth,
-                      minWidth: expenseCompactTileWidth,
-                      maxWidth: expenseCompactTileWidth,
-                      height: expenseCompactTileHeight,
-                      minHeight: expenseCompactTileHeight,
-                      maxHeight: expenseCompactTileHeight,
-                      borderRadius: 12,
-                      border: expenseAccountError ? "1px solid #dc2626" : "1px solid #d1d5db",
-                      background: "#fff",
-                      display: "grid",
-                      placeItems: "center",
-                      gap: 4,
-                      color: "#0f172a",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>Счёт</div>
-                    <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
-                  </button>
-                )}
-
-                <div
-                  aria-hidden="true"
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, width: "100%" }}>
+              {selectedAccountTile ? (
+                renderTile(
+                  {
+                    id: selectedAccountTile.id,
+                    title: selectedAccountTile.title,
+                    icon: "wallet",
+                    iconKey: selectedAccountTile.iconKey,
+                    color: selectedAccountTile.color,
+                    amount: selectedAccountTile.amount,
+                    secondaryAmount: selectedAccountTile.secondaryAmount,
+                  },
+                  true,
+                  "account",
+                  () => openExpensePicker("account"),
+                  expenseCompactTileStyle,
+                )
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openExpensePicker("account")}
                   style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 999,
-                    border: "1px solid rgba(148,163,184,0.45)",
-                    background: "rgba(255,255,255,0.92)",
-                    color: "#475569",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 2px 8px rgba(15,23,42,0.12)",
-                    pointerEvents: "none",
-                    flexShrink: 0,
+                    ...expenseCompactTileStyle,
+                    borderRadius: 12,
+                    border: expenseAccountError ? "1px solid #dc2626" : "1px solid #d1d5db",
+                    background: "#fff",
+                    display: "grid",
+                    placeItems: "center",
+                    gap: 2,
+                    color: "#0f172a",
                   }}
                 >
-                  →
-                </div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Счёт</div>
+                  <TapHintIcon size={22} color="#334155" />
+                  <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
+                </button>
+              )}
 
-                {selectedExpenseCategoryTile ? (
-                  <button
-                    type="button"
-                    onClick={() => openExpensePicker("category")}
-                    className="tile-card tile-card--category"
-                    style={{
-                      width: expenseCompactTileWidth,
-                      minWidth: expenseCompactTileWidth,
-                      maxWidth: expenseCompactTileWidth,
-                      height: expenseCompactTileHeight,
-                      minHeight: expenseCompactTileHeight,
-                      maxHeight: expenseCompactTileHeight,
-                      overflow: "hidden",
-                      border: "1px solid rgba(15,23,42,0.08)",
-                      boxShadow: "none",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div className="tile-card__icon">
-                      {selectedExpenseCategoryTile.iconKey && isFinanceIconKey(selectedExpenseCategoryTile.iconKey) ? (
-                        <FinanceIcon iconKey={selectedExpenseCategoryTile.iconKey} size={16} />
-                      ) : (
-                        <AppIcon name="report" size={16} />
-                      )}
-                    </div>
-                    <div
-                      className="tile-card__title"
-                      style={{
-                        width: "100%",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {selectedExpenseCategoryTile.title}
-                    </div>
-                    <div className="tile-card__amount" style={{ whiteSpace: "nowrap" }}>
-                      {formatMoney(selectedExpenseCategoryTile.amount, baseCurrency)}
-                    </div>
-                    {selectedExpenseCategoryTile.budget != null ? (
-                      <div style={{ marginTop: 2, fontSize: 9, color: "#6b7280", whiteSpace: "nowrap" }}>
-                        {formatMoney(selectedExpenseCategoryTile.budget, baseCurrency)}
-                      </div>
-                    ) : null}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => openExpensePicker("category")}
-                    style={{
-                      width: expenseCompactTileWidth,
-                      minWidth: expenseCompactTileWidth,
-                      maxWidth: expenseCompactTileWidth,
-                      height: expenseCompactTileHeight,
-                      minHeight: expenseCompactTileHeight,
-                      maxHeight: expenseCompactTileHeight,
-                      borderRadius: 12,
-                      border: expenseCategoryError ? "1px solid #dc2626" : "1px solid #d1d5db",
-                      background: "#fff",
-                      display: "grid",
-                      placeItems: "center",
-                      gap: 4,
-                      color: "#0f172a",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>Категория</div>
-                    <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
-                  </button>
-                )}
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.45)",
+                  background: "rgba(255,255,255,0.92)",
+                  color: "#475569",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 8px rgba(15,23,42,0.12)",
+                  pointerEvents: "none",
+                  flexShrink: 0,
+                }}
+              >
+                →
+              </div>
+
+              {selectedExpenseCategoryTile ? (
+                renderTile(
+                  {
+                    id: selectedExpenseCategoryTile.id,
+                    title: selectedExpenseCategoryTile.title,
+                    iconKey: selectedExpenseCategoryTile.iconKey,
+                    amount: selectedExpenseCategoryTile.amount,
+                    budget: selectedExpenseCategoryTile.budget,
+                    budgetTone: selectedExpenseCategoryTile.budgetTone,
+                  },
+                  true,
+                  "category",
+                  () => openExpensePicker("category"),
+                  expenseCompactTileStyle,
+                )
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openExpensePicker("category")}
+                  style={{
+                    ...expenseCompactTileStyle,
+                    borderRadius: 12,
+                    border: expenseCategoryError ? "1px solid #dc2626" : "1px solid #d1d5db",
+                    background: "#fff",
+                    display: "grid",
+                    placeItems: "center",
+                    gap: 2,
+                    color: "#0f172a",
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Категория</div>
+                  <TapHintIcon size={22} color="#334155" />
+                  <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
+                </button>
+              )}
             </div>
 
             {(expenseAccountError || expenseCategoryError) ? (
@@ -2689,7 +2711,14 @@ export const QuickAddScreen: React.FC<Props> = ({
               }}
             >
               {expensePicker === "account" ? (
-                <div data-hscroll="1" className="overview-section__list overview-section__list--row overview-accounts-row" style={hScrollRowStyle}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 120px))",
+                    justifyContent: "center",
+                    gap: 10,
+                  }}
+                >
                   {accountTiles.map((acc) =>
                     renderTile(
                       {
@@ -2704,11 +2733,24 @@ export const QuickAddScreen: React.FC<Props> = ({
                       selectedAccountId === acc.id,
                       "account",
                       selectExpenseAccount,
+                      {
+                        width: 120,
+                        minWidth: 120,
+                        maxWidth: 120,
+                        minHeight: 136,
+                      },
                     ),
                   )}
                 </div>
               ) : (
-                <div className="overview-expenses-row">
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0, 96px))",
+                    justifyContent: "center",
+                    gap: 10,
+                  }}
+                >
                   {expenseCategoryTiles.map((cat) =>
                     renderTile(
                       {
@@ -2722,6 +2764,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                       selectedCategoryId === cat.id,
                       "category",
                       selectExpenseCategory,
+                      expenseCompactCategorySheetTileStyle,
                     ),
                   )}
                 </div>
