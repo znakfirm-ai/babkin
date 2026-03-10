@@ -795,15 +795,43 @@ function OverviewScreen({
   const [isCategoryIconPickerOpen, setIsCategoryIconPickerOpen] = useState(false)
   const lastCategorySheetModeRef = useRef<"create" | "edit" | null>(null)
   const [incomeSourceSheetMode, setIncomeSourceSheetMode] = useState<"create" | "edit" | null>(null)
+  const [incomeSourceSheetPresentation, setIncomeSourceSheetPresentation] = useState<"sheet" | "page">("sheet")
   const [editingIncomeSourceId, setEditingIncomeSourceId] = useState<string | null>(null)
   const [incomeSourceName, setIncomeSourceName] = useState("")
   const [incomeSourceIcon, setIncomeSourceIcon] = useState<string | null>(null)
   const [incomeSourceError, setIncomeSourceError] = useState<string | null>(null)
   const [isSavingIncomeSource, setIsSavingIncomeSource] = useState(false)
   const [deletingIncomeSourceId, setDeletingIncomeSourceId] = useState<string | null>(null)
-  const [pendingIncomeSourceEdit, setPendingIncomeSourceEdit] = useState<{ id: string; title: string } | null>(null)
   const [isIncomeIconPickerOpen, setIsIncomeIconPickerOpen] = useState(false)
-  const lastIncomeSourceModeRef = useRef<"create" | "edit" | null>(null)
+  const [incomeIconPickerClosing, setIncomeIconPickerClosing] = useState(false)
+  const [incomeIconPickerDragOffset, setIncomeIconPickerDragOffset] = useState(0)
+  const incomeIconPickerOverlayRef = useRef<HTMLDivElement | null>(null)
+  const incomeIconPickerSheetRef = useRef<HTMLDivElement | null>(null)
+  const incomeIconPickerContentRef = useRef<HTMLDivElement | null>(null)
+  const incomeIconPickerGestureRef = useRef<{
+    pointerId: number | null
+    startX: number
+    startY: number
+    tracking: boolean
+    draggingSheet: boolean
+    blockClick: boolean
+  }>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    draggingSheet: false,
+    blockClick: false,
+  })
+  const incomeIconPickerTouchRef = useRef<{
+    identifier: number | null
+    startX: number
+    startY: number
+  }>({
+    identifier: null,
+    startX: 0,
+    startY: 0,
+  })
   const [detailAccountId, setDetailAccountId] = useState<string | null>(null)
   const [detailCategoryId, setDetailCategoryId] = useState<string | null>(null)
   const [detailIncomeSourceId, setDetailIncomeSourceId] = useState<string | null>(null)
@@ -1651,6 +1679,189 @@ function OverviewScreen({
     accountIconPickerGestureRef.current.blockClick = false
   }, [])
 
+  const finalizeIncomeIconPickerClose = useCallback(() => {
+    setIsIncomeIconPickerOpen(false)
+    setIncomeIconPickerClosing(false)
+    setIncomeIconPickerDragOffset(0)
+  }, [])
+
+  const requestCloseIncomeIconPicker = useCallback(() => {
+    if (!isIncomeIconPickerOpen || incomeIconPickerClosing) return
+    setIncomeIconPickerClosing(true)
+    setIncomeIconPickerDragOffset(0)
+  }, [incomeIconPickerClosing, isIncomeIconPickerOpen])
+
+  useEffect(() => {
+    if (isIncomeIconPickerOpen) return
+    setIncomeIconPickerClosing(false)
+    setIncomeIconPickerDragOffset(0)
+    incomeIconPickerGestureRef.current.pointerId = null
+    incomeIconPickerGestureRef.current.tracking = false
+    incomeIconPickerGestureRef.current.draggingSheet = false
+    incomeIconPickerGestureRef.current.blockClick = false
+    incomeIconPickerTouchRef.current.identifier = null
+    incomeIconPickerTouchRef.current.startX = 0
+    incomeIconPickerTouchRef.current.startY = 0
+  }, [isIncomeIconPickerOpen])
+
+  useEffect(() => {
+    if (!isIncomeIconPickerOpen) return
+    const overlay = incomeIconPickerOverlayRef.current
+    const sheet = incomeIconPickerSheetRef.current
+    if (!overlay || !sheet) return
+
+    const resetTouchState = () => {
+      incomeIconPickerTouchRef.current.identifier = null
+      incomeIconPickerTouchRef.current.startX = 0
+      incomeIconPickerTouchRef.current.startY = 0
+    }
+
+    const getTrackedTouch = (event: TouchEvent) => {
+      const trackedId = incomeIconPickerTouchRef.current.identifier
+      if (trackedId == null) return event.touches[0] ?? event.changedTouches[0] ?? null
+      for (let index = 0; index < event.touches.length; index += 1) {
+        const touch = event.touches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      for (let index = 0; index < event.changedTouches.length; index += 1) {
+        const touch = event.changedTouches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      return null
+    }
+
+    const onTouchStartCapture = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0]
+      if (!touch) return
+      incomeIconPickerTouchRef.current.identifier = touch.identifier
+      incomeIconPickerTouchRef.current.startX = touch.clientX
+      incomeIconPickerTouchRef.current.startY = touch.clientY
+    }
+
+    const onTouchMoveCapture = (event: TouchEvent) => {
+      const touch = getTrackedTouch(event)
+      if (!touch) return
+      const dx = touch.clientX - incomeIconPickerTouchRef.current.startX
+      const dy = touch.clientY - incomeIconPickerTouchRef.current.startY
+      if (Math.abs(dy) <= Math.abs(dx)) return
+
+      const targetNode = event.target instanceof Node ? event.target : null
+      const content = incomeIconPickerContentRef.current
+      const targetInSheet = targetNode ? sheet.contains(targetNode) : false
+      const targetInContent = targetNode ? Boolean(content?.contains(targetNode)) : false
+
+      if (!targetInSheet || !targetInContent || !content) {
+        event.preventDefault()
+        return
+      }
+
+      const atTop = content.scrollTop <= 0
+      const atBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 1
+      if ((dy > 0 && atTop) || (dy < 0 && atBottom)) {
+        event.preventDefault()
+      }
+    }
+
+    const onTouchEndCapture = () => {
+      resetTouchState()
+    }
+
+    const onTouchCancelCapture = () => {
+      resetTouchState()
+    }
+
+    overlay.addEventListener("touchstart", onTouchStartCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchmove", onTouchMoveCapture, { capture: true, passive: false })
+    overlay.addEventListener("touchend", onTouchEndCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchcancel", onTouchCancelCapture, { capture: true, passive: true })
+
+    return () => {
+      overlay.removeEventListener("touchstart", onTouchStartCapture, true)
+      overlay.removeEventListener("touchmove", onTouchMoveCapture, true)
+      overlay.removeEventListener("touchend", onTouchEndCapture, true)
+      overlay.removeEventListener("touchcancel", onTouchCancelCapture, true)
+      resetTouchState()
+    }
+  }, [isIncomeIconPickerOpen])
+
+  const handleIncomeIconPickerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = incomeIconPickerGestureRef.current
+    gesture.pointerId = event.pointerId
+    gesture.startX = event.clientX
+    gesture.startY = event.clientY
+    gesture.tracking = true
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+  }, [])
+
+  const handleIncomeIconPickerPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = incomeIconPickerGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
+    const content = incomeIconPickerContentRef.current
+    const atTop = !content || content.scrollTop <= 0
+
+    if (!gesture.draggingSheet) {
+      if (absDy < 8 || absDy <= absDx) return
+      if (dy > 0 && atTop) {
+        gesture.draggingSheet = true
+        gesture.blockClick = true
+      } else {
+        gesture.tracking = false
+        gesture.pointerId = null
+        return
+      }
+    }
+
+    event.preventDefault()
+    setIncomeIconPickerDragOffset(Math.max(0, dy))
+  }, [])
+
+  const handleIncomeIconPickerPointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.stopPropagation()
+      const gesture = incomeIconPickerGestureRef.current
+      if (gesture.pointerId !== event.pointerId) return
+
+      const shouldClose = gesture.draggingSheet && incomeIconPickerDragOffset > 72
+      gesture.pointerId = null
+      gesture.tracking = false
+      gesture.draggingSheet = false
+      gesture.blockClick = false
+
+      if (shouldClose) {
+        requestCloseIncomeIconPicker()
+        return
+      }
+      setIncomeIconPickerDragOffset(0)
+    },
+    [incomeIconPickerDragOffset, requestCloseIncomeIconPicker],
+  )
+
+  const handleIncomeIconPickerPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = incomeIconPickerGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.pointerId = null
+    gesture.tracking = false
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+    setIncomeIconPickerDragOffset(0)
+  }, [])
+
+  const handleIncomeIconPickerClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!incomeIconPickerGestureRef.current.blockClick) return
+    event.preventDefault()
+    event.stopPropagation()
+    incomeIconPickerGestureRef.current.blockClick = false
+  }, [])
+
   const autoOpenAccountCreateInFlightRef = useRef(false)
   useEffect(() => {
     if (!autoOpenAccountCreate || autoOpenAccountCreateInFlightRef.current) return
@@ -1690,9 +1901,9 @@ function OverviewScreen({
     setDetailTitle(title)
   }, [])
 
-  const openCreateIncomeSource = useCallback(() => {
+  const openCreateIncomeSource = useCallback((presentation: "sheet" | "page" = "sheet") => {
     setIncomeSourceSheetMode("create")
-    lastIncomeSourceModeRef.current = "create"
+    setIncomeSourceSheetPresentation(presentation)
     setEditingIncomeSourceId(null)
     setIncomeSourceName("")
     setIncomeSourceIcon(null)
@@ -1739,12 +1950,12 @@ function OverviewScreen({
     setIncomeSourceError(null)
     setIsSavingIncomeSource(false)
     setDeletingIncomeSourceId(null)
-    setPendingIncomeSourceEdit(null)
   }, [])
 
   const closeIncomeSourceSheet = useCallback(
     (opts?: { preserveForm?: boolean }) => {
       setIncomeSourceSheetMode(null)
+      setIncomeSourceSheetPresentation("sheet")
       if (!opts?.preserveForm) {
         resetIncomeSourceForm()
       }
@@ -1767,9 +1978,9 @@ function OverviewScreen({
   )
 
   const openEditIncomeSourceSheet = useCallback(
-    (id: string, title: string) => {
+    (id: string, title: string, presentation: "sheet" | "page" = "sheet") => {
       setIncomeSourceSheetMode("edit")
-      lastIncomeSourceModeRef.current = "edit"
+      setIncomeSourceSheetPresentation(presentation)
       setEditingIncomeSourceId(id)
       setIncomeSourceName(title)
       setIncomeSourceError(null)
@@ -1789,13 +2000,6 @@ function OverviewScreen({
   useEffect(() => {
     // no-op
   }, [])
-
-  useEffect(() => {
-    if (!detailIncomeSourceId && pendingIncomeSourceEdit) {
-      openEditIncomeSourceSheet(pendingIncomeSourceEdit.id, pendingIncomeSourceEdit.title)
-      setPendingIncomeSourceEdit(null)
-    }
-  }, [detailIncomeSourceId, openEditIncomeSourceSheet, pendingIncomeSourceEdit])
 
   const activeAccountIds = useMemo(() => new Set(accounts.map((account) => account.id)), [accounts])
   const categoryArchivedById = useMemo(() => {
@@ -1879,6 +2083,13 @@ function OverviewScreen({
       openEditAccountSheet(accountId, "page")
     },
     [openEditAccountSheet],
+  )
+
+  const openEditIncomeSourceFromDetails = useCallback(
+    (incomeSourceId: string, title: string) => {
+      openEditIncomeSourceSheet(incomeSourceId, title, "page")
+    },
+    [openEditIncomeSourceSheet],
   )
 
   const openTransferFromAccountDetails = useCallback(() => {
@@ -3574,7 +3785,12 @@ function TransactionsPanel({
   const isAccountDetailPage = Boolean(
     detailAccountId && !detailCategoryId && !detailIncomeSourceId && !detailGoalId && !detailDebtorId,
   )
+  const isIncomeSourceDetailPage = Boolean(
+    detailIncomeSourceId && !detailAccountId && !detailCategoryId && !detailGoalId && !detailDebtorId,
+  )
+  const isDetailPageOverlay = isAccountDetailPage || isIncomeSourceDetailPage
   const isAccountSheetPage = accountSheetPresentation === "page"
+  const isIncomeSourceSheetPage = incomeSourceSheetPresentation === "page"
 
   return (
     <div className="overview">
@@ -3636,7 +3852,7 @@ function TransactionsPanel({
         title="Источники дохода"
         items={[...incomeToRender, addCard("income-source")]}
         rowScroll
-        onAddIncomeSource={openCreateIncomeSource}
+        onAddIncomeSource={() => openCreateIncomeSource("page")}
         onIncomeSourceClick={openIncomeSourceDetails}
         baseCurrency={baseCurrency}
       />
@@ -3693,17 +3909,19 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={isAccountDetailPage ? undefined : closeDetails}
-          data-page-overlay={isAccountDetailPage ? "account-detail" : undefined}
+          onClick={isDetailPageOverlay ? undefined : closeDetails}
+          data-page-overlay={
+            isAccountDetailPage ? "account-detail" : isIncomeSourceDetailPage ? "income-source-detail" : undefined
+          }
           style={{
             position: "fixed",
             inset: 0,
-            background: isAccountDetailPage ? "#f5f6f8" : "rgba(0,0,0,0.35)",
+            background: isDetailPageOverlay ? "#f5f6f8" : "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: isAccountDetailPage ? "stretch" : "center",
+            alignItems: isDetailPageOverlay ? "stretch" : "center",
             justifyContent: "center",
-            zIndex: isAccountDetailPage ? 220 : 58,
-            padding: isAccountDetailPage ? 0 : "12px",
+            zIndex: isDetailPageOverlay ? 220 : 58,
+            padding: isDetailPageOverlay ? 0 : "12px",
             overflow: "hidden",
           }}
         >
@@ -3711,27 +3929,27 @@ function TransactionsPanel({
             data-detail-sheet-viewport="true"
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: isAccountDetailPage ? 480 : 520,
-              width: isAccountDetailPage ? "min(480px, 100%)" : undefined,
+              maxWidth: isDetailPageOverlay ? 480 : 520,
+              width: isDetailPageOverlay ? "min(480px, 100%)" : undefined,
               margin: "0 auto",
-              background: isAccountDetailPage ? "#f5f6f8" : "#fff",
-              borderRadius: isAccountDetailPage ? 0 : 18,
-              padding: isAccountDetailPage ? 0 : 16,
-              position: isAccountDetailPage ? "relative" : "absolute",
-              left: isAccountDetailPage ? undefined : 16,
-              right: isAccountDetailPage ? undefined : 16,
-              top: isAccountDetailPage ? undefined : 24,
-              bottom: isAccountDetailPage
+              background: isDetailPageOverlay ? "#f5f6f8" : "#fff",
+              borderRadius: isDetailPageOverlay ? 0 : 18,
+              padding: isDetailPageOverlay ? 0 : 16,
+              position: isDetailPageOverlay ? "relative" : "absolute",
+              left: isDetailPageOverlay ? undefined : 16,
+              right: isDetailPageOverlay ? undefined : 16,
+              top: isDetailPageOverlay ? undefined : 24,
+              bottom: isDetailPageOverlay
                 ? undefined
                 : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 24px)",
-              height: isAccountDetailPage ? "100%" : undefined,
-              maxHeight: isAccountDetailPage
+              height: isDetailPageOverlay ? "100%" : undefined,
+              maxHeight: isDetailPageOverlay
                 ? "100%"
                 : "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
               boxShadow: "none",
               display: "flex",
               flexDirection: "column",
-              gap: isAccountDetailPage ? 10 : 12,
+              gap: isDetailPageOverlay ? 10 : 12,
               overflow: "hidden",
             }}
           >
@@ -3740,8 +3958,8 @@ function TransactionsPanel({
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                padding: isAccountDetailPage ? "calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px" : undefined,
-                borderBottom: isAccountDetailPage ? "1px solid #e5e7eb" : undefined,
+                padding: isDetailPageOverlay ? "calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px" : undefined,
+                borderBottom: isDetailPageOverlay ? "1px solid #e5e7eb" : undefined,
               }}
             >
               <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
@@ -3773,8 +3991,7 @@ function TransactionsPanel({
                     type="button"
                     onClick={() => {
                       if (detailIncomeSourceId) {
-                        setPendingIncomeSourceEdit({ id: detailIncomeSourceId, title: detailTitle || "Источник" })
-                        closeDetails()
+                        openEditIncomeSourceFromDetails(detailIncomeSourceId, detailTitle || "Источник")
                       }
                     }}
                     style={{
@@ -3835,8 +4052,8 @@ function TransactionsPanel({
                 display: "flex",
                 flexDirection: "column",
                 gap: 10,
-                padding: isAccountDetailPage ? "0 16px 8px" : undefined,
-                marginBottom: isAccountDetailPage ? 20 : undefined,
+                padding: isDetailPageOverlay ? "0 16px 8px" : undefined,
+                marginBottom: isDetailPageOverlay ? 20 : undefined,
                 WebkitOverflowScrolling: "touch",
                 overscrollBehaviorY: "contain",
               }}
@@ -5897,7 +6114,7 @@ function TransactionsPanel({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: isAccountDetailPage ? 260 : 60,
+            zIndex: isDetailPageOverlay ? 260 : 60,
             padding: "12px",
           }}
         >
@@ -6312,6 +6529,7 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
+          ref={incomeIconPickerOverlayRef}
           style={{
             position: "fixed",
             inset: 0,
@@ -6319,88 +6537,124 @@ function TransactionsPanel({
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            zIndex: 45,
-            padding: "0 12px 12px",
+            zIndex: 250,
+            opacity: incomeIconPickerClosing ? 0 : 1,
+            transition: "opacity 180ms ease-out",
           }}
-          onClick={() => {
-            setIsIncomeIconPickerOpen(false)
-            if (lastIncomeSourceModeRef.current) {
-              setIncomeSourceSheetMode(lastIncomeSourceModeRef.current)
-            }
-          }}
+          onClick={requestCloseIncomeIconPicker}
         >
           <div
+            ref={incomeIconPickerSheetRef}
             style={{
-              width: "100%",
-              maxWidth: 540,
+              width: "min(480px, 100%)",
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              padding: 16,
-              boxShadow: "none",
-              maxHeight: "70vh",
-              overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              borderRadius: "16px 16px 0 0",
+              borderTop: "1px solid rgba(15,23,42,0.08)",
+              boxShadow: "0 -12px 30px rgba(15,23,42,0.2)",
+              height: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              minHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              maxHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+              transform: incomeIconPickerClosing
+                ? "translateY(100%)"
+                : incomeIconPickerDragOffset > 0
+                ? `translateY(${incomeIconPickerDragOffset}px)`
+                : "translateY(0)",
+              transition:
+                incomeIconPickerDragOffset > 0 && !incomeIconPickerClosing
+                  ? "none"
+                  : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              touchAction: "pan-y",
+            }}
+            onPointerDown={handleIncomeIconPickerPointerDown}
+            onPointerMove={handleIncomeIconPickerPointerMove}
+            onPointerUp={handleIncomeIconPickerPointerEnd}
+            onPointerCancel={handleIncomeIconPickerPointerCancel}
+            onClickCapture={handleIncomeIconPickerClickCapture}
+            onTransitionEnd={(event) => {
+              if (event.propertyName !== "transform") return
+              if (!incomeIconPickerClosing) return
+              finalizeIncomeIconPickerClose()
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выбор иконки</div>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
                 gap: 10,
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                flexShrink: 0,
               }}
             >
-              {incomeIconKeys.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    setIncomeSourceIcon(key)
-                    setIsIncomeIconPickerOpen(false)
-                    if (lastIncomeSourceModeRef.current) {
-                      setIncomeSourceSheetMode(lastIncomeSourceModeRef.current)
-                    }
-                  }}
-                  style={{
-                    padding: 10,
-                    borderRadius: 12,
-                    border: incomeSourceIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                    background: "#fff",
-                    display: "grid",
-                    gap: 6,
-                    placeItems: "center",
-                    cursor: "pointer",
-                  }}
-                >
-                  <FinanceIcon iconKey={key} size="lg" />
-                </button>
-              ))}
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>Выбор иконки</div>
+              <button
+                type="button"
+                onClick={requestCloseIncomeIconPicker}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#0f172a",
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Закрыть
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setIsIncomeIconPickerOpen(false)
-                if (lastIncomeSourceModeRef.current) {
-                  setIncomeSourceSheetMode(lastIncomeSourceModeRef.current)
-                }
-              }}
+            <div
+              ref={incomeIconPickerContentRef}
               style={{
-                marginTop: 12,
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                cursor: "pointer",
-                width: "100%",
+                padding: 12,
+                display: "grid",
+                gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+                columnGap: 10,
+                rowGap: 6,
+                alignContent: "start",
+                overflowY: "auto",
+                overflowX: "hidden",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+                minHeight: 0,
+                flex: "1 1 auto",
               }}
             >
-              Назад
-            </button>
+              {(incomeIconKeys ?? []).length === 0 ? (
+                <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Нет иконок</div>
+              ) : (
+                incomeIconKeys.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setIncomeSourceIcon(key)
+                      requestCloseIncomeIconPicker()
+                    }}
+                    style={{
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      padding: 0,
+                      borderRadius: 12,
+                      border: incomeSourceIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                      background: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isFinanceIconKey(key) ? <FinanceIcon iconKey={key} size="lg" /> : null}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       ) : null}
@@ -7528,42 +7782,100 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
+          data-page-overlay={isIncomeSourceSheetPage ? "income-source-editor" : undefined}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: isIncomeSourceSheetPage ? "#f5f6f8" : "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isIncomeSourceSheetPage ? "stretch" : "center",
             justifyContent: "center",
-            zIndex: 45,
-            paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
-            paddingLeft: 16,
-            paddingRight: 16,
-            paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
+            zIndex: isIncomeSourceSheetPage ? 236 : 45,
+            paddingTop: isIncomeSourceSheetPage ? 0 : "calc(env(safe-area-inset-top, 0px) + 24px)",
+            paddingLeft: isIncomeSourceSheetPage ? 0 : 16,
+            paddingRight: isIncomeSourceSheetPage ? 0 : 16,
+            paddingBottom: isIncomeSourceSheetPage
+              ? 0
+              : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
+            overflow: "hidden",
           }}
-          onClick={() => closeIncomeSourceSheet()}
+          onClick={isIncomeSourceSheetPage ? undefined : () => closeIncomeSourceSheet()}
         >
           <div
             style={{
-              width: "100%",
-              maxWidth: 540,
-              background: "#fff",
-              borderRadius: 16,
-              padding: 16,
+              width: isIncomeSourceSheetPage ? "min(480px, 100%)" : "100%",
+              maxWidth: isIncomeSourceSheetPage ? 480 : 540,
+              background: isIncomeSourceSheetPage ? "#f5f6f8" : "#fff",
+              borderRadius: isIncomeSourceSheetPage ? 0 : 16,
+              padding: isIncomeSourceSheetPage ? 0 : 16,
               boxShadow: "none",
-              maxHeight: "calc(100vh - 120px)",
-              overflowY: "auto",
-              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+              maxHeight: isIncomeSourceSheetPage ? "100%" : "calc(100vh - 120px)",
+              height: isIncomeSourceSheetPage ? "100%" : undefined,
+              overflowY: isIncomeSourceSheetPage ? "hidden" : "auto",
+              overflowX: "hidden",
+              paddingBottom: isIncomeSourceSheetPage ? 0 : "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+              display: isIncomeSourceSheetPage ? "flex" : undefined,
+              flexDirection: isIncomeSourceSheetPage ? "column" : undefined,
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>
-              {incomeSourceSheetMode === "create" ? "Новый источник дохода" : "Редактировать источник"}
-            </div>
-            <div style={{ display: "grid", gap: 12 }}>
+            {isIncomeSourceSheetPage ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px",
+                  borderBottom: "1px solid #e5e7eb",
+                  background: "#f5f6f8",
+                }}
+              >
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
+                  {incomeSourceSheetMode === "create" ? "Создать источник дохода" : "Редактировать источник"}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => closeIncomeSourceSheet()}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    borderRadius: 10,
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                  }}
+                >
+                  Закрыть
+                </button>
+              </div>
+            ) : null}
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                overflowY: isIncomeSourceSheetPage ? "auto" : undefined,
+                paddingTop: isIncomeSourceSheetPage ? 12 : 0,
+                paddingLeft: isIncomeSourceSheetPage ? 16 : 0,
+                paddingRight: isIncomeSourceSheetPage ? 16 : 0,
+                paddingBottom: isIncomeSourceSheetPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 0,
+                minHeight: 0,
+                flex: isIncomeSourceSheetPage ? "1 1 auto" : undefined,
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+              }}
+            >
+              {!isIncomeSourceSheetPage ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 0 }}>
+                  <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
+                </div>
+              ) : null}
+              {!isIncomeSourceSheetPage ? (
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 0 }}>
+                  {incomeSourceSheetMode === "create" ? "Новый источник дохода" : "Редактировать источник"}
+                </div>
+              ) : null}
               <input
                 value={incomeSourceName}
                 onChange={(e) => setIncomeSourceName(e.target.value)}
@@ -7581,8 +7893,6 @@ function TransactionsPanel({
                 <button
                   type="button"
                   onClick={() => {
-                    lastIncomeSourceModeRef.current = incomeSourceSheetMode
-                    closeIncomeSourceSheet({ preserveForm: true })
                     setIsIncomeIconPickerOpen(true)
                   }}
                   style={{
@@ -7618,7 +7928,7 @@ function TransactionsPanel({
                 }}
               >
                 {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
-                    <button
+                  <button
                   type="button"
                   onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
                   disabled={deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning}
