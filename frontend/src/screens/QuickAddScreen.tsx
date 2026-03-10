@@ -49,11 +49,9 @@ const pickDebtTotal = (debtor: Debtor) => {
 }
 
 export const DateIconButton: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => {
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const pickerRef = useRef<HTMLInputElement | null>(null)
 
-  useEffect(() => {
-    if (!isCalendarOpen) return
+  const openDatePicker = useCallback(() => {
     const input = pickerRef.current
     if (!input) return
     const pickerInput = input as HTMLInputElement & { showPicker?: () => void }
@@ -63,119 +61,68 @@ export const DateIconButton: React.FC<{ value: string; onChange: (val: string) =
       } catch {
         input.focus()
       }
-      return
+    } else {
+      input.focus()
     }
-    input.focus()
-  }, [isCalendarOpen])
+  }, [])
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setIsCalendarOpen(true)}
+    <label
+      style={{
+        position: "relative",
+        width: 48,
+        height: 48,
+        flex: "0 0 48px",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 12,
+        border: "1px solid #e5e7eb",
+        background: "#fff",
+        color: "#0f172a",
+        cursor: "pointer",
+      }}
+      onClick={(event) => {
+        event.preventDefault()
+        openDatePicker()
+      }}
+    >
+      <input
+        ref={pickerRef}
+        type="date"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
         style={{
-          width: 48,
-          height: 48,
-          flex: "0 0 48px",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 12,
-          border: "1px solid #e5e7eb",
-          background: "#fff",
-          color: "#0f172a",
+          position: "absolute",
+          inset: 0,
+          opacity: 0,
+          width: "100%",
+          height: "100%",
           cursor: "pointer",
+          transform: "scale(0.8)",
+          transformOrigin: "center center",
         }}
+      />
+      <svg
+        width={22}
+        height={22}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        focusable="false"
       >
-        <svg
-          width={22}
-          height={22}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-          <path d="M16 14h-2.5a2.5 2.5 0 1 0 0 5H16" />
-          <path d="M18 20v-6" />
-        </svg>
-      </button>
-      {isCalendarOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 320,
-            background: "rgba(2,6,23,0.28)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-          }}
-          onClick={() => setIsCalendarOpen(false)}
-        >
-          <div
-            style={{
-              width: "min(280px, 100%)",
-              borderRadius: 14,
-              border: "1px solid rgba(15,23,42,0.08)",
-              background: "#fff",
-              boxShadow: "0 14px 36px rgba(15,23,42,0.24)",
-              padding: "12px 14px",
-              display: "grid",
-              gap: 10,
-              justifyItems: "center",
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Выберите дату</div>
-            <div style={{ transform: "scale(0.7)", transformOrigin: "center center", width: "142%" }}>
-              <input
-                ref={pickerRef}
-                type="date"
-                value={value}
-                onChange={(event) => {
-                  onChange(event.target.value)
-                  setIsCalendarOpen(false)
-                }}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: "1px solid #d1d5db",
-                  fontSize: 16,
-                  color: "#0f172a",
-                  background: "#fff",
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsCalendarOpen(false)}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 10,
-                border: "1px solid #2563eb",
-                background: "#2563eb",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: 12,
-              }}
-            >
-              Готово
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </>
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+        <path d="M16 14h-2.5a2.5 2.5 0 1 0 0 5H16" />
+        <path d="M18 20v-6" />
+      </svg>
+    </label>
   )
 }
 
@@ -2900,11 +2847,11 @@ export const QuickAddScreen: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => openExpensePickerCreate("account")}
-                    className="tile-card tile-card--add"
+                    className="tile-card tile-card--add overview-add-tile"
                     style={{ width: "100%", minWidth: 0, maxWidth: "100%", minHeight: 124 }}
                   >
                     <div className="tile-card__icon">+</div>
-                    <div className="tile-card__title">Добавить счёт</div>
+                    <div className="tile-card__title">Добавить</div>
                   </button>
                 </div>
               ) : (
@@ -2935,11 +2882,11 @@ export const QuickAddScreen: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => openExpensePickerCreate("category")}
-                    className="tile-card tile-card--add"
+                    className="tile-card tile-card--add overview-add-tile"
                     style={{ width: "100%", minWidth: 0, maxWidth: "100%", minHeight: 96 }}
                   >
                     <div className="tile-card__icon">+</div>
-                    <div className="tile-card__title">Добавить категорию</div>
+                    <div className="tile-card__title">Добавить</div>
                   </button>
                 </div>
               )}
