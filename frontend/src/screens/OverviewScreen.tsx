@@ -3371,6 +3371,10 @@ function TransactionsPanel({
     )
   }
 
+  const isAccountDetailPage = Boolean(
+    detailAccountId && !detailCategoryId && !detailIncomeSourceId && !detailGoalId && !detailDebtorId,
+  )
+
   return (
     <div className="overview">
       <div
@@ -3488,43 +3492,57 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={closeDetails}
+          onClick={isAccountDetailPage ? undefined : closeDetails}
+          data-page-overlay={isAccountDetailPage ? "account-detail" : undefined}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: isAccountDetailPage ? "#f5f6f8" : "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isAccountDetailPage ? "stretch" : "center",
             justifyContent: "center",
-            zIndex: 58,
-            padding: "12px",
+            zIndex: isAccountDetailPage ? 220 : 58,
+            padding: isAccountDetailPage ? 0 : "12px",
+            overflow: "hidden",
           }}
         >
           <div
             data-detail-sheet-viewport="true"
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: 520,
+              maxWidth: isAccountDetailPage ? 480 : 520,
+              width: isAccountDetailPage ? "min(480px, 100%)" : undefined,
               margin: "0 auto",
-              background: "#fff",
-              borderRadius: 18,
-              padding: 16,
-              position: "absolute",
-              left: 16,
-              right: 16,
-              top: 24,
-              bottom:
-                "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 24px)",
-              maxHeight:
-                "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
+              background: isAccountDetailPage ? "#f5f6f8" : "#fff",
+              borderRadius: isAccountDetailPage ? 0 : 18,
+              padding: isAccountDetailPage ? 0 : 16,
+              position: isAccountDetailPage ? "relative" : "absolute",
+              left: isAccountDetailPage ? undefined : 16,
+              right: isAccountDetailPage ? undefined : 16,
+              top: isAccountDetailPage ? undefined : 24,
+              bottom: isAccountDetailPage
+                ? undefined
+                : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 24px)",
+              height: isAccountDetailPage ? "100%" : undefined,
+              maxHeight: isAccountDetailPage
+                ? "100%"
+                : "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
               boxShadow: "none",
               display: "flex",
               flexDirection: "column",
-              gap: 12,
+              gap: isAccountDetailPage ? 10 : 12,
               overflow: "hidden",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: isAccountDetailPage ? "calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px" : undefined,
+                borderBottom: isAccountDetailPage ? "1px solid #e5e7eb" : undefined,
+              }}
+            >
               <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
                 {detailTitle || detailGoal?.name || detailDebtor?.name || "Детали"}
               </div>
@@ -3607,7 +3625,20 @@ function TransactionsPanel({
                 </button>
               </div>
             </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: "auto",
+                overflowX: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                padding: isAccountDetailPage ? "0 16px 8px" : undefined,
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+              }}
+            >
               {detailAccountId ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
                 <label style={{ display: "grid", gap: 6 }}>
@@ -4897,8 +4928,9 @@ function TransactionsPanel({
                   background: "#0f172a",
                   color: "#fff",
                   fontWeight: 700,
-                  marginTop: 12,
-                  marginBottom: 12,
+                  marginTop: isAccountDetailPage ? 0 : 12,
+                  marginBottom: isAccountDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
+                  marginInline: isAccountDetailPage ? 16 : undefined,
                 }}
                 onClick={openTransferFromAccountDetails}
               >
