@@ -1933,9 +1933,9 @@ export const QuickAddScreen: React.FC<Props> = ({
                     color: "#0f172a",
                   }}
                 >
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>Счёт</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, transform: "translateY(6px)" }}>Счёт</div>
                   <TapHintIcon size={22} color="#94a3b8" />
-                  <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
+                  <div style={{ fontSize: 13, color: "#64748b", transform: "translateY(-6px)" }}>Выбрать</div>
                 </button>
               )}
 
@@ -1991,9 +1991,9 @@ export const QuickAddScreen: React.FC<Props> = ({
                     color: "#0f172a",
                   }}
                 >
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>Категория</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, transform: "translateY(6px)" }}>Категория</div>
                   <TapHintIcon size={22} color="#94a3b8" />
-                  <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
+                  <div style={{ fontSize: 13, color: "#64748b", transform: "translateY(-6px)" }}>Выбрать</div>
                 </button>
               )}
             </div>
