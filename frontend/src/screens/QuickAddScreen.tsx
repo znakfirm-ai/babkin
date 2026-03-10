@@ -2,7 +2,8 @@ import { useMemo, useState, useCallback, useRef, useEffect, type CSSProperties, 
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney, normalizeCurrency } from "../utils/formatMoney"
 import { createTransaction, getTransactions } from "../api/transactions"
-import { getAccounts } from "../api/accounts"
+import { createAccount, getAccounts } from "../api/accounts"
+import { createCategory, getCategories } from "../api/categories"
 import { AppIcon, type IconName } from "../components/AppIcon"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { getAccountDisplay, getCategoryDisplay, getIncomeSourceDisplay } from "../shared/display"
@@ -245,7 +246,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   initialCategoryId = null,
   initialDebtAction = "receivable",
 }) => {
-  const { accounts, categories, incomeSources, goals, debtors, transactions, setAccounts, setTransactions, setGoals, setDebtors, currency } =
+  const { accounts, categories, incomeSources, goals, debtors, transactions, setAccounts, setCategories, setTransactions, setGoals, setDebtors, currency } =
     useAppStore()
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null), [])
   const baseCurrency = normalizeCurrency(currency || "RUB")
@@ -267,6 +268,9 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null)
   const [isAmountFocused, setIsAmountFocused] = useState(false)
   const [expensePicker, setExpensePicker] = useState<"account" | "category" | null>(null)
+  const [expensePickerCreateMode, setExpensePickerCreateMode] = useState<"account" | "category" | null>(null)
+  const [expensePickerCreateName, setExpensePickerCreateName] = useState("")
+  const [expensePickerCreateError, setExpensePickerCreateError] = useState<string | null>(null)
   const [expensePickerClosing, setExpensePickerClosing] = useState(false)
   const [expenseAccountError, setExpenseAccountError] = useState(false)
   const [expenseCategoryError, setExpenseCategoryError] = useState(false)
@@ -343,6 +347,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     startY: 0,
   })
   const { run, isRunning } = useSingleFlight()
+  const { run: runPickerCreate, isRunning: isPickerCreateRunning } = useSingleFlight()
 
   const expenseCategories = useMemo(
     () => categories.filter((category) => category.type === "expense" && !category.isArchived),
@@ -504,6 +509,9 @@ export const QuickAddScreen: React.FC<Props> = ({
     if (expensePicker) return
     setExpensePickerDragOffset(0)
     setExpensePickerClosing(false)
+    setExpensePickerCreateMode(null)
+    setExpensePickerCreateName("")
+    setExpensePickerCreateError(null)
     expensePickerGestureRef.current.pointerId = null
     expensePickerGestureRef.current.tracking = false
     expensePickerGestureRef.current.draggingSheet = false
@@ -926,29 +934,28 @@ export const QuickAddScreen: React.FC<Props> = ({
     () => expenseCategoryTiles.find((tile) => tile.id === selectedCategoryId) ?? null,
     [expenseCategoryTiles, selectedCategoryId],
   )
-  const expenseCompactTileWidth = 118
   const expenseCompactTileHeight = 98
   const expenseCompactTileStyle = useMemo(
     () =>
       ({
-        width: expenseCompactTileWidth,
-        minWidth: expenseCompactTileWidth,
-        maxWidth: expenseCompactTileWidth,
+        width: "100%",
+        minWidth: 0,
+        maxWidth: "100%",
         height: expenseCompactTileHeight,
         minHeight: expenseCompactTileHeight,
         maxHeight: expenseCompactTileHeight,
         overflow: "hidden",
         justifyContent: "center",
       }) satisfies CSSProperties,
-    [expenseCompactTileHeight, expenseCompactTileWidth],
+    [expenseCompactTileHeight],
   )
   const expenseCompactCategorySheetTileStyle = useMemo(
     () =>
       ({
-        width: 96,
-        minWidth: 96,
-        maxWidth: 96,
-        minHeight: 88,
+        width: "100%",
+        minWidth: 0,
+        maxWidth: "100%",
+        minHeight: 96,
       }) satisfies CSSProperties,
     [],
   )
@@ -1027,6 +1034,9 @@ export const QuickAddScreen: React.FC<Props> = ({
     }
     setExpensePicker(picker)
     setExpensePickerClosing(false)
+    setExpensePickerCreateMode(null)
+    setExpensePickerCreateName("")
+    setExpensePickerCreateError(null)
     setExpensePickerDragOffset(0)
     setError(null)
   }, [])
@@ -1039,6 +1049,9 @@ export const QuickAddScreen: React.FC<Props> = ({
     setExpensePicker(null)
     setExpensePickerClosing(false)
     setExpensePickerDragOffset(0)
+    setExpensePickerCreateMode(null)
+    setExpensePickerCreateName("")
+    setExpensePickerCreateError(null)
     expensePickerGestureRef.current.pointerId = null
     expensePickerGestureRef.current.tracking = false
     expensePickerGestureRef.current.draggingSheet = false
@@ -1072,6 +1085,88 @@ export const QuickAddScreen: React.FC<Props> = ({
     setError(null)
     requestCloseExpensePicker()
   }, [requestCloseExpensePicker])
+
+  const openExpensePickerCreate = useCallback((mode: "account" | "category") => {
+    setExpensePickerCreateMode(mode)
+    setExpensePickerCreateName("")
+    setExpensePickerCreateError(null)
+  }, [])
+
+  const closeExpensePickerCreate = useCallback(() => {
+    setExpensePickerCreateMode(null)
+    setExpensePickerCreateName("")
+    setExpensePickerCreateError(null)
+  }, [])
+
+  const handleExpensePickerCreateSave = useCallback(() => {
+    if (!token || !expensePickerCreateMode) return
+    void runPickerCreate(async () => {
+      const trimmed = expensePickerCreateName.trim()
+      if (!trimmed) {
+        setExpensePickerCreateError(expensePickerCreateMode === "account" ? "Введите название счёта" : "Введите название категории")
+        return
+      }
+      if (expensePickerCreateMode === "account") {
+        const duplicate = accounts.some((account) => account.name.trim().toLowerCase() === trimmed.toLowerCase())
+        if (duplicate) {
+          setExpensePickerCreateError("Такое название уже используется")
+          return
+        }
+        await createAccount(token, {
+          name: trimmed,
+          type: "cash",
+          currency: baseCurrency,
+          balance: 0,
+          color: "#EEF2F7",
+          icon: null,
+        })
+        const accountsData = await getAccounts(token)
+        setAccounts(
+          accountsData.accounts.map((account) => ({
+            id: account.id,
+            name: account.name,
+            createdAt: account.createdAt ?? null,
+            type: account.type,
+            balance: { amount: account.balance, currency: account.currency },
+            color: account.color ?? undefined,
+            icon: account.icon ?? null,
+          })),
+        )
+      } else {
+        const duplicate = expenseCategories.some((category) => category.name.trim().toLowerCase() === trimmed.toLowerCase())
+        if (duplicate) {
+          setExpensePickerCreateError("Такое название уже используется")
+          return
+        }
+        await createCategory(token, { name: trimmed, kind: "expense", icon: null })
+        const categoriesData = await getCategories(token)
+        setCategories(
+          categoriesData.categories.map((category) => ({
+            id: category.id,
+            name: category.name,
+            createdAt: category.createdAt ?? null,
+            type: category.kind,
+            icon: category.icon ?? null,
+            budget: category.budget ?? null,
+            isArchived: category.isArchived ?? false,
+          })),
+        )
+      }
+      setExpensePickerCreateError(null)
+      setExpensePickerCreateMode(null)
+      setExpensePickerCreateName("")
+    })
+  }, [
+    accounts,
+    baseCurrency,
+    expenseCategories,
+    expensePickerCreateMode,
+    expensePickerCreateName,
+    runPickerCreate,
+    setAccounts,
+    setCategories,
+    token,
+  ])
 
   const handleExpenseSave = useCallback(() => {
     const missingAccount = !selectedAccountId
@@ -1846,15 +1941,16 @@ export const QuickAddScreen: React.FC<Props> = ({
               style={{
                 padding: "8px 12px",
                 borderRadius: 10,
-                border: "1px solid #2563eb",
-                background: "#2563eb",
-                color: "#fff",
+                border: "1px solid #d1d5db",
+                background: "#f5f6f8",
+                color: "#2563eb",
                 fontWeight: 600,
               }}
             >
               Закрыть
             </button>
           </div>
+          <div style={{ borderBottom: "1px solid #e5e7eb" }} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 8 }}>
             {(Object.keys(labelMap) as QuickAddTab[]).map((tab) => {
               const iconMap: Record<QuickAddTab, IconName> = {
@@ -1875,24 +1971,26 @@ export const QuickAddScreen: React.FC<Props> = ({
                   }}
                   style={{
                     minWidth: 0,
-                    height: 40,
+                    height: 33,
                     padding: "0 8px",
                     borderRadius: 10,
                     border: activeTab === tab ? "1px solid #0f172a" : "1px solid #e5e7eb",
                     background: activeTab === tab ? "#0f172a" : "#fff",
                     color: activeTab === tab ? "#fff" : "#0f172a",
                     fontWeight: 600,
-                    fontSize: 12,
+                    fontSize: 11,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: 5,
+                    gap: 3,
                     whiteSpace: "nowrap",
                     lineHeight: 1,
                   }}
                 >
-                  <AppIcon name={iconMap[tab]} size={13} />
-                  {labelMap[tab]}
+                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+                    <AppIcon name={iconMap[tab]} size={11} />
+                    <span>{labelMap[tab]}</span>
+                  </span>
                 </button>
               )
             })}
@@ -1920,9 +2018,9 @@ export const QuickAddScreen: React.FC<Props> = ({
               display: "grid",
               gap: 14,
               padding: "0 16px 16px",
-              width: "min(100%, 360px)",
-              marginInline: "auto",
-              justifyItems: "center",
+              width: "100%",
+              marginInline: 0,
+              justifyItems: "stretch",
             }}
           >
             <div style={{ display: "grid", gap: 8, width: "100%" }}>
@@ -1938,7 +2036,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, width: "100%" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)", alignItems: "center", gap: 16, width: "100%" }}>
               {selectedAccountTile ? (
                 renderTile(
                   {
@@ -1971,7 +2069,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                   }}
                 >
                   <div style={{ fontSize: 14, fontWeight: 600 }}>Счёт</div>
-                  <TapHintIcon size={22} color="#334155" />
+                  <TapHintIcon size={22} color="#94a3b8" />
                   <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
                 </button>
               )}
@@ -2029,7 +2127,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                   }}
                 >
                   <div style={{ fontSize: 14, fontWeight: 600 }}>Категория</div>
-                  <TapHintIcon size={22} color="#334155" />
+                  <TapHintIcon size={22} color="#94a3b8" />
                   <div style={{ fontSize: 13, color: "#64748b" }}>Выбрать</div>
                 </button>
               )}
@@ -2710,13 +2808,71 @@ export const QuickAddScreen: React.FC<Props> = ({
                 flex: "1 1 auto",
               }}
             >
-              {expensePicker === "account" ? (
+              {expensePickerCreateMode ? (
+                <div style={{ display: "grid", gap: 12, width: "min(360px, 100%)", marginInline: "auto" }}>
+                  <div style={{ fontSize: 13, color: "#475569", textAlign: "center" }}>
+                    {expensePickerCreateMode === "account" ? "Новый счёт" : "Новая категория"}
+                  </div>
+                  <input
+                    value={expensePickerCreateName}
+                    onChange={(event) => {
+                      setExpensePickerCreateName(event.target.value)
+                      if (expensePickerCreateError) setExpensePickerCreateError(null)
+                    }}
+                    placeholder={expensePickerCreateMode === "account" ? "Название счёта" : "Название категории"}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: expensePickerCreateError ? "1px solid #dc2626" : "1px solid #d1d5db",
+                      background: "#fff",
+                      fontSize: 14,
+                      color: "#0f172a",
+                    }}
+                  />
+                  {expensePickerCreateError ? (
+                    <div style={{ color: "#b91c1c", fontSize: 12 }}>{expensePickerCreateError}</div>
+                  ) : null}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={closeExpensePickerCreate}
+                      disabled={isPickerCreateRunning}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #d1d5db",
+                        background: "#fff",
+                        color: "#334155",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Назад
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExpensePickerCreateSave}
+                      disabled={isPickerCreateRunning}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #0f172a",
+                        background: "#0f172a",
+                        color: "#fff",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {isPickerCreateRunning ? "Сохранение..." : "Сохранить"}
+                    </button>
+                  </div>
+                </div>
+              ) : expensePicker === "account" ? (
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 120px))",
-                    justifyContent: "center",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                     gap: 10,
+                    justifyItems: "stretch",
                   }}
                 >
                   {accountTiles.map((acc) =>
@@ -2734,21 +2890,30 @@ export const QuickAddScreen: React.FC<Props> = ({
                       "account",
                       selectExpenseAccount,
                       {
-                        width: 120,
-                        minWidth: 120,
-                        maxWidth: 120,
-                        minHeight: 136,
+                        width: "100%",
+                        minWidth: 0,
+                        maxWidth: "100%",
+                        minHeight: 124,
                       },
                     ),
                   )}
+                  <button
+                    type="button"
+                    onClick={() => openExpensePickerCreate("account")}
+                    className="tile-card tile-card--add"
+                    style={{ width: "100%", minWidth: 0, maxWidth: "100%", minHeight: 124 }}
+                  >
+                    <div className="tile-card__icon">+</div>
+                    <div className="tile-card__title">Добавить счёт</div>
+                  </button>
                 </div>
               ) : (
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0, 96px))",
-                    justifyContent: "center",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                     gap: 10,
+                    justifyItems: "stretch",
                   }}
                 >
                   {expenseCategoryTiles.map((cat) =>
@@ -2767,6 +2932,15 @@ export const QuickAddScreen: React.FC<Props> = ({
                       expenseCompactCategorySheetTileStyle,
                     ),
                   )}
+                  <button
+                    type="button"
+                    onClick={() => openExpensePickerCreate("category")}
+                    className="tile-card tile-card--add"
+                    style={{ width: "100%", minWidth: 0, maxWidth: "100%", minHeight: 96 }}
+                  >
+                    <div className="tile-card__icon">+</div>
+                    <div className="tile-card__title">Добавить категорию</div>
+                  </button>
                 </div>
               )}
             </div>
