@@ -5700,7 +5700,7 @@ function TransactionsPanel({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 60,
+            zIndex: isAccountDetailPage ? 260 : 60,
             padding: "12px",
           }}
         >
