@@ -12,6 +12,8 @@ import { getReadableTextColor } from "../utils/getReadableTextColor"
 import { useSingleFlight } from "../hooks/useSingleFlight"
 import { buildMonthlyTransactionMetrics, getLocalMonthPoint } from "../utils/monthlyTransactionMetrics"
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
+import { GoalList } from "../components/GoalList"
+import { DebtorList } from "../components/DebtorList"
 import type { Debtor } from "../types/finance"
 
 const getTodayLocalDate = () => {
@@ -1891,14 +1893,26 @@ export const QuickAddScreen: React.FC<Props> = ({
       case "income-source":
         onOpenCreateIncomeSource?.(expensePicker)
         return
-      case "transfer-goal":
-      case "goal-target":
-        onOpenCreateGoal?.(expensePicker)
-        return
       default:
         return
     }
   }, [expensePicker, onOpenCreateAccount, onOpenCreateCategory, onOpenCreateGoal, onOpenCreateIncomeSource, requestCloseExpensePicker])
+
+  const handlePickerCreateGoal = useCallback(() => {
+    if (!expensePicker) return
+    requestCloseExpensePicker()
+    if (expensePicker === "transfer-goal" || expensePicker === "goal-target") {
+      onOpenCreateGoal?.(expensePicker)
+    }
+  }, [expensePicker, onOpenCreateGoal, requestCloseExpensePicker])
+
+  const handlePickerCreateDebt = useCallback(() => {
+    requestCloseExpensePicker()
+    setActiveTab("debt")
+    setDebtAction("payable")
+    setError(null)
+    emitQuickAddOperationSelected("debt_out")
+  }, [emitQuickAddOperationSelected, requestCloseExpensePicker])
 
   const pickerAllowsCreate = useMemo(
     () =>
@@ -1912,9 +1926,7 @@ export const QuickAddScreen: React.FC<Props> = ({
             expensePicker === "debt-payable-account" ||
             expensePicker === "goal-account" ||
             expensePicker === "expense-category" ||
-            expensePicker === "income-source" ||
-            expensePicker === "transfer-goal" ||
-            expensePicker === "goal-target"),
+            expensePicker === "income-source"),
       ),
     [expensePicker],
   )
@@ -2017,7 +2029,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           overscrollBehaviorY: "contain",
           touchAction: "pan-y",
           WebkitOverflowScrolling: "touch",
-          paddingBottom: activeTab === "expense" || activeTab === "income" ? 16 : footerHeightPx + 16,
+          paddingBottom: activeTab === "expense" || activeTab === "income" || activeTab === "transfer" ? 16 : footerHeightPx + 16,
         }}
       >
 
@@ -2242,11 +2254,23 @@ export const QuickAddScreen: React.FC<Props> = ({
           </div>
         ) : activeTab === "transfer" ? (
           <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
+            <div style={{ display: "grid", gap: 8, width: "100%" }}>
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
+                amountInputRef={amountInputRef}
+              />
+              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
+            </div>
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                 {[
-                  { key: "account", label: "Счёт" },
-                  { key: "goal", label: "Мои цели" },
+                  { key: "account", label: "Счёт", flowIcon: true },
+                  { key: "goal", label: "Мои цели", flowIcon: true },
                   { key: "debt", label: "Долг" },
                 ].map((opt) => (
                   <button
@@ -2266,7 +2290,26 @@ export const QuickAddScreen: React.FC<Props> = ({
                       minWidth: 90,
                     }}
                   >
-                    {opt.label}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      {opt.flowIcon ? (
+                        <span
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 999,
+                            border: transferTargetType === opt.key ? "1px solid rgba(255,255,255,0.7)" : "1px solid rgba(71,85,105,0.35)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: transferTargetType === opt.key ? "rgba(255,255,255,0.12)" : "rgba(148,163,184,0.12)",
+                            lineHeight: 1,
+                          }}
+                        >
+                          <AppIcon name="repeat" size={10} />
+                        </span>
+                      ) : null}
+                      <span>{opt.label}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -2335,6 +2378,23 @@ export const QuickAddScreen: React.FC<Props> = ({
                 renderEmptyChoiceTile("Долг", () => openExpensePicker("transfer-debt"))
               )}
             </div>
+            <button
+              type="button"
+              disabled={isRunning}
+              onClick={submitTransfer}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                borderRadius: 12,
+                border: "none",
+                background: !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                color: !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
+                fontWeight: 700,
+                cursor: !isRunning ? "pointer" : "not-allowed",
+              }}
+            >
+              {isRunning ? "Сохранение..." : "Сохранить"}
+            </button>
           </div>
         ) : activeTab === "debt" ? (
           <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
@@ -2477,7 +2537,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
         )}
       </div>
-      {activeTab !== "expense" && activeTab !== "income" ? (
+      {activeTab !== "expense" && activeTab !== "income" && activeTab !== "transfer" ? (
         <div
           data-quick-add-footer="1"
           ref={footerRef}
@@ -2607,116 +2667,160 @@ export const QuickAddScreen: React.FC<Props> = ({
                 flex: "1 1 auto",
               }}
             >
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                  gap: 10,
-                  justifyItems: "stretch",
-                }}
-              >
-                {expensePicker === "expense-account" ||
-                expensePicker === "income-account" ||
-                expensePicker === "transfer-from-account" ||
-                expensePicker === "transfer-to-account" ||
-                expensePicker === "debt-receivable-account" ||
-                expensePicker === "debt-payable-account" ||
-                expensePicker === "goal-account"
-                  ? accountTiles.map((acc) =>
-                      renderTile(
-                        {
-                          id: acc.id,
-                          title: acc.title,
-                          icon: "wallet",
-                          iconKey: acc.iconKey,
-                          color: acc.color,
-                          amount: acc.amount,
-                          secondaryAmount: acc.secondaryAmount,
-                        },
-                        pickerSelectedId === acc.id,
-                        "account",
-                        handlePickerSelect,
-                        {
-                          width: "100%",
-                          minWidth: 0,
-                          maxWidth: "100%",
-                          minHeight: 124,
-                        },
-                      ),
-                    )
-                  : expensePicker === "expense-category"
-                  ? expenseCategoryTiles.map((cat) =>
-                      renderTile(
-                        {
-                          id: cat.id,
-                          title: cat.title,
-                          iconKey: cat.iconKey,
-                          amount: cat.amount,
-                          budget: cat.budget,
-                          budgetTone: cat.budgetTone,
-                        },
-                        pickerSelectedId === cat.id,
-                        "category",
-                        handlePickerSelect,
-                        expenseCompactCategorySheetTileStyle,
-                      ),
-                    )
-                  : expensePicker === "income-source"
-                  ? incomeSourceTiles.map((source) =>
-                      renderTile(
-                        {
-                          id: source.id,
-                          title: source.title,
-                          iconKey: source.iconKey,
-                          amount: source.amount,
-                          color: source.color,
-                        },
-                        pickerSelectedId === source.id,
-                        "income-source",
-                        handlePickerSelect,
-                        {
-                          width: "100%",
-                          minWidth: 0,
-                          maxWidth: "100%",
-                          minHeight: 124,
-                        },
-                      ),
-                    )
-                  : expensePicker === "transfer-goal" || expensePicker === "goal-target"
-                  ? activeGoals.map((goal) =>
-                      renderTile(
-                        {
-                          id: goal.id,
-                          title: goal.name,
-                          icon: "goal",
-                          amount: goal.currentAmount,
-                        },
-                        pickerSelectedId === goal.id,
-                        "goal",
-                        handlePickerSelect,
-                        {
-                          width: "100%",
-                          minWidth: 0,
-                          maxWidth: "100%",
-                          minHeight: 124,
-                        },
-                      ),
-                    )
-                  : (expensePicker === "debt-receivable-debtor" ? activeReceivableDebtors : activePayableDebtors).map((debtor) =>
-                      renderDebtorTile(debtor, () => handlePickerSelect(debtor.id)),
-                    )}
-                {pickerAllowsCreate ? (
+              {expensePicker === "transfer-goal" || expensePicker === "goal-target" ? (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <GoalList
+                    goals={activeGoals}
+                    selectedGoalId={selectedGoalId}
+                    onSelectGoal={(goal) => handlePickerSelect(goal.id)}
+                    emptyText="Нет актуальных целей"
+                    currency={baseCurrency}
+                    showSelectedCheck
+                    selectedCheckOnly
+                  />
                   <button
                     type="button"
-                    onClick={handlePickerCreate}
-                    className="tile-card tile-card--add overview-add-tile"
-                    style={{ width: "100%", minWidth: 0, maxWidth: "100%", minHeight: 96 }}
+                    onClick={handlePickerCreateGoal}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontWeight: 700,
+                    }}
                   >
-                    <div className="tile-card__icon">+</div>
-                    <div className="tile-card__title">Добавить</div>
+                    Создать цель
                   </button>
-                ) : null}
-              </div>
+                </div>
+              ) : expensePicker === "transfer-debt" || expensePicker === "debt-payable-debtor" ? (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <DebtorList
+                    debtors={activePayableDebtors}
+                    direction="payable"
+                    emptyText="Нет актуальных долгов"
+                    selectedDebtorId={selectedPayableDebtorId}
+                    selectedCheckOnly
+                    currency={baseCurrency}
+                    onSelectDebtor={(debtor) => handlePickerSelect(debtor.id)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handlePickerCreateDebt}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #0f172a",
+                      background: "#0f172a",
+                      color: "#fff",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Создать долг
+                  </button>
+                </div>
+              ) : expensePicker === "debt-receivable-debtor" ? (
+                <DebtorList
+                  debtors={activeReceivableDebtors}
+                  direction="receivable"
+                  emptyText="Нет актуальных должников"
+                  selectedDebtorId={selectedReceivableDebtorId}
+                  selectedCheckOnly
+                  currency={baseCurrency}
+                  onSelectDebtor={(debtor) => handlePickerSelect(debtor.id)}
+                />
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: 10,
+                    justifyItems: "stretch",
+                  }}
+                >
+                  {expensePicker === "expense-account" ||
+                  expensePicker === "income-account" ||
+                  expensePicker === "transfer-from-account" ||
+                  expensePicker === "transfer-to-account" ||
+                  expensePicker === "debt-receivable-account" ||
+                  expensePicker === "debt-payable-account" ||
+                  expensePicker === "goal-account"
+                    ? accountTiles.map((acc) =>
+                        renderTile(
+                          {
+                            id: acc.id,
+                            title: acc.title,
+                            icon: "wallet",
+                            iconKey: acc.iconKey,
+                            color: acc.color,
+                            amount: acc.amount,
+                            secondaryAmount: acc.secondaryAmount,
+                          },
+                          pickerSelectedId === acc.id,
+                          "account",
+                          handlePickerSelect,
+                          {
+                            width: "100%",
+                            minWidth: 0,
+                            maxWidth: "100%",
+                            minHeight: 124,
+                          },
+                        ),
+                      )
+                    : expensePicker === "expense-category"
+                    ? expenseCategoryTiles.map((cat) =>
+                        renderTile(
+                          {
+                            id: cat.id,
+                            title: cat.title,
+                            iconKey: cat.iconKey,
+                            amount: cat.amount,
+                            budget: cat.budget,
+                            budgetTone: cat.budgetTone,
+                          },
+                          pickerSelectedId === cat.id,
+                          "category",
+                          handlePickerSelect,
+                          expenseCompactCategorySheetTileStyle,
+                        ),
+                      )
+                    : expensePicker === "income-source"
+                    ? incomeSourceTiles.map((source) =>
+                        renderTile(
+                          {
+                            id: source.id,
+                            title: source.title,
+                            iconKey: source.iconKey,
+                            amount: source.amount,
+                            color: source.color,
+                          },
+                          pickerSelectedId === source.id,
+                          "income-source",
+                          handlePickerSelect,
+                          {
+                            width: "100%",
+                            minWidth: 0,
+                            maxWidth: "100%",
+                            minHeight: 124,
+                          },
+                        ),
+                      )
+                    : null}
+                  {pickerAllowsCreate ? (
+                    <button
+                      type="button"
+                      onClick={handlePickerCreate}
+                      className="tile-card tile-card--add overview-add-tile"
+                      style={{ width: "100%", minWidth: 0, maxWidth: "100%", minHeight: 96 }}
+                    >
+                      <div className="tile-card__icon">+</div>
+                      <div className="tile-card__title">Добавить</div>
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
         </div>
