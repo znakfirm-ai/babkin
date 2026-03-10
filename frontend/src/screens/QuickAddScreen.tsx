@@ -2017,7 +2017,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           overscrollBehaviorY: "contain",
           touchAction: "pan-y",
           WebkitOverflowScrolling: "touch",
-          paddingBottom: activeTab === "expense" ? 16 : footerHeightPx + 16,
+          paddingBottom: activeTab === "expense" || activeTab === "income" ? 16 : footerHeightPx + 16,
         }}
       >
 
@@ -2169,6 +2169,18 @@ export const QuickAddScreen: React.FC<Props> = ({
           </div>
         ) : activeTab === "income" ? (
           <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
+            <div style={{ display: "grid", gap: 8, width: "100%" }}>
+              <AmountDateRow
+                amount={amount}
+                onAmountChange={setAmount}
+                date={transferDate}
+                onDateChange={setTransferDate}
+                onAmountFocus={handleAmountFocus}
+                onAmountBlur={handleAmountBlur}
+                amountInputRef={amountInputRef}
+              />
+              {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)", alignItems: "center", gap: 16, width: "100%" }}>
               {selectedIncomeSourceTile ? (
                 renderTile(
@@ -2210,6 +2222,23 @@ export const QuickAddScreen: React.FC<Props> = ({
                 renderEmptyChoiceTile("Счёт", () => openExpensePicker("income-account"))
               )}
             </div>
+            <button
+              type="button"
+              disabled={isRunning}
+              onClick={submitIncome}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                borderRadius: 12,
+                border: "none",
+                background: !isRunning ? "#0f0f0f" : "rgba(15,15,15,0.3)",
+                color: !isRunning ? "#ffffff" : "rgba(255,255,255,0.7)",
+                fontWeight: 700,
+                cursor: !isRunning ? "pointer" : "not-allowed",
+              }}
+            >
+              {isRunning ? "Сохранение..." : "Сохранить"}
+            </button>
           </div>
         ) : activeTab === "transfer" ? (
           <div style={{ display: "grid", gap: 14, padding: "0 16px 16px" }}>
@@ -2448,7 +2477,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           <div style={{ padding: 24, textAlign: "center", color: "#6b7280" }}>Скоро</div>
         )}
       </div>
-      {activeTab !== "expense" ? (
+      {activeTab !== "expense" && activeTab !== "income" ? (
         <div
           data-quick-add-footer="1"
           ref={footerRef}
@@ -2676,16 +2705,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                   : (expensePicker === "debt-receivable-debtor" ? activeReceivableDebtors : activePayableDebtors).map((debtor) =>
                       renderDebtorTile(debtor, () => handlePickerSelect(debtor.id)),
                     )}
-              </div>
-              {pickerAllowsCreate ? (
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                    gap: 10,
-                  }}
-                >
+                {pickerAllowsCreate ? (
                   <button
                     type="button"
                     onClick={handlePickerCreate}
@@ -2695,8 +2715,8 @@ export const QuickAddScreen: React.FC<Props> = ({
                     <div className="tile-card__icon">+</div>
                     <div className="tile-card__title">Добавить</div>
                   </button>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
