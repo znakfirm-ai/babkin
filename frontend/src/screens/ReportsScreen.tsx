@@ -1152,27 +1152,29 @@ const ReportsScreen: React.FC<Props> = ({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={closeExpensesReport}
-          className="tx-modal__backdrop"
-          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
+          data-page-overlay="report-expenses"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "#f5f6f8",
+            display: "flex",
+            justifyContent: "center",
+            zIndex: 220,
+            overflow: "hidden",
+          }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="tx-modal"
             style={{
-              maxWidth: 640,
-              width: "100%",
-              padding: "16px",
-              margin: "0 auto",
-              borderRadius: "18px 18px 20px 20px",
+              width: "min(480px, 100%)",
+              height: "100%",
+              padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 12px)",
+              background: "#f5f6f8",
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
-              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
             }}
           >
-            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Расходы по категориям</div>
                 <button
@@ -1544,54 +1546,78 @@ const ReportsScreen: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                  <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
-                    {expenseData.list.length === 0 ? (
-                      <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций за период</div>
-                    ) : (
-                      expenseData.list.map((item) => (
-                        <div
-                          key={item.id}
-                          onClick={() => {
-                            if (item.isArchived) return
-                            if (item.id === REPORT_GROUP_DEBTS_ID) {
-                              onOpenPayableDebtsSheet?.()
-                            } else {
-                              onOpenCategorySheet?.(item.id, item.title)
-                            }
-                            setIsExpensesSheetOpen(false)
-                          }}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            borderBottom: "1px solid #e5e7eb",
-                            paddingBottom: 8,
-                            cursor: item.isArchived ? "default" : "pointer",
-                            opacity: item.isArchived ? 0.55 : 1,
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                            <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
-                              {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
-                            </span>
-                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
-                              {item.title}
-                            </span>
+                <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      background: "#fff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 12,
+                      padding: "8px 12px",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <div
+                      style={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflowY: "auto",
+                        WebkitOverflowScrolling: "touch",
+                        display: "grid",
+                        gap: 8,
+                        alignContent: "start",
+                      }}
+                    >
+                      {expenseData.list.length === 0 ? (
+                        <div style={{ color: "#6b7280", fontSize: 14 }}>Нет операций за период</div>
+                      ) : (
+                        expenseData.list.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              if (item.isArchived) return
+                              if (item.id === REPORT_GROUP_DEBTS_ID) {
+                                onOpenPayableDebtsSheet?.()
+                              } else {
+                                onOpenCategorySheet?.(item.id, item.title)
+                              }
+                              setIsExpensesSheetOpen(false)
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              borderBottom: "1px solid #e5e7eb",
+                              paddingBottom: 8,
+                              cursor: item.isArchived ? "default" : "pointer",
+                              opacity: item.isArchived ? 0.55 : 1,
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                              <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                                {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
+                              </span>
+                              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
+                                {item.title}
+                              </span>
+                            </div>
+                            {(() => {
+                              const percentColor = topLegendColorById[item.id] ?? "#6b7280"
+                              return (
+                                <div style={{ display: "flex", gap: 6, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
+                                  <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
+                                  <span style={{ color: percentColor }}>·</span>
+                                  <span style={{ color: percentColor }}>{item.percentText}</span>
+                                </div>
+                              )
+                            })()}
                           </div>
-                          {(() => {
-                            const percentColor = topLegendColorById[item.id] ?? "#6b7280"
-                            return (
-                              <div style={{ display: "flex", gap: 6, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
-                                <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
-                                <span style={{ color: percentColor }}>·</span>
-                                <span style={{ color: percentColor }}>{item.percentText}</span>
-                              </div>
-                            )
-                          })()}
-                        </div>
-                      ))
-                    )}
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
