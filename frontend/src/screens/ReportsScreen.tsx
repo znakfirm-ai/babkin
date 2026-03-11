@@ -1998,54 +1998,68 @@ const ReportsScreen: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                  <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 8, display: "grid", gap: 8 }}>
-                    {incomeData.list.length === 0 ? (
-                      <div style={{ color: "#6b7280", fontSize: 14 }}>Нет доходов за период</div>
-                    ) : (
-                          incomeData.list.map((item) => (
-                            <div
-                              key={item.id}
-                              onClick={() => {
-                                if (incomeData.total === 0) return
-                                if (item.isArchived) return
-                                if (!item.id || item.id === "uncategorized") return
-                                onOpenIncomeSourceSheet?.(item.id, {
-                                  periodMode,
-                                  monthOffset,
-                                  bannerOffset,
-                                  customFrom,
-                                  customTo,
-                                  singleDay,
-                                })
-                                setIsIncomeSheetOpen(false)
-                              }}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 10,
-                                borderBottom: "1px solid #e5e7eb",
-                                paddingBottom: 8,
-                                cursor: incomeData.total > 0 && !item.isArchived ? "pointer" : "default",
-                                opacity: item.isArchived ? 0.55 : 1,
-                              }}
-                            >
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                            <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
-                              {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
-                            </span>
-                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
-                              {item.title}
-                            </span>
+                <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      background: "#fff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 12,
+                      padding: "8px 12px",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", display: "grid", gap: 8 }}>
+                      {incomeData.list.length === 0 ? (
+                        <div style={{ color: "#6b7280", fontSize: 14 }}>Нет доходов за период</div>
+                      ) : (
+                        incomeData.list.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              if (incomeData.total === 0) return
+                              if (item.isArchived) return
+                              if (!item.id || item.id === "uncategorized") return
+                              onOpenIncomeSourceSheet?.(item.id, {
+                                periodMode,
+                                monthOffset,
+                                bannerOffset,
+                                customFrom,
+                                customTo,
+                                singleDay,
+                              })
+                              setIsIncomeSheetOpen(false)
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              borderBottom: "1px solid #e5e7eb",
+                              paddingBottom: 8,
+                              cursor: incomeData.total > 0 && !item.isArchived ? "pointer" : "default",
+                              opacity: item.isArchived ? 0.55 : 1,
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                              <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                                {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
+                              </span>
+                              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 14, color: "#0f172a" }}>
+                                {item.title}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
+                              <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
+                              <span style={{ color: topIncomeLegendColorById[item.id] ?? "#6b7280" }}>·</span>
+                              <span style={{ color: topIncomeLegendColorById[item.id] ?? "#6b7280" }}>{item.percentText}</span>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", gap: 6, alignItems: "center", flex: "0 0 auto", fontSize: 14, color: "#0f172a" }}>
-                            <span>{formatMoney(item.sum, currency ?? "RUB")}</span>
-                            <span style={{ color: topIncomeLegendColorById[item.id] ?? "#6b7280" }}>·</span>
-                            <span style={{ color: topIncomeLegendColorById[item.id] ?? "#6b7280" }}>{item.percentText}</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
