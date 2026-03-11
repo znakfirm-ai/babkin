@@ -6511,6 +6511,7 @@ function TransactionsPanel({
                     border: "1px solid #e5e7eb",
                     background: "#fff",
                     fontWeight: 600,
+                    color: "#0f172a",
                     cursor: "pointer",
                   }}
                 >
