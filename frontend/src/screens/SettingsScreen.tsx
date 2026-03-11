@@ -458,7 +458,6 @@ const SettingsScreen: React.FC<Props> = ({
     borderRadius: 10,
     border: "1px solid #e5e7eb",
     background: "#fff",
-    color: "#0f172a",
     fontWeight: 600,
     cursor: "pointer",
   }
