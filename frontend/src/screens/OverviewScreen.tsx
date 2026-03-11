@@ -1035,11 +1035,8 @@ function OverviewScreen({
   const hasGoalAmountRequiredError = isAmountRequiredError(goalError)
   const hasDebtorAmountRequiredError = isAmountRequiredError(debtorError)
   const debtFormTitle = currentDebtorDirection === "payable" ? "Добавить кредитора" : "Добавить должника"
-<<<<<<< HEAD
-=======
   const debtorNameFieldLabel = currentDebtorDirection === "payable" ? "Имя кредитора" : "Имя должника"
   const debtListEmptyText = currentDebtorDirection === "payable" ? "Пока нет долгов" : "Пока нет должников"
->>>>>>> b0fd458 (migrate i owe pages)
   const debtorSheetTitle =
     debtorSheetMode === "edit"
       ? currentDebtorDirection === "payable"
@@ -6219,48 +6216,7 @@ function TransactionsPanel({
                 </button>
               </div>
             ) : null}
-<<<<<<< HEAD
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-                overflowY: isDebtorSheetPage ? "auto" : undefined,
-                paddingTop: isDebtorSheetPage ? 12 : 0,
-                paddingLeft: isDebtorSheetPage ? 16 : 0,
-                paddingRight: isDebtorSheetPage ? 16 : 0,
-                paddingBottom: isDebtorSheetPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 0,
-                minHeight: 0,
-                flex: isDebtorSheetPage ? "1 1 auto" : undefined,
-                WebkitOverflowScrolling: "touch",
-                overscrollBehaviorY: "contain",
-              }}
-            >
-              {!isDebtorSheetPage ? (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{debtorSheetTitle}</div>
-                  <button
-                    type="button"
-                    onClick={closeDebtorSheetToPrevious}
-                    style={{
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      borderRadius: 10,
-                      padding: "6px 10px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Отмена
-                  </button>
-                </div>
-              ) : null}
-
-              {debtorError && !hasDebtorAmountRequiredError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{debtorError}</div> : null}
-
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#475569" }}>Имя должника</span>
-=======
             <div
               style={{
                 display: "flex",
@@ -6300,7 +6256,6 @@ function TransactionsPanel({
 
               <label style={{ display: "grid", gap: 6 }}>
                 <span style={{ fontSize: 13, color: "#475569" }}>{debtorNameFieldLabel}</span>
->>>>>>> b0fd458 (migrate i owe pages)
                 <input
                   value={debtorName}
                   onChange={(e) => setDebtorName(e.target.value)}
