@@ -101,6 +101,7 @@ const SettingsScreen: React.FC<Props> = ({
     dragging: false,
     tracking: false,
   })
+  const resetSheetDragOffsetRef = useRef(0)
   const [resetSheetDragOffset, setResetSheetDragOffset] = useState(0)
   const [resetSheetClosing, setResetSheetClosing] = useState(false)
 
@@ -254,6 +255,7 @@ const SettingsScreen: React.FC<Props> = ({
     setResetError(null)
     setResetStep(1)
     setActivePage("reset")
+    resetSheetDragOffsetRef.current = 0
     setResetSheetDragOffset(0)
     setResetSheetClosing(false)
   }, [])
@@ -263,6 +265,7 @@ const SettingsScreen: React.FC<Props> = ({
     setResetError(null)
     setResetStep(0)
     setActivePage("root")
+    resetSheetDragOffsetRef.current = 0
     setResetSheetDragOffset(0)
     setResetSheetClosing(false)
   }, [isResetWorkspaceRunning])
@@ -274,6 +277,7 @@ const SettingsScreen: React.FC<Props> = ({
 
   const finalizeCloseResetSheet = useCallback(() => {
     setResetSheetClosing(false)
+    resetSheetDragOffsetRef.current = 0
     setResetSheetDragOffset(0)
     closeResetSheet()
   }, [closeResetSheet])
@@ -295,20 +299,22 @@ const SettingsScreen: React.FC<Props> = ({
     if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
     const deltaY = event.clientY - gesture.startY
     if (deltaY <= 0) {
-      if (gesture.dragging && resetSheetDragOffset !== 0) {
+      if (gesture.dragging && resetSheetDragOffsetRef.current !== 0) {
+        resetSheetDragOffsetRef.current = 0
         setResetSheetDragOffset(0)
       }
       return
     }
     if (!gesture.dragging) gesture.dragging = true
     event.preventDefault()
+    resetSheetDragOffsetRef.current = deltaY
     setResetSheetDragOffset(deltaY)
-  }, [resetSheetDragOffset])
+  }, [])
 
   const finishResetSheetGesture = useCallback((pointerId: number) => {
     const gesture = resetSheetGestureRef.current
     if (!gesture.tracking || gesture.pointerId !== pointerId) return
-    const shouldClose = gesture.dragging && resetSheetDragOffset > 90
+    const shouldClose = gesture.dragging && resetSheetDragOffsetRef.current > 90
     gesture.pointerId = null
     gesture.startY = 0
     gesture.dragging = false
@@ -317,8 +323,9 @@ const SettingsScreen: React.FC<Props> = ({
       requestCloseResetSheet()
       return
     }
+    resetSheetDragOffsetRef.current = 0
     setResetSheetDragOffset(0)
-  }, [requestCloseResetSheet, resetSheetDragOffset])
+  }, [requestCloseResetSheet])
 
   const handleResetSheetPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const sheet = resetSheetRef.current

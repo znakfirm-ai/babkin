@@ -1,1 +1,2 @@
 export const REPORT_CLOSE_TEXT_COLOR = "#0f172a"
+export const PAGE_CLOSE_CREATE_TEXT_COLOR = "#2563eb"

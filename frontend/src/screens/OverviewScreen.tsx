@@ -20,7 +20,7 @@ import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint 
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import { buildTransactionDaySections, sortTransactionsDesc } from "../utils/sortTransactions"
 import { registerDebugTimingsTap } from "../utils/debugTimings"
-import { REPORT_CLOSE_TEXT_COLOR } from "../shared/uiTokens"
+import { PAGE_CLOSE_CREATE_TEXT_COLOR } from "../shared/uiTokens"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -1019,6 +1019,7 @@ function OverviewScreen({
   const [isTxDeleteConfirming, setIsTxDeleteConfirming] = useState(false)
   const txOverlayRef = useRef<HTMLDivElement | null>(null)
   const [txSheetDragOffset, setTxSheetDragOffset] = useState(0)
+  const txSheetDragOffsetRef = useRef(0)
   const txSheetRef = useRef<HTMLDivElement | null>(null)
   const txSheetContentRef = useRef<HTMLDivElement | null>(null)
   const txSheetGestureRef = useRef<{
@@ -2700,6 +2701,7 @@ function OverviewScreen({
       setTxLoading(false)
       setDisabledTxHintId(null)
       setTxActionId(id)
+      txSheetDragOffsetRef.current = 0
       setTxSheetDragOffset(0)
       setIsTxDeleteConfirming(false)
       setTxMode("edit")
@@ -2714,6 +2716,7 @@ function OverviewScreen({
     setTxActionId(null)
     setTxError(null)
     setTxLoading(false)
+    txSheetDragOffsetRef.current = 0
     setTxSheetDragOffset(0)
     setIsTxDeleteConfirming(false)
     setDisabledTxHintId(null)
@@ -2744,20 +2747,22 @@ function OverviewScreen({
     }
     const deltaY = event.clientY - gesture.startY
     if (deltaY <= 0) {
-      if (gesture.dragging && txSheetDragOffset !== 0) {
+      if (gesture.dragging && txSheetDragOffsetRef.current !== 0) {
+        txSheetDragOffsetRef.current = 0
         setTxSheetDragOffset(0)
       }
       return
     }
     if (!gesture.dragging) gesture.dragging = true
     event.preventDefault()
+    txSheetDragOffsetRef.current = deltaY
     setTxSheetDragOffset(deltaY)
-  }, [txSheetDragOffset])
+  }, [])
 
   const finishTxSheetPointer = useCallback((pointerId: number) => {
     const gesture = txSheetGestureRef.current
     if (!gesture.tracking || gesture.pointerId !== pointerId) return
-    const shouldClose = gesture.dragging && txSheetDragOffset > 90
+    const shouldClose = gesture.dragging && txSheetDragOffsetRef.current > 90
     gesture.pointerId = null
     gesture.startY = 0
     gesture.dragging = false
@@ -2766,8 +2771,9 @@ function OverviewScreen({
       closeTxSheet()
       return
     }
+    txSheetDragOffsetRef.current = 0
     setTxSheetDragOffset(0)
-  }, [closeTxSheet, txSheetDragOffset])
+  }, [closeTxSheet])
 
   const handleTxSheetPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const sheet = txSheetRef.current
@@ -6373,7 +6379,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: REPORT_CLOSE_TEXT_COLOR,
+                    color: debtorSheetMode === "create" ? PAGE_CLOSE_CREATE_TEXT_COLOR : "#0f172a",
                     fontWeight: 600,
                   }}
                 >
@@ -6802,6 +6808,7 @@ function TransactionsPanel({
                   borderRadius: 10,
                   padding: "6px 10px",
                   cursor: "pointer",
+                  color: goalSheetMode === "create" ? PAGE_CLOSE_CREATE_TEXT_COLOR : "#0f172a",
                 }}
               >
                 {isGoalSheetPage ? "Закрыть" : "Отмена"}
@@ -7263,7 +7270,7 @@ function TransactionsPanel({
                   border: "1px solid #e5e7eb",
                   borderRadius: 10,
                   background: "#fff",
-                  color: REPORT_CLOSE_TEXT_COLOR,
+                  color: "#0f172a",
                   padding: "6px 10px",
                   fontSize: 13,
                   fontWeight: 600,
@@ -7312,7 +7319,7 @@ function TransactionsPanel({
 
                 {isTxDeleteConfirming ? (
                   <div style={{ display: "grid", gap: 10 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>Удалить операцию?</div>
+                    <div style={{ fontSize: 13, fontWeight: 400, color: "#0f172a", textAlign: "center" }}>Удалить операцию?</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <button
                         type="button"
@@ -7336,8 +7343,9 @@ function TransactionsPanel({
                           padding: 12,
                           borderRadius: 12,
                           border: "1px solid #fee2e2",
-                          background: txLoading || isDeleteTxRunning ? "#fecdd3" : "#b91c1c",
-                          color: "#fff",
+                          background: "#fff",
+                          color: txLoading || isDeleteTxRunning ? "#fca5a5" : "#b91c1c",
+                          fontWeight: 700,
                           cursor: txLoading || isDeleteTxRunning ? "not-allowed" : "pointer",
                         }}
                       >
@@ -8181,7 +8189,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: REPORT_CLOSE_TEXT_COLOR,
+                    color: editingAccountId ? "#0f172a" : PAGE_CLOSE_CREATE_TEXT_COLOR,
                     fontWeight: 600,
                   }}
                 >
@@ -8731,7 +8739,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: REPORT_CLOSE_TEXT_COLOR,
+                    color: categorySheetMode === "create" ? PAGE_CLOSE_CREATE_TEXT_COLOR : "#0f172a",
                     fontWeight: 600,
                   }}
                 >
@@ -9133,7 +9141,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: REPORT_CLOSE_TEXT_COLOR,
+                    color: incomeSourceSheetMode === "create" ? PAGE_CLOSE_CREATE_TEXT_COLOR : "#0f172a",
                     fontWeight: 600,
                   }}
                 >
