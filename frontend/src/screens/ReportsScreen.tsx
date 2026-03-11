@@ -2012,7 +2012,17 @@ const ReportsScreen: React.FC<Props> = ({
                       flexDirection: "column",
                     }}
                   >
-                    <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", display: "grid", gap: 8 }}>
+                    <div
+                      style={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflowY: "auto",
+                        WebkitOverflowScrolling: "touch",
+                        display: "grid",
+                        gap: 8,
+                        alignContent: "start",
+                      }}
+                    >
                       {incomeData.list.length === 0 ? (
                         <div style={{ color: "#6b7280", fontSize: 14 }}>Нет доходов за период</div>
                       ) : (
