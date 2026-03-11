@@ -3,6 +3,7 @@ import { useAppStore } from "../store/useAppStore"
 import { isDebugTimingsStorageEnabled, setDebugTimingsStorageEnabled } from "../utils/debugTimings"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 import { buildSharedWorkspaceInviteUrl } from "../utils/sharedInviteLink"
+import { PAGE_CLOSE_ACTION_BUTTON_STYLE } from "../shared/uiTokens"
 
 type SharedWorkspaceInvite = {
   code: string
@@ -604,14 +605,7 @@ const SettingsScreen: React.FC<Props> = ({
     background: "#f5f6f8",
     flexShrink: 0,
   }
-  const pageCloseButtonStyle: React.CSSProperties = {
-    padding: "8px 12px",
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
-    background: "#fff",
-    fontWeight: 600,
-    cursor: "pointer",
-  }
+  const pageCloseButtonStyle = PAGE_CLOSE_ACTION_BUTTON_STYLE
   const pageBodyStyle: React.CSSProperties = {
     flex: "1 1 auto",
     minHeight: 0,

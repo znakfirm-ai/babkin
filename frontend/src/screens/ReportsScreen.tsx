@@ -4,7 +4,7 @@ import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { format } from "../utils/date"
-import { REPORT_CLOSE_TEXT_COLOR } from "../shared/uiTokens"
+import { PAGE_CLOSE_ACTION_BUTTON_STYLE } from "../shared/uiTokens"
 
 type Props = {
   onOpenSummary: () => void
@@ -1182,13 +1182,7 @@ const ReportsScreen: React.FC<Props> = ({
                   type="button"
                   onClick={closeExpensesReport}
                   style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    color: REPORT_CLOSE_TEXT_COLOR,
-                    fontWeight: 600,
-                    cursor: "pointer",
+                    ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                   }}
                 >
                   Закрыть
@@ -1670,13 +1664,7 @@ const ReportsScreen: React.FC<Props> = ({
                   type="button"
                   onClick={closeIncomeReport}
                   style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    color: REPORT_CLOSE_TEXT_COLOR,
-                    fontWeight: 600,
-                    cursor: "pointer",
+                    ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                   }}
                 >
                   Закрыть
@@ -2158,13 +2146,7 @@ const ReportsScreen: React.FC<Props> = ({
                   type="button"
                   onClick={closeCompareReport}
                   style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    color: REPORT_CLOSE_TEXT_COLOR,
-                    fontWeight: 600,
-                    cursor: "pointer",
+                    ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                   }}
                 >
                   Закрыть

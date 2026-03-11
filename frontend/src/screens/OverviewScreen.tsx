@@ -20,7 +20,7 @@ import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint 
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import { buildTransactionDaySections, sortTransactionsDesc } from "../utils/sortTransactions"
 import { registerDebugTimingsTap } from "../utils/debugTimings"
-import { PAGE_CLOSE_CREATE_TEXT_COLOR } from "../shared/uiTokens"
+import { PAGE_CLOSE_ACTION_BUTTON_STYLE } from "../shared/uiTokens"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -5008,11 +5008,7 @@ function TransactionsPanel({
                   type="button"
                   onClick={detailGoal ? closeGoalDetailsToGoalsList : detailDebtor ? closeDebtorDetailsToDebtsList : closeDetails}
                   style={{
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    borderRadius: 10,
-                    padding: "6px 10px",
-                    cursor: "pointer",
+                    ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                   }}
                 >
                   Закрыть
@@ -6374,13 +6370,7 @@ function TransactionsPanel({
                   type="button"
                   onClick={closeDebtorSheetToPrevious}
                   style={{
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    borderRadius: 10,
-                    padding: "6px 10px",
-                    cursor: "pointer",
-                    color: debtorSheetMode === "create" ? PAGE_CLOSE_CREATE_TEXT_COLOR : "#0f172a",
-                    fontWeight: 600,
+                    ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                   }}
                 >
                   Закрыть
@@ -6681,13 +6671,7 @@ function TransactionsPanel({
                 type="button"
                 onClick={requestCloseDebtorIconPicker}
                 style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fff",
-                  color: "#0f172a",
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  fontWeight: 600,
+                  ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                 }}
               >
                 Закрыть
@@ -6803,12 +6787,7 @@ function TransactionsPanel({
                 type="button"
                 onClick={closeGoalSheetToPrevious}
                 style={{
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  borderRadius: 10,
-                  padding: "6px 10px",
-                  cursor: "pointer",
-                  color: goalSheetMode === "create" ? PAGE_CLOSE_CREATE_TEXT_COLOR : "#0f172a",
+                  ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                 }}
               >
                 {isGoalSheetPage ? "Закрыть" : "Отмена"}
@@ -7083,12 +7062,7 @@ function TransactionsPanel({
                   type="button"
                   onClick={closeGoalsList}
                   style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    fontWeight: 600,
-                    cursor: "pointer",
+                    ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                   }}
                 >
                   Закрыть
@@ -7267,13 +7241,7 @@ function TransactionsPanel({
                 type="button"
                 onClick={closeTxSheet}
                 style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fff",
-                  color: "#0f172a",
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  fontWeight: 600,
+                  ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                 }}
               >
                 Закрыть
@@ -7481,13 +7449,7 @@ function TransactionsPanel({
                 type="button"
                 onClick={requestCloseAccountIconPicker}
                 style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fff",
-                  color: "#0f172a",
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  fontWeight: 600,
+                  ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                 }}
               >
                 Закрыть
@@ -7615,13 +7577,7 @@ function TransactionsPanel({
                 type="button"
                 onClick={requestCloseGoalIconPicker}
                 style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fff",
-                  color: "#0f172a",
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  fontWeight: 600,
+                  ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                 }}
               >
                 Закрыть
@@ -7749,13 +7705,7 @@ function TransactionsPanel({
                 type="button"
                 onClick={requestCloseIncomeIconPicker}
                 style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fff",
-                  color: "#0f172a",
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  fontWeight: 600,
+                  ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                 }}
               >
                 Закрыть
@@ -8184,13 +8134,7 @@ function TransactionsPanel({
                   type="button"
                   onClick={closeAccountSheet}
                   style={{
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    borderRadius: 10,
-                    padding: "6px 10px",
-                    cursor: "pointer",
-                    color: editingAccountId ? "#0f172a" : PAGE_CLOSE_CREATE_TEXT_COLOR,
-                    fontWeight: 600,
+                    ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                   }}
                 >
                   Закрыть
@@ -8734,13 +8678,7 @@ function TransactionsPanel({
                   type="button"
                   onClick={() => closeCategorySheet()}
                   style={{
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    borderRadius: 10,
-                    padding: "6px 10px",
-                    cursor: "pointer",
-                    color: categorySheetMode === "create" ? PAGE_CLOSE_CREATE_TEXT_COLOR : "#0f172a",
-                    fontWeight: 600,
+                    ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                   }}
                 >
                   Закрыть
@@ -9014,13 +8952,7 @@ function TransactionsPanel({
                 type="button"
                 onClick={requestCloseCategoryIconPicker}
                 style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fff",
-                  color: "#0f172a",
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  fontWeight: 600,
+                  ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                 }}
               >
                 Закрыть
@@ -9136,13 +9068,7 @@ function TransactionsPanel({
                   type="button"
                   onClick={() => closeIncomeSourceSheet()}
                   style={{
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    borderRadius: 10,
-                    padding: "6px 10px",
-                    cursor: "pointer",
-                    color: incomeSourceSheetMode === "create" ? PAGE_CLOSE_CREATE_TEXT_COLOR : "#0f172a",
-                    fontWeight: 600,
+                    ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                   }}
                 >
                   Закрыть

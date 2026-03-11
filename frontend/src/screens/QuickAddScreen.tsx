@@ -15,6 +15,7 @@ import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import { GoalList } from "../components/GoalList"
 import { DebtorList } from "../components/DebtorList"
 import type { Debtor } from "../types/finance"
+import { PAGE_CLOSE_ACTION_BUTTON_STYLE } from "../shared/uiTokens"
 
 const getTodayLocalDate = () => {
   const now = new Date()
@@ -1906,12 +1907,7 @@ export const QuickAddScreen: React.FC<Props> = ({
               type="button"
               onClick={onClose}
               style={{
-                padding: "8px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                color: "#2563eb",
-                fontWeight: 600,
+                ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
               }}
             >
               Закрыть
@@ -2592,13 +2588,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 type="button"
                 onClick={requestCloseExpensePicker}
                 style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  background: "#fff",
-                  color: "#0f172a",
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  fontWeight: 600,
+                  ...PAGE_CLOSE_ACTION_BUTTON_STYLE,
                 }}
               >
                 Закрыть
