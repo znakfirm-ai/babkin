@@ -557,8 +557,8 @@ const SettingsScreen: React.FC<Props> = ({
               </button>
             </div>
 
-            <div style={{ ...pageBodyStyle, display: "flex", flexDirection: "column", overflowY: "hidden" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: "1 1 auto" }}>
+            <div style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: "1 1 auto", overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px 0", flexShrink: 0 }}>
                 <input
                   value={currencySearch}
                   onChange={(event) => setCurrencySearch(event.target.value)}
@@ -574,7 +574,9 @@ const SettingsScreen: React.FC<Props> = ({
                     WebkitTapHighlightColor: "transparent",
                   }}
                 />
+              </div>
 
+              <div style={{ padding: "12px 16px 0", minHeight: 0, flex: "1 1 auto", display: "flex" }}>
                 <div
                   style={{
                     border: "1px solid #e5e7eb",
@@ -633,27 +635,32 @@ const SettingsScreen: React.FC<Props> = ({
                     )
                   })}
                 </div>
+              </div>
 
-                <div style={{ marginTop: "auto", width: "100%" }}>
-                  <button
-                    type="button"
-                    onClick={applyCurrencySelection}
-                    disabled={!pendingCurrencyCode}
-                    style={{
-                      width: "100%",
-                      padding: "12px 14px",
-                      borderRadius: 12,
-                      border: "1px solid #0f172a",
-                      background: pendingCurrencyCode ? "#0f172a" : "#e5e7eb",
-                      color: pendingCurrencyCode ? "#fff" : "#6b7280",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      cursor: pendingCurrencyCode ? "pointer" : "not-allowed",
-                    }}
-                  >
-                    Выбрать валюту
-                  </button>
-                </div>
+              <div
+                style={{
+                  flexShrink: 0,
+                  padding: "12px 16px calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 12px)",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={applyCurrencySelection}
+                  disabled={!pendingCurrencyCode}
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #0f172a",
+                    background: pendingCurrencyCode ? "#0f172a" : "#e5e7eb",
+                    color: pendingCurrencyCode ? "#fff" : "#6b7280",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: pendingCurrencyCode ? "pointer" : "not-allowed",
+                  }}
+                >
+                  Выбрать валюту
+                </button>
               </div>
             </div>
           </div>
