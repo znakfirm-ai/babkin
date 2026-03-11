@@ -890,6 +890,7 @@ function OverviewScreen({
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
   const [goalSheetMode, setGoalSheetMode] = useState<"create" | "edit">("create")
+  const [goalSheetPresentation, setGoalSheetPresentation] = useState<"sheet" | "page">("sheet")
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
   const [pendingGoalCreate, setPendingGoalCreate] = useState(false)
   const [pendingOpenGoalsList, setPendingOpenGoalsList] = useState(false)
@@ -1506,6 +1507,7 @@ function OverviewScreen({
       setGoalIcon(null)
       setEditingGoalId(null)
       setGoalSheetMode("create")
+      setGoalSheetPresentation("page")
       setPendingGoalCreate(true)
       setIsGoalsListOpen(false)
     }
@@ -2297,6 +2299,7 @@ function OverviewScreen({
       setGoalTarget(goal ? String(goal.targetAmount) : "")
       setGoalIcon(goal?.icon ?? null)
       setGoalSheetMode("edit")
+      setGoalSheetPresentation("sheet")
       setEditingGoalId(pendingGoalEdit.id)
       setPendingGoalEdit(null)
       setIsGoalSheetOpen(true)
@@ -3089,6 +3092,7 @@ function OverviewScreen({
     setGoalIcon(null)
     setEditingGoalId(null)
     setGoalSheetMode("create")
+    setGoalSheetPresentation("page")
     setPendingGoalCreate(true)
     setIsGoalsListOpen(false)
   }, [])
@@ -4205,6 +4209,7 @@ function TransactionsPanel({
   const isAccountSheetPage = accountSheetPresentation === "page"
   const isCategorySheetPage = categorySheetPresentation === "page"
   const isIncomeSourceSheetPage = incomeSourceSheetPresentation === "page"
+  const isGoalSheetPage = goalSheetPresentation === "page"
 
   return (
     <div className="overview">
@@ -6117,45 +6122,63 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => {
-            setIsGoalSheetOpen(false)
-            setGoalError(null)
-            setPendingOpenGoalsList(true)
-          }}
+          data-page-overlay={isGoalSheetPage ? "goal-editor" : undefined}
+          onClick={
+            isGoalSheetPage
+              ? undefined
+              : () => {
+                  setIsGoalSheetOpen(false)
+                  setGoalError(null)
+                  setPendingOpenGoalsList(true)
+                }
+          }
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: isGoalSheetPage ? "#f5f6f8" : "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isGoalSheetPage ? "stretch" : "center",
             justifyContent: "center",
-            zIndex: 59,
-            padding: "12px",
+            zIndex: isGoalSheetPage ? 220 : 59,
+            padding: isGoalSheetPage ? 0 : "12px",
+            overflow: "hidden",
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: 520,
-              width: "100%",
+              maxWidth: isGoalSheetPage ? 480 : 520,
+              width: isGoalSheetPage ? "min(480px, 100%)" : "100%",
               margin: "0 auto",
-              background: "#fff",
-              borderRadius: 18,
-              padding: 16,
+              background: isGoalSheetPage ? "#f5f6f8" : "#fff",
+              borderRadius: isGoalSheetPage ? 0 : 18,
+              padding: isGoalSheetPage ? 0 : 16,
               boxShadow: "none",
               display: "flex",
               flexDirection: "column",
               gap: 12,
+              minHeight: 0,
+              height: isGoalSheetPage ? "100%" : undefined,
+              overflow: "hidden",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: isGoalSheetPage ? "calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px" : undefined,
+                borderBottom: isGoalSheetPage ? "1px solid #e5e7eb" : undefined,
+              }}
+            >
               <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
-                {isDebtsMode ? debtFormTitle : "Создать цель"}
+                {isDebtsMode ? debtFormTitle : goalSheetMode === "edit" ? "Редактировать цель" : "Создать цель"}
               </div>
               <button
                 type="button"
                 onClick={() => {
                   setPendingOpenGoalsList(true)
+                  setGoalError(null)
                   setIsGoalSheetOpen(false)
                 }}
                 style={{
@@ -6166,182 +6189,204 @@ function TransactionsPanel({
                   cursor: "pointer",
                 }}
               >
-                Отмена
+                {isGoalSheetPage ? "Закрыть" : "Отмена"}
               </button>
             </div>
 
-            {goalError && (!isDebtsMode || !hasGoalAmountRequiredError) ? (
-              <div style={{ color: "#b91c1c", fontSize: 13 }}>{goalError}</div>
-            ) : null}
-
-            {isDebtsMode ? (
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
-                <input
-                  type="date"
-                  value={debtorIssuedDate}
-                  onChange={(e) => setDebtorIssuedDate(e.target.value)}
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    outline: "none",
-                    boxShadow: "none",
-                  }}
-                />
-              </label>
-            ) : null}
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Название</span>
-              <input
-                value={goalName}
-                onChange={(e) => setGoalName(e.target.value)}
-                placeholder="Например, Путешествие"
-                maxLength={GOAL_NAME_MAX_LENGTH}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: hasGoalDuplicateNameError ? "1px solid #ef4444" : "1px solid #e5e7eb",
-                  fontSize: 15,
-                  outline: "none",
-                  boxShadow: "none",
-                }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>{isDebtsMode ? "Сумма займа" : "Сумма"}</span>
-              <input
-                value={goalTarget}
-                onChange={(e) => {
-                  const nextValue = e.target.value
-                  setGoalTarget(nextValue)
-                  if (!isDebtsMode || !hasGoalAmountRequiredError) return
-                  const parsedAmount = Number(nextValue.trim().replace(",", "."))
-                  if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
-                    setGoalError(null)
-                  }
-                }}
-                placeholder="0"
-                inputMode="decimal"
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: hasGoalAmountRequiredError ? "1px solid #ef4444" : "1px solid #e5e7eb",
-                  fontSize: 15,
-                  outline: "none",
-                  boxShadow: "none",
-                }}
-              />
-              {isDebtsMode && hasGoalAmountRequiredError ? (
-                <div style={{ color: "#b91c1c", fontSize: 12 }}>Введите сумму</div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                overflowY: isGoalSheetPage ? "auto" : undefined,
+                paddingTop: isGoalSheetPage ? 12 : 0,
+                paddingLeft: isGoalSheetPage ? 16 : 0,
+                paddingRight: isGoalSheetPage ? 16 : 0,
+                paddingBottom: isGoalSheetPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 0,
+                minHeight: 0,
+                flex: isGoalSheetPage ? "1 1 auto" : undefined,
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+              }}
+            >
+              {goalError && (!isDebtsMode || !hasGoalAmountRequiredError) ? (
+                <div style={{ color: "#b91c1c", fontSize: 13 }}>{goalError}</div>
               ) : null}
-            </label>
 
-            {isDebtsMode ? (
+              {isDebtsMode ? (
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
+                  <input
+                    type="date"
+                    value={debtorIssuedDate}
+                    onChange={(e) => setDebtorIssuedDate(e.target.value)}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 16,
+                      outline: "none",
+                      boxShadow: "none",
+                    }}
+                  />
+                </label>
+              ) : null}
+
               <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
+                <span style={{ fontSize: 13, color: "#475569" }}>Название</span>
                 <input
-                  type="date"
-                  value={debtorReturnDate}
-                  onChange={(e) => setDebtorReturnDate(e.target.value)}
+                  value={goalName}
+                  onChange={(e) => setGoalName(e.target.value)}
+                  placeholder="Например, Путешествие"
+                  maxLength={GOAL_NAME_MAX_LENGTH}
                   style={{
                     padding: 12,
                     borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    outline: "none",
-                    boxShadow: "none",
-                  }}
-                />
-              </label>
-            ) : null}
-
-            <div style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Иконка</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsGoalIconPickerOpen(true)
-                }}
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  color: "#0f172a",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {goalIcon && isFinanceIconKey(goalIcon) ? <FinanceIcon iconKey={goalIcon} size="md" /> : null}
-                  <span style={{ fontSize: 15 }}>{goalIcon && isFinanceIconKey(goalIcon) ? goalIcon : "Не выбрано"}</span>
-                </span>
-                <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
-              </button>
-            </div>
-
-            {isDebtsMode ? (
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#475569" }}>Сумма возврата</span>
-                <input
-                  value={debtorReturnAmount}
-                  onChange={(e) => setDebtorReturnAmount(e.target.value)}
-                  placeholder="0"
-                  inputMode="decimal"
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
+                    border: hasGoalDuplicateNameError ? "1px solid #ef4444" : "1px solid #e5e7eb",
                     fontSize: 15,
                     outline: "none",
                     boxShadow: "none",
                   }}
                 />
               </label>
-            ) : null}
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingOpenGoalsList(true)
-                  setIsGoalSheetOpen(false)
-                }}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  color: "#0f172a",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                disabled={isSavingGoal}
-                onClick={() => void handleCreateGoal()}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #0f172a",
-                  background: "#0f172a",
-                  color: "#fff",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  opacity: isSavingGoal ? 0.7 : 1,
-                }}
-              >
-                Сохранить
-              </button>
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>{isDebtsMode ? "Сумма займа" : "Сумма"}</span>
+                <input
+                  value={goalTarget}
+                  onChange={(e) => {
+                    const nextValue = e.target.value
+                    setGoalTarget(nextValue)
+                    if (!isDebtsMode || !hasGoalAmountRequiredError) return
+                    const parsedAmount = Number(nextValue.trim().replace(",", "."))
+                    if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
+                      setGoalError(null)
+                    }
+                  }}
+                  placeholder="0"
+                  inputMode="decimal"
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: hasGoalAmountRequiredError ? "1px solid #ef4444" : "1px solid #e5e7eb",
+                    fontSize: 15,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+                {isDebtsMode && hasGoalAmountRequiredError ? (
+                  <div style={{ color: "#b91c1c", fontSize: 12 }}>Введите сумму</div>
+                ) : null}
+              </label>
+
+              {isDebtsMode ? (
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
+                  <input
+                    type="date"
+                    value={debtorReturnDate}
+                    onChange={(e) => setDebtorReturnDate(e.target.value)}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 16,
+                      outline: "none",
+                      boxShadow: "none",
+                    }}
+                  />
+                </label>
+              ) : null}
+
+              <div style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>Иконка</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsGoalIconPickerOpen(true)
+                  }}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    color: "#0f172a",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {goalIcon && isFinanceIconKey(goalIcon) ? <FinanceIcon iconKey={goalIcon} size="md" /> : null}
+                    <span style={{ fontSize: 15 }}>{goalIcon && isFinanceIconKey(goalIcon) ? goalIcon : "Не выбрано"}</span>
+                  </span>
+                  <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
+                </button>
+              </div>
+
+              {isDebtsMode ? (
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={{ fontSize: 13, color: "#475569" }}>Сумма возврата</span>
+                  <input
+                    value={debtorReturnAmount}
+                    onChange={(e) => setDebtorReturnAmount(e.target.value)}
+                    placeholder="0"
+                    inputMode="decimal"
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 15,
+                      outline: "none",
+                      boxShadow: "none",
+                    }}
+                  />
+                </label>
+              ) : null}
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingOpenGoalsList(true)
+                    setGoalError(null)
+                    setIsGoalSheetOpen(false)
+                  }}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    width: "100%",
+                  }}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingGoal}
+                  onClick={() => void handleCreateGoal()}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #0f172a",
+                    background: "#0f172a",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    opacity: isSavingGoal ? 0.7 : 1,
+                    width: "100%",
+                  }}
+                >
+                  Сохранить
+                </button>
+              </div>
             </div>
           </div>
         </div>
