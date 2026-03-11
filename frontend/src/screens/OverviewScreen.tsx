@@ -5561,7 +5561,7 @@ function TransactionsPanel({
               <button
                 type="button"
                 style={{
-                  width: "calc(100% - 32px)",
+                  width: "100%",
                   padding: "14px 16px",
                   borderRadius: 12,
                   border: "1px solid #0f172a",
@@ -5570,7 +5570,6 @@ function TransactionsPanel({
                   fontWeight: 700,
                   marginTop: 12,
                   marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
-                  alignSelf: "center",
                   cursor: "pointer",
                 }}
                 onClick={openExpenseFromCategoryDetails}
