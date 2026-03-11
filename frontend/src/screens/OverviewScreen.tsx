@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { useAppStore } from "../store/useAppStore"
 import type { Debtor, Goal, Transaction } from "../types/finance"
@@ -1471,14 +1471,14 @@ function OverviewScreen({
       })
   }, [currentDebtorDirection, isDebtsMode, isGoalsListOpen, refetchDebtors, skipGoalsListRefetch])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isGoalsListOpen && pendingGoalCreate) {
       setPendingGoalCreate(false)
       setIsGoalSheetOpen(true)
     }
   }, [isGoalsListOpen, pendingGoalCreate])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isGoalSheetOpen && pendingOpenGoalsList) {
       setPendingOpenGoalsList(false)
       void openGoalsList()
@@ -1487,7 +1487,7 @@ function OverviewScreen({
 
   const autoOpenGoalsListInFlightRef = useRef(false)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!autoOpenGoalsList || autoOpenGoalsListInFlightRef.current) return
     autoOpenGoalsListInFlightRef.current = true
     void openGoalsList().finally(() => {
@@ -1497,7 +1497,7 @@ function OverviewScreen({
   }, [autoOpenGoalsList, onConsumeAutoOpenGoalsList, openGoalsList])
 
   const autoOpenGoalCreateInFlightRef = useRef(false)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!autoOpenGoalCreate || autoOpenGoalCreateInFlightRef.current) return
     autoOpenGoalCreateInFlightRef.current = true
     if (!isDebtsMode) {
@@ -1515,7 +1515,7 @@ function OverviewScreen({
     autoOpenGoalCreateInFlightRef.current = false
   }, [autoOpenGoalCreate, isDebtsMode, onConsumeAutoOpenGoalCreate])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (externalCategoryId) {
       const cat = categories.find((c) => c.id === externalCategoryId)
       setDetailCategoryId(externalCategoryId)
@@ -1524,7 +1524,7 @@ function OverviewScreen({
     }
   }, [categories, externalCategoryId, onConsumeExternalCategory])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (externalIncomeSourceId) {
       const src = incomeSources.find((s) => s.id === externalIncomeSourceId)
       setDetailIncomeSourceId(externalIncomeSourceId)
@@ -2274,7 +2274,7 @@ function OverviewScreen({
   }, [])
 
   const autoOpenAccountCreateInFlightRef = useRef(false)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!autoOpenAccountCreate || autoOpenAccountCreateInFlightRef.current) return
     autoOpenAccountCreateInFlightRef.current = true
     openCreateAccountSheet()
@@ -2283,7 +2283,7 @@ function OverviewScreen({
   }, [autoOpenAccountCreate, onConsumeAutoOpenAccountCreate, openCreateAccountSheet])
 
   const autoOpenCategoryCreateInFlightRef = useRef(false)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!autoOpenCategoryCreate || autoOpenCategoryCreateInFlightRef.current) return
     autoOpenCategoryCreateInFlightRef.current = true
     openCreateCategory()
@@ -2291,7 +2291,7 @@ function OverviewScreen({
     autoOpenCategoryCreateInFlightRef.current = false
   }, [autoOpenCategoryCreate, onConsumeAutoOpenCategoryCreate, openCreateCategory])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!detailGoalId && pendingGoalEdit) {
       setGoalError(null)
       const goal = goals.find((g) => g.id === pendingGoalEdit.id)
@@ -2323,7 +2323,7 @@ function OverviewScreen({
   }, [])
 
   const autoOpenIncomeSourceCreateInFlightRef = useRef(false)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!autoOpenIncomeSourceCreate || autoOpenIncomeSourceCreateInFlightRef.current) return
     autoOpenIncomeSourceCreateInFlightRef.current = true
     openCreateIncomeSource()
