@@ -2108,27 +2108,29 @@ const ReportsScreen: React.FC<Props> = ({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={closeCompareReport}
-          className="tx-modal__backdrop"
-          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
+          data-page-overlay="report-compare"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "#f5f6f8",
+            display: "flex",
+            justifyContent: "center",
+            zIndex: 220,
+            overflow: "hidden",
+          }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="tx-modal"
             style={{
-              maxWidth: 640,
-              width: "100%",
-              padding: "16px",
-              margin: "0 auto",
-              borderRadius: "18px 18px 20px 20px",
+              width: "min(480px, 100%)",
+              height: "100%",
+              padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 12px)",
+              background: "#f5f6f8",
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
-              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
             }}
           >
-            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Доходы vs Расходы</div>
                 <button
@@ -2289,6 +2291,7 @@ const ReportsScreen: React.FC<Props> = ({
                         position: "relative",
                         width: "100%",
                         minWidth: 0,
+                        background: "#fff",
                         border: "1px solid #e5e7eb",
                         borderRadius: 12,
                         padding: "20px 15px 18px",
@@ -2665,111 +2668,126 @@ const ReportsScreen: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <button
-                    type="button"
-                    onClick={() => setCompareListMode("income")}
+                <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+                  <div
                     style={{
                       flex: 1,
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: compareListMode === "income" ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                      background: compareListMode === "income" ? "#0f172a" : "#fff",
-                      color: compareListMode === "income" ? "#fff" : "#0f172a",
-                      fontWeight: compareListMode === "income" ? 700 : 600,
-                      cursor: "pointer",
+                      minHeight: 0,
+                      background: "#fff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 12,
+                      padding: "8px 12px",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
                     }}
                   >
-                    Доход
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCompareListMode("expense")}
-                    style={{
-                      flex: 1,
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: compareListMode === "expense" ? "1px solid #0f172a" : "1px solid #e5e7eb",
-                      background: compareListMode === "expense" ? "#0f172a" : "#fff",
-                      color: compareListMode === "expense" ? "#fff" : "#0f172a",
-                      fontWeight: compareListMode === "expense" ? 700 : 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Расход
-                  </button>
-                </div>
-
-                <div
-                  style={{
-                    flex: 1,
-                    minHeight: 0,
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 12,
-                    padding: "8px 12px",
-                    maxHeight: 300,
-                    overflowY: "auto",
-                    display: "block",
-                  }}
-                >
-                  {compareActiveList.length === 0 ? (
-                    <div style={{ color: "#94a3b8", fontSize: 14 }}>Нет данных за выбранный период</div>
-                  ) : (
-                    compareActiveList.map((item) => {
-                      const percent = compareActiveTotal > 0 ? Math.round((item.amount / compareActiveTotal) * 100) : 0
-                      const isIncomeMode = compareListMode === "income"
-                      const percentColor = isIncomeMode ? compareIncomeLineColor : compareExpenseLineColor
-                      const isOpenable = item.id !== REPORT_GROUP_UNCATEGORIZED_ID && !item.isArchived && !!onOpenCompareDrilldown
-                      return (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, paddingBottom: 8 }}>
                       <button
-                        key={`${compareListMode}-${item.id}`}
                         type="button"
-                        onClick={() => {
-                          if (!isOpenable) return
-                          onOpenCompareDrilldown?.(compareListMode, item.id, compareDrilldownState)
-                          setIsCompareSheetOpen(false)
-                          setIsComparePeriodMenuOpen(false)
-                        }}
+                        onClick={() => setCompareListMode("income")}
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 10,
-                          padding: "9px 2px",
-                          border: "none",
-                          borderBottom: "1px solid #e5e7eb",
-                          borderRadius: 0,
-                          background: "transparent",
-                          textAlign: "left",
-                          cursor: isOpenable ? "pointer" : "default",
-                          opacity: item.isArchived ? 0.55 : 1,
-                          width: "100%",
+                          flex: 1,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: compareListMode === "income" ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                          background: compareListMode === "income" ? "#0f172a" : "#fff",
+                          color: compareListMode === "income" ? "#fff" : "#0f172a",
+                          fontWeight: compareListMode === "income" ? 700 : 600,
+                          cursor: "pointer",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-                          <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
-                            {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 14,
-                              fontWeight: 500,
-                              color: "#0f172a",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {item.title}
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, fontSize: 14, lineHeight: "normal", fontWeight: 400, color: "#0f172a" }}>
-                          <span>{formatMoney(item.amount, currency ?? "RUB")}</span>
-                          <span style={{ color: percentColor, fontWeight: 600 }}>· {percent}%</span>
-                        </div>
+                        Доход
                       </button>
-                    )})
-                  )}
+                      <button
+                        type="button"
+                        onClick={() => setCompareListMode("expense")}
+                        style={{
+                          flex: 1,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: compareListMode === "expense" ? "1px solid #0f172a" : "1px solid #e5e7eb",
+                          background: compareListMode === "expense" ? "#0f172a" : "#fff",
+                          color: compareListMode === "expense" ? "#fff" : "#0f172a",
+                          fontWeight: compareListMode === "expense" ? 700 : 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Расход
+                      </button>
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflowY: "auto",
+                        WebkitOverflowScrolling: "touch",
+                        display: "grid",
+                        gap: 8,
+                        alignContent: "start",
+                      }}
+                    >
+                      {compareActiveList.length === 0 ? (
+                        <div style={{ color: "#94a3b8", fontSize: 14 }}>Нет данных за выбранный период</div>
+                      ) : (
+                        compareActiveList.map((item) => {
+                          const percent = compareActiveTotal > 0 ? Math.round((item.amount / compareActiveTotal) * 100) : 0
+                          const isIncomeMode = compareListMode === "income"
+                          const percentColor = isIncomeMode ? compareIncomeLineColor : compareExpenseLineColor
+                          const isOpenable = item.id !== REPORT_GROUP_UNCATEGORIZED_ID && !item.isArchived && !!onOpenCompareDrilldown
+                          return (
+                            <button
+                              key={`${compareListMode}-${item.id}`}
+                              type="button"
+                              onClick={() => {
+                                if (!isOpenable) return
+                                onOpenCompareDrilldown?.(compareListMode, item.id, compareDrilldownState)
+                                setIsCompareSheetOpen(false)
+                                setIsComparePeriodMenuOpen(false)
+                              }}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 10,
+                                padding: "9px 2px",
+                                border: "none",
+                                borderBottom: "1px solid #e5e7eb",
+                                borderRadius: 0,
+                                background: "transparent",
+                                textAlign: "left",
+                                cursor: isOpenable ? "pointer" : "default",
+                                opacity: item.isArchived ? 0.55 : 1,
+                                width: "100%",
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                                <span style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a" }}>
+                                  {item.iconKey && isFinanceIconKey(item.iconKey) ? <FinanceIcon iconKey={item.iconKey} size={14} /> : null}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    color: "#0f172a",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {item.title}
+                                </span>
+                              </div>
+                              <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, fontSize: 14, lineHeight: "normal", fontWeight: 400, color: "#0f172a" }}>
+                                <span>{formatMoney(item.amount, currency ?? "RUB")}</span>
+                                <span style={{ color: percentColor, fontWeight: 600 }}>· {percent}%</span>
+                              </div>
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
