@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react"
+import React, { useCallback, useMemo, useRef, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { isDebugTimingsStorageEnabled, setDebugTimingsStorageEnabled } from "../utils/debugTimings"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
@@ -87,6 +87,20 @@ const SettingsScreen: React.FC<Props> = ({
   const [sharedMembersError, setSharedMembersError] = useState<string | null>(null)
   const [sharedMembersNotice, setSharedMembersNotice] = useState<string | null>(null)
   const [memberToRemove, setMemberToRemove] = useState<SharedWorkspaceMember | null>(null)
+  const resetSheetRef = useRef<HTMLDivElement | null>(null)
+  const resetSheetGestureRef = useRef<{
+    pointerId: number | null
+    startY: number
+    dragging: boolean
+    tracking: boolean
+  }>({
+    pointerId: null,
+    startY: 0,
+    dragging: false,
+    tracking: false,
+  })
+  const [resetSheetDragOffset, setResetSheetDragOffset] = useState(0)
+  const [resetSheetClosing, setResetSheetClosing] = useState(false)
 
   const handleToggleDebugTimings = useCallback(() => {
     const nextValue = !debugTimingsEnabled
@@ -238,6 +252,8 @@ const SettingsScreen: React.FC<Props> = ({
     setResetError(null)
     setResetStep(1)
     setActivePage("reset")
+    setResetSheetDragOffset(0)
+    setResetSheetClosing(false)
   }, [])
 
   const closeResetSheet = useCallback(() => {
@@ -245,7 +261,77 @@ const SettingsScreen: React.FC<Props> = ({
     setResetError(null)
     setResetStep(0)
     setActivePage("root")
+    setResetSheetDragOffset(0)
+    setResetSheetClosing(false)
   }, [isResetWorkspaceRunning])
+
+  const requestCloseResetSheet = useCallback(() => {
+    if (isResetWorkspaceRunning) return
+    setResetSheetClosing(true)
+  }, [isResetWorkspaceRunning])
+
+  const finalizeCloseResetSheet = useCallback(() => {
+    setResetSheetClosing(false)
+    setResetSheetDragOffset(0)
+    closeResetSheet()
+  }, [closeResetSheet])
+
+  const handleResetSheetPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (isResetWorkspaceRunning || resetSheetClosing) return
+    if (event.pointerType === "mouse" && event.button !== 0) return
+    const sheet = resetSheetRef.current
+    if (!sheet) return
+    sheet.setPointerCapture(event.pointerId)
+    resetSheetGestureRef.current.pointerId = event.pointerId
+    resetSheetGestureRef.current.startY = event.clientY
+    resetSheetGestureRef.current.dragging = false
+    resetSheetGestureRef.current.tracking = true
+  }, [isResetWorkspaceRunning, resetSheetClosing])
+
+  const handleResetSheetPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const gesture = resetSheetGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+    const deltaY = event.clientY - gesture.startY
+    if (deltaY <= 0) {
+      if (gesture.dragging && resetSheetDragOffset !== 0) {
+        setResetSheetDragOffset(0)
+      }
+      return
+    }
+    if (!gesture.dragging) gesture.dragging = true
+    setResetSheetDragOffset(deltaY)
+  }, [resetSheetDragOffset])
+
+  const finishResetSheetGesture = useCallback((pointerId: number) => {
+    const gesture = resetSheetGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== pointerId) return
+    const shouldClose = gesture.dragging && resetSheetDragOffset > 90
+    gesture.pointerId = null
+    gesture.startY = 0
+    gesture.dragging = false
+    gesture.tracking = false
+    if (shouldClose) {
+      requestCloseResetSheet()
+      return
+    }
+    setResetSheetDragOffset(0)
+  }, [requestCloseResetSheet, resetSheetDragOffset])
+
+  const handleResetSheetPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const sheet = resetSheetRef.current
+    if (sheet && sheet.hasPointerCapture(event.pointerId)) {
+      sheet.releasePointerCapture(event.pointerId)
+    }
+    finishResetSheetGesture(event.pointerId)
+  }, [finishResetSheetGesture])
+
+  const handleResetSheetPointerCancel = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const sheet = resetSheetRef.current
+    if (sheet && sheet.hasPointerCapture(event.pointerId)) {
+      sheet.releasePointerCapture(event.pointerId)
+    }
+    finishResetSheetGesture(event.pointerId)
+  }, [finishResetSheetGesture])
 
   const continueResetSheet = useCallback(() => {
     setResetError(null)
@@ -263,12 +349,11 @@ const SettingsScreen: React.FC<Props> = ({
     setResetError(null)
     const result = await onResetWorkspace()
     if (result.ok) {
-      setResetStep(0)
-      setActivePage("root")
+      closeResetSheet()
       return
     }
     setResetError(result.error ?? "Не удалось очистить аккаунт")
-  }, [isResetWorkspaceRunning, onResetWorkspace])
+  }, [closeResetSheet, isResetWorkspaceRunning, onResetWorkspace])
 
   const applyCurrencySelection = useCallback(() => {
     if (!pendingCurrencyCode) return
@@ -467,216 +552,267 @@ const SettingsScreen: React.FC<Props> = ({
           <div style={pageSurfaceStyle}>
             <div style={pageHeaderStyle}>
               <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Валюта приложения</div>
-              <button type="button" onClick={closeCurrencySheet} style={pageCloseButtonStyle}>
+              <button type="button" onClick={closeCurrencySheet} style={{ ...pageCloseButtonStyle, color: "#2563eb" }}>
                 Закрыть
               </button>
             </div>
 
             <div style={pageBodyStyle}>
-              <input
-                value={currencySearch}
-                onChange={(event) => setCurrencySearch(event.target.value)}
-                placeholder="Поиск валюты"
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  fontSize: 15,
-                  outline: "none",
-                  boxShadow: "none",
-                  WebkitAppearance: "none",
-                  WebkitTapHighlightColor: "transparent",
-                }}
-              />
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: "1 1 auto" }}>
+                <input
+                  value={currencySearch}
+                  onChange={(event) => setCurrencySearch(event.target.value)}
+                  placeholder="Поиск валюты"
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 15,
+                    outline: "none",
+                    boxShadow: "none",
+                    WebkitAppearance: "none",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                />
 
-              <div
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 12,
-                  background: "#fff",
-                  minHeight: 0,
-                  overflow: "auto",
-                  WebkitOverflowScrolling: "touch",
-                  flex: "1 1 auto",
-                }}
-              >
-                {filteredCurrencies.map((item, index) => {
-                  const isSelected = selectedCurrencyCode === item.code
-                  const trailing = item.symbol ? `${item.code} • ${item.symbol}` : item.code
-                  return (
-                    <button
-                      key={item.code}
-                      type="button"
-                      onClick={() => setPendingCurrencyCode(item.code)}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "10px 12px",
-                        border: "none",
-                        borderBottom: index === filteredCurrencies.length - 1 ? "none" : "1px solid #f1f5f9",
-                        background: isSelected ? "#f8fafc" : "#fff",
-                        textAlign: "left",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <span
+                <div
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 12,
+                    background: "#fff",
+                    minHeight: 0,
+                    maxHeight: "52dvh",
+                    overflow: "auto",
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  {filteredCurrencies.map((item, index) => {
+                    const isSelected = selectedCurrencyCode === item.code
+                    const trailing = item.symbol ? `${item.code} • ${item.symbol}` : item.code
+                    return (
+                      <button
+                        key={item.code}
+                        type="button"
+                        onClick={() => setPendingCurrencyCode(item.code)}
                         style={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: 5,
-                          border: "1px solid " + (isSelected ? "#0f172a" : "#cbd5e1"),
-                          background: isSelected ? "#0f172a" : "#fff",
-                          color: "#fff",
-                          display: "inline-flex",
+                          width: "100%",
+                          display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 11,
-                          flex: "0 0 auto",
+                          gap: 10,
+                          padding: "10px 12px",
+                          border: "none",
+                          borderBottom: index === filteredCurrencies.length - 1 ? "none" : "1px solid #f1f5f9",
+                          background: isSelected ? "#f8fafc" : "#fff",
+                          textAlign: "left",
+                          cursor: "pointer",
                         }}
-                        aria-hidden="true"
                       >
-                        {isSelected ? "✓" : ""}
-                      </span>
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {item.label}
-                      </span>
-                      <span style={{ flex: "0 0 auto", fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>{trailing}</span>
-                    </button>
-                  )
-                })}
-              </div>
+                        <span
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 5,
+                            border: "1px solid " + (isSelected ? "#0f172a" : "#cbd5e1"),
+                            background: isSelected ? "#0f172a" : "#fff",
+                            color: "#fff",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 11,
+                            flex: "0 0 auto",
+                          }}
+                          aria-hidden="true"
+                        >
+                          {isSelected ? "✓" : ""}
+                        </span>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {item.label}
+                        </span>
+                        <span style={{ flex: "0 0 auto", fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>{trailing}</span>
+                      </button>
+                    )
+                  })}
+                </div>
 
-              <button
-                type="button"
-                onClick={applyCurrencySelection}
-                disabled={!pendingCurrencyCode}
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #0f172a",
-                  background: pendingCurrencyCode ? "#0f172a" : "#e5e7eb",
-                  color: pendingCurrencyCode ? "#fff" : "#6b7280",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: pendingCurrencyCode ? "pointer" : "not-allowed",
-                }}
-              >
-                Выбрать валюту
-              </button>
+                <div style={{ marginTop: "auto", width: "100%" }}>
+                  <button
+                    type="button"
+                    onClick={applyCurrencySelection}
+                    disabled={!pendingCurrencyCode}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "1px solid #0f172a",
+                      background: pendingCurrencyCode ? "#0f172a" : "#e5e7eb",
+                      color: pendingCurrencyCode ? "#fff" : "#6b7280",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: pendingCurrencyCode ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    Выбрать валюту
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       ) : null}
 
       {activePage === "reset" && resetStep !== 0 ? (
-        <div role="dialog" aria-modal="true" style={pageOverlayStyle}>
-          <div style={pageSurfaceStyle}>
-            <div style={pageHeaderStyle}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Очистить аккаунт</div>
-              <button type="button" onClick={closeResetSheet} disabled={isResetWorkspaceRunning} style={{ ...pageCloseButtonStyle, opacity: isResetWorkspaceRunning ? 0.6 : 1, cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer" }}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={requestCloseResetSheet}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.35)",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            zIndex: 220,
+            opacity: resetSheetClosing ? 0 : 1,
+            transition: "opacity 180ms ease-out",
+          }}
+        >
+          <div
+            ref={resetSheetRef}
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={handleResetSheetPointerDown}
+            onPointerMove={handleResetSheetPointerMove}
+            onPointerUp={handleResetSheetPointerUp}
+            onPointerCancel={handleResetSheetPointerCancel}
+            onTransitionEnd={(event) => {
+              if (event.propertyName !== "transform") return
+              if (!resetSheetClosing) return
+              finalizeCloseResetSheet()
+            }}
+            style={{
+              width: "min(480px, 100%)",
+              background: "#fff",
+              borderRadius: "16px 16px 0 0",
+              borderTop: "1px solid rgba(15,23,42,0.08)",
+              boxShadow: "0 -12px 30px rgba(15,23,42,0.2)",
+              height: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              minHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              maxHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+              transform: resetSheetClosing
+                ? "translateY(100%)"
+                : resetSheetDragOffset > 0
+                  ? `translateY(${resetSheetDragOffset}px)`
+                  : "translateY(0)",
+              transition: resetSheetDragOffset > 0 && !resetSheetClosing ? "none" : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              touchAction: "pan-y",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Очистить аккаунт</div>
+              <button
+                type="button"
+                onClick={requestCloseResetSheet}
+                disabled={isResetWorkspaceRunning}
+                style={{
+                  ...pageCloseButtonStyle,
+                  color: "#2563eb",
+                  opacity: isResetWorkspaceRunning ? 0.6 : 1,
+                  cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
+                }}
+              >
                 Закрыть
               </button>
             </div>
-            <div style={pageBodyStyle}>
-              <div
-                style={{
-                  borderRadius: 16,
-                  background: "#fff",
-                  border: "1px solid #e5e7eb",
-                  boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
-                  padding: 16,
-                  display: "grid",
-                  gap: 12,
-                }}
-              >
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
-                  {resetStep === 1 ? "Вы уверены?" : "Подтвердите очистку аккаунта"}
-                </div>
-                <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>
-                  {resetStep === 1
-                    ? "Все операции, счета, цели, долги и пользовательские категории будут удалены. Это действие нельзя отменить."
-                    : "После очистки останутся только данные по умолчанию. Валюта приложения сохранится."}
-                </div>
-                {resetError ? <div style={{ fontSize: 13, color: "#b91c1c", lineHeight: 1.35 }}>{resetError}</div> : null}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-                  {resetStep === 1 ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={closeResetSheet}
-                        style={{
-                          padding: "11px 14px",
-                          borderRadius: 12,
-                          border: "1px solid #e2e8f0",
-                          background: "#fff",
-                          color: "#0f172a",
-                          fontSize: 14,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Отмена
-                      </button>
-                      <button
-                        type="button"
-                        onClick={continueResetSheet}
-                        style={{
-                          padding: "11px 14px",
-                          borderRadius: 12,
-                          border: "1px solid #0f172a",
-                          background: "#0f172a",
-                          color: "#fff",
-                          fontSize: 14,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Продолжить
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={goBackResetSheet}
-                        disabled={isResetWorkspaceRunning}
-                        style={{
-                          padding: "11px 14px",
-                          borderRadius: 12,
-                          border: "1px solid #e2e8f0",
-                          background: "#fff",
-                          color: "#0f172a",
-                          fontSize: 14,
-                          fontWeight: 600,
-                          cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
-                          opacity: isResetWorkspaceRunning ? 0.6 : 1,
-                        }}
-                      >
-                        Назад
-                      </button>
-                      <button
-                        type="button"
-                        onClick={confirmReset}
-                        disabled={isResetWorkspaceRunning}
-                        style={{
-                          padding: "11px 14px",
-                          borderRadius: 12,
-                          border: "1px solid #b91c1c",
-                          background: "#b91c1c",
-                          color: "#fff",
-                          fontSize: 14,
-                          fontWeight: 600,
-                          cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
-                          opacity: isResetWorkspaceRunning ? 0.75 : 1,
-                        }}
-                      >
-                        {isResetWorkspaceRunning ? "Очищаем..." : "Очистить аккаунт"}
-                      </button>
-                    </>
-                  )}
-                </div>
+            <div style={{ display: "grid", gap: 12, padding: "12px 16px", overflowY: "auto", minHeight: 0, flex: "1 1 auto", WebkitOverflowScrolling: "touch" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                {resetStep === 1 ? "Вы уверены?" : "Подтвердите очистку аккаунта"}
+              </div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>
+                {resetStep === 1
+                  ? "Все операции, счета, цели, долги и пользовательские категории будут удалены. Это действие нельзя отменить."
+                  : "После очистки останутся только данные по умолчанию. Валюта приложения сохранится."}
+              </div>
+              {resetError ? <div style={{ fontSize: 13, color: "#b91c1c", lineHeight: 1.35 }}>{resetError}</div> : null}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                {resetStep === 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={requestCloseResetSheet}
+                      style={{
+                        padding: "11px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #e2e8f0",
+                        background: "#fff",
+                        color: "#0f172a",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      onClick={continueResetSheet}
+                      style={{
+                        padding: "11px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #0f172a",
+                        background: "#0f172a",
+                        color: "#fff",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Продолжить
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={goBackResetSheet}
+                      disabled={isResetWorkspaceRunning}
+                      style={{
+                        padding: "11px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #e2e8f0",
+                        background: "#fff",
+                        color: "#0f172a",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
+                        opacity: isResetWorkspaceRunning ? 0.6 : 1,
+                      }}
+                    >
+                      Назад
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmReset}
+                      disabled={isResetWorkspaceRunning}
+                      style={{
+                        padding: "11px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #b91c1c",
+                        background: "#b91c1c",
+                        color: "#fff",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
+                        opacity: isResetWorkspaceRunning ? 0.75 : 1,
+                      }}
+                    >
+                      {isResetWorkspaceRunning ? "Очищаем..." : "Очистить аккаунт"}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -694,6 +830,7 @@ const SettingsScreen: React.FC<Props> = ({
                 disabled={isSharedInviteRegenerating || isSharedMemberRemoving}
                 style={{
                   ...pageCloseButtonStyle,
+                  color: "#2563eb",
                   opacity: isSharedInviteRegenerating || isSharedMemberRemoving ? 0.6 : 1,
                   cursor: isSharedInviteRegenerating || isSharedMemberRemoving ? "not-allowed" : "pointer",
                 }}
