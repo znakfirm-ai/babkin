@@ -5561,7 +5561,7 @@ function TransactionsPanel({
               <button
                 type="button"
                 style={{
-                  width: isCategoryDetailPage ? "calc(100% - 32px)" : "100%",
+                  width: "calc(100% - 32px)",
                   padding: "14px 16px",
                   borderRadius: 12,
                   border: "1px solid #0f172a",
@@ -5569,8 +5569,8 @@ function TransactionsPanel({
                   color: "#fff",
                   fontWeight: 700,
                   marginTop: 12,
-                  marginBottom: isCategoryDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
-                  alignSelf: isCategoryDetailPage ? "center" : undefined,
+                  marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+                  alignSelf: "center",
                   cursor: "pointer",
                 }}
                 onClick={openExpenseFromCategoryDetails}
