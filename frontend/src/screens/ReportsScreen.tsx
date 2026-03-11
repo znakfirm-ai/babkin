@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
@@ -1099,6 +1098,34 @@ const ReportsScreen: React.FC<Props> = ({
     }
   }, [autoOpenCompareSheet, compareReportState?.listMode, onConsumeAutoOpenCompare, openCompareReportDefault])
 
+  const reportPageOverlayStyle: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "#f5f6f8",
+    display: "flex",
+    justifyContent: "center",
+    zIndex: 220,
+    overflow: "hidden",
+  }
+  const reportPageSurfaceStyle: React.CSSProperties = {
+    width: "min(480px, 100%)",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    background: "#f5f6f8",
+    overflow: "hidden",
+    padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 12px)",
+    gap: 12,
+  }
+  const reportPageCloseButtonStyle: React.CSSProperties = {
+    padding: "8px 12px",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
+    background: "#fff",
+    fontWeight: 600,
+    cursor: "pointer",
+  }
+
 
   return (
     <>
@@ -1149,43 +1176,15 @@ const ReportsScreen: React.FC<Props> = ({
       </div>
 
       {isExpensesSheetOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={closeExpensesReport}
-          className="tx-modal__backdrop"
-          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="tx-modal"
-            style={{
-              maxWidth: 640,
-              width: "100%",
-              padding: "16px",
-              margin: "0 auto",
-              borderRadius: "18px 18px 20px 20px",
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-            }}
-          >
-            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+        <div role="dialog" aria-modal="true" data-page-overlay="report-expenses" style={reportPageOverlayStyle}>
+          <div style={reportPageSurfaceStyle}>
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Расходы по категориям</div>
                 <button
                   type="button"
                   onClick={closeExpensesReport}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
+                  style={reportPageCloseButtonStyle}
                 >
                   Закрыть
                 </button>
@@ -1600,43 +1599,15 @@ const ReportsScreen: React.FC<Props> = ({
       ) : null}
 
       {isIncomeSheetOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={closeIncomeReport}
-          className="tx-modal__backdrop"
-          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="tx-modal"
-            style={{
-              maxWidth: 640,
-              width: "100%",
-              padding: "16px",
-              margin: "0 auto",
-              borderRadius: "18px 18px 20px 20px",
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-            }}
-          >
-            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+        <div role="dialog" aria-modal="true" data-page-overlay="report-income" style={reportPageOverlayStyle}>
+          <div style={reportPageSurfaceStyle}>
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Доходы по категориям</div>
                 <button
                   type="button"
                   onClick={closeIncomeReport}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
+                  style={reportPageCloseButtonStyle}
                 >
                   Закрыть
                 </button>
@@ -2051,43 +2022,15 @@ const ReportsScreen: React.FC<Props> = ({
       ) : null}
 
       {isCompareSheetOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={closeCompareReport}
-          className="tx-modal__backdrop"
-          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="tx-modal"
-            style={{
-              maxWidth: 640,
-              width: "100%",
-              padding: "16px",
-              margin: "0 auto",
-              borderRadius: "18px 18px 20px 20px",
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-            }}
-          >
-            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+        <div role="dialog" aria-modal="true" data-page-overlay="report-compare" style={reportPageOverlayStyle}>
+          <div style={reportPageSurfaceStyle}>
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Доходы vs Расходы</div>
                 <button
                   type="button"
                   onClick={closeCompareReport}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
+                  style={reportPageCloseButtonStyle}
                 >
                   Закрыть
                 </button>
