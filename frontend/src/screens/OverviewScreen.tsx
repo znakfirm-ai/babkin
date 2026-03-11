@@ -6509,9 +6509,8 @@ function TransactionsPanel({
                     padding: "8px 12px",
                     borderRadius: 10,
                     border: "1px solid #e5e7eb",
-                    background: "#f8fafc",
+                    background: "#fff",
                     fontWeight: 600,
-                    color: "#0f172a",
                     cursor: "pointer",
                   }}
                 >
