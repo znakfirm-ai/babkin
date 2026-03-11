@@ -878,6 +878,9 @@ function OverviewScreen({
   const [goalIcon, setGoalIcon] = useState<string | null>(null)
   const [isDebtorSheetOpen, setIsDebtorSheetOpen] = useState(false)
   const [debtorSheetMode, setDebtorSheetMode] = useState<"create" | "edit">("create")
+  const [debtorSheetPresentation, setDebtorSheetPresentation] = useState<"sheet" | "page">("sheet")
+  const [debtorSheetReturnTarget, setDebtorSheetReturnTarget] = useState<"debts-list" | "debtor-detail">("debts-list")
+  const [debtorSheetReturnDebtorId, setDebtorSheetReturnDebtorId] = useState<string | null>(null)
   const [editingDebtorId, setEditingDebtorId] = useState<string | null>(null)
   const [debtorName, setDebtorName] = useState("")
   const [debtorIcon, setDebtorIcon] = useState<string | null>(null)
@@ -887,6 +890,35 @@ function OverviewScreen({
   const [debtorError, setDebtorError] = useState<string | null>(null)
   const [isConfirmingDebtorClose, setIsConfirmingDebtorClose] = useState(false)
   const [isDebtorIconPickerOpen, setIsDebtorIconPickerOpen] = useState(false)
+  const [debtorIconPickerClosing, setDebtorIconPickerClosing] = useState(false)
+  const [debtorIconPickerDragOffset, setDebtorIconPickerDragOffset] = useState(0)
+  const debtorIconPickerOverlayRef = useRef<HTMLDivElement | null>(null)
+  const debtorIconPickerSheetRef = useRef<HTMLDivElement | null>(null)
+  const debtorIconPickerContentRef = useRef<HTMLDivElement | null>(null)
+  const debtorIconPickerGestureRef = useRef<{
+    pointerId: number | null
+    startX: number
+    startY: number
+    tracking: boolean
+    draggingSheet: boolean
+    blockClick: boolean
+  }>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    draggingSheet: false,
+    blockClick: false,
+  })
+  const debtorIconPickerTouchRef = useRef<{
+    identifier: number | null
+    startX: number
+    startY: number
+  }>({
+    identifier: null,
+    startX: 0,
+    startY: 0,
+  })
   const [goalError, setGoalError] = useState<string | null>(null)
   const [isSavingGoal, setIsSavingGoal] = useState(false)
   const [goalSheetMode, setGoalSheetMode] = useState<"create" | "edit">("create")
@@ -992,7 +1024,7 @@ function OverviewScreen({
   const isDebtsPayableMode = goalsListMode === "debtsPayable"
   const isDebtsMode = isDebtsReceivableMode || isDebtsPayableMode
   const isGoalsMode = goalsListMode === "goals"
-  const isGoalsListPage = isGoalsMode
+  const isGoalsListPage = isGoalsMode || isDebtsMode
   const currentDebtorDirection: "receivable" | "payable" = isDebtsPayableMode ? "payable" : "receivable"
   const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : isDebtsPayableMode ? "Я должен" : "Список целей"
   const hasAccountDuplicateNameError = isDuplicateNameError(accountActionError)
@@ -1003,6 +1035,12 @@ function OverviewScreen({
   const hasGoalAmountRequiredError = isAmountRequiredError(goalError)
   const hasDebtorAmountRequiredError = isAmountRequiredError(debtorError)
   const debtFormTitle = currentDebtorDirection === "payable" ? "Добавить кредитора" : "Добавить должника"
+  const debtorSheetTitle =
+    debtorSheetMode === "edit"
+      ? currentDebtorDirection === "payable"
+        ? "Редактировать кредитора"
+        : "Редактировать должника"
+      : debtFormTitle
   const accountPreviewColor = accountColor || accountColorOptions[0]
   const currentMonthPoint = getLocalMonthPoint()
   const { run: runAccountFlight, isRunning: isAccountFlight } = useSingleFlight()
@@ -1726,6 +1764,189 @@ function OverviewScreen({
     event.preventDefault()
     event.stopPropagation()
     accountIconPickerGestureRef.current.blockClick = false
+  }, [])
+
+  const finalizeDebtorIconPickerClose = useCallback(() => {
+    setIsDebtorIconPickerOpen(false)
+    setDebtorIconPickerClosing(false)
+    setDebtorIconPickerDragOffset(0)
+  }, [])
+
+  const requestCloseDebtorIconPicker = useCallback(() => {
+    if (!isDebtorIconPickerOpen || debtorIconPickerClosing) return
+    setDebtorIconPickerClosing(true)
+    setDebtorIconPickerDragOffset(0)
+  }, [debtorIconPickerClosing, isDebtorIconPickerOpen])
+
+  useEffect(() => {
+    if (isDebtorIconPickerOpen) return
+    setDebtorIconPickerClosing(false)
+    setDebtorIconPickerDragOffset(0)
+    debtorIconPickerGestureRef.current.pointerId = null
+    debtorIconPickerGestureRef.current.tracking = false
+    debtorIconPickerGestureRef.current.draggingSheet = false
+    debtorIconPickerGestureRef.current.blockClick = false
+    debtorIconPickerTouchRef.current.identifier = null
+    debtorIconPickerTouchRef.current.startX = 0
+    debtorIconPickerTouchRef.current.startY = 0
+  }, [isDebtorIconPickerOpen])
+
+  useEffect(() => {
+    if (!isDebtorIconPickerOpen) return
+    const overlay = debtorIconPickerOverlayRef.current
+    const sheet = debtorIconPickerSheetRef.current
+    if (!overlay || !sheet) return
+
+    const resetTouchState = () => {
+      debtorIconPickerTouchRef.current.identifier = null
+      debtorIconPickerTouchRef.current.startX = 0
+      debtorIconPickerTouchRef.current.startY = 0
+    }
+
+    const getTrackedTouch = (event: TouchEvent) => {
+      const trackedId = debtorIconPickerTouchRef.current.identifier
+      if (trackedId == null) return event.touches[0] ?? event.changedTouches[0] ?? null
+      for (let index = 0; index < event.touches.length; index += 1) {
+        const touch = event.touches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      for (let index = 0; index < event.changedTouches.length; index += 1) {
+        const touch = event.changedTouches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      return null
+    }
+
+    const onTouchStartCapture = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0]
+      if (!touch) return
+      debtorIconPickerTouchRef.current.identifier = touch.identifier
+      debtorIconPickerTouchRef.current.startX = touch.clientX
+      debtorIconPickerTouchRef.current.startY = touch.clientY
+    }
+
+    const onTouchMoveCapture = (event: TouchEvent) => {
+      const touch = getTrackedTouch(event)
+      if (!touch) return
+      const dx = touch.clientX - debtorIconPickerTouchRef.current.startX
+      const dy = touch.clientY - debtorIconPickerTouchRef.current.startY
+      if (Math.abs(dy) <= Math.abs(dx)) return
+
+      const targetNode = event.target instanceof Node ? event.target : null
+      const content = debtorIconPickerContentRef.current
+      const targetInSheet = targetNode ? sheet.contains(targetNode) : false
+      const targetInContent = targetNode ? Boolean(content?.contains(targetNode)) : false
+
+      if (!targetInSheet || !targetInContent || !content) {
+        event.preventDefault()
+        return
+      }
+
+      const atTop = content.scrollTop <= 0
+      const atBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 1
+      if ((dy > 0 && atTop) || (dy < 0 && atBottom)) {
+        event.preventDefault()
+      }
+    }
+
+    const onTouchEndCapture = () => {
+      resetTouchState()
+    }
+
+    const onTouchCancelCapture = () => {
+      resetTouchState()
+    }
+
+    overlay.addEventListener("touchstart", onTouchStartCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchmove", onTouchMoveCapture, { capture: true, passive: false })
+    overlay.addEventListener("touchend", onTouchEndCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchcancel", onTouchCancelCapture, { capture: true, passive: true })
+
+    return () => {
+      overlay.removeEventListener("touchstart", onTouchStartCapture, true)
+      overlay.removeEventListener("touchmove", onTouchMoveCapture, true)
+      overlay.removeEventListener("touchend", onTouchEndCapture, true)
+      overlay.removeEventListener("touchcancel", onTouchCancelCapture, true)
+      resetTouchState()
+    }
+  }, [isDebtorIconPickerOpen])
+
+  const handleDebtorIconPickerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = debtorIconPickerGestureRef.current
+    gesture.pointerId = event.pointerId
+    gesture.startX = event.clientX
+    gesture.startY = event.clientY
+    gesture.tracking = true
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+  }, [])
+
+  const handleDebtorIconPickerPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = debtorIconPickerGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
+    const content = debtorIconPickerContentRef.current
+    const atTop = !content || content.scrollTop <= 0
+
+    if (!gesture.draggingSheet) {
+      if (absDy < 8 || absDy <= absDx) return
+      if (dy > 0 && atTop) {
+        gesture.draggingSheet = true
+        gesture.blockClick = true
+      } else {
+        gesture.tracking = false
+        gesture.pointerId = null
+        return
+      }
+    }
+
+    event.preventDefault()
+    setDebtorIconPickerDragOffset(Math.max(0, dy))
+  }, [])
+
+  const handleDebtorIconPickerPointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.stopPropagation()
+      const gesture = debtorIconPickerGestureRef.current
+      if (gesture.pointerId !== event.pointerId) return
+
+      const shouldClose = gesture.draggingSheet && debtorIconPickerDragOffset > 72
+      gesture.pointerId = null
+      gesture.tracking = false
+      gesture.draggingSheet = false
+      gesture.blockClick = false
+
+      if (shouldClose) {
+        requestCloseDebtorIconPicker()
+        return
+      }
+      setDebtorIconPickerDragOffset(0)
+    },
+    [debtorIconPickerDragOffset, requestCloseDebtorIconPicker],
+  )
+
+  const handleDebtorIconPickerPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = debtorIconPickerGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.pointerId = null
+    gesture.tracking = false
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+    setDebtorIconPickerDragOffset(0)
+  }, [])
+
+  const handleDebtorIconPickerClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!debtorIconPickerGestureRef.current.blockClick) return
+    event.preventDefault()
+    event.stopPropagation()
+    debtorIconPickerGestureRef.current.blockClick = false
   }, [])
 
   const finalizeCategoryIconPickerClose = useCallback(() => {
@@ -2500,6 +2721,14 @@ function OverviewScreen({
     setIsGoalsListOpen(true)
   }, [])
 
+  const closeDebtorDetailsToDebtsList = useCallback(() => {
+    setIsConfirmingDebtorClose(false)
+    setDebtorSearch("")
+    setDetailDebtorId(null)
+    setDetailTitle("")
+    setIsGoalsListOpen(true)
+  }, [])
+
   const openEditAccountFromDetails = useCallback(
     (accountId: string) => {
       openEditAccountSheet(accountId, "page")
@@ -2557,21 +2786,25 @@ function OverviewScreen({
 
   const openEditDebtorFromDetails = useCallback(
     (debtor: Debtor) => {
-      closeDetails()
-      queueMicrotask(() => {
-        setIsGoalsListOpen(false)
-        setDebtorSheetMode("edit")
-        setEditingDebtorId(debtor.id)
-        setDebtorError(null)
-        setDebtorName(debtor.name)
-        setDebtorIcon(debtor.icon ?? null)
-        setDebtorIssuedDate(debtor.issuedDate || getTodayLocalDate())
-        setDebtorReturnDate(debtor.dueDate || "")
-        setDebtorReturnAmount(debtor.returnAmount > 0 ? String(debtor.returnAmount) : String(debtor.loanAmount || ""))
-        setIsDebtorSheetOpen(true)
-      })
+      setIsConfirmingDebtorClose(false)
+      setDebtorSheetMode("edit")
+      setDebtorSheetPresentation("page")
+      setDebtorSheetReturnTarget("debtor-detail")
+      setDebtorSheetReturnDebtorId(debtor.id)
+      setEditingDebtorId(debtor.id)
+      setDebtorError(null)
+      setDebtorName(debtor.name)
+      setDebtorIcon(debtor.icon ?? null)
+      setDebtorIssuedDate(debtor.issuedDate || getTodayLocalDate())
+      setDebtorReturnDate(debtor.dueDate || "")
+      setDebtorReturnAmount(debtor.returnAmount > 0 ? String(debtor.returnAmount) : String(debtor.loanAmount || ""))
+      setDebtorSearch("")
+      setDetailDebtorId(null)
+      setDetailTitle("")
+      setIsGoalsListOpen(false)
+      setIsDebtorSheetOpen(true)
     },
-    [closeDetails],
+    [],
   )
 
   const handleDeleteDebtorFromDetails = useCallback(() => {
@@ -2580,10 +2813,9 @@ function OverviewScreen({
       setIsConfirmingDebtorClose(false)
       await updateDebtor(token, detailDebtorId, { status: "completed" })
       await refetchDebtors()
-      closeDetails()
-      setPendingOpenGoalsList(true)
+      closeDebtorDetailsToDebtsList()
     })
-  }, [closeDetails, detailDebtorId, refetchDebtors, runDebtorDelete, token, updateDebtor])
+  }, [closeDebtorDetailsToDebtsList, detailDebtorId, refetchDebtors, runDebtorDelete, token, updateDebtor])
 
   const handleArchiveGoalFromDetails = useCallback(() => {
     return runGoalComplete(async () => {
@@ -3005,8 +3237,13 @@ function OverviewScreen({
   const closeDebtorSheet = useCallback(() => {
     setIsDebtorSheetOpen(false)
     setDebtorSheetMode("create")
+    setDebtorSheetPresentation("sheet")
+    setDebtorSheetReturnTarget("debts-list")
+    setDebtorSheetReturnDebtorId(null)
     setEditingDebtorId(null)
     setIsDebtorIconPickerOpen(false)
+    setDebtorIconPickerClosing(false)
+    setDebtorIconPickerDragOffset(0)
     setDebtorError(null)
     setDebtorName("")
     setDebtorIcon(null)
@@ -3015,17 +3252,40 @@ function OverviewScreen({
     setDebtorReturnAmount("")
   }, [])
 
+  const closeDebtorSheetToPrevious = useCallback(() => {
+    const returnTarget = debtorSheetReturnTarget
+    const returnDebtorId = debtorSheetReturnDebtorId
+    closeDebtorSheet()
+    if (returnTarget === "debtor-detail" && returnDebtorId) {
+      const debtor = debtors.find((item) => item.id === returnDebtorId)
+      setIsGoalsListOpen(false)
+      setDetailDebtorId(returnDebtorId)
+      setDetailTitle(debtor?.name ?? "Должник")
+      setDebtorSearch("")
+      return
+    }
+    setIsGoalsListOpen(true)
+  }, [closeDebtorSheet, debtorSheetReturnDebtorId, debtorSheetReturnTarget, debtors])
+
   const openCreateDebtor = useCallback(() => {
-    setIsGoalsListOpen(false)
     setDebtorSheetMode("create")
+    setDebtorSheetPresentation("page")
+    setDebtorSheetReturnTarget("debts-list")
+    setDebtorSheetReturnDebtorId(null)
     setEditingDebtorId(null)
     setIsDebtorIconPickerOpen(false)
+    setDebtorIconPickerClosing(false)
+    setDebtorIconPickerDragOffset(0)
     setDebtorError(null)
     setDebtorName("")
     setDebtorIcon(null)
     setDebtorIssuedDate(getTodayLocalDate())
     setDebtorReturnDate(getTodayLocalDate())
     setDebtorReturnAmount("")
+    setDetailDebtorId(null)
+    setDetailTitle("")
+    setDebtorSearch("")
+    setIsGoalsListOpen(false)
     setIsDebtorSheetOpen(true)
   }, [])
 
@@ -3104,7 +3364,22 @@ function OverviewScreen({
         })
       }
       await refetchDebtors()
+      const nextDetailDebtorId = debtorSheetMode === "edit" ? editingDebtorId : null
+      const shouldReturnToDebtorDetail =
+        debtorSheetMode === "edit" &&
+        debtorSheetReturnTarget === "debtor-detail" &&
+        Boolean(debtorSheetReturnDebtorId || nextDetailDebtorId)
       closeDebtorSheet()
+      if (shouldReturnToDebtorDetail) {
+        const targetDebtorId = debtorSheetReturnDebtorId ?? nextDetailDebtorId
+        if (targetDebtorId) {
+          setIsGoalsListOpen(false)
+          setDetailDebtorId(targetDebtorId)
+          setDetailTitle(trimmedName)
+          setDebtorSearch("")
+          return
+        }
+      }
       setIsGoalsListOpen(true)
     }).catch((err) => {
       const msg = err instanceof Error ? err.message : "Не удалось сохранить"
@@ -3124,6 +3399,8 @@ function OverviewScreen({
     debtorReturnAmount,
     debtorReturnDate,
     debtorSheetMode,
+    debtorSheetReturnDebtorId,
+    debtorSheetReturnTarget,
     editingDebtorId,
     currentDebtorDirection,
     debtors,
@@ -4266,11 +4543,16 @@ function TransactionsPanel({
   const isGoalDetailPage = Boolean(
     detailGoalId && !detailAccountId && !detailCategoryId && !detailIncomeSourceId && !detailDebtorId,
   )
-  const isDetailPageOverlay = isAccountDetailPage || isIncomeSourceDetailPage || isCategoryDetailPage || isGoalDetailPage
+  const isDebtorDetailPage = Boolean(
+    detailDebtorId && !detailAccountId && !detailCategoryId && !detailIncomeSourceId && !detailGoalId,
+  )
+  const isDetailPageOverlay =
+    isAccountDetailPage || isIncomeSourceDetailPage || isCategoryDetailPage || isGoalDetailPage || isDebtorDetailPage
   const isAccountSheetPage = accountSheetPresentation === "page"
   const isCategorySheetPage = categorySheetPresentation === "page"
   const isIncomeSourceSheetPage = incomeSourceSheetPresentation === "page"
   const isGoalSheetPage = goalSheetPresentation === "page"
+  const isDebtorSheetPage = debtorSheetPresentation === "page"
 
   return (
     <div className="overview">
@@ -4399,6 +4681,8 @@ function TransactionsPanel({
               ? "category-detail"
               : isGoalDetailPage
               ? "goal-detail"
+              : isDebtorDetailPage
+              ? "debtor-detail"
               : undefined
           }
           style={{
@@ -4530,10 +4814,26 @@ function TransactionsPanel({
                   >
                     + Редактировать
                   </button>
+                ) : detailDebtor ? (
+                  <button
+                    type="button"
+                    onClick={() => openEditDebtorFromDetails(detailDebtor)}
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      borderRadius: 10,
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      color: "#0f172a",
+                      fontWeight: 600,
+                    }}
+                  >
+                    + Редактировать
+                  </button>
                 ) : null}
                 <button
                   type="button"
-                  onClick={detailGoal ? closeGoalDetailsToGoalsList : closeDetails}
+                  onClick={detailGoal ? closeGoalDetailsToGoalsList : detailDebtor ? closeDebtorDetailsToDebtsList : closeDetails}
                   style={{
                     border: "1px solid #e5e7eb",
                     background: "#fff",
@@ -5425,81 +5725,6 @@ function TransactionsPanel({
                     }}
                   />
 
-                  <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
-                    <button
-                      type="button"
-                      onClick={() => openEditDebtorFromDetails(detailDebtor)}
-                      style={{
-                        padding: "12px 14px",
-                        borderRadius: 12,
-                        border: "1px solid #e5e7eb",
-                        background: "#fff",
-                        color: "#0f172a",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Редактировать
-                    </button>
-                    {isConfirmingDebtorClose ? (
-                      <div style={{ display: "grid", gap: 10 }}>
-                        <div style={{ fontSize: 14, color: "#0f172a", opacity: 0.75 }}>
-                          Этот долг будет перемещён в архив и перестанет отображаться в актуальном списке.
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                          <button
-                            type="button"
-                            onClick={() => setIsConfirmingDebtorClose(false)}
-                            disabled={isDebtorDeleteRunning}
-                            style={{
-                              padding: "10px 12px",
-                              borderRadius: 10,
-                              border: "1px solid #e5e7eb",
-                              background: "#fff",
-                              color: "#0f172a",
-                              fontWeight: 600,
-                              cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
-                            }}
-                          >
-                            Отмена
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isDebtorDeleteRunning}
-                            onClick={() => void handleDeleteDebtorFromDetails()}
-                            style={{
-                              padding: "10px 12px",
-                              borderRadius: 10,
-                              border: "1px solid #0f172a",
-                              background: isDebtorDeleteRunning ? "#e5e7eb" : "#0f172a",
-                              color: isDebtorDeleteRunning ? "#6b7280" : "#fff",
-                              fontWeight: 700,
-                              cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
-                            }}
-                          >
-                            {isDebtorDeleteRunning ? "Закрываем…" : "Закрыть долг"}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isDebtorDeleteRunning}
-                        onClick={() => setIsConfirmingDebtorClose(true)}
-                        style={{
-                          padding: "12px 14px",
-                          borderRadius: 12,
-                          border: "1px solid #0f172a",
-                          background: isDebtorDeleteRunning ? "#e5e7eb" : "#0f172a",
-                          color: isDebtorDeleteRunning ? "#6b7280" : "#fff",
-                          fontWeight: 700,
-                          cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
-                        }}
-                      >
-                        {isDebtorDeleteRunning ? "Закрываем…" : "Закрыть долг"}
-                      </button>
-                    )}
-                  </div>
                 </div>
               ) : detailGoal ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: 1 }}>
@@ -5771,6 +5996,78 @@ function TransactionsPanel({
                 Добавить операцию
               </button>
             )}
+            {detailDebtor ? (
+              isConfirmingDebtorClose ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 10,
+                    marginTop: 12,
+                    marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+                  }}
+                >
+                  <div style={{ fontSize: 14, color: "#0f172a", opacity: 0.75 }}>
+                    Этот долг будет перемещён в архив и перестанет отображаться в актуальном списке.
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingDebtorClose(false)}
+                      disabled={isDebtorDeleteRunning}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        color: "#0f172a",
+                        fontWeight: 600,
+                        cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
+                        width: "100%",
+                      }}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDebtorDeleteRunning}
+                      onClick={() => void handleDeleteDebtorFromDetails()}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #0f172a",
+                        background: isDebtorDeleteRunning ? "#e5e7eb" : "#0f172a",
+                        color: isDebtorDeleteRunning ? "#6b7280" : "#fff",
+                        fontWeight: 700,
+                        cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
+                        width: "100%",
+                      }}
+                    >
+                      {isDebtorDeleteRunning ? "Закрываем…" : "Закрыть долг"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isDebtorDeleteRunning}
+                  onClick={() => setIsConfirmingDebtorClose(true)}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    border: "1px solid #0f172a",
+                    background: isDebtorDeleteRunning ? "#e5e7eb" : "#0f172a",
+                    color: isDebtorDeleteRunning ? "#6b7280" : "#fff",
+                    fontWeight: 700,
+                    marginTop: 12,
+                    marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+                    cursor: isDebtorDeleteRunning ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isDebtorDeleteRunning ? "Закрываем…" : "Закрыть долг"}
+                </button>
+              )
+            ) : null}
             {detailGoal && (isGoalCompleteSheetOpen ? (
               <div
                 style={{
@@ -5851,244 +6148,289 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => {
-            closeDebtorSheet()
-            setIsGoalsListOpen(true)
-          }}
+          data-page-overlay={isDebtorSheetPage ? "debtor-editor" : undefined}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: isDebtorSheetPage ? "#f5f6f8" : "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isDebtorSheetPage ? "stretch" : "center",
             justifyContent: "center",
-            zIndex: 59,
-            paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
-            paddingLeft: 16,
-            paddingRight: 16,
-            paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
+            zIndex: isDebtorSheetPage ? 236 : 59,
+            paddingTop: isDebtorSheetPage ? 0 : "calc(env(safe-area-inset-top, 0px) + 24px)",
+            paddingLeft: isDebtorSheetPage ? 0 : 16,
+            paddingRight: isDebtorSheetPage ? 0 : 16,
+            paddingBottom: isDebtorSheetPage
+              ? 0
+              : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)",
+            overflow: "hidden",
           }}
+          onClick={isDebtorSheetPage ? undefined : closeDebtorSheetToPrevious}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: 520,
-              width: "100%",
-              margin: "0 auto",
-              background: "#fff",
-              borderRadius: 18,
-              padding: 16,
+              width: isDebtorSheetPage ? "min(480px, 100%)" : "100%",
+              maxWidth: isDebtorSheetPage ? 480 : 520,
+              margin: isDebtorSheetPage ? undefined : "0 auto",
+              background: isDebtorSheetPage ? "#f5f6f8" : "#fff",
+              borderRadius: isDebtorSheetPage ? 0 : 18,
+              padding: isDebtorSheetPage ? 0 : 16,
               boxShadow: "none",
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              maxHeight:
-                "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 40px)",
-              overflowY: "auto",
-              WebkitOverflowScrolling: "touch",
+              height: isDebtorSheetPage ? "100%" : undefined,
+              maxHeight: isDebtorSheetPage ? "100%" : "calc(100dvh - 120px)",
+              display: isDebtorSheetPage ? "flex" : undefined,
+              flexDirection: isDebtorSheetPage ? "column" : undefined,
+              overflow: isDebtorSheetPage ? "hidden" : "auto",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{debtFormTitle}</div>
-              <button
-                type="button"
-                onClick={() => {
-                  closeDebtorSheet()
-                  setIsGoalsListOpen(true)
-                }}
+            {isDebtorSheetPage ? (
+              <div
                 style={{
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  borderRadius: 10,
-                  padding: "6px 10px",
-                  cursor: "pointer",
-                }}
-              >
-                Отмена
-              </button>
-            </div>
-
-            {debtorError && !hasDebtorAmountRequiredError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{debtorError}</div> : null}
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Имя должника</span>
-              <input
-                value={debtorName}
-                onChange={(e) => setDebtorName(e.target.value)}
-                placeholder="Например, Иван Петров"
-                maxLength={DEBTOR_NAME_MAX_LENGTH}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: hasDebtorDuplicateNameError ? "1px solid #ef4444" : "1px solid #e5e7eb",
-                  fontSize: 16,
-                  outline: "none",
-                  boxShadow: "none",
-                }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
-              <div style={{ position: "relative" }}>
-                <div
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    background: "#fff",
-                    color: "#0f172a",
-                    textAlign: "left",
-                  }}
-                >
-                  {debtorIssuedDateLabel}
-                </div>
-                <input
-                  type="date"
-                  value={debtorIssuedDate}
-                  onChange={(e) => setDebtorIssuedDate(e.target.value)}
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    opacity: 0,
-                    width: "100%",
-                    height: "100%",
-                    border: 0,
-                    background: "transparent",
-                    appearance: "none",
-                    WebkitAppearance: "none",
-                    zIndex: 1,
-                    cursor: "pointer",
-                  }}
-                />
-              </div>
-            </label>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
-              <div style={{ position: "relative" }}>
-                <div
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 16,
-                    background: "#fff",
-                    color: "#0f172a",
-                    textAlign: "left",
-                  }}
-                >
-                  {debtorReturnDateLabel}
-                </div>
-                <input
-                  type="date"
-                  value={debtorReturnDate}
-                  onChange={(e) => setDebtorReturnDate(e.target.value)}
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    opacity: 0,
-                    width: "100%",
-                    height: "100%",
-                    border: 0,
-                    background: "transparent",
-                    appearance: "none",
-                    WebkitAppearance: "none",
-                    zIndex: 1,
-                    cursor: "pointer",
-                  }}
-                />
-              </div>
-            </label>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Сумма к возврату</span>
-              <input
-                value={debtorReturnAmount}
-                onChange={(e) => {
-                  const nextValue = e.target.value
-                  setDebtorReturnAmount(nextValue)
-                  if (!hasDebtorAmountRequiredError) return
-                  const parsedAmount = Number(nextValue.trim().replace(",", "."))
-                  if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
-                    setDebtorError(null)
-                  }
-                }}
-                placeholder="0"
-                inputMode="decimal"
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: hasDebtorAmountRequiredError ? "1px solid #ef4444" : "1px solid #e5e7eb",
-                  fontSize: 15,
-                  outline: "none",
-                  boxShadow: "none",
-                }}
-              />
-              {hasDebtorAmountRequiredError ? <div style={{ color: "#b91c1c", fontSize: 12 }}>Введите сумму</div> : null}
-            </label>
-
-            <div style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 13, color: "#475569" }}>Иконка</span>
-              <button
-                type="button"
-                onClick={() => setIsDebtorIconPickerOpen(true)}
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: 12,
-                  color: "#0f172a",
+                  gap: 10,
+                  padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px",
+                  borderBottom: "1px solid #e5e7eb",
+                  background: "#f5f6f8",
                 }}
               >
-                <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {debtorIcon && isFinanceIconKey(debtorIcon) ? <FinanceIcon iconKey={debtorIcon} size="md" /> : null}
-                  <span style={{ fontSize: 15 }}>{debtorIcon && isFinanceIconKey(debtorIcon) ? debtorIcon : "Не выбрано"}</span>
-                </span>
-                <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
-              </button>
-            </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>{debtorSheetTitle}</div>
+                <button
+                  type="button"
+                  onClick={closeDebtorSheetToPrevious}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    borderRadius: 10,
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                  }}
+                >
+                  Закрыть
+                </button>
+              </div>
+            ) : null}
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  closeDebtorSheet()
-                  setIsGoalsListOpen(true)
-                }}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  color: "#0f172a",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                disabled={isDebtorSaveRunning}
-                onClick={() => void handleSaveDebtor()}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #0f172a",
-                  background: isDebtorSaveRunning ? "#e5e7eb" : "#0f172a",
-                  color: isDebtorSaveRunning ? "#6b7280" : "#fff",
-                  fontWeight: 700,
-                  cursor: isDebtorSaveRunning ? "not-allowed" : "pointer",
-                }}
-              >
-                {isDebtorSaveRunning ? "Сохраняем…" : "Сохранить"}
-              </button>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                overflowY: isDebtorSheetPage ? "auto" : undefined,
+                paddingTop: isDebtorSheetPage ? 12 : 0,
+                paddingLeft: isDebtorSheetPage ? 16 : 0,
+                paddingRight: isDebtorSheetPage ? 16 : 0,
+                paddingBottom: isDebtorSheetPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 0,
+                minHeight: 0,
+                flex: isDebtorSheetPage ? "1 1 auto" : undefined,
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+              }}
+            >
+              {!isDebtorSheetPage ? (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{debtorSheetTitle}</div>
+                  <button
+                    type="button"
+                    onClick={closeDebtorSheetToPrevious}
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      borderRadius: 10,
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              ) : null}
+
+              {debtorError && !hasDebtorAmountRequiredError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{debtorError}</div> : null}
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>Имя должника</span>
+                <input
+                  value={debtorName}
+                  onChange={(e) => setDebtorName(e.target.value)}
+                  placeholder="Например, Иван Петров"
+                  maxLength={DEBTOR_NAME_MAX_LENGTH}
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: hasDebtorDuplicateNameError ? "1px solid #ef4444" : "1px solid #e5e7eb",
+                    fontSize: 16,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>Дата выдачи</span>
+                <div style={{ position: "relative" }}>
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 16,
+                      background: "#fff",
+                      color: "#0f172a",
+                      textAlign: "left",
+                    }}
+                  >
+                    {debtorIssuedDateLabel}
+                  </div>
+                  <input
+                    type="date"
+                    value={debtorIssuedDate}
+                    onChange={(e) => setDebtorIssuedDate(e.target.value)}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      opacity: 0,
+                      width: "100%",
+                      height: "100%",
+                      border: 0,
+                      background: "transparent",
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      zIndex: 1,
+                      cursor: "pointer",
+                    }}
+                  />
+                </div>
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>Дата возврата</span>
+                <div style={{ position: "relative" }}>
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 16,
+                      background: "#fff",
+                      color: "#0f172a",
+                      textAlign: "left",
+                    }}
+                  >
+                    {debtorReturnDateLabel}
+                  </div>
+                  <input
+                    type="date"
+                    value={debtorReturnDate}
+                    onChange={(e) => setDebtorReturnDate(e.target.value)}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      opacity: 0,
+                      width: "100%",
+                      height: "100%",
+                      border: 0,
+                      background: "transparent",
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      zIndex: 1,
+                      cursor: "pointer",
+                    }}
+                  />
+                </div>
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>Сумма к возврату</span>
+                <input
+                  value={debtorReturnAmount}
+                  onChange={(e) => {
+                    const nextValue = e.target.value
+                    setDebtorReturnAmount(nextValue)
+                    if (!hasDebtorAmountRequiredError) return
+                    const parsedAmount = Number(nextValue.trim().replace(",", "."))
+                    if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
+                      setDebtorError(null)
+                    }
+                  }}
+                  placeholder="0"
+                  inputMode="decimal"
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: hasDebtorAmountRequiredError ? "1px solid #ef4444" : "1px solid #e5e7eb",
+                    fontSize: 15,
+                    outline: "none",
+                    boxShadow: "none",
+                  }}
+                />
+                {hasDebtorAmountRequiredError ? <div style={{ color: "#b91c1c", fontSize: 12 }}>Введите сумму</div> : null}
+              </label>
+
+              <div style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>Иконка</span>
+                <button
+                  type="button"
+                  onClick={() => setIsDebtorIconPickerOpen(true)}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    color: "#0f172a",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {debtorIcon && isFinanceIconKey(debtorIcon) ? <FinanceIcon iconKey={debtorIcon} size="md" /> : null}
+                    <span style={{ fontSize: 15 }}>{debtorIcon && isFinanceIconKey(debtorIcon) ? debtorIcon : "Не выбрано"}</span>
+                  </span>
+                  <span style={{ fontSize: 16, color: "#9ca3af" }}>▾</span>
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={closeDebtorSheetToPrevious}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    width: "100%",
+                  }}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  disabled={isDebtorSaveRunning}
+                  onClick={() => void handleSaveDebtor()}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #0f172a",
+                    background: isDebtorSaveRunning ? "#e5e7eb" : "#0f172a",
+                    color: isDebtorSaveRunning ? "#6b7280" : "#fff",
+                    fontWeight: 700,
+                    cursor: isDebtorSaveRunning ? "not-allowed" : "pointer",
+                    width: "100%",
+                  }}
+                >
+                  {isDebtorSaveRunning ? "Сохраняем…" : "Сохранить"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -6098,6 +6440,7 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
+          ref={debtorIconPickerOverlayRef}
           style={{
             position: "fixed",
             inset: 0,
@@ -6105,39 +6448,96 @@ function TransactionsPanel({
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            zIndex: 60,
-            padding: "0 12px 12px",
+            zIndex: 250,
+            opacity: debtorIconPickerClosing ? 0 : 1,
+            transition: "opacity 180ms ease-out",
           }}
-          onClick={() => setIsDebtorIconPickerOpen(false)}
+          onClick={requestCloseDebtorIconPicker}
         >
           <div
+            ref={debtorIconPickerSheetRef}
             style={{
-              width: "100%",
-              maxWidth: 520,
-              margin: "0 auto",
+              width: "min(480px, 100%)",
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              padding: 16,
-              boxShadow: "none",
-              maxHeight: "70vh",
-              overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              borderRadius: "16px 16px 0 0",
+              borderTop: "1px solid rgba(15,23,42,0.08)",
+              boxShadow: "0 -12px 30px rgba(15,23,42,0.2)",
+              height: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              minHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              maxHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+              transform: debtorIconPickerClosing
+                ? "translateY(100%)"
+                : debtorIconPickerDragOffset > 0
+                ? `translateY(${debtorIconPickerDragOffset}px)`
+                : "translateY(0)",
+              transition:
+                debtorIconPickerDragOffset > 0 && !debtorIconPickerClosing
+                  ? "none"
+                  : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              touchAction: "pan-y",
+            }}
+            onPointerDown={handleDebtorIconPickerPointerDown}
+            onPointerMove={handleDebtorIconPickerPointerMove}
+            onPointerUp={handleDebtorIconPickerPointerEnd}
+            onPointerCancel={handleDebtorIconPickerPointerCancel}
+            onClickCapture={handleDebtorIconPickerClickCapture}
+            onTransitionEnd={(event) => {
+              if (event.propertyName !== "transform") return
+              if (!debtorIconPickerClosing) return
+              finalizeDebtorIconPickerClose()
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выбор иконки</div>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
                 gap: 10,
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                flexShrink: 0,
               }}
             >
-              {debtorIconKeys.length === 0 ? (
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>Выбор иконки</div>
+              <button
+                type="button"
+                onClick={requestCloseDebtorIconPicker}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#0f172a",
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
+            <div
+              ref={debtorIconPickerContentRef}
+              style={{
+                padding: 12,
+                display: "grid",
+                gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+                columnGap: 10,
+                rowGap: 6,
+                alignContent: "start",
+                overflowY: "auto",
+                overflowX: "hidden",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+                minHeight: 0,
+                flex: "1 1 auto",
+              }}
+            >
+              {(debtorIconKeys ?? []).length === 0 ? (
                 <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Нет иконок</div>
               ) : (
                 debtorIconKeys.map((key) => (
@@ -6146,15 +6546,18 @@ function TransactionsPanel({
                     type="button"
                     onClick={() => {
                       setDebtorIcon(key)
-                      setIsDebtorIconPickerOpen(false)
+                      requestCloseDebtorIconPicker()
                     }}
                     style={{
-                      padding: 10,
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      padding: 0,
                       borderRadius: 12,
                       border: debtorIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
                       background: "#fff",
-                      display: "grid",
-                      placeItems: "center",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       cursor: "pointer",
                     }}
                   >
@@ -6163,21 +6566,6 @@ function TransactionsPanel({
                 ))
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setIsDebtorIconPickerOpen(false)}
-              style={{
-                marginTop: 12,
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                cursor: "pointer",
-                width: "100%",
-              }}
-            >
-              Назад
-            </button>
           </div>
         </div>
       ) : null}
