@@ -552,12 +552,12 @@ const SettingsScreen: React.FC<Props> = ({
           <div style={pageSurfaceStyle}>
             <div style={pageHeaderStyle}>
               <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Валюта приложения</div>
-              <button type="button" onClick={closeCurrencySheet} style={{ ...pageCloseButtonStyle, color: "#2563eb" }}>
+              <button type="button" onClick={closeCurrencySheet} style={pageCloseButtonStyle}>
                 Закрыть
               </button>
             </div>
 
-            <div style={pageBodyStyle}>
+            <div style={{ ...pageBodyStyle, display: "flex", flexDirection: "column", overflowY: "hidden" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, flex: "1 1 auto" }}>
                 <input
                   value={currencySearch}
@@ -581,9 +581,9 @@ const SettingsScreen: React.FC<Props> = ({
                     borderRadius: 12,
                     background: "#fff",
                     minHeight: 0,
-                    maxHeight: "52dvh",
                     overflow: "auto",
                     WebkitOverflowScrolling: "touch",
+                    flex: "1 1 auto",
                   }}
                 >
                   {filteredCurrencies.map((item, index) => {
@@ -719,7 +719,6 @@ const SettingsScreen: React.FC<Props> = ({
                 disabled={isResetWorkspaceRunning}
                 style={{
                   ...pageCloseButtonStyle,
-                  color: "#2563eb",
                   opacity: isResetWorkspaceRunning ? 0.6 : 1,
                   cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
                 }}
@@ -727,7 +726,18 @@ const SettingsScreen: React.FC<Props> = ({
                 Закрыть
               </button>
             </div>
-            <div style={{ display: "grid", gap: 12, padding: "12px 16px", overflowY: "auto", minHeight: 0, flex: "1 1 auto", WebkitOverflowScrolling: "touch" }}>
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                alignContent: "start",
+                padding: "12px 16px",
+                overflowY: "auto",
+                minHeight: 0,
+                flex: "1 1 auto",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
               <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
                 {resetStep === 1 ? "Вы уверены?" : "Подтвердите очистку аккаунта"}
               </div>
@@ -830,7 +840,6 @@ const SettingsScreen: React.FC<Props> = ({
                 disabled={isSharedInviteRegenerating || isSharedMemberRemoving}
                 style={{
                   ...pageCloseButtonStyle,
-                  color: "#2563eb",
                   opacity: isSharedInviteRegenerating || isSharedMemberRemoving ? 0.6 : 1,
                   cursor: isSharedInviteRegenerating || isSharedMemberRemoving ? "not-allowed" : "pointer",
                 }}
