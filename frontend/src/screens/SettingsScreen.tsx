@@ -682,6 +682,18 @@ const SettingsScreen: React.FC<Props> = ({
           role="dialog"
           aria-modal="true"
           onClick={requestCloseResetSheet}
+          onPointerMoveCapture={(event) => {
+            if (!resetSheetGestureRef.current.dragging) return
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onTouchMoveCapture={(event) => {
+            const content = resetSheetContentRef.current
+            if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0) {
+              return
+            }
+            event.preventDefault()
+          }}
           style={{
             position: "fixed",
             inset: 0,
@@ -693,6 +705,7 @@ const SettingsScreen: React.FC<Props> = ({
             opacity: resetSheetClosing ? 0 : 1,
             transition: "opacity 180ms ease-out",
             touchAction: "none",
+            overscrollBehaviorY: "none",
             overscrollBehavior: "contain",
           }}
         >

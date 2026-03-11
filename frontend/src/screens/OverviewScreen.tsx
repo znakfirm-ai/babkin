@@ -20,6 +20,7 @@ import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint 
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import { buildTransactionDaySections, sortTransactionsDesc } from "../utils/sortTransactions"
 import { registerDebugTimingsTap } from "../utils/debugTimings"
+import { REPORT_CLOSE_TEXT_COLOR } from "../shared/uiTokens"
 
 type TileType = "account" | "category" | "income-source" | "goal"
 type TileSize = "sm" | "md" | "lg"
@@ -89,7 +90,6 @@ const INCOME_SOURCE_NAME_MAX_LENGTH = 12
 const EXPENSE_CATEGORY_NAME_MAX_LENGTH = 12
 const GOAL_NAME_MAX_LENGTH = 20
 const DEBTOR_NAME_MAX_LENGTH = 20
-const CLOSE_BUTTON_TEXT_COLOR = "#2563eb"
 
 const normalizeEntityName = (value: string) => value.trim().toLowerCase()
 const isEntityNameTooLong = (value: string, maxLength: number) => Array.from(value.trim()).length > maxLength
@@ -6353,7 +6353,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: CLOSE_BUTTON_TEXT_COLOR,
+                    color: REPORT_CLOSE_TEXT_COLOR,
                     fontWeight: 600,
                   }}
                 >
@@ -7174,6 +7174,18 @@ function TransactionsPanel({
           role="dialog"
           aria-modal="true"
           onClick={closeTxSheet}
+          onPointerMoveCapture={(event) => {
+            if (!txSheetGestureRef.current.dragging) return
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onTouchMoveCapture={(event) => {
+            const content = txSheetContentRef.current
+            if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0) {
+              return
+            }
+            event.preventDefault()
+          }}
           style={{
             position: "fixed",
             inset: 0,
@@ -7184,6 +7196,7 @@ function TransactionsPanel({
             zIndex: isDetailPageOverlay ? 260 : 60,
             padding: 0,
             touchAction: "none",
+            overscrollBehaviorY: "none",
             overscrollBehavior: "contain",
           }}
         >
@@ -7234,7 +7247,7 @@ function TransactionsPanel({
                   border: "1px solid #e5e7eb",
                   borderRadius: 10,
                   background: "#fff",
-                  color: CLOSE_BUTTON_TEXT_COLOR,
+                  color: REPORT_CLOSE_TEXT_COLOR,
                   padding: "6px 10px",
                   fontSize: 13,
                   fontWeight: 600,
@@ -8166,7 +8179,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: CLOSE_BUTTON_TEXT_COLOR,
+                    color: REPORT_CLOSE_TEXT_COLOR,
                     fontWeight: 600,
                   }}
                 >
@@ -8716,7 +8729,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: CLOSE_BUTTON_TEXT_COLOR,
+                    color: REPORT_CLOSE_TEXT_COLOR,
                     fontWeight: 600,
                   }}
                 >
@@ -9118,7 +9131,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: CLOSE_BUTTON_TEXT_COLOR,
+                    color: REPORT_CLOSE_TEXT_COLOR,
                     fontWeight: 600,
                   }}
                 >

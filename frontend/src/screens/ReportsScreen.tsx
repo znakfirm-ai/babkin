@@ -4,6 +4,7 @@ import { useAppStore } from "../store/useAppStore"
 import { formatMoney } from "../utils/formatMoney"
 import { FinanceIcon, isFinanceIconKey } from "../shared/icons/financeIcons"
 import { format } from "../utils/date"
+import { REPORT_CLOSE_TEXT_COLOR } from "../shared/uiTokens"
 
 type Props = {
   onOpenSummary: () => void
@@ -1185,6 +1186,7 @@ const ReportsScreen: React.FC<Props> = ({
                     borderRadius: 10,
                     border: "1px solid #e5e7eb",
                     background: "#fff",
+                    color: REPORT_CLOSE_TEXT_COLOR,
                     fontWeight: 600,
                     cursor: "pointer",
                   }}
@@ -1672,6 +1674,7 @@ const ReportsScreen: React.FC<Props> = ({
                     borderRadius: 10,
                     border: "1px solid #e5e7eb",
                     background: "#fff",
+                    color: REPORT_CLOSE_TEXT_COLOR,
                     fontWeight: 600,
                     cursor: "pointer",
                   }}
@@ -2159,6 +2162,7 @@ const ReportsScreen: React.FC<Props> = ({
                     borderRadius: 10,
                     border: "1px solid #e5e7eb",
                     background: "#fff",
+                    color: REPORT_CLOSE_TEXT_COLOR,
                     fontWeight: 600,
                     cursor: "pointer",
                   }}
