@@ -564,6 +564,7 @@ const SettingsScreen: React.FC<Props> = ({
                   onChange={(event) => setCurrencySearch(event.target.value)}
                   placeholder="Поиск валюты"
                   style={{
+                    width: "100%",
                     padding: 12,
                     borderRadius: 12,
                     border: "1px solid #e5e7eb",
@@ -640,7 +641,7 @@ const SettingsScreen: React.FC<Props> = ({
               <div
                 style={{
                   flexShrink: 0,
-                  padding: "12px 16px calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 12px)",
+                  padding: "12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px)",
                 }}
               >
                 <button
