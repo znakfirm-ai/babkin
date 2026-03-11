@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo, useState } from "react"
-import "../components/TransactionModal.css"
 import { useAppStore } from "../store/useAppStore"
 import { isDebugTimingsStorageEnabled, setDebugTimingsStorageEnabled } from "../utils/debugTimings"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
@@ -19,6 +18,8 @@ type SharedWorkspaceMember = {
   username: string | null
   telegramUserId: string
 }
+
+type SettingsPage = "root" | "currency" | "reset" | "shared-access" | "member-remove"
 
 type Props = {
   onOpenCategories?: () => void
@@ -72,12 +73,11 @@ const SettingsScreen: React.FC<Props> = ({
   const { currency, setCurrency } = useAppStore()
   const current = normalizeCurrency(currency)
   const [debugTimingsEnabled, setDebugTimingsEnabledState] = useState(() => isDebugTimingsStorageEnabled())
-  const [isCurrencySheetOpen, setIsCurrencySheetOpen] = useState(false)
+  const [activePage, setActivePage] = useState<SettingsPage>("root")
   const [currencySearch, setCurrencySearch] = useState("")
   const [pendingCurrencyCode, setPendingCurrencyCode] = useState<string | null>(null)
   const [resetStep, setResetStep] = useState<0 | 1 | 2>(0)
   const [resetError, setResetError] = useState<string | null>(null)
-  const [isSharedAccessSheetOpen, setIsSharedAccessSheetOpen] = useState(false)
   const [sharedInvite, setSharedInvite] = useState<SharedWorkspaceInvite | null>(null)
   const [isSharedInviteLoading, setIsSharedInviteLoading] = useState(false)
   const [sharedInviteError, setSharedInviteError] = useState<string | null>(null)
@@ -97,11 +97,11 @@ const SettingsScreen: React.FC<Props> = ({
   const openCurrencySheet = useCallback(() => {
     setPendingCurrencyCode(current)
     setCurrencySearch("")
-    setIsCurrencySheetOpen(true)
+    setActivePage("currency")
   }, [current])
 
   const closeCurrencySheet = useCallback(() => {
-    setIsCurrencySheetOpen(false)
+    setActivePage("root")
   }, [])
 
   const loadSharedInvite = useCallback(async () => {
@@ -135,7 +135,7 @@ const SettingsScreen: React.FC<Props> = ({
   }, [onLoadSharedMembers])
 
   const openSharedAccessSheet = useCallback(() => {
-    setIsSharedAccessSheetOpen(true)
+    setActivePage("shared-access")
     void (async () => {
       await loadSharedInvite()
       await loadSharedMembers()
@@ -144,7 +144,7 @@ const SettingsScreen: React.FC<Props> = ({
 
   const closeSharedAccessSheet = useCallback(() => {
     if (isSharedInviteRegenerating || isSharedMemberRemoving) return
-    setIsSharedAccessSheetOpen(false)
+    setActivePage("root")
     setSharedInviteError(null)
     setSharedInviteNotice(null)
     setSharedMembersError(null)
@@ -210,11 +210,13 @@ const SettingsScreen: React.FC<Props> = ({
     setSharedMembersError(null)
     setSharedMembersNotice(null)
     setMemberToRemove(member)
+    setActivePage("member-remove")
   }, [])
 
   const handleCloseMemberRemove = useCallback(() => {
     if (isSharedMemberRemoving) return
     setMemberToRemove(null)
+    setActivePage("shared-access")
   }, [isSharedMemberRemoving])
 
   const handleConfirmMemberRemove = useCallback(async () => {
@@ -227,6 +229,7 @@ const SettingsScreen: React.FC<Props> = ({
       return
     }
     setMemberToRemove(null)
+    setActivePage("shared-access")
     await loadSharedMembers()
     setSharedMembersNotice("Участник удален")
   }, [isSharedMemberRemoving, loadSharedMembers, memberToRemove, onRemoveSharedMember])
@@ -234,12 +237,14 @@ const SettingsScreen: React.FC<Props> = ({
   const openResetSheet = useCallback(() => {
     setResetError(null)
     setResetStep(1)
+    setActivePage("reset")
   }, [])
 
   const closeResetSheet = useCallback(() => {
     if (isResetWorkspaceRunning) return
     setResetError(null)
     setResetStep(0)
+    setActivePage("root")
   }, [isResetWorkspaceRunning])
 
   const continueResetSheet = useCallback(() => {
@@ -259,6 +264,7 @@ const SettingsScreen: React.FC<Props> = ({
     const result = await onResetWorkspace()
     if (result.ok) {
       setResetStep(0)
+      setActivePage("root")
       return
     }
     setResetError(result.error ?? "Не удалось очистить аккаунт")
@@ -267,7 +273,7 @@ const SettingsScreen: React.FC<Props> = ({
   const applyCurrencySelection = useCallback(() => {
     if (!pendingCurrencyCode) return
     setCurrency(pendingCurrencyCode)
-    setIsCurrencySheetOpen(false)
+    setActivePage("root")
   }, [pendingCurrencyCode, setCurrency])
 
   const selectedCurrencyCode = pendingCurrencyCode ?? current
@@ -334,6 +340,53 @@ const SettingsScreen: React.FC<Props> = ({
     right: 14,
     top: "50%",
     transform: "translateY(-50%)",
+  }
+  const pageOverlayStyle: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "#f5f6f8",
+    display: "flex",
+    justifyContent: "center",
+    zIndex: 210,
+    overflow: "hidden",
+  }
+  const pageSurfaceStyle: React.CSSProperties = {
+    width: "min(480px, 100%)",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    background: "#f5f6f8",
+    overflow: "hidden",
+  }
+  const pageHeaderStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px",
+    borderBottom: "1px solid #e5e7eb",
+    background: "#f5f6f8",
+    flexShrink: 0,
+  }
+  const pageCloseButtonStyle: React.CSSProperties = {
+    padding: "8px 12px",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
+    background: "#fff",
+    color: "#0f172a",
+    fontWeight: 600,
+    cursor: "pointer",
+  }
+  const pageBodyStyle: React.CSSProperties = {
+    flex: "1 1 auto",
+    minHeight: 0,
+    overflowY: "auto",
+    overflowX: "hidden",
+    WebkitOverflowScrolling: "touch",
+    padding: "12px 16px calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 12px)",
+    display: "grid",
+    gap: 12,
+    alignContent: "start",
   }
 
   return (
@@ -409,49 +462,17 @@ const SettingsScreen: React.FC<Props> = ({
         </div>
       </div>
 
-      {isCurrencySheetOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={closeCurrencySheet}
-          className="tx-modal__backdrop"
-          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            className="tx-modal"
-            style={{
-              maxWidth: 640,
-              width: "100%",
-              padding: "16px",
-              margin: "0 auto",
-              borderRadius: "18px 18px 20px 20px",
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-            }}
-          >
-            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Валюта приложения</div>
-                <button
-                  type="button"
-                  onClick={closeCurrencySheet}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Закрыть
-                </button>
-              </div>
+      {activePage === "currency" ? (
+        <div role="dialog" aria-modal="true" style={pageOverlayStyle}>
+          <div style={pageSurfaceStyle}>
+            <div style={pageHeaderStyle}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Валюта приложения</div>
+              <button type="button" onClick={closeCurrencySheet} style={pageCloseButtonStyle}>
+                Закрыть
+              </button>
+            </div>
 
+            <div style={pageBodyStyle}>
               <input
                 value={currencySearch}
                 onChange={(event) => setCurrencySearch(event.target.value)}
@@ -473,11 +494,10 @@ const SettingsScreen: React.FC<Props> = ({
                   border: "1px solid #e5e7eb",
                   borderRadius: 12,
                   background: "#fff",
-                  height: 320,
-                  flex: 1,
                   minHeight: 0,
                   overflow: "auto",
                   WebkitOverflowScrolling: "touch",
+                  flex: "1 1 auto",
                 }}
               >
                 {filteredCurrencies.map((item, index) => {
@@ -550,46 +570,352 @@ const SettingsScreen: React.FC<Props> = ({
         </div>
       ) : null}
 
-      {resetStep !== 0 ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={closeResetSheet}
-          className="tx-modal__backdrop"
-          style={{
-            alignItems: "center",
-            padding: "12px 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 420,
-              borderRadius: 18,
-              background: "#fff",
-              border: "1px solid #e5e7eb",
-              boxShadow: "0 20px 45px rgba(15, 23, 42, 0.14)",
-              padding: 16,
-              display: "grid",
-              gap: 12,
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
-              {resetStep === 1 ? "Вы уверены?" : "Подтвердите очистку аккаунта"}
+      {activePage === "reset" && resetStep !== 0 ? (
+        <div role="dialog" aria-modal="true" style={pageOverlayStyle}>
+          <div style={pageSurfaceStyle}>
+            <div style={pageHeaderStyle}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Очистить аккаунт</div>
+              <button type="button" onClick={closeResetSheet} disabled={isResetWorkspaceRunning} style={{ ...pageCloseButtonStyle, opacity: isResetWorkspaceRunning ? 0.6 : 1, cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer" }}>
+                Закрыть
+              </button>
             </div>
-            <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>
-              {resetStep === 1
-                ? "Все операции, счета, цели, долги и пользовательские категории будут удалены. Это действие нельзя отменить."
-                : "После очистки останутся только данные по умолчанию. Валюта приложения сохранится."}
+            <div style={pageBodyStyle}>
+              <div
+                style={{
+                  borderRadius: 16,
+                  background: "#fff",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+                  padding: 16,
+                  display: "grid",
+                  gap: 12,
+                }}
+              >
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
+                  {resetStep === 1 ? "Вы уверены?" : "Подтвердите очистку аккаунта"}
+                </div>
+                <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>
+                  {resetStep === 1
+                    ? "Все операции, счета, цели, долги и пользовательские категории будут удалены. Это действие нельзя отменить."
+                    : "После очистки останутся только данные по умолчанию. Валюта приложения сохранится."}
+                </div>
+                {resetError ? <div style={{ fontSize: 13, color: "#b91c1c", lineHeight: 1.35 }}>{resetError}</div> : null}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                  {resetStep === 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={closeResetSheet}
+                        style={{
+                          padding: "11px 14px",
+                          borderRadius: 12,
+                          border: "1px solid #e2e8f0",
+                          background: "#fff",
+                          color: "#0f172a",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="button"
+                        onClick={continueResetSheet}
+                        style={{
+                          padding: "11px 14px",
+                          borderRadius: 12,
+                          border: "1px solid #0f172a",
+                          background: "#0f172a",
+                          color: "#fff",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Продолжить
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={goBackResetSheet}
+                        disabled={isResetWorkspaceRunning}
+                        style={{
+                          padding: "11px 14px",
+                          borderRadius: 12,
+                          border: "1px solid #e2e8f0",
+                          background: "#fff",
+                          color: "#0f172a",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
+                          opacity: isResetWorkspaceRunning ? 0.6 : 1,
+                        }}
+                      >
+                        Назад
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmReset}
+                        disabled={isResetWorkspaceRunning}
+                        style={{
+                          padding: "11px 14px",
+                          borderRadius: 12,
+                          border: "1px solid #b91c1c",
+                          background: "#b91c1c",
+                          color: "#fff",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
+                          opacity: isResetWorkspaceRunning ? 0.75 : 1,
+                        }}
+                      >
+                        {isResetWorkspaceRunning ? "Очищаем..." : "Очистить аккаунт"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-            {resetError ? <div style={{ fontSize: 13, color: "#b91c1c", lineHeight: 1.35 }}>{resetError}</div> : null}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-              {resetStep === 1 ? (
-                <>
+          </div>
+        </div>
+      ) : null}
+
+      {activePage === "shared-access" ? (
+        <div role="dialog" aria-modal="true" style={pageOverlayStyle}>
+          <div style={pageSurfaceStyle}>
+            <div style={pageHeaderStyle}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Совместный доступ</div>
+              <button
+                type="button"
+                onClick={closeSharedAccessSheet}
+                disabled={isSharedInviteRegenerating || isSharedMemberRemoving}
+                style={{
+                  ...pageCloseButtonStyle,
+                  opacity: isSharedInviteRegenerating || isSharedMemberRemoving ? 0.6 : 1,
+                  cursor: isSharedInviteRegenerating || isSharedMemberRemoving ? "not-allowed" : "pointer",
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
+            <div style={pageBodyStyle}>
+              <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.35 }}>
+                По этой ссылке пользователь сможет присоединиться к вашему пространству
+              </div>
+
+              <div
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 12,
+                  background: "#f8fafc",
+                  padding: "10px 12px",
+                  minHeight: 44,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  overflow: "hidden",
+                }}
+              >
+                <span
+                  style={{
+                    display: "block",
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 13,
+                    color: sharedInviteUrl ? "#0f172a" : "#94a3b8",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {isSharedInviteLoading ? "Загружаем ссылку..." : sharedInviteUrl || "Ссылка еще не создана"}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleShareSharedInvite}
+                  disabled={!sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating}
+                  title="Поделиться"
+                  aria-label="Поделиться ссылкой приглашения"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 8,
+                    border: "1px solid #e2e8f0",
+                    background: "#fff",
+                    color: "#0f172a",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? "not-allowed" : "pointer",
+                    opacity: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? 0.6 : 1,
+                    flex: "0 0 auto",
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M7 12.5V18a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="m8.5 6.5 3.5-3.5 3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+
+              {sharedInviteError ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{sharedInviteError}</div> : null}
+              {sharedInviteNotice ? <div style={{ fontSize: 13, color: "#0369a1" }}>{sharedInviteNotice}</div> : null}
+
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Участники</div>
+                <div
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 12,
+                    background: "#fff",
+                    overflow: "hidden",
+                    maxHeight: 300,
+                    overflowY: "auto",
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  {isSharedMembersLoading ? (
+                    <div style={{ padding: "10px 12px", fontSize: 13, color: "#64748b" }}>Загружаем участников...</div>
+                  ) : sharedMembersView.length === 0 ? (
+                    <div style={{ padding: "10px 12px", fontSize: 13, color: "#64748b" }}>Участников пока нет</div>
+                  ) : (
+                    sharedMembersView.map((member, index) => (
+                      <div
+                        key={member.userId}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderBottom: index === sharedMembersView.length - 1 ? "none" : "1px solid #f1f5f9",
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
+                          <div style={{ fontSize: 13, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {member.title}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {member.subtitle}
+                          </div>
+                        </div>
+                        {member.role === "owner" ? (
+                          <span style={{ fontSize: 11, color: "#0369a1", fontWeight: 600, flex: "0 0 auto" }}>owner</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMemberRemove(member)}
+                            disabled={isSharedMemberRemoving || isSharedInviteRegenerating}
+                            style={{
+                              padding: "6px 8px",
+                              borderRadius: 8,
+                              border: "1px solid #fecaca",
+                              background: "#fff5f5",
+                              color: "#b91c1c",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: isSharedMemberRemoving || isSharedInviteRegenerating ? "not-allowed" : "pointer",
+                              opacity: isSharedMemberRemoving || isSharedInviteRegenerating ? 0.65 : 1,
+                              flex: "0 0 auto",
+                            }}
+                          >
+                            Удалить
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+                {sharedMembersError ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{sharedMembersError}</div> : null}
+                {sharedMembersNotice ? <div style={{ fontSize: 13, color: "#0369a1" }}>{sharedMembersNotice}</div> : null}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={handleCopySharedInvite}
+                  disabled={!sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating}
+                  style={{
+                    padding: "11px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    color: "#0f172a",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? "not-allowed" : "pointer",
+                    opacity: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? 0.6 : 1,
+                  }}
+                >
+                  Скопировать ссылку
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRegenerateSharedInvite}
+                  disabled={isSharedInviteLoading || isSharedInviteRegenerating || isSharedMemberRemoving}
+                  style={{
+                    padding: "11px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #0f172a",
+                    background: "#0f172a",
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: isSharedInviteLoading || isSharedInviteRegenerating || isSharedMemberRemoving ? "not-allowed" : "pointer",
+                    opacity: isSharedInviteLoading || isSharedInviteRegenerating || isSharedMemberRemoving ? 0.7 : 1,
+                  }}
+                >
+                  {isSharedInviteRegenerating ? "Обновляем..." : sharedInvite ? "Перевыпустить ссылку" : "Создать ссылку"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {activePage === "member-remove" && memberToRemove ? (
+        <div role="dialog" aria-modal="true" style={pageOverlayStyle}>
+          <div style={pageSurfaceStyle}>
+            <div style={pageHeaderStyle}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Удалить участника</div>
+              <button
+                type="button"
+                onClick={handleCloseMemberRemove}
+                disabled={isSharedMemberRemoving}
+                style={{
+                  ...pageCloseButtonStyle,
+                  opacity: isSharedMemberRemoving ? 0.6 : 1,
+                  cursor: isSharedMemberRemoving ? "not-allowed" : "pointer",
+                }}
+              >
+                Назад
+              </button>
+            </div>
+            <div style={pageBodyStyle}>
+              <div
+                style={{
+                  borderRadius: 16,
+                  background: "#fff",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+                  padding: 16,
+                  display: "grid",
+                  gap: 12,
+                }}
+              >
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Удалить участника?</div>
+                <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>
+                  Пользователь будет исключен из общего пространства и потеряет к нему доступ.
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
                   <button
                     type="button"
-                    onClick={closeResetSheet}
+                    onClick={handleCloseMemberRemove}
+                    disabled={isSharedMemberRemoving}
                     style={{
                       padding: "11px 14px",
                       borderRadius: 12,
@@ -598,52 +924,16 @@ const SettingsScreen: React.FC<Props> = ({
                       color: "#0f172a",
                       fontSize: 14,
                       fontWeight: 600,
-                      cursor: "pointer",
+                      cursor: isSharedMemberRemoving ? "not-allowed" : "pointer",
+                      opacity: isSharedMemberRemoving ? 0.6 : 1,
                     }}
                   >
                     Отмена
                   </button>
                   <button
                     type="button"
-                    onClick={continueResetSheet}
-                    style={{
-                      padding: "11px 14px",
-                      borderRadius: 12,
-                      border: "1px solid #0f172a",
-                      background: "#0f172a",
-                      color: "#fff",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Продолжить
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={goBackResetSheet}
-                    disabled={isResetWorkspaceRunning}
-                    style={{
-                      padding: "11px 14px",
-                      borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      background: "#fff",
-                      color: "#0f172a",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
-                      opacity: isResetWorkspaceRunning ? 0.6 : 1,
-                    }}
-                  >
-                    Назад
-                  </button>
-                  <button
-                    type="button"
-                    onClick={confirmReset}
-                    disabled={isResetWorkspaceRunning}
+                    onClick={handleConfirmMemberRemove}
+                    disabled={isSharedMemberRemoving}
                     style={{
                       padding: "11px 14px",
                       borderRadius: 12,
@@ -652,305 +942,14 @@ const SettingsScreen: React.FC<Props> = ({
                       color: "#fff",
                       fontSize: 14,
                       fontWeight: 600,
-                      cursor: isResetWorkspaceRunning ? "not-allowed" : "pointer",
-                      opacity: isResetWorkspaceRunning ? 0.75 : 1,
+                      cursor: isSharedMemberRemoving ? "not-allowed" : "pointer",
+                      opacity: isSharedMemberRemoving ? 0.7 : 1,
                     }}
                   >
-                    {isResetWorkspaceRunning ? "Очищаем..." : "Очистить аккаунт"}
+                    {isSharedMemberRemoving ? "Удаляем..." : "Удалить"}
                   </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {isSharedAccessSheetOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={closeSharedAccessSheet}
-          className="tx-modal__backdrop"
-          style={{
-            alignItems: "center",
-            padding: "12px 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 460,
-              borderRadius: 18,
-              background: "#fff",
-              border: "1px solid #e5e7eb",
-              boxShadow: "0 20px 45px rgba(15, 23, 42, 0.14)",
-              padding: 16,
-              display: "grid",
-              gap: 12,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Пригласить пользователя</div>
-              <button
-                type="button"
-                onClick={closeSharedAccessSheet}
-                disabled={isSharedInviteRegenerating}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  fontWeight: 600,
-                  color: "#0f172a",
-                  cursor: isSharedInviteRegenerating ? "not-allowed" : "pointer",
-                  opacity: isSharedInviteRegenerating ? 0.6 : 1,
-                }}
-              >
-                Закрыть
-              </button>
-            </div>
-
-            <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.35 }}>
-              По этой ссылке пользователь сможет присоединиться к вашему пространству
-            </div>
-
-            <div
-              style={{
-                border: "1px solid #e5e7eb",
-                borderRadius: 12,
-                background: "#f8fafc",
-                padding: "10px 12px",
-                minHeight: 44,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                overflow: "hidden",
-              }}
-            >
-              <span
-                style={{
-                  display: "block",
-                  flex: 1,
-                  minWidth: 0,
-                  fontSize: 13,
-                  color: sharedInviteUrl ? "#0f172a" : "#94a3b8",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {isSharedInviteLoading ? "Загружаем ссылку..." : sharedInviteUrl || "Ссылка еще не создана"}
-              </span>
-              <button
-                type="button"
-                onClick={handleShareSharedInvite}
-                disabled={!sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating}
-                title="Поделиться"
-                aria-label="Поделиться ссылкой приглашения"
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 8,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
-                  color: "#0f172a",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? "not-allowed" : "pointer",
-                  opacity: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? 0.6 : 1,
-                  flex: "0 0 auto",
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M7 12.5V18a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  <path d="M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  <path d="m8.5 6.5 3.5-3.5 3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-
-            {sharedInviteError ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{sharedInviteError}</div> : null}
-            {sharedInviteNotice ? <div style={{ fontSize: 13, color: "#0369a1" }}>{sharedInviteNotice}</div> : null}
-
-            <div style={{ display: "grid", gap: 8 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Участники</div>
-              <div
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 12,
-                  background: "#fff",
-                  overflow: "hidden",
-                  maxHeight: 220,
-                  overflowY: "auto",
-                  WebkitOverflowScrolling: "touch",
-                }}
-              >
-                {isSharedMembersLoading ? (
-                  <div style={{ padding: "10px 12px", fontSize: 13, color: "#64748b" }}>Загружаем участников...</div>
-                ) : sharedMembersView.length === 0 ? (
-                  <div style={{ padding: "10px 12px", fontSize: 13, color: "#64748b" }}>Участников пока нет</div>
-                ) : (
-                  sharedMembersView.map((member, index) => (
-                    <div
-                      key={member.userId}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "10px 12px",
-                        borderBottom: index === sharedMembersView.length - 1 ? "none" : "1px solid #f1f5f9",
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
-                        <div style={{ fontSize: 13, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {member.title}
-                        </div>
-                        <div style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {member.subtitle}
-                        </div>
-                      </div>
-                      {member.role === "owner" ? (
-                        <span style={{ fontSize: 11, color: "#0369a1", fontWeight: 600, flex: "0 0 auto" }}>owner</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenMemberRemove(member)}
-                          disabled={isSharedMemberRemoving || isSharedInviteRegenerating}
-                          style={{
-                            padding: "6px 8px",
-                            borderRadius: 8,
-                            border: "1px solid #fecaca",
-                            background: "#fff5f5",
-                            color: "#b91c1c",
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: isSharedMemberRemoving || isSharedInviteRegenerating ? "not-allowed" : "pointer",
-                            opacity: isSharedMemberRemoving || isSharedInviteRegenerating ? 0.65 : 1,
-                            flex: "0 0 auto",
-                          }}
-                        >
-                          Удалить
-                        </button>
-                      )}
-                    </div>
-                  ))
-                )}
+                </div>
               </div>
-              {sharedMembersError ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{sharedMembersError}</div> : null}
-              {sharedMembersNotice ? <div style={{ fontSize: 13, color: "#0369a1" }}>{sharedMembersNotice}</div> : null}
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-              <button
-                type="button"
-                onClick={handleCopySharedInvite}
-                disabled={!sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating}
-                style={{
-                  padding: "11px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  color: "#0f172a",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? "not-allowed" : "pointer",
-                  opacity: !sharedInviteUrl || isSharedInviteLoading || isSharedInviteRegenerating ? 0.6 : 1,
-                }}
-              >
-                Скопировать ссылку
-              </button>
-
-              <button
-                type="button"
-                onClick={handleRegenerateSharedInvite}
-                disabled={isSharedInviteLoading || isSharedInviteRegenerating || isSharedMemberRemoving}
-                style={{
-                  padding: "11px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #0f172a",
-                  background: "#0f172a",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: isSharedInviteLoading || isSharedInviteRegenerating || isSharedMemberRemoving ? "not-allowed" : "pointer",
-                  opacity: isSharedInviteLoading || isSharedInviteRegenerating || isSharedMemberRemoving ? 0.7 : 1,
-                }}
-              >
-                {isSharedInviteRegenerating ? "Обновляем..." : sharedInvite ? "Перевыпустить ссылку" : "Создать ссылку"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {memberToRemove ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={handleCloseMemberRemove}
-          className="tx-modal__backdrop"
-          style={{
-            alignItems: "center",
-            padding: "12px 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 420,
-              borderRadius: 18,
-              background: "#fff",
-              border: "1px solid #e5e7eb",
-              boxShadow: "0 20px 45px rgba(15, 23, 42, 0.14)",
-              padding: 16,
-              display: "grid",
-              gap: 12,
-            }}
-          >
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Удалить участника?</div>
-            <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.4 }}>
-              Пользователь будет исключен из общего пространства и потеряет к нему доступ.
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-              <button
-                type="button"
-                onClick={handleCloseMemberRemove}
-                disabled={isSharedMemberRemoving}
-                style={{
-                  padding: "11px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
-                  color: "#0f172a",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: isSharedMemberRemoving ? "not-allowed" : "pointer",
-                  opacity: isSharedMemberRemoving ? 0.6 : 1,
-                }}
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmMemberRemove}
-                disabled={isSharedMemberRemoving}
-                style={{
-                  padding: "11px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #b91c1c",
-                  background: "#b91c1c",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: isSharedMemberRemoving ? "not-allowed" : "pointer",
-                  opacity: isSharedMemberRemoving ? 0.7 : 1,
-                }}
-              >
-                {isSharedMemberRemoving ? "Удаляем..." : "Удалить"}
-              </button>
             </div>
           </div>
         </div>
