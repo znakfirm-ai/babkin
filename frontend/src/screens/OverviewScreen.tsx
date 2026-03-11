@@ -1024,14 +1024,27 @@ function OverviewScreen({
   const txSheetContentRef = useRef<HTMLDivElement | null>(null)
   const txSheetGestureRef = useRef<{
     pointerId: number | null
+    startX: number
     startY: number
-    dragging: boolean
     tracking: boolean
+    draggingSheet: boolean
+    blockClick: boolean
   }>({
     pointerId: null,
+    startX: 0,
     startY: 0,
-    dragging: false,
     tracking: false,
+    draggingSheet: false,
+    blockClick: false,
+  })
+  const txSheetTouchRef = useRef<{
+    identifier: number | null
+    startX: number
+    startY: number
+  }>({
+    identifier: null,
+    startX: 0,
+    startY: 0,
   })
   const [disabledTxHintId, setDisabledTxHintId] = useState<string | null>(null)
   const [disabledTxHintPosition, setDisabledTxHintPosition] = useState<{ top: number; left: number; maxWidth: number } | null>(null)
@@ -2725,48 +2738,57 @@ function OverviewScreen({
   const handleTxSheetPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (txLoading) return
     if (event.pointerType === "mouse" && event.button !== 0) return
-    const content = txSheetContentRef.current
-    if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0) {
-      return
-    }
-    const sheet = txSheetRef.current
-    if (!sheet) return
-    sheet.setPointerCapture(event.pointerId)
-    txSheetGestureRef.current.pointerId = event.pointerId
-    txSheetGestureRef.current.startY = event.clientY
-    txSheetGestureRef.current.dragging = false
-    txSheetGestureRef.current.tracking = true
+    event.stopPropagation()
+    const gesture = txSheetGestureRef.current
+    gesture.pointerId = event.pointerId
+    gesture.startX = event.clientX
+    gesture.startY = event.clientY
+    gesture.tracking = true
+    gesture.draggingSheet = false
+    gesture.blockClick = false
   }, [txLoading])
 
   const handleTxSheetPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
     const gesture = txSheetGestureRef.current
     if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
     const content = txSheetContentRef.current
-    if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0 && !gesture.dragging) {
-      return
-    }
-    const deltaY = event.clientY - gesture.startY
-    if (deltaY <= 0) {
-      if (gesture.dragging && txSheetDragOffsetRef.current !== 0) {
-        txSheetDragOffsetRef.current = 0
-        setTxSheetDragOffset(0)
+    const atTop = !content || content.scrollTop <= 0
+
+    if (!gesture.draggingSheet) {
+      if (absDy < 8 || absDy <= absDx) return
+      if (dy > 0 && atTop) {
+        gesture.draggingSheet = true
+        gesture.blockClick = true
+      } else {
+        gesture.tracking = false
+        gesture.pointerId = null
+        return
       }
-      return
     }
-    if (!gesture.dragging) gesture.dragging = true
+
     event.preventDefault()
-    txSheetDragOffsetRef.current = deltaY
-    setTxSheetDragOffset(deltaY)
+    const dragOffset = Math.max(0, dy)
+    txSheetDragOffsetRef.current = dragOffset
+    setTxSheetDragOffset(dragOffset)
   }, [])
 
-  const finishTxSheetPointer = useCallback((pointerId: number) => {
+  const handleTxSheetPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
     const gesture = txSheetGestureRef.current
-    if (!gesture.tracking || gesture.pointerId !== pointerId) return
-    const shouldClose = gesture.dragging && txSheetDragOffsetRef.current > 90
+    if (gesture.pointerId !== event.pointerId) return
+    const shouldClose = gesture.draggingSheet && txSheetDragOffsetRef.current > 72
     gesture.pointerId = null
+    gesture.startX = 0
     gesture.startY = 0
-    gesture.dragging = false
     gesture.tracking = false
+    gesture.draggingSheet = false
+    gesture.blockClick = false
     if (shouldClose) {
       closeTxSheet()
       return
@@ -2775,34 +2797,124 @@ function OverviewScreen({
     setTxSheetDragOffset(0)
   }, [closeTxSheet])
 
-  const handleTxSheetPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const sheet = txSheetRef.current
-    if (sheet && sheet.hasPointerCapture(event.pointerId)) {
-      sheet.releasePointerCapture(event.pointerId)
-    }
-    finishTxSheetPointer(event.pointerId)
-  }, [finishTxSheetPointer])
-
   const handleTxSheetPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const sheet = txSheetRef.current
-    if (sheet && sheet.hasPointerCapture(event.pointerId)) {
-      sheet.releasePointerCapture(event.pointerId)
-    }
-    finishTxSheetPointer(event.pointerId)
-  }, [finishTxSheetPointer])
+    event.stopPropagation()
+    const gesture = txSheetGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.pointerId = null
+    gesture.startX = 0
+    gesture.startY = 0
+    gesture.tracking = false
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+    txSheetDragOffsetRef.current = 0
+    setTxSheetDragOffset(0)
+  }, [])
+
+  const handleTxSheetClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!txSheetGestureRef.current.blockClick) return
+    event.preventDefault()
+    event.stopPropagation()
+    txSheetGestureRef.current.blockClick = false
+  }, [])
+
+  useEffect(() => {
+    if (txMode !== "none") return
+    txSheetDragOffsetRef.current = 0
+    setTxSheetDragOffset(0)
+    txSheetGestureRef.current.pointerId = null
+    txSheetGestureRef.current.startX = 0
+    txSheetGestureRef.current.startY = 0
+    txSheetGestureRef.current.tracking = false
+    txSheetGestureRef.current.draggingSheet = false
+    txSheetGestureRef.current.blockClick = false
+    txSheetTouchRef.current.identifier = null
+    txSheetTouchRef.current.startX = 0
+    txSheetTouchRef.current.startY = 0
+  }, [txMode])
 
   useEffect(() => {
     if (txMode === "none") return
     const overlay = txOverlayRef.current
-    if (!overlay) return
-    const block = (event: Event) => {
+    const sheet = txSheetRef.current
+    if (!overlay || !sheet) return
+
+    const resetTouchState = () => {
+      txSheetTouchRef.current.identifier = null
+      txSheetTouchRef.current.startX = 0
+      txSheetTouchRef.current.startY = 0
+    }
+
+    const getTrackedTouch = (event: TouchEvent) => {
+      const trackedId = txSheetTouchRef.current.identifier
+      if (trackedId == null) return event.touches[0] ?? event.changedTouches[0] ?? null
+      for (let index = 0; index < event.touches.length; index += 1) {
+        const touch = event.touches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      for (let index = 0; index < event.changedTouches.length; index += 1) {
+        const touch = event.changedTouches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      return null
+    }
+
+    const onTouchStartCapture = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0]
+      if (!touch) return
+      txSheetTouchRef.current.identifier = touch.identifier
+      txSheetTouchRef.current.startX = touch.clientX
+      txSheetTouchRef.current.startY = touch.clientY
+    }
+
+    const onTouchMoveCapture = (event: TouchEvent) => {
+      const touch = getTrackedTouch(event)
+      if (!touch) return
+      const dx = touch.clientX - txSheetTouchRef.current.startX
+      const dy = touch.clientY - txSheetTouchRef.current.startY
+      if (Math.abs(dy) <= Math.abs(dx)) return
+
+      const targetNode = event.target instanceof Node ? event.target : null
+      const content = txSheetContentRef.current
+      const targetInSheet = targetNode ? sheet.contains(targetNode) : false
+      const targetInContent = targetNode ? Boolean(content?.contains(targetNode)) : false
+
+      if (!targetInSheet || !targetInContent || !content) {
+        event.preventDefault()
+        return
+      }
+
+      const atTop = content.scrollTop <= 0
+      const atBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 1
+      if ((dy > 0 && atTop) || (dy < 0 && atBottom)) {
+        event.preventDefault()
+      }
+    }
+
+    const onTouchEndCapture = () => {
+      resetTouchState()
+    }
+
+    const onTouchCancelCapture = () => {
+      resetTouchState()
+    }
+
+    const blockWheel = (event: WheelEvent) => {
       event.preventDefault()
     }
-    overlay.addEventListener("touchmove", block, { passive: false })
-    overlay.addEventListener("wheel", block, { passive: false })
+
+    overlay.addEventListener("touchstart", onTouchStartCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchmove", onTouchMoveCapture, { capture: true, passive: false })
+    overlay.addEventListener("touchend", onTouchEndCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchcancel", onTouchCancelCapture, { capture: true, passive: true })
+    overlay.addEventListener("wheel", blockWheel, { passive: false })
     return () => {
-      overlay.removeEventListener("touchmove", block)
-      overlay.removeEventListener("wheel", block)
+      overlay.removeEventListener("touchstart", onTouchStartCapture, true)
+      overlay.removeEventListener("touchmove", onTouchMoveCapture, true)
+      overlay.removeEventListener("touchend", onTouchEndCapture, true)
+      overlay.removeEventListener("touchcancel", onTouchCancelCapture, true)
+      overlay.removeEventListener("wheel", blockWheel)
+      resetTouchState()
     }
   }, [txMode])
 
@@ -7175,14 +7287,6 @@ function TransactionsPanel({
           role="dialog"
           aria-modal="true"
           onClick={closeTxSheet}
-          onPointerMoveCapture={(event) => {
-            if (!txSheetGestureRef.current.dragging) return
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onTouchMoveCapture={(event) => {
-            event.preventDefault()
-          }}
           style={{
             position: "fixed",
             inset: 0,
@@ -7192,7 +7296,6 @@ function TransactionsPanel({
             justifyContent: "center",
             zIndex: isDetailPageOverlay ? 260 : 60,
             padding: 0,
-            touchAction: "none",
             overscrollBehaviorY: "none",
             overscrollBehavior: "contain",
           }}
@@ -7204,6 +7307,7 @@ function TransactionsPanel({
             onPointerMove={handleTxSheetPointerMove}
             onPointerUp={handleTxSheetPointerUp}
             onPointerCancel={handleTxSheetPointerCancel}
+            onClickCapture={handleTxSheetClickCapture}
             style={{
               width: "min(480px, 100%)",
               background: "#fff",
@@ -7219,7 +7323,7 @@ function TransactionsPanel({
               paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
               transform: txSheetDragOffset > 0 ? `translateY(${txSheetDragOffset}px)` : "translateY(0)",
               transition: txSheetDragOffset > 0 ? "none" : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
-              touchAction: "none",
+              touchAction: "pan-y",
               overscrollBehaviorY: "contain",
             }}
           >
