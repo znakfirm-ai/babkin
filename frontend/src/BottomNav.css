@@ -99,7 +99,7 @@
   place-items: center;
   transform: translateY(-16px);
   position: relative;
-  box-shadow: 0 14px 26px rgba(47, 84, 235, 0.28);
+  box-shadow: none;
   z-index: 1;
 }
 

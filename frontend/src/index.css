@@ -176,3 +176,13 @@ button {
   width: 100%;
   min-height: 220px;
 }
+
+.report-compare-chart,
+.report-compare-chart * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.report-compare-chart text {
+  user-select: none;
+  -webkit-user-select: none;
+}

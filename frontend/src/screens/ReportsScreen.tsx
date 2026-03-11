@@ -1459,12 +1459,21 @@ const ReportsScreen: React.FC<Props> = ({
             <circle cx={90} cy={90} r={60} fill="none" stroke="#E5E7EB" strokeWidth={12} />
                             )}
                             <circle cx={90} cy={90} r={44} fill="#fff" />
-                            <text x={90} y={84} textAnchor="middle" fontSize={11} fill="#475569">
+                            <text
+                              x={90}
+                              y={donutData.total > 0 ? 84 : 90}
+                              textAnchor="middle"
+                              dominantBaseline={donutData.total > 0 ? undefined : "middle"}
+                              fontSize={11}
+                              fill="#475569"
+                            >
                               {donutData.total > 0 ? "Итого" : "Нет расходов"}
                             </text>
-                            <text x={90} y={104} textAnchor="middle" fontSize={12} fontWeight={600} fill="#0f172a">
-                              {donutData.total > 0 ? formatMoney(donutData.total, currency ?? "RUB") : ""}
-                            </text>
+                            {donutData.total > 0 ? (
+                              <text x={90} y={104} textAnchor="middle" fontSize={12} fontWeight={600} fill="#0f172a">
+                                {formatMoney(donutData.total, currency ?? "RUB")}
+                              </text>
+                            ) : null}
                           </svg>
                           {donutData.total > 0 && legendItems.length > 0 ? (
                             <div
@@ -1937,12 +1946,21 @@ const ReportsScreen: React.FC<Props> = ({
             <circle cx={90} cy={90} r={60} fill="none" stroke="#E5E7EB" strokeWidth={12} />
                             )}
                             <circle cx={90} cy={90} r={44} fill="#fff" />
-                            <text x={90} y={84} textAnchor="middle" fontSize={11} fill="#475569">
+                            <text
+                              x={90}
+                              y={incomeData.total > 0 ? 84 : 90}
+                              textAnchor="middle"
+                              dominantBaseline={incomeData.total > 0 ? undefined : "middle"}
+                              fontSize={11}
+                              fill="#475569"
+                            >
                               {incomeData.total > 0 ? "Итого" : "Нет доходов"}
                             </text>
-                            <text x={90} y={104} textAnchor="middle" fontSize={11} fontWeight={600} fill="#0f172a">
-                              {incomeData.total > 0 ? formatMoney(incomeData.total, currency ?? "RUB") : ""}
-                            </text>
+                            {incomeData.total > 0 ? (
+                              <text x={90} y={104} textAnchor="middle" fontSize={11} fontWeight={600} fill="#0f172a">
+                                {formatMoney(incomeData.total, currency ?? "RUB")}
+                              </text>
+                            ) : null}
                           </svg>
                           {incomeData.total > 0 && incomeLegendItems.length > 0 ? (
                             <div
@@ -2307,7 +2325,7 @@ const ReportsScreen: React.FC<Props> = ({
                         {compareActiveBin ? compareActiveBin.end.getFullYear() : ""}
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                        <svg width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
+                        <svg className="report-compare-chart" width="100%" height="160" viewBox="0 0 300 160" role="img" aria-label="Сводный график">
                           {(() => {
                             const plotLeft = 78
                             const plotRight = 288

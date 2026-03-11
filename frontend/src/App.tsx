@@ -1789,6 +1789,12 @@ function App() {
             onCategoryCreated={handleOverviewCategoryCreated}
             onIncomeSourceCreated={handleOverviewIncomeSourceCreated}
             onGoalCreated={handleOverviewGoalCreated}
+            onNavigateOverviewRoot={() => {
+              setGoalsListMode("goals")
+              setAutoOpenGoalsList(false)
+              setActiveNav("overview")
+              setActiveScreen("overview")
+            }}
             goalsListMode={goalsListMode}
             skipGoalsListRefetch={skipGoalsListRefetch}
             workspaceAccountLabel={accountLabel}
@@ -1886,6 +1892,12 @@ function App() {
             onCategoryCreated={handleOverviewCategoryCreated}
             onIncomeSourceCreated={handleOverviewIncomeSourceCreated}
             onGoalCreated={handleOverviewGoalCreated}
+            onNavigateOverviewRoot={() => {
+              setGoalsListMode("goals")
+              setAutoOpenGoalsList(false)
+              setActiveNav("overview")
+              setActiveScreen("overview")
+            }}
             goalsListMode={goalsListMode}
             skipGoalsListRefetch={skipGoalsListRefetch}
             workspaceAccountLabel={accountLabel}

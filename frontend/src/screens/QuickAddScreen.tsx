@@ -1908,8 +1908,8 @@ export const QuickAddScreen: React.FC<Props> = ({
               style={{
                 padding: "8px 12px",
                 borderRadius: 10,
-                border: "1px solid #d1d5db",
-                background: "#f5f6f8",
+                border: "1px solid #e5e7eb",
+                background: "#fff",
                 color: "#2563eb",
                 fontWeight: 600,
               }}

@@ -89,6 +89,7 @@ const INCOME_SOURCE_NAME_MAX_LENGTH = 12
 const EXPENSE_CATEGORY_NAME_MAX_LENGTH = 12
 const GOAL_NAME_MAX_LENGTH = 20
 const DEBTOR_NAME_MAX_LENGTH = 20
+const CLOSE_BUTTON_TEXT_COLOR = "#2563eb"
 
 const normalizeEntityName = (value: string) => value.trim().toLowerCase()
 const isEntityNameTooLong = (value: string, maxLength: number) => Array.from(value.trim()).length > maxLength
@@ -606,7 +607,11 @@ const Section: React.FC<{
               </div>
               {!item.isAdd && (
                 <div
-                  className="tile-card__amount"
+                  className={`tile-card__amount ${
+                    item.type === "account" || item.type === "income-source" || item.type === "category"
+                      ? "tile-card__amount--compact-main"
+                      : ""
+                  }`}
                   style={
                     item.type === "account"
                       ? { color: contentColor ?? "#0f172a", textShadow: shadow }
@@ -621,8 +626,8 @@ const Section: React.FC<{
                     <div
                       style={{
                         marginTop: 2,
-                        fontSize: 11,
-                        lineHeight: "14px",
+                        fontSize: 9,
+                        lineHeight: "12px",
                         color: secondaryColor ?? "#475569",
                         textShadow: contentColor === "#FFFFFF" ? "0 1px 2px rgba(0,0,0,0.25)" : "none",
                         fontWeight: 600,
@@ -702,6 +707,7 @@ type OverviewScreenProps = {
   onCategoryCreated?: () => void
   onIncomeSourceCreated?: () => void
   onGoalCreated?: () => void
+  onNavigateOverviewRoot?: () => void
   goalsListMode?: "goals" | "debtsReceivable" | "debtsPayable"
   skipGoalsListRefetch?: boolean
   workspaceAccountLabel?: string
@@ -746,6 +752,7 @@ function OverviewScreen({
   onCategoryCreated,
   onIncomeSourceCreated,
   onGoalCreated,
+  onNavigateOverviewRoot,
   goalsListMode = "goals",
   skipGoalsListRefetch = false,
   workspaceAccountLabel = "Личный",
@@ -1006,9 +1013,23 @@ function OverviewScreen({
   })
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
-  const [txMode, setTxMode] = useState<"none" | "actions" | "delete" | "edit">("none")
+  const [txMode, setTxMode] = useState<"none" | "delete" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
   const [txLoading, setTxLoading] = useState(false)
+  const [txSheetDragOffset, setTxSheetDragOffset] = useState(0)
+  const txSheetRef = useRef<HTMLDivElement | null>(null)
+  const txSheetContentRef = useRef<HTMLDivElement | null>(null)
+  const txSheetGestureRef = useRef<{
+    pointerId: number | null
+    startY: number
+    dragging: boolean
+    tracking: boolean
+  }>({
+    pointerId: null,
+    startY: 0,
+    dragging: false,
+    tracking: false,
+  })
   const [disabledTxHintId, setDisabledTxHintId] = useState<string | null>(null)
   const [disabledTxHintPosition, setDisabledTxHintPosition] = useState<{ top: number; left: number; maxWidth: number } | null>(null)
   const disabledTxHintRef = useRef<HTMLDivElement | null>(null)
@@ -1020,6 +1041,8 @@ function OverviewScreen({
   const debtorsListLastLoadedAtRef = useRef<{ receivable: number; payable: number }>({ receivable: 0, payable: 0 })
   const [editAmount, setEditAmount] = useState("")
   const [editDate, setEditDate] = useState("")
+  const [isConfirmingCategoryDelete, setIsConfirmingCategoryDelete] = useState(false)
+  const [isConfirmingIncomeSourceDelete, setIsConfirmingIncomeSourceDelete] = useState(false)
   const isDebtsReceivableMode = goalsListMode === "debtsReceivable"
   const isDebtsPayableMode = goalsListMode === "debtsPayable"
   const isDebtsMode = isDebtsReceivableMode || isDebtsPayableMode
@@ -1463,6 +1486,7 @@ function OverviewScreen({
     setCategoryBudget("")
     setCategoryIcon(null)
     setCategorySaveError(null)
+    setIsConfirmingCategoryDelete(false)
   }, [])
 
   const openGoalsList = useCallback(async () => {
@@ -2549,6 +2573,7 @@ function OverviewScreen({
     setIncomeSourceName("")
     setIncomeSourceIcon(null)
     setIncomeSourceError(null)
+    setIsConfirmingIncomeSourceDelete(false)
   }, [])
 
   const autoOpenIncomeSourceCreateInFlightRef = useRef(false)
@@ -2573,6 +2598,7 @@ function OverviewScreen({
       setCategorySheetMode(null)
       setCategorySheetPresentation("sheet")
       setCategorySaveError(null)
+      setIsConfirmingCategoryDelete(false)
       if (!opts?.preserveForm) {
         setEditingCategoryId(null)
         setCategoryName("")
@@ -2598,6 +2624,7 @@ function OverviewScreen({
     (opts?: { preserveForm?: boolean }) => {
       setIncomeSourceSheetMode(null)
       setIncomeSourceSheetPresentation("sheet")
+      setIsConfirmingIncomeSourceDelete(false)
       if (!opts?.preserveForm) {
         resetIncomeSourceForm()
       }
@@ -2612,6 +2639,7 @@ function OverviewScreen({
       setEditingCategoryId(id)
       setCategoryName(title)
       setCategorySaveError(null)
+      setIsConfirmingCategoryDelete(false)
       const cat = categories.find((c) => c.id === id)
       setCategoryBudget(cat && (cat as { budget?: number | string }).budget ? String((cat as any).budget) : "")
       setCategoryIcon((cat as { icon?: string | null } | undefined)?.icon ?? null)
@@ -2626,6 +2654,7 @@ function OverviewScreen({
       setEditingIncomeSourceId(id)
       setIncomeSourceName(title)
       setIncomeSourceError(null)
+      setIsConfirmingIncomeSourceDelete(false)
       const src = incomeSources.find((s) => s.id === id)
       setIncomeSourceIcon(src?.icon ?? null)
     },
@@ -2669,7 +2698,8 @@ function OverviewScreen({
       setTxLoading(false)
       setDisabledTxHintId(null)
       setTxActionId(id)
-      setTxMode("actions")
+      setTxSheetDragOffset(0)
+      setTxMode("edit")
       setEditAmount(String(tx.amount.amount))
       setEditDate(tx.date.slice(0, 10) || getTodayLocalDate())
     },
@@ -2681,8 +2711,75 @@ function OverviewScreen({
     setTxActionId(null)
     setTxError(null)
     setTxLoading(false)
+    setTxSheetDragOffset(0)
     setDisabledTxHintId(null)
   }, [])
+
+  const handleTxSheetPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (txLoading) return
+    if (event.pointerType === "mouse" && event.button !== 0) return
+    const content = txSheetContentRef.current
+    if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0) {
+      return
+    }
+    const sheet = txSheetRef.current
+    if (!sheet) return
+    sheet.setPointerCapture(event.pointerId)
+    txSheetGestureRef.current.pointerId = event.pointerId
+    txSheetGestureRef.current.startY = event.clientY
+    txSheetGestureRef.current.dragging = false
+    txSheetGestureRef.current.tracking = true
+  }, [txLoading])
+
+  const handleTxSheetPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = txSheetGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+    const content = txSheetContentRef.current
+    if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0 && !gesture.dragging) {
+      return
+    }
+    const deltaY = event.clientY - gesture.startY
+    if (deltaY <= 0) {
+      if (gesture.dragging && txSheetDragOffset !== 0) {
+        setTxSheetDragOffset(0)
+      }
+      return
+    }
+    if (!gesture.dragging) gesture.dragging = true
+    event.preventDefault()
+    setTxSheetDragOffset(deltaY)
+  }, [txSheetDragOffset])
+
+  const finishTxSheetPointer = useCallback((pointerId: number) => {
+    const gesture = txSheetGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== pointerId) return
+    const shouldClose = gesture.dragging && txSheetDragOffset > 90
+    gesture.pointerId = null
+    gesture.startY = 0
+    gesture.dragging = false
+    gesture.tracking = false
+    if (shouldClose) {
+      closeTxSheet()
+      return
+    }
+    setTxSheetDragOffset(0)
+  }, [closeTxSheet, txSheetDragOffset])
+
+  const handleTxSheetPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const sheet = txSheetRef.current
+    if (sheet && sheet.hasPointerCapture(event.pointerId)) {
+      sheet.releasePointerCapture(event.pointerId)
+    }
+    finishTxSheetPointer(event.pointerId)
+  }, [finishTxSheetPointer])
+
+  const handleTxSheetPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const sheet = txSheetRef.current
+    if (sheet && sheet.hasPointerCapture(event.pointerId)) {
+      sheet.releasePointerCapture(event.pointerId)
+    }
+    finishTxSheetPointer(event.pointerId)
+  }, [finishTxSheetPointer])
 
   const closeDetails = useCallback(() => {
     setIsGoalCompleteSheetOpen(false)
@@ -3094,6 +3191,9 @@ function OverviewScreen({
             : c,
         )
         setCategories(mappedCategories)
+        if (detailCategoryId === editingCategoryId) {
+          setDetailTitle(trimmed)
+        }
       }
       await refetchCategories()
       closeCategorySheet()
@@ -3124,6 +3224,7 @@ function OverviewScreen({
     categoryName,
     categorySheetMode,
     closeCategorySheet,
+    detailCategoryId,
     editingCategoryId,
     onCategoryCreated,
     refetchCategories,
@@ -3164,6 +3265,20 @@ function OverviewScreen({
           await createIncomeSource(token, trimmed, incomeSourceIcon ?? undefined)
         } else if (incomeSourceSheetMode === "edit" && editingIncomeSourceId) {
           await renameIncomeSource(token, editingIncomeSourceId, trimmed, incomeSourceIcon ?? undefined)
+          setIncomeSources(
+            incomeSources.map((source) =>
+              source.id === editingIncomeSourceId
+                ? {
+                    ...source,
+                    name: trimmed,
+                    icon: incomeSourceIcon ?? null,
+                  }
+                : source,
+            ),
+          )
+          if (detailIncomeSourceId === editingIncomeSourceId) {
+            setDetailTitle(trimmed)
+          }
         }
         await refetchIncomeSources()
         closeIncomeSourceSheet()
@@ -3185,6 +3300,7 @@ function OverviewScreen({
     })
   }, [
     closeIncomeSourceSheet,
+    detailIncomeSourceId,
     incomeSources,
     editingIncomeSourceId,
     incomeSourceName,
@@ -3193,6 +3309,7 @@ function OverviewScreen({
     onIncomeSourceCreated,
     refetchIncomeSources,
     runIncomeSave,
+    setIncomeSources,
     token,
   ])
 
@@ -3501,42 +3618,48 @@ function OverviewScreen({
     (id: string) =>
       runCategoryDelete(async () => {
       if (!token) return
-      const confirmed = window.confirm("Удалить категорию?")
-      if (!confirmed) return
       setDeletingCategoryId(id)
       try {
         await deleteCategory(token, id)
         await refetchCategories()
+        setDetailCategoryId(null)
+        setDetailTitle("")
+        setIsGoalsListOpen(false)
         closeCategorySheet()
+        onNavigateOverviewRoot?.()
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Не удалось архивировать категорию"
         setCategorySaveError(msg)
       } finally {
         setDeletingCategoryId(null)
+        setIsConfirmingCategoryDelete(false)
       }
       }),
-    [closeCategorySheet, refetchCategories, runCategoryDelete, token]
+    [closeCategorySheet, onNavigateOverviewRoot, refetchCategories, runCategoryDelete, token]
   )
 
   const handleDeleteIncomeSource = useCallback(
     (id: string) =>
       runIncomeDelete(async () => {
       if (!token) return
-      const confirmed = window.confirm("Удалить источник дохода?")
-      if (!confirmed) return
       setDeletingIncomeSourceId(id)
       try {
         await deleteIncomeSource(token, id)
         await refetchIncomeSources()
+        setDetailIncomeSourceId(null)
+        setDetailTitle("")
+        setIsGoalsListOpen(false)
         closeIncomeSourceSheet()
+        onNavigateOverviewRoot?.()
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Не удалось архивировать источник дохода"
         setIncomeSourceError(msg)
       } finally {
         setDeletingIncomeSourceId(null)
+        setIsConfirmingIncomeSourceDelete(false)
       }
       }),
-    [closeIncomeSourceSheet, refetchIncomeSources, runIncomeDelete, token]
+    [closeIncomeSourceSheet, onNavigateOverviewRoot, refetchIncomeSources, runIncomeDelete, token]
   )
 
   const accountItems: CardItem[] = accounts.map((account, idx) => {
@@ -3670,6 +3793,26 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
           if (balanceChanged) {
             await adjustAccountBalance(tokenLocal, editingAccountId, balanceNumber)
           }
+          setAccounts(
+            accounts.map((account) =>
+              account.id === editingAccountId
+                ? {
+                    ...account,
+                    name: trimmedName,
+                    type: type || "cash",
+                    color: accountColor,
+                    icon: accountIcon ?? null,
+                    balance: {
+                      amount: balanceNumber,
+                      currency: baseCurrency,
+                    },
+                  }
+                : account,
+            ),
+          )
+          if (detailAccountId === editingAccountId) {
+            setDetailTitle(trimmedName)
+          }
         } else {
           await createAccount(tokenLocal, {
             name: trimmedName,
@@ -3704,10 +3847,12 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
     baseCurrency,
     balance,
     closeAccountSheet,
+    detailAccountId,
     editingAccountId,
     name,
     refetchAccountsSeq,
     runAccountFlight,
+    setAccounts,
     type,
     onAccountCreated,
   ])
@@ -6208,7 +6353,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: "#0f172a",
+                    color: CLOSE_BUTTON_TEXT_COLOR,
                     fontWeight: 600,
                   }}
                 >
@@ -7034,90 +7179,86 @@ function TransactionsPanel({
             inset: 0,
             background: "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-end",
             justifyContent: "center",
             zIndex: isDetailPageOverlay ? 260 : 60,
-            padding: "12px",
+            padding: 0,
+            touchAction: "none",
+            overscrollBehavior: "contain",
           }}
         >
           <div
+            ref={txSheetRef}
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={handleTxSheetPointerDown}
+            onPointerMove={handleTxSheetPointerMove}
+            onPointerUp={handleTxSheetPointerUp}
+            onPointerCancel={handleTxSheetPointerCancel}
             style={{
-              width: "auto",
+              width: "min(480px, 100%)",
               background: "#fff",
-              borderRadius: 18,
-              padding: "16px 20px",
-              boxShadow: "none",
-              display: "inline-flex",
+              borderRadius: "16px 16px 0 0",
+              borderTop: "1px solid rgba(15,23,42,0.08)",
+              boxShadow: "0 -12px 30px rgba(15,23,42,0.2)",
+              height: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              minHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              maxHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              display: "flex",
               flexDirection: "column",
-              alignItems: "center",
+              overflow: "hidden",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+              transform: txSheetDragOffset > 0 ? `translateY(${txSheetDragOffset}px)` : "translateY(0)",
+              transition: txSheetDragOffset > 0 ? "none" : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              touchAction: "pan-y",
+              overscrollBehaviorY: "contain",
             }}
           >
-            {txMode === "actions" ? (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-                  <button
-                    type="button"
-                    onClick={() => setTxMode("edit")}
-                    disabled={txLoading}
-                    style={{
-                      display: "inline-flex",
-                      justifyContent: "center",
-                      padding: "12px 18px",
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      cursor: txLoading ? "not-allowed" : "pointer",
-                      whiteSpace: "nowrap",
-                      width: "auto",
-                      minWidth: "140px",
-                    }}
-                  >
-                    Редактировать
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTxMode("delete")}
-                    disabled={txLoading}
-                    style={{
-                      display: "inline-flex",
-                      justifyContent: "center",
-                      padding: "12px 18px",
-                      borderRadius: 12,
-                      border: "1px solid #fee2e2",
-                      background: "#fff",
-                      color: "#b91c1c",
-                      cursor: txLoading ? "not-allowed" : "pointer",
-                      whiteSpace: "nowrap",
-                      minWidth: "140px",
-                      width: "auto",
-                    }}
-                  >
-                    Удалить
-                  </button>
-                  <button
-                    type="button"
-                    onClick={closeTxSheet}
-                    style={{
-                      display: "inline-flex",
-                      justifyContent: "center",
-                      padding: "12px 18px",
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      whiteSpace: "nowrap",
-                      minWidth: "140px",
-                      width: "auto",
-                    }}
-                  >
-                    Отмена
-                  </button>
-                </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 10,
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>
+                {txMode === "delete" ? "Удалить операцию" : "Редактировать операцию"}
               </div>
-            ) : null}
+              <button
+                type="button"
+                onClick={closeTxSheet}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: CLOSE_BUTTON_TEXT_COLOR,
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
 
             {txMode === "delete" ? (
-    <div style={{ display: "grid", gap: 12 }}>
+              <div
+                ref={txSheetContentRef}
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  alignContent: "start",
+                  padding: "12px 16px",
+                  overflowY: "auto",
+                  minHeight: 0,
+                  flex: "1 1 auto",
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehaviorY: "contain",
+                }}
+              >
                 <div style={{ fontSize: 16, fontWeight: 600 }}>Удалить операцию?</div>
                 {txError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{txError}</div> : null}
                 <div style={{ display: "flex", gap: 10 }}>
@@ -7155,8 +7296,20 @@ function TransactionsPanel({
             ) : null}
 
             {txMode === "edit" ? (
-              <div style={{ display: "grid", gap: 12 }}>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>Редактировать операцию</div>
+              <div
+                ref={txSheetContentRef}
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  alignContent: "start",
+                  padding: "12px 16px",
+                  overflowY: "auto",
+                  minHeight: 0,
+                  flex: "1 1 auto",
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehaviorY: "contain",
+                }}
+              >
                 {txError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{txError}</div> : null}
                 <label style={{ display: "grid", gap: 4 }}>
                   <span style={{ fontSize: 13, color: "#4b5563" }}>Сумма</span>
@@ -7175,11 +7328,26 @@ function TransactionsPanel({
                     value={editDate}
                     onChange={(e) => setEditDate(e.target.value)}
                     disabled={txLoading || isEditTxRunning}
-                    style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
+                    style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff" }}
                   />
                 </label>
 
-                <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setTxMode("delete")}
+                    disabled={txLoading || isEditTxRunning}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #fee2e2",
+                      background: "#fff",
+                      color: "#b91c1c",
+                      cursor: txLoading || isEditTxRunning ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Удалить
+                  </button>
                   <button
                     type="button"
                     onClick={closeTxSheet}
@@ -7998,7 +8166,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: "#0f172a",
+                    color: CLOSE_BUTTON_TEXT_COLOR,
                     fontWeight: 600,
                   }}
                 >
@@ -8183,7 +8351,11 @@ function TransactionsPanel({
                                   await deleteAccount(tokenLocal, editingAccountId)
                                   await refetchAccountsSeq()
                                   await refetchGoals()
+                                  setDetailAccountId(null)
+                                  setDetailTitle("")
+                                  setIsGoalsListOpen(false)
                                   closeAccountSheet()
+                                  onNavigateOverviewRoot?.()
                                 } catch (err) {
                                   if (err instanceof DOMException && err.name === "AbortError") return
                                   setAccountActionError(err instanceof Error ? err.message : "Не удалось удалить счёт")
@@ -8544,7 +8716,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: "#0f172a",
+                    color: CLOSE_BUTTON_TEXT_COLOR,
                     fontWeight: 600,
                   }}
                 >
@@ -8637,63 +8809,111 @@ function TransactionsPanel({
               {categorySaveError ? (
                 <div style={{ color: "#b91c1c", fontSize: 12, marginTop: -4 }}>{categorySaveError}</div>
               ) : null}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: categorySheetMode === "edit" && editingCategoryId ? "1fr 1fr 1fr" : "1fr 1fr",
-                  gap: 10,
-                }}
-              >
-                {categorySheetMode === "edit" && editingCategoryId ? (
+              {categorySheetMode === "edit" && editingCategoryId && isConfirmingCategoryDelete ? (
+                <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
+                  <div style={{ fontSize: 14, color: "#0f172a", opacity: 0.7 }}>Удалить категорию расходов?</div>
+                  <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsConfirmingCategoryDelete(false)
+                        setCategorySaveError(null)
+                      }}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        color: "#0f172a",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Отменить
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCategory(editingCategoryId)}
+                      disabled={deletingCategoryId === editingCategoryId || isCategoryDeleteRunning}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        border: "1px solid #fee2e2",
+                        background: "#fff",
+                        color: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "#fca5a5" : "#b91c1c",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "not-allowed" : "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "Удаляем…" : "Подтвердить"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: categorySheetMode === "edit" && editingCategoryId ? "1fr 1fr 1fr" : "1fr 1fr",
+                    gap: 10,
+                  }}
+                >
+                  {categorySheetMode === "edit" && editingCategoryId ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategorySaveError(null)
+                        setIsConfirmingCategoryDelete(true)
+                      }}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid #fee2e2",
+                        background: "#fff",
+                        color: "#b91c1c",
+                        cursor: "pointer",
+                        width: "100%",
+                      }}
+                    >
+                      Удалить
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => handleDeleteCategory(editingCategoryId)}
-                    disabled={deletingCategoryId === editingCategoryId || isCategoryDeleteRunning}
+                    onClick={() => closeCategorySheet()}
                     style={{
                       padding: "10px 12px",
                       borderRadius: 10,
-                      border: "1px solid #fee2e2",
-                      background: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "#fecdd3" : "#fff",
-                      color: "#b91c1c",
-                      cursor: deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "not-allowed" : "pointer",
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      cursor: "pointer",
                       width: "100%",
                     }}
                   >
-                    {deletingCategoryId === editingCategoryId || isCategoryDeleteRunning ? "Удаляем…" : "Удалить"}
+                    Отмена
                   </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => closeCategorySheet()}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    cursor: "pointer",
-                    width: "100%",
-                  }}
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveCategory}
-                  disabled={isSavingCategory || isCategorySaveRunning}
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: isSavingCategory || isCategorySaveRunning ? "#e5e7eb" : "#0f172a",
-                    color: isSavingCategory || isCategorySaveRunning ? "#6b7280" : "#fff",
-                    fontWeight: 600,
-                    cursor: isSavingCategory || isCategorySaveRunning ? "not-allowed" : "pointer",
-                    width: "100%",
-                  }}
-                >
-                  {isSavingCategory || isCategorySaveRunning ? "Сохраняем…" : "Сохранить"}
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveCategory}
+                    disabled={isSavingCategory || isCategorySaveRunning}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: isSavingCategory || isCategorySaveRunning ? "#e5e7eb" : "#0f172a",
+                      color: isSavingCategory || isCategorySaveRunning ? "#6b7280" : "#fff",
+                      fontWeight: 600,
+                      cursor: isSavingCategory || isCategorySaveRunning ? "not-allowed" : "pointer",
+                      width: "100%",
+                    }}
+                  >
+                    {isSavingCategory || isCategorySaveRunning ? "Сохраняем…" : "Сохранить"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -8898,7 +9118,7 @@ function TransactionsPanel({
                     borderRadius: 10,
                     padding: "6px 10px",
                     cursor: "pointer",
-                    color: "#0f172a",
+                    color: CLOSE_BUTTON_TEXT_COLOR,
                     fontWeight: 600,
                   }}
                 >
@@ -8975,26 +9195,71 @@ function TransactionsPanel({
               {incomeSourceError ? (
                 <div style={{ color: "#b91c1c", fontSize: 13 }}>{incomeSourceError}</div>
               ) : null}
-              {incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
+              {incomeSourceSheetMode === "edit" && editingIncomeSourceId && isConfirmingIncomeSourceDelete ? (
+                <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
+                  <div style={{ fontSize: 14, color: "#0f172a", opacity: 0.7 }}>Удалить источник дохода?</div>
+                  <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsConfirmingIncomeSourceDelete(false)
+                        setIncomeSourceError(null)
+                      }}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        color: "#0f172a",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Отменить
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
+                      disabled={deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        border: "1px solid #fee2e2",
+                        background: "#fff",
+                        color: deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "#fca5a5" : "#b91c1c",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor:
+                          deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "not-allowed" : "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "Удаляем…" : "Подтвердить"}
+                    </button>
+                  </div>
+                </div>
+              ) : incomeSourceSheetMode === "edit" && editingIncomeSourceId ? (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <button
                     type="button"
-                    onClick={() => handleDeleteIncomeSource(editingIncomeSourceId)}
-                    disabled={deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning}
+                    onClick={() => {
+                      setIncomeSourceError(null)
+                      setIsConfirmingIncomeSourceDelete(true)
+                    }}
                     style={{
                       padding: "10px 12px",
                       borderRadius: 10,
                       border: "1px solid #fee2e2",
-                      background:
-                        deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "#fecdd3" : "#fff",
+                      background: "#fff",
                       color: "#b91c1c",
-                      cursor:
-                        deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "not-allowed" : "pointer",
+                      cursor: "pointer",
                       width: "100%",
                       fontWeight: 600,
                     }}
                   >
-                    {deletingIncomeSourceId === editingIncomeSourceId || isIncomeDeleteRunning ? "Удаляем…" : "Удалить"}
+                    Удалить
                   </button>
                   <button
                     type="button"

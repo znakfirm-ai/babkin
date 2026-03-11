@@ -292,6 +292,10 @@
   font-weight: 700;
 }
 
+.overview .tile-card__amount--compact-main {
+  font-size: 9px;
+}
+
 .overview .tile-card--add {
   border-radius: 10px;
 }

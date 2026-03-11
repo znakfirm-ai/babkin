@@ -88,6 +88,7 @@ const SettingsScreen: React.FC<Props> = ({
   const [sharedMembersNotice, setSharedMembersNotice] = useState<string | null>(null)
   const [memberToRemove, setMemberToRemove] = useState<SharedWorkspaceMember | null>(null)
   const resetSheetRef = useRef<HTMLDivElement | null>(null)
+  const resetSheetContentRef = useRef<HTMLDivElement | null>(null)
   const resetSheetGestureRef = useRef<{
     pointerId: number | null
     startY: number
@@ -279,6 +280,10 @@ const SettingsScreen: React.FC<Props> = ({
   const handleResetSheetPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (isResetWorkspaceRunning || resetSheetClosing) return
     if (event.pointerType === "mouse" && event.button !== 0) return
+    const content = resetSheetContentRef.current
+    if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0) {
+      return
+    }
     const sheet = resetSheetRef.current
     if (!sheet) return
     sheet.setPointerCapture(event.pointerId)
@@ -291,6 +296,10 @@ const SettingsScreen: React.FC<Props> = ({
   const handleResetSheetPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const gesture = resetSheetGestureRef.current
     if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+    const content = resetSheetContentRef.current
+    if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0 && !gesture.dragging) {
+      return
+    }
     const deltaY = event.clientY - gesture.startY
     if (deltaY <= 0) {
       if (gesture.dragging && resetSheetDragOffset !== 0) {
@@ -299,6 +308,7 @@ const SettingsScreen: React.FC<Props> = ({
       return
     }
     if (!gesture.dragging) gesture.dragging = true
+    event.preventDefault()
     setResetSheetDragOffset(deltaY)
   }, [resetSheetDragOffset])
 
@@ -682,6 +692,8 @@ const SettingsScreen: React.FC<Props> = ({
             zIndex: 220,
             opacity: resetSheetClosing ? 0 : 1,
             transition: "opacity 180ms ease-out",
+            touchAction: "none",
+            overscrollBehavior: "contain",
           }}
         >
           <div
@@ -716,6 +728,7 @@ const SettingsScreen: React.FC<Props> = ({
                   : "translateY(0)",
               transition: resetSheetDragOffset > 0 && !resetSheetClosing ? "none" : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
               touchAction: "pan-y",
+              overscrollBehaviorY: "contain",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>
@@ -734,6 +747,7 @@ const SettingsScreen: React.FC<Props> = ({
               </button>
             </div>
             <div
+              ref={resetSheetContentRef}
               style={{
                 display: "grid",
                 gap: 12,
@@ -743,6 +757,7 @@ const SettingsScreen: React.FC<Props> = ({
                 minHeight: 0,
                 flex: "1 1 auto",
                 WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
               }}
             >
               <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
