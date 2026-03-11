@@ -1,4 +1,4 @@
-import React, { Component, useEffect, useRef, useState, useCallback, useMemo } from "react"
+import React, { Component, Suspense, lazy, useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useAppStore } from "./store/useAppStore"
 import { getAccounts } from "./api/accounts"
 import { getCategories } from "./api/categories"
@@ -17,9 +17,6 @@ import AddScreen from "./screens/AddScreen"
 import QuickAddScreen from "./screens/QuickAddScreen"
 import SettingsScreen from "./screens/SettingsScreen"
 import IconPreviewScreen from "./screens/IconPreviewScreen"
-import ReportsScreen from "./screens/ReportsScreen"
-import SummaryReportScreen from "./screens/SummaryReportScreen"
-import ExpensesByCategoryScreen from "./screens/ExpensesByCategoryScreen"
 import BottomNav from "./BottomNav"
 import type { NavItem } from "./BottomNav"
 import { AppIcon } from "./components/AppIcon"
@@ -27,6 +24,10 @@ import { useSingleFlight } from "./hooks/useSingleFlight"
 import { buildTelegramMiniAppInviteUrl } from "./utils/sharedInviteLink"
 import "./BottomNav.css"
 import "./App.css"
+
+const ReportsScreen = lazy(() => import("./screens/ReportsScreen"))
+const SummaryReportScreen = lazy(() => import("./screens/SummaryReportScreen"))
+const ExpensesByCategoryScreen = lazy(() => import("./screens/ExpensesByCategoryScreen"))
 
 type Workspace = {
   id: string
@@ -1921,56 +1922,58 @@ function App() {
         )
       case "reports":
         return (
-          <ReportsScreen
-            onOpenSummary={() => setActiveScreen("report-summary")}
-            onOpenExpensesByCategory={() => setActiveScreen("report-expenses-by-category")}
-            onOpenCategorySheet={(id) => {
-              setPendingCategoryOpenId(id)
-              setPendingReturnToCompareReport(false)
-              setPendingReturnToIncomeReport(false)
-              setActiveNav("overview")
-              setActiveScreen("overview")
-              setPendingReturnToReport(true)
-            }}
-            autoOpenExpensesSheet={autoOpenExpensesSheet}
-            onConsumeAutoOpenExpenses={() => setAutoOpenExpensesSheet(false)}
-            onOpenIncomeSourceSheet={(id, state) => {
-              setPendingIncomeSourceOpenId(id)
-              setSavedIncomeReportState(state)
-              setPendingReturnToCompareReport(false)
-              setPendingReturnToReport(false)
-              setActiveNav("overview")
-              setActiveScreen("overview")
-              setPendingReturnToIncomeReport(true)
-            }}
-            onOpenCompareDrilldown={(kind, id, state) => {
-              if (kind === "income") {
-                setPendingIncomeSourceOpenId(id)
-              } else {
+          <Suspense fallback={<CenteredLoader message="Открываем отчеты" />}>
+            <ReportsScreen
+              onOpenSummary={() => setActiveScreen("report-summary")}
+              onOpenExpensesByCategory={() => setActiveScreen("report-expenses-by-category")}
+              onOpenCategorySheet={(id) => {
                 setPendingCategoryOpenId(id)
-              }
-              setSavedCompareReportState(state)
-              setPendingReturnToCompareReport(true)
-              setPendingReturnToIncomeReport(false)
-              setActiveNav("overview")
-              setActiveScreen("overview")
-              setPendingReturnToReport(true)
-            }}
-            onOpenPayableDebtsSheet={() => {
-              setGoalsListMode("debtsPayable")
-              setSkipGoalsListRefetch(true)
-              setAutoOpenGoalsList(true)
-              setActiveNav("overview")
-              setActiveScreen("receivables")
-              setPendingReturnToReport(true)
-            }}
-            autoOpenIncomeSheet={autoOpenIncomeSheet}
-            onConsumeAutoOpenIncome={() => setAutoOpenIncomeSheet(false)}
-            autoOpenCompareSheet={autoOpenCompareSheet}
-            onConsumeAutoOpenCompare={() => setAutoOpenCompareSheet(false)}
-            compareReportState={savedCompareReportState}
-            incomeReportState={savedIncomeReportState}
-          />
+                setPendingReturnToCompareReport(false)
+                setPendingReturnToIncomeReport(false)
+                setActiveNav("overview")
+                setActiveScreen("overview")
+                setPendingReturnToReport(true)
+              }}
+              autoOpenExpensesSheet={autoOpenExpensesSheet}
+              onConsumeAutoOpenExpenses={() => setAutoOpenExpensesSheet(false)}
+              onOpenIncomeSourceSheet={(id, state) => {
+                setPendingIncomeSourceOpenId(id)
+                setSavedIncomeReportState(state)
+                setPendingReturnToCompareReport(false)
+                setPendingReturnToReport(false)
+                setActiveNav("overview")
+                setActiveScreen("overview")
+                setPendingReturnToIncomeReport(true)
+              }}
+              onOpenCompareDrilldown={(kind, id, state) => {
+                if (kind === "income") {
+                  setPendingIncomeSourceOpenId(id)
+                } else {
+                  setPendingCategoryOpenId(id)
+                }
+                setSavedCompareReportState(state)
+                setPendingReturnToCompareReport(true)
+                setPendingReturnToIncomeReport(false)
+                setActiveNav("overview")
+                setActiveScreen("overview")
+                setPendingReturnToReport(true)
+              }}
+              onOpenPayableDebtsSheet={() => {
+                setGoalsListMode("debtsPayable")
+                setSkipGoalsListRefetch(true)
+                setAutoOpenGoalsList(true)
+                setActiveNav("overview")
+                setActiveScreen("receivables")
+                setPendingReturnToReport(true)
+              }}
+              autoOpenIncomeSheet={autoOpenIncomeSheet}
+              onConsumeAutoOpenIncome={() => setAutoOpenIncomeSheet(false)}
+              autoOpenCompareSheet={autoOpenCompareSheet}
+              onConsumeAutoOpenCompare={() => setAutoOpenCompareSheet(false)}
+              compareReportState={savedCompareReportState}
+              incomeReportState={savedIncomeReportState}
+            />
+          </Suspense>
         )
       case "settings":
         return (
@@ -1991,9 +1994,17 @@ function App() {
       case "icons-preview":
         return <IconPreviewScreen onBack={() => setActiveScreen("settings")} />
       case "report-summary":
-        return <SummaryReportScreen onBack={() => setActiveScreen("reports")} />
+        return (
+          <Suspense fallback={<CenteredLoader message="Открываем отчет" />}>
+            <SummaryReportScreen onBack={() => setActiveScreen("reports")} />
+          </Suspense>
+        )
       case "report-expenses-by-category":
-        return <ExpensesByCategoryScreen onBack={() => setActiveScreen("reports")} />
+        return (
+          <Suspense fallback={<CenteredLoader message="Открываем отчет" />}>
+            <ExpensesByCategoryScreen onBack={() => setActiveScreen("reports")} />
+          </Suspense>
+        )
       default:
         return <HomeScreen disableDataFetch />
     }
