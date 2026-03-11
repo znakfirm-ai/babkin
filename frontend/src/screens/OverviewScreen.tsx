@@ -891,6 +891,8 @@ function OverviewScreen({
   const [isSavingGoal, setIsSavingGoal] = useState(false)
   const [goalSheetMode, setGoalSheetMode] = useState<"create" | "edit">("create")
   const [goalSheetPresentation, setGoalSheetPresentation] = useState<"sheet" | "page">("sheet")
+  const [goalSheetReturnTarget, setGoalSheetReturnTarget] = useState<"goals-list" | "goal-detail">("goals-list")
+  const [goalSheetReturnGoalId, setGoalSheetReturnGoalId] = useState<string | null>(null)
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
   const [pendingGoalCreate, setPendingGoalCreate] = useState(false)
   const [pendingOpenGoalsList, setPendingOpenGoalsList] = useState(false)
@@ -1505,6 +1507,8 @@ function OverviewScreen({
       setGoalName("")
       setGoalTarget("")
       setGoalIcon(null)
+      setGoalSheetReturnTarget("goals-list")
+      setGoalSheetReturnGoalId(null)
       setEditingGoalId(null)
       setGoalSheetMode("create")
       setGoalSheetPresentation("page")
@@ -2299,7 +2303,9 @@ function OverviewScreen({
       setGoalTarget(goal ? String(goal.targetAmount) : "")
       setGoalIcon(goal?.icon ?? null)
       setGoalSheetMode("edit")
-      setGoalSheetPresentation("sheet")
+      setGoalSheetPresentation("page")
+      setGoalSheetReturnTarget("goal-detail")
+      setGoalSheetReturnGoalId(pendingGoalEdit.id)
       setEditingGoalId(pendingGoalEdit.id)
       setPendingGoalEdit(null)
       setIsGoalSheetOpen(true)
@@ -2521,6 +2527,8 @@ function OverviewScreen({
       setPendingOpenGoalsList(false)
       setIsGoalSheetOpen(false)
       setIsGoalCompleteSheetOpen(false)
+      setGoalSheetReturnTarget("goal-detail")
+      setGoalSheetReturnGoalId(goalId)
       setDetailGoalId(null)
       setDetailTitle("")
       setGoalSearch("")
@@ -2964,6 +2972,21 @@ function OverviewScreen({
     }
   }, [onReturnToIncomeReport, onReturnToReport, returnToIncomeReport, returnToReport])
 
+  const closeGoalSheetToPrevious = useCallback(() => {
+    setGoalError(null)
+    setIsGoalSheetOpen(false)
+    if (goalSheetReturnTarget === "goal-detail" && goalSheetReturnGoalId) {
+      const goal = goals.find((item) => item.id === goalSheetReturnGoalId)
+      setPendingOpenGoalsList(false)
+      setIsGoalsListOpen(false)
+      setDetailGoalId(goalSheetReturnGoalId)
+      setDetailTitle(goal?.name ?? "Цель")
+      setGoalSearch("")
+      return
+    }
+    setPendingOpenGoalsList(true)
+  }, [goalSheetReturnGoalId, goalSheetReturnTarget, goals])
+
   const openGoalOperationFromGoalsList = useCallback(() => {
     closeGoalsList()
     onOpenQuickAddGoal?.()
@@ -3115,6 +3138,8 @@ function OverviewScreen({
     setGoalName("")
     setGoalTarget("")
     setGoalIcon(null)
+    setGoalSheetReturnTarget("goals-list")
+    setGoalSheetReturnGoalId(null)
     setEditingGoalId(null)
     setGoalSheetMode("create")
     setGoalSheetPresentation("page")
@@ -3165,7 +3190,15 @@ function OverviewScreen({
         })
       }
       await refetchGoals()
-      setPendingOpenGoalsList(true)
+      if (goalSheetMode === "edit" && goalSheetReturnTarget === "goal-detail" && editingGoalId) {
+        setPendingOpenGoalsList(false)
+        setIsGoalsListOpen(false)
+        setDetailGoalId(editingGoalId)
+        setDetailTitle(trimmed)
+        setGoalSearch("")
+      } else {
+        setPendingOpenGoalsList(true)
+      }
       setIsGoalSheetOpen(false)
       setEditingGoalId(null)
       if (isCreateMode) {
@@ -3183,7 +3216,7 @@ function OverviewScreen({
     } finally {
       setIsSavingGoal(false)
     }
-  }, [editingGoalId, goalIcon, goalName, goalTarget, goalSheetMode, goals, onGoalCreated, refetchGoals, token])
+  }, [editingGoalId, goalIcon, goalName, goalSheetReturnTarget, goalTarget, goalSheetMode, goals, onGoalCreated, refetchGoals, token])
 
   const handleDeleteCategory = useCallback(
     (id: string) =>
@@ -6207,11 +6240,7 @@ function TransactionsPanel({
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setPendingOpenGoalsList(true)
-                  setGoalError(null)
-                  setIsGoalSheetOpen(false)
-                }}
+                onClick={closeGoalSheetToPrevious}
                 style={{
                   border: "1px solid #e5e7eb",
                   background: "#fff",
@@ -6379,11 +6408,7 @@ function TransactionsPanel({
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPendingOpenGoalsList(true)
-                    setGoalError(null)
-                    setIsGoalSheetOpen(false)
-                  }}
+                  onClick={closeGoalSheetToPrevious}
                   style={{
                     padding: "10px 12px",
                     borderRadius: 10,
