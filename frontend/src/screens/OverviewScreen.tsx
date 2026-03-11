@@ -895,7 +895,35 @@ function OverviewScreen({
   const [pendingOpenGoalsList, setPendingOpenGoalsList] = useState(false)
   const [pendingGoalEdit, setPendingGoalEdit] = useState<{ id: string; title: string } | null>(null)
   const [isGoalIconPickerOpen, setIsGoalIconPickerOpen] = useState(false)
-  const [goalSheetIntent, setGoalSheetIntent] = useState<null | "openGoalIconPicker" | "returnToGoalSheet">(null)
+  const [goalIconPickerClosing, setGoalIconPickerClosing] = useState(false)
+  const [goalIconPickerDragOffset, setGoalIconPickerDragOffset] = useState(0)
+  const goalIconPickerOverlayRef = useRef<HTMLDivElement | null>(null)
+  const goalIconPickerSheetRef = useRef<HTMLDivElement | null>(null)
+  const goalIconPickerContentRef = useRef<HTMLDivElement | null>(null)
+  const goalIconPickerGestureRef = useRef<{
+    pointerId: number | null
+    startX: number
+    startY: number
+    tracking: boolean
+    draggingSheet: boolean
+    blockClick: boolean
+  }>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    draggingSheet: false,
+    blockClick: false,
+  })
+  const goalIconPickerTouchRef = useRef<{
+    identifier: number | null
+    startX: number
+    startY: number
+  }>({
+    identifier: null,
+    startX: 0,
+    startY: 0,
+  })
   const [detailTitle, setDetailTitle] = useState<string>("")
   const [accountSearch, setAccountSearch] = useState("")
   const [categorySearch, setCategorySearch] = useState("")
@@ -961,6 +989,7 @@ function OverviewScreen({
   const isDebtsPayableMode = goalsListMode === "debtsPayable"
   const isDebtsMode = isDebtsReceivableMode || isDebtsPayableMode
   const isGoalsMode = goalsListMode === "goals"
+  const isGoalsListPage = isGoalsMode
   const currentDebtorDirection: "receivable" | "payable" = isDebtsPayableMode ? "payable" : "receivable"
   const goalsListTitle = isDebtsReceivableMode ? "Мне должны" : isDebtsPayableMode ? "Я должен" : "Список целей"
   const hasAccountDuplicateNameError = isDuplicateNameError(accountActionError)
@@ -1454,20 +1483,6 @@ function OverviewScreen({
       void openGoalsList()
     }
   }, [isGoalSheetOpen, openGoalsList, pendingOpenGoalsList])
-
-  useEffect(() => {
-    if (!isGoalSheetOpen && goalSheetIntent === "openGoalIconPicker") {
-      setIsGoalIconPickerOpen(true)
-      setGoalSheetIntent(null)
-    }
-  }, [goalSheetIntent, isGoalSheetOpen])
-
-  useEffect(() => {
-    if (!isGoalIconPickerOpen && goalSheetIntent === "returnToGoalSheet") {
-      setIsGoalSheetOpen(true)
-      setGoalSheetIntent(null)
-    }
-  }, [goalSheetIntent, isGoalIconPickerOpen])
 
   const autoOpenGoalsListInFlightRef = useRef(false)
 
@@ -2071,6 +2086,189 @@ function OverviewScreen({
     event.preventDefault()
     event.stopPropagation()
     incomeIconPickerGestureRef.current.blockClick = false
+  }, [])
+
+  const finalizeGoalIconPickerClose = useCallback(() => {
+    setIsGoalIconPickerOpen(false)
+    setGoalIconPickerClosing(false)
+    setGoalIconPickerDragOffset(0)
+  }, [])
+
+  const requestCloseGoalIconPicker = useCallback(() => {
+    if (!isGoalIconPickerOpen || goalIconPickerClosing) return
+    setGoalIconPickerClosing(true)
+    setGoalIconPickerDragOffset(0)
+  }, [goalIconPickerClosing, isGoalIconPickerOpen])
+
+  useEffect(() => {
+    if (isGoalIconPickerOpen) return
+    setGoalIconPickerClosing(false)
+    setGoalIconPickerDragOffset(0)
+    goalIconPickerGestureRef.current.pointerId = null
+    goalIconPickerGestureRef.current.tracking = false
+    goalIconPickerGestureRef.current.draggingSheet = false
+    goalIconPickerGestureRef.current.blockClick = false
+    goalIconPickerTouchRef.current.identifier = null
+    goalIconPickerTouchRef.current.startX = 0
+    goalIconPickerTouchRef.current.startY = 0
+  }, [isGoalIconPickerOpen])
+
+  useEffect(() => {
+    if (!isGoalIconPickerOpen) return
+    const overlay = goalIconPickerOverlayRef.current
+    const sheet = goalIconPickerSheetRef.current
+    if (!overlay || !sheet) return
+
+    const resetTouchState = () => {
+      goalIconPickerTouchRef.current.identifier = null
+      goalIconPickerTouchRef.current.startX = 0
+      goalIconPickerTouchRef.current.startY = 0
+    }
+
+    const getTrackedTouch = (event: TouchEvent) => {
+      const trackedId = goalIconPickerTouchRef.current.identifier
+      if (trackedId == null) return event.touches[0] ?? event.changedTouches[0] ?? null
+      for (let index = 0; index < event.touches.length; index += 1) {
+        const touch = event.touches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      for (let index = 0; index < event.changedTouches.length; index += 1) {
+        const touch = event.changedTouches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      return null
+    }
+
+    const onTouchStartCapture = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0]
+      if (!touch) return
+      goalIconPickerTouchRef.current.identifier = touch.identifier
+      goalIconPickerTouchRef.current.startX = touch.clientX
+      goalIconPickerTouchRef.current.startY = touch.clientY
+    }
+
+    const onTouchMoveCapture = (event: TouchEvent) => {
+      const touch = getTrackedTouch(event)
+      if (!touch) return
+      const dx = touch.clientX - goalIconPickerTouchRef.current.startX
+      const dy = touch.clientY - goalIconPickerTouchRef.current.startY
+      if (Math.abs(dy) <= Math.abs(dx)) return
+
+      const targetNode = event.target instanceof Node ? event.target : null
+      const content = goalIconPickerContentRef.current
+      const targetInSheet = targetNode ? sheet.contains(targetNode) : false
+      const targetInContent = targetNode ? Boolean(content?.contains(targetNode)) : false
+
+      if (!targetInSheet || !targetInContent || !content) {
+        event.preventDefault()
+        return
+      }
+
+      const atTop = content.scrollTop <= 0
+      const atBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 1
+      if ((dy > 0 && atTop) || (dy < 0 && atBottom)) {
+        event.preventDefault()
+      }
+    }
+
+    const onTouchEndCapture = () => {
+      resetTouchState()
+    }
+
+    const onTouchCancelCapture = () => {
+      resetTouchState()
+    }
+
+    overlay.addEventListener("touchstart", onTouchStartCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchmove", onTouchMoveCapture, { capture: true, passive: false })
+    overlay.addEventListener("touchend", onTouchEndCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchcancel", onTouchCancelCapture, { capture: true, passive: true })
+
+    return () => {
+      overlay.removeEventListener("touchstart", onTouchStartCapture, true)
+      overlay.removeEventListener("touchmove", onTouchMoveCapture, true)
+      overlay.removeEventListener("touchend", onTouchEndCapture, true)
+      overlay.removeEventListener("touchcancel", onTouchCancelCapture, true)
+      resetTouchState()
+    }
+  }, [isGoalIconPickerOpen])
+
+  const handleGoalIconPickerPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = goalIconPickerGestureRef.current
+    gesture.pointerId = event.pointerId
+    gesture.startX = event.clientX
+    gesture.startY = event.clientY
+    gesture.tracking = true
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+  }, [])
+
+  const handleGoalIconPickerPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = goalIconPickerGestureRef.current
+    if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
+    const content = goalIconPickerContentRef.current
+    const atTop = !content || content.scrollTop <= 0
+
+    if (!gesture.draggingSheet) {
+      if (absDy < 8 || absDy <= absDx) return
+      if (dy > 0 && atTop) {
+        gesture.draggingSheet = true
+        gesture.blockClick = true
+      } else {
+        gesture.tracking = false
+        gesture.pointerId = null
+        return
+      }
+    }
+
+    event.preventDefault()
+    setGoalIconPickerDragOffset(Math.max(0, dy))
+  }, [])
+
+  const handleGoalIconPickerPointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.stopPropagation()
+      const gesture = goalIconPickerGestureRef.current
+      if (gesture.pointerId !== event.pointerId) return
+
+      const shouldClose = gesture.draggingSheet && goalIconPickerDragOffset > 72
+      gesture.pointerId = null
+      gesture.tracking = false
+      gesture.draggingSheet = false
+      gesture.blockClick = false
+
+      if (shouldClose) {
+        requestCloseGoalIconPicker()
+        return
+      }
+      setGoalIconPickerDragOffset(0)
+    },
+    [goalIconPickerDragOffset, requestCloseGoalIconPicker],
+  )
+
+  const handleGoalIconPickerPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    const gesture = goalIconPickerGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.pointerId = null
+    gesture.tracking = false
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+    setGoalIconPickerDragOffset(0)
+  }, [])
+
+  const handleGoalIconPickerClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!goalIconPickerGestureRef.current.blockClick) return
+    event.preventDefault()
+    event.stopPropagation()
+    goalIconPickerGestureRef.current.blockClick = false
   }, [])
 
   const autoOpenAccountCreateInFlightRef = useRef(false)
@@ -6066,8 +6264,7 @@ function TransactionsPanel({
               <button
                 type="button"
                 onClick={() => {
-                  setIsGoalSheetOpen(false)
-                  setGoalSheetIntent("openGoalIconPicker")
+                  setIsGoalIconPickerOpen(true)
                 }}
                 style={{
                   padding: "12px 14px",
@@ -6153,33 +6350,41 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={closeGoalsList}
+          data-page-overlay={isGoalsListPage ? "goals-list" : undefined}
+          onClick={isGoalsListPage ? undefined : closeGoalsList}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: isGoalsListPage ? "#f5f6f8" : "rgba(0,0,0,0.35)",
             display: "flex",
-            alignItems: "center",
+            alignItems: isGoalsListPage ? "stretch" : "center",
             justifyContent: "center",
-            zIndex: 58,
-            padding: "12px",
+            zIndex: isGoalsListPage ? 220 : 58,
+            padding: isGoalsListPage ? 0 : "12px",
+            overflow: "hidden",
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: 520,
+              maxWidth: isGoalsListPage ? 480 : 520,
+              width: isGoalsListPage ? "min(480px, 100%)" : undefined,
               margin: "0 auto",
-              background: "#fff",
-              borderRadius: 18,
-              padding: 16,
-              position: "absolute",
-              left: 16,
-              right: 16,
-              top: 24,
-              bottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 24px)",
+              background: isGoalsListPage ? "#f5f6f8" : "#fff",
+              borderRadius: isGoalsListPage ? 0 : 18,
+              padding: isGoalsListPage ? "calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px" : 16,
+              position: isGoalsListPage ? "relative" : "absolute",
+              left: isGoalsListPage ? undefined : 16,
+              right: isGoalsListPage ? undefined : 16,
+              top: isGoalsListPage ? undefined : 24,
+              bottom: isGoalsListPage
+                ? undefined
+                : "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 24px)",
+              height: isGoalsListPage ? "100%" : undefined,
               maxHeight:
-                "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
+                isGoalsListPage
+                  ? "100%"
+                  : "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
               boxShadow: "none",
               display: "flex",
               flexDirection: "column",
@@ -6187,8 +6392,19 @@ function TransactionsPanel({
               overflow: "hidden",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: isGoalsMode || isDebtsMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>{goalsListTitle}</div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                paddingBottom: isGoalsListPage ? 10 : 0,
+                borderBottom: isGoalsListPage ? "1px solid #e5e7eb" : undefined,
+              }}
+            >
+              <div style={{ fontSize: isGoalsListPage ? 20 : isGoalsMode || isDebtsMode ? 18 : 20, fontWeight: 700, color: "#0f172a" }}>
+                {goalsListTitle}
+              </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   type="button"
@@ -6654,6 +6870,7 @@ function TransactionsPanel({
         <div
           role="dialog"
           aria-modal="true"
+          ref={goalIconPickerOverlayRef}
           style={{
             position: "fixed",
             inset: 0,
@@ -6661,39 +6878,93 @@ function TransactionsPanel({
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            zIndex: 45,
-            padding: "0 12px 12px",
+            zIndex: 250,
+            opacity: goalIconPickerClosing ? 0 : 1,
+            transition: "opacity 180ms ease-out",
           }}
-          onClick={() => {
-            setIsGoalIconPickerOpen(false)
-            setGoalSheetIntent("returnToGoalSheet")
-          }}
+          onClick={requestCloseGoalIconPicker}
         >
           <div
+            ref={goalIconPickerSheetRef}
             style={{
-              width: "100%",
-              maxWidth: 520,
-              margin: "0 auto",
+              width: "min(480px, 100%)",
               background: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              padding: 16,
-              boxShadow: "none",
-              maxHeight: "70vh",
-              overflowY: "auto",
-              paddingBottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 12px)",
+              borderRadius: "16px 16px 0 0",
+              borderTop: "1px solid rgba(15,23,42,0.08)",
+              boxShadow: "0 -12px 30px rgba(15,23,42,0.2)",
+              height: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              minHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              maxHeight: "min(50dvh, calc(var(--app-height, 100dvh) - 20px))",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+              transform: goalIconPickerClosing
+                ? "translateY(100%)"
+                : goalIconPickerDragOffset > 0
+                ? `translateY(${goalIconPickerDragOffset}px)`
+                : "translateY(0)",
+              transition:
+                goalIconPickerDragOffset > 0 && !goalIconPickerClosing
+                  ? "none"
+                  : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              touchAction: "pan-y",
+            }}
+            onPointerDown={handleGoalIconPickerPointerDown}
+            onPointerMove={handleGoalIconPickerPointerMove}
+            onPointerUp={handleGoalIconPickerPointerEnd}
+            onPointerCancel={handleGoalIconPickerPointerCancel}
+            onClickCapture={handleGoalIconPickerClickCapture}
+            onTransitionEnd={(event) => {
+              if (event.propertyName !== "transform") return
+              if (!goalIconPickerClosing) return
+              finalizeGoalIconPickerClose()
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <div style={{ width: 32, height: 3, borderRadius: 9999, background: "#e5e7eb" }} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", textAlign: "center", marginBottom: 12 }}>Выбор иконки</div>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
                 gap: 10,
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>Выбор иконки</div>
+              <button
+                type="button"
+                onClick={requestCloseGoalIconPicker}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  background: "#fff",
+                  color: "#0f172a",
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
+            <div
+              ref={goalIconPickerContentRef}
+              style={{
+                padding: 12,
+                display: "grid",
+                gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+                columnGap: 10,
+                rowGap: 6,
+                alignContent: "start",
+                overflowY: "auto",
+                overflowX: "hidden",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehaviorY: "contain",
+                minHeight: 0,
+                flex: "1 1 auto",
               }}
             >
               {(goalIconKeys ?? []).length === 0 ? (
@@ -6705,16 +6976,18 @@ function TransactionsPanel({
                     type="button"
                     onClick={() => {
                       setGoalIcon(key)
-                      setIsGoalIconPickerOpen(false)
-                      setGoalSheetIntent("returnToGoalSheet")
+                      requestCloseGoalIconPicker()
                     }}
                     style={{
-                      padding: 10,
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      padding: 0,
                       borderRadius: 12,
                       border: goalIcon === key ? "1px solid #0f172a" : "1px solid #e5e7eb",
                       background: "#fff",
-                      display: "grid",
-                      placeItems: "center",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       cursor: "pointer",
                     }}
                   >
@@ -6723,24 +6996,6 @@ function TransactionsPanel({
                 ))
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setIsGoalIconPickerOpen(false)
-                setGoalSheetIntent("returnToGoalSheet")
-              }}
-              style={{
-                marginTop: 12,
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                cursor: "pointer",
-                width: "100%",
-              }}
-            >
-              Назад
-            </button>
           </div>
         </div>
       ) : null}
