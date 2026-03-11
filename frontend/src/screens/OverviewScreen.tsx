@@ -5568,7 +5568,7 @@ function TransactionsPanel({
                   background: "#0f172a",
                   color: "#fff",
                   fontWeight: 700,
-                  marginTop: isCategoryDetailPage ? -20 : 12,
+                  marginTop: 12,
                   marginBottom: isCategoryDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
                   alignSelf: isCategoryDetailPage ? "center" : undefined,
                   cursor: "pointer",
@@ -7816,8 +7816,9 @@ function TransactionsPanel({
             ) : null}
             <div
               style={{
-                display: "grid",
-                gap: 14,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
                 overflowY: isCategorySheetPage ? "auto" : undefined,
                 paddingTop: isCategorySheetPage ? 12 : 0,
                 paddingLeft: isCategorySheetPage ? 16 : 0,
