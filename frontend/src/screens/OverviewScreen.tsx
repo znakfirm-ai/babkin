@@ -7284,6 +7284,7 @@ function TransactionsPanel({
 
       {txMode !== "none" ? (
         <div
+          ref={txOverlayRef}
           role="dialog"
           aria-modal="true"
           onClick={closeTxSheet}
