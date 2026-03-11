@@ -87,6 +87,7 @@ const SettingsScreen: React.FC<Props> = ({
   const [sharedMembersError, setSharedMembersError] = useState<string | null>(null)
   const [sharedMembersNotice, setSharedMembersNotice] = useState<string | null>(null)
   const [memberToRemove, setMemberToRemove] = useState<SharedWorkspaceMember | null>(null)
+  const resetSheetOverlayRef = useRef<HTMLDivElement | null>(null)
   const resetSheetRef = useRef<HTMLDivElement | null>(null)
   const resetSheetContentRef = useRef<HTMLDivElement | null>(null)
   const resetSheetGestureRef = useRef<{
@@ -280,10 +281,6 @@ const SettingsScreen: React.FC<Props> = ({
   const handleResetSheetPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (isResetWorkspaceRunning || resetSheetClosing) return
     if (event.pointerType === "mouse" && event.button !== 0) return
-    const content = resetSheetContentRef.current
-    if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0) {
-      return
-    }
     const sheet = resetSheetRef.current
     if (!sheet) return
     sheet.setPointerCapture(event.pointerId)
@@ -296,10 +293,6 @@ const SettingsScreen: React.FC<Props> = ({
   const handleResetSheetPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const gesture = resetSheetGestureRef.current
     if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
-    const content = resetSheetContentRef.current
-    if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0 && !gesture.dragging) {
-      return
-    }
     const deltaY = event.clientY - gesture.startY
     if (deltaY <= 0) {
       if (gesture.dragging && resetSheetDragOffset !== 0) {
@@ -353,6 +346,21 @@ const SettingsScreen: React.FC<Props> = ({
     setResetError(null)
     setResetStep(1)
   }, [isResetWorkspaceRunning])
+
+  React.useEffect(() => {
+    if (activePage !== "reset" || resetStep === 0) return
+    const overlay = resetSheetOverlayRef.current
+    if (!overlay) return
+    const block = (event: Event) => {
+      event.preventDefault()
+    }
+    overlay.addEventListener("touchmove", block, { passive: false })
+    overlay.addEventListener("wheel", block, { passive: false })
+    return () => {
+      overlay.removeEventListener("touchmove", block)
+      overlay.removeEventListener("wheel", block)
+    }
+  }, [activePage, resetStep])
 
   const confirmReset = useCallback(async () => {
     if (!onResetWorkspace || isResetWorkspaceRunning) return
@@ -679,6 +687,7 @@ const SettingsScreen: React.FC<Props> = ({
 
       {activePage === "reset" && resetStep !== 0 ? (
         <div
+          ref={resetSheetOverlayRef}
           role="dialog"
           aria-modal="true"
           onClick={requestCloseResetSheet}
@@ -688,10 +697,6 @@ const SettingsScreen: React.FC<Props> = ({
             event.stopPropagation()
           }}
           onTouchMoveCapture={(event) => {
-            const content = resetSheetContentRef.current
-            if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0) {
-              return
-            }
             event.preventDefault()
           }}
           style={{
@@ -740,7 +745,7 @@ const SettingsScreen: React.FC<Props> = ({
                   ? `translateY(${resetSheetDragOffset}px)`
                   : "translateY(0)",
               transition: resetSheetDragOffset > 0 && !resetSheetClosing ? "none" : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
-              touchAction: "pan-y",
+              touchAction: "none",
               overscrollBehaviorY: "contain",
             }}
           >
@@ -766,7 +771,7 @@ const SettingsScreen: React.FC<Props> = ({
                 gap: 12,
                 alignContent: "start",
                 padding: "12px 16px",
-                overflowY: "auto",
+                overflowY: "hidden",
                 minHeight: 0,
                 flex: "1 1 auto",
                 WebkitOverflowScrolling: "touch",

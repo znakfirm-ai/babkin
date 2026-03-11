@@ -1013,9 +1013,11 @@ function OverviewScreen({
   })
   const [txActionId, setTxActionId] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
-  const [txMode, setTxMode] = useState<"none" | "delete" | "edit">("none")
+  const [txMode, setTxMode] = useState<"none" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
   const [txLoading, setTxLoading] = useState(false)
+  const [isTxDeleteConfirming, setIsTxDeleteConfirming] = useState(false)
+  const txOverlayRef = useRef<HTMLDivElement | null>(null)
   const [txSheetDragOffset, setTxSheetDragOffset] = useState(0)
   const txSheetRef = useRef<HTMLDivElement | null>(null)
   const txSheetContentRef = useRef<HTMLDivElement | null>(null)
@@ -2699,6 +2701,7 @@ function OverviewScreen({
       setDisabledTxHintId(null)
       setTxActionId(id)
       setTxSheetDragOffset(0)
+      setIsTxDeleteConfirming(false)
       setTxMode("edit")
       setEditAmount(String(tx.amount.amount))
       setEditDate(tx.date.slice(0, 10) || getTodayLocalDate())
@@ -2712,6 +2715,7 @@ function OverviewScreen({
     setTxError(null)
     setTxLoading(false)
     setTxSheetDragOffset(0)
+    setIsTxDeleteConfirming(false)
     setDisabledTxHintId(null)
   }, [])
 
@@ -2780,6 +2784,21 @@ function OverviewScreen({
     }
     finishTxSheetPointer(event.pointerId)
   }, [finishTxSheetPointer])
+
+  useEffect(() => {
+    if (txMode === "none") return
+    const overlay = txOverlayRef.current
+    if (!overlay) return
+    const block = (event: Event) => {
+      event.preventDefault()
+    }
+    overlay.addEventListener("touchmove", block, { passive: false })
+    overlay.addEventListener("wheel", block, { passive: false })
+    return () => {
+      overlay.removeEventListener("touchmove", block)
+      overlay.removeEventListener("wheel", block)
+    }
+  }, [txMode])
 
   const closeDetails = useCallback(() => {
     setIsGoalCompleteSheetOpen(false)
@@ -4816,6 +4835,7 @@ function TransactionsPanel({
 
       {(detailAccountId || detailCategoryId || detailIncomeSourceId || detailGoalId || detailDebtorId) && (
         <div
+          ref={txOverlayRef}
           role="dialog"
           aria-modal="true"
           onClick={isDetailPageOverlay ? undefined : closeDetails}
@@ -7180,10 +7200,6 @@ function TransactionsPanel({
             event.stopPropagation()
           }}
           onTouchMoveCapture={(event) => {
-            const content = txSheetContentRef.current
-            if (content && event.target instanceof Node && content.contains(event.target) && content.scrollTop > 0) {
-              return
-            }
             event.preventDefault()
           }}
           style={{
@@ -7222,7 +7238,7 @@ function TransactionsPanel({
               paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
               transform: txSheetDragOffset > 0 ? `translateY(${txSheetDragOffset}px)` : "translateY(0)",
               transition: txSheetDragOffset > 0 ? "none" : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
-              touchAction: "pan-y",
+              touchAction: "none",
               overscrollBehaviorY: "contain",
             }}
           >
@@ -7238,7 +7254,7 @@ function TransactionsPanel({
               }}
             >
               <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>
-                {txMode === "delete" ? "Удалить операцию" : "Редактировать операцию"}
+                {isTxDeleteConfirming ? "Удалить операцию" : "Редактировать операцию"}
               </div>
               <button
                 type="button"
@@ -7257,57 +7273,6 @@ function TransactionsPanel({
               </button>
             </div>
 
-            {txMode === "delete" ? (
-              <div
-                ref={txSheetContentRef}
-                style={{
-                  display: "grid",
-                  gap: 12,
-                  alignContent: "start",
-                  padding: "12px 16px",
-                  overflowY: "auto",
-                  minHeight: 0,
-                  flex: "1 1 auto",
-                  WebkitOverflowScrolling: "touch",
-                  overscrollBehaviorY: "contain",
-                }}
-              >
-                <div style={{ fontSize: 16, fontWeight: 600 }}>Удалить операцию?</div>
-                {txError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{txError}</div> : null}
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button
-                    type="button"
-                    onClick={closeTxSheet}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      flex: 1,
-                    }}
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeleteTx}
-                    disabled={txLoading || isDeleteTxRunning}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #fee2e2",
-                      background: txLoading || isDeleteTxRunning ? "#fecdd3" : "#b91c1c",
-                      color: "#fff",
-                      flex: 1,
-                      cursor: txLoading || isDeleteTxRunning ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {txLoading || isDeleteTxRunning ? "Удаляем…" : "Удалить"}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
             {txMode === "edit" ? (
               <div
                 ref={txSheetContentRef}
@@ -7316,7 +7281,7 @@ function TransactionsPanel({
                   gap: 12,
                   alignContent: "start",
                   padding: "12px 16px",
-                  overflowY: "auto",
+                  overflowY: "hidden",
                   minHeight: 0,
                   flex: "1 1 auto",
                   WebkitOverflowScrolling: "touch",
@@ -7345,54 +7310,91 @@ function TransactionsPanel({
                   />
                 </label>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                  <button
-                    type="button"
-                    onClick={() => setTxMode("delete")}
-                    disabled={txLoading || isEditTxRunning}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #fee2e2",
-                      background: "#fff",
-                      color: "#b91c1c",
-                      cursor: txLoading || isEditTxRunning ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    Удалить
-                  </button>
-                  <button
-                    type="button"
-                    onClick={closeTxSheet}
-                    disabled={txLoading || isEditTxRunning}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                      flex: 1,
-                      cursor: txLoading || isEditTxRunning ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveEdit}
-                    disabled={txLoading || isEditTxRunning}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      border: "1px solid #0f172a",
-                      background: txLoading || isEditTxRunning ? "#e5e7eb" : "#0f172a",
-                      color: txLoading || isEditTxRunning ? "#6b7280" : "#fff",
-                      flex: 1,
-                      cursor: txLoading || isEditTxRunning ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {txLoading || isEditTxRunning ? "Сохраняем…" : "Сохранить"}
-                  </button>
-                </div>
+                {isTxDeleteConfirming ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>Удалить операцию?</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsTxDeleteConfirming(false)}
+                        disabled={txLoading || isDeleteTxRunning}
+                        style={{
+                          padding: 12,
+                          borderRadius: 12,
+                          border: "1px solid #e5e7eb",
+                          background: "#fff",
+                          cursor: txLoading || isDeleteTxRunning ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteTx}
+                        disabled={txLoading || isDeleteTxRunning}
+                        style={{
+                          padding: 12,
+                          borderRadius: 12,
+                          border: "1px solid #fee2e2",
+                          background: txLoading || isDeleteTxRunning ? "#fecdd3" : "#b91c1c",
+                          color: "#fff",
+                          cursor: txLoading || isDeleteTxRunning ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {txLoading || isDeleteTxRunning ? "Удаляем…" : "Подтвердить"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsTxDeleteConfirming(true)}
+                      disabled={txLoading || isEditTxRunning}
+                      style={{
+                        padding: 12,
+                        borderRadius: 12,
+                        border: "1px solid #fee2e2",
+                        background: "#fff",
+                        color: "#b91c1c",
+                        cursor: txLoading || isEditTxRunning ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      Удалить
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeTxSheet}
+                      disabled={txLoading || isEditTxRunning}
+                      style={{
+                        padding: 12,
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        background: "#fff",
+                        flex: 1,
+                        cursor: txLoading || isEditTxRunning ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveEdit}
+                      disabled={txLoading || isEditTxRunning}
+                      style={{
+                        padding: 12,
+                        borderRadius: 12,
+                        border: "1px solid #0f172a",
+                        background: txLoading || isEditTxRunning ? "#e5e7eb" : "#0f172a",
+                        color: txLoading || isEditTxRunning ? "#6b7280" : "#fff",
+                        flex: 1,
+                        cursor: txLoading || isEditTxRunning ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {txLoading || isEditTxRunning ? "Сохраняем…" : "Сохранить"}
+                    </button>
+                  </div>
+                )}
               </div>
             ) : null}
           </div>
