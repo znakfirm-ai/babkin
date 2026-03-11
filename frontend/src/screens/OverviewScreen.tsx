@@ -5520,16 +5520,15 @@ function TransactionsPanel({
               <button
                 type="button"
                 style={{
-                  width: isAccountDetailPage ? "calc(100% - 32px)" : "100%",
+                  width: "100%",
                   padding: "14px 16px",
                   borderRadius: 12,
                   border: "1px solid #0f172a",
                   background: "#0f172a",
                   color: "#fff",
                   fontWeight: 700,
-                  marginTop: isAccountDetailPage ? -20 : 12,
-                  marginBottom: isAccountDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
-                  alignSelf: isAccountDetailPage ? "center" : undefined,
+                  marginTop: 12,
+                  marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
                 }}
                 onClick={openTransferFromAccountDetails}
               >
@@ -5540,16 +5539,15 @@ function TransactionsPanel({
               <button
                 type="button"
                 style={{
-                  width: isIncomeSourceDetailPage ? "calc(100% - 32px)" : "100%",
+                  width: "100%",
                   padding: "14px 16px",
                   borderRadius: 12,
                   border: "1px solid #0f172a",
                   background: "#0f172a",
                   color: "#fff",
                   fontWeight: 700,
-                  marginTop: isIncomeSourceDetailPage ? -20 : 12,
-                  marginBottom: isIncomeSourceDetailPage ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : 12,
-                  alignSelf: isIncomeSourceDetailPage ? "center" : undefined,
+                  marginTop: 12,
+                  marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
                   cursor: "pointer",
                 }}
                 onClick={openIncomeFromSourceDetails}
