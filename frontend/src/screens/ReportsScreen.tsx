@@ -1375,6 +1375,7 @@ const ReportsScreen: React.FC<Props> = ({
                         position: "relative",
                         width: "100%",
                         minWidth: 0,
+                        background: "#fff",
                         border: "1px solid #e5e7eb",
                         borderRadius: 12,
                         padding: "14px 15px 14px",
