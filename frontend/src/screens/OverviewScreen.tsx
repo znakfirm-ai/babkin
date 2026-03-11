@@ -6358,9 +6358,6 @@ function TransactionsPanel({
                     borderRadius: 10,
                     border: "1px solid #e5e7eb",
                     background: "#fff",
-                    color: "#0f172a",
-                    fontWeight: 600,
-                    fontSize: 14,
                     cursor: "pointer",
                     width: "100%",
                   }}
@@ -6374,17 +6371,15 @@ function TransactionsPanel({
                   style={{
                     padding: "10px 12px",
                     borderRadius: 10,
-                    border: "1px solid #0f172a",
-                    background: "#0f172a",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 14,
+                    border: "1px solid #e5e7eb",
+                    background: isSavingGoal ? "#e5e7eb" : "#0f172a",
+                    color: isSavingGoal ? "#6b7280" : "#fff",
+                    fontWeight: 600,
                     cursor: "pointer",
-                    opacity: isSavingGoal ? 0.7 : 1,
                     width: "100%",
                   }}
                 >
-                  Сохранить
+                  {isSavingGoal ? "Сохраняем…" : "Сохранить"}
                 </button>
               </div>
             </div>
