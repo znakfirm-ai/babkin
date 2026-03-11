@@ -1603,27 +1603,29 @@ const ReportsScreen: React.FC<Props> = ({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={closeIncomeReport}
-          className="tx-modal__backdrop"
-          style={{ padding: "0 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px)" }}
+          data-page-overlay="report-income"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "#f5f6f8",
+            display: "flex",
+            justifyContent: "center",
+            zIndex: 220,
+            overflow: "hidden",
+          }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="tx-modal"
             style={{
-              maxWidth: 640,
-              width: "100%",
-              padding: "16px",
-              margin: "0 auto",
-              borderRadius: "18px 18px 20px 20px",
+              width: "min(480px, 100%)",
+              height: "100%",
+              padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 12px)",
+              background: "#f5f6f8",
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
-              height: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
-              maxHeight: "calc(100dvh - var(--bottom-nav-height, 56px) - env(safe-area-inset-bottom, 0px) - 24px)",
             }}
           >
-            <div style={{ width: "100%", maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Доходы по категориям</div>
                 <button
