@@ -92,18 +92,32 @@ const SettingsScreen: React.FC<Props> = ({
   const resetSheetContentRef = useRef<HTMLDivElement | null>(null)
   const resetSheetGestureRef = useRef<{
     pointerId: number | null
+    startX: number
     startY: number
-    dragging: boolean
     tracking: boolean
+    draggingSheet: boolean
+    blockClick: boolean
   }>({
     pointerId: null,
+    startX: 0,
     startY: 0,
-    dragging: false,
     tracking: false,
+    draggingSheet: false,
+    blockClick: false,
+  })
+  const resetSheetTouchRef = useRef<{
+    identifier: number | null
+    startX: number
+    startY: number
+  }>({
+    identifier: null,
+    startX: 0,
+    startY: 0,
   })
   const resetSheetDragOffsetRef = useRef(0)
   const [resetSheetDragOffset, setResetSheetDragOffset] = useState(0)
   const [resetSheetClosing, setResetSheetClosing] = useState(false)
+  const isResetSheetOpen = activePage === "reset" && resetStep !== 0
 
   const handleToggleDebugTimings = useCallback(() => {
     const nextValue = !debugTimingsEnabled
@@ -271,9 +285,11 @@ const SettingsScreen: React.FC<Props> = ({
   }, [isResetWorkspaceRunning])
 
   const requestCloseResetSheet = useCallback(() => {
-    if (isResetWorkspaceRunning) return
+    if (!isResetSheetOpen || resetSheetClosing || isResetWorkspaceRunning) return
     setResetSheetClosing(true)
-  }, [isResetWorkspaceRunning])
+    resetSheetDragOffsetRef.current = 0
+    setResetSheetDragOffset(0)
+  }, [isResetSheetOpen, isResetWorkspaceRunning, resetSheetClosing])
 
   const finalizeCloseResetSheet = useCallback(() => {
     setResetSheetClosing(false)
@@ -285,40 +301,59 @@ const SettingsScreen: React.FC<Props> = ({
   const handleResetSheetPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (isResetWorkspaceRunning || resetSheetClosing) return
     if (event.pointerType === "mouse" && event.button !== 0) return
-    const sheet = resetSheetRef.current
-    if (!sheet) return
-    sheet.setPointerCapture(event.pointerId)
-    resetSheetGestureRef.current.pointerId = event.pointerId
-    resetSheetGestureRef.current.startY = event.clientY
-    resetSheetGestureRef.current.dragging = false
-    resetSheetGestureRef.current.tracking = true
+    event.stopPropagation()
+    const gesture = resetSheetGestureRef.current
+    gesture.pointerId = event.pointerId
+    gesture.startX = event.clientX
+    gesture.startY = event.clientY
+    gesture.tracking = true
+    gesture.draggingSheet = false
+    gesture.blockClick = false
   }, [isResetWorkspaceRunning, resetSheetClosing])
 
   const handleResetSheetPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
     const gesture = resetSheetGestureRef.current
     if (!gesture.tracking || gesture.pointerId !== event.pointerId) return
-    const deltaY = event.clientY - gesture.startY
-    if (deltaY <= 0) {
-      if (gesture.dragging && resetSheetDragOffsetRef.current !== 0) {
-        resetSheetDragOffsetRef.current = 0
-        setResetSheetDragOffset(0)
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+    const absDx = Math.abs(dx)
+    const absDy = Math.abs(dy)
+    const content = resetSheetContentRef.current
+    const atTop = !content || content.scrollTop <= 0
+
+    if (!gesture.draggingSheet) {
+      if (absDy < 8 || absDy <= absDx) return
+      if (dy > 0 && atTop) {
+        gesture.draggingSheet = true
+        gesture.blockClick = true
+      } else {
+        gesture.tracking = false
+        gesture.pointerId = null
+        return
       }
-      return
     }
-    if (!gesture.dragging) gesture.dragging = true
+
     event.preventDefault()
-    resetSheetDragOffsetRef.current = deltaY
-    setResetSheetDragOffset(deltaY)
+    const dragOffset = Math.max(0, dy)
+    resetSheetDragOffsetRef.current = dragOffset
+    setResetSheetDragOffset(dragOffset)
   }, [])
 
-  const finishResetSheetGesture = useCallback((pointerId: number) => {
+  const handleResetSheetPointerEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
     const gesture = resetSheetGestureRef.current
-    if (!gesture.tracking || gesture.pointerId !== pointerId) return
-    const shouldClose = gesture.dragging && resetSheetDragOffsetRef.current > 90
+    if (gesture.pointerId !== event.pointerId) return
+
+    const shouldClose = gesture.draggingSheet && resetSheetDragOffsetRef.current > 72
     gesture.pointerId = null
+    gesture.startX = 0
     gesture.startY = 0
-    gesture.dragging = false
     gesture.tracking = false
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+
     if (shouldClose) {
       requestCloseResetSheet()
       return
@@ -327,21 +362,26 @@ const SettingsScreen: React.FC<Props> = ({
     setResetSheetDragOffset(0)
   }, [requestCloseResetSheet])
 
-  const handleResetSheetPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const sheet = resetSheetRef.current
-    if (sheet && sheet.hasPointerCapture(event.pointerId)) {
-      sheet.releasePointerCapture(event.pointerId)
-    }
-    finishResetSheetGesture(event.pointerId)
-  }, [finishResetSheetGesture])
-
   const handleResetSheetPointerCancel = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const sheet = resetSheetRef.current
-    if (sheet && sheet.hasPointerCapture(event.pointerId)) {
-      sheet.releasePointerCapture(event.pointerId)
-    }
-    finishResetSheetGesture(event.pointerId)
-  }, [finishResetSheetGesture])
+    event.stopPropagation()
+    const gesture = resetSheetGestureRef.current
+    if (gesture.pointerId !== event.pointerId) return
+    gesture.pointerId = null
+    gesture.startX = 0
+    gesture.startY = 0
+    gesture.tracking = false
+    gesture.draggingSheet = false
+    gesture.blockClick = false
+    resetSheetDragOffsetRef.current = 0
+    setResetSheetDragOffset(0)
+  }, [])
+
+  const handleResetSheetClickCapture = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!resetSheetGestureRef.current.blockClick) return
+    event.preventDefault()
+    event.stopPropagation()
+    resetSheetGestureRef.current.blockClick = false
+  }, [])
 
   const continueResetSheet = useCallback(() => {
     setResetError(null)
@@ -355,19 +395,105 @@ const SettingsScreen: React.FC<Props> = ({
   }, [isResetWorkspaceRunning])
 
   React.useEffect(() => {
-    if (activePage !== "reset" || resetStep === 0) return
+    if (isResetSheetOpen) return
+    setResetSheetClosing(false)
+    resetSheetDragOffsetRef.current = 0
+    setResetSheetDragOffset(0)
+    resetSheetGestureRef.current.pointerId = null
+    resetSheetGestureRef.current.startX = 0
+    resetSheetGestureRef.current.startY = 0
+    resetSheetGestureRef.current.tracking = false
+    resetSheetGestureRef.current.draggingSheet = false
+    resetSheetGestureRef.current.blockClick = false
+    resetSheetTouchRef.current.identifier = null
+    resetSheetTouchRef.current.startX = 0
+    resetSheetTouchRef.current.startY = 0
+  }, [isResetSheetOpen])
+
+  React.useEffect(() => {
+    if (!isResetSheetOpen) return
     const overlay = resetSheetOverlayRef.current
+    const sheet = resetSheetRef.current
+    const content = resetSheetContentRef.current
     if (!overlay) return
-    const block = (event: Event) => {
+
+    const resetTouchState = () => {
+      resetSheetTouchRef.current.identifier = null
+      resetSheetTouchRef.current.startX = 0
+      resetSheetTouchRef.current.startY = 0
+    }
+
+    const getTrackedTouch = (event: TouchEvent) => {
+      const trackedId = resetSheetTouchRef.current.identifier
+      if (trackedId == null) return event.touches[0] ?? event.changedTouches[0] ?? null
+      for (let index = 0; index < event.touches.length; index += 1) {
+        const touch = event.touches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      for (let index = 0; index < event.changedTouches.length; index += 1) {
+        const touch = event.changedTouches.item(index)
+        if (touch && touch.identifier === trackedId) return touch
+      }
+      return null
+    }
+
+    const onTouchStartCapture = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0]
+      if (!touch) return
+      resetSheetTouchRef.current.identifier = touch.identifier
+      resetSheetTouchRef.current.startX = touch.clientX
+      resetSheetTouchRef.current.startY = touch.clientY
+    }
+
+    const onTouchMoveCapture = (event: TouchEvent) => {
+      const touch = getTrackedTouch(event)
+      if (!touch) return
+      const dx = touch.clientX - resetSheetTouchRef.current.startX
+      const dy = touch.clientY - resetSheetTouchRef.current.startY
+      if (Math.abs(dy) <= Math.abs(dx)) return
+
+      const targetNode = event.target instanceof Node ? event.target : null
+      const targetInSheet = targetNode && sheet ? sheet.contains(targetNode) : false
+      const targetInContent = targetNode && content ? content.contains(targetNode) : false
+
+      if (!targetInSheet || !targetInContent || !content) {
+        event.preventDefault()
+        return
+      }
+
+      const atTop = content.scrollTop <= 0
+      const atBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 1
+      if ((dy > 0 && atTop) || (dy < 0 && atBottom)) {
+        event.preventDefault()
+      }
+    }
+
+    const onTouchEndCapture = () => {
+      resetTouchState()
+    }
+
+    const onTouchCancelCapture = () => {
+      resetTouchState()
+    }
+
+    const blockWheel = (event: WheelEvent) => {
       event.preventDefault()
     }
-    overlay.addEventListener("touchmove", block, { passive: false })
-    overlay.addEventListener("wheel", block, { passive: false })
+
+    overlay.addEventListener("touchstart", onTouchStartCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchmove", onTouchMoveCapture, { capture: true, passive: false })
+    overlay.addEventListener("touchend", onTouchEndCapture, { capture: true, passive: true })
+    overlay.addEventListener("touchcancel", onTouchCancelCapture, { capture: true, passive: true })
+    overlay.addEventListener("wheel", blockWheel, { passive: false })
     return () => {
-      overlay.removeEventListener("touchmove", block)
-      overlay.removeEventListener("wheel", block)
+      overlay.removeEventListener("touchstart", onTouchStartCapture, true)
+      overlay.removeEventListener("touchmove", onTouchMoveCapture, true)
+      overlay.removeEventListener("touchend", onTouchEndCapture, true)
+      overlay.removeEventListener("touchcancel", onTouchCancelCapture, true)
+      overlay.removeEventListener("wheel", blockWheel)
+      resetTouchState()
     }
-  }, [activePage, resetStep])
+  }, [isResetSheetOpen])
 
   const confirmReset = useCallback(async () => {
     if (!onResetWorkspace || isResetWorkspaceRunning) return
@@ -692,20 +818,12 @@ const SettingsScreen: React.FC<Props> = ({
         </div>
       ) : null}
 
-      {activePage === "reset" && resetStep !== 0 ? (
+      {isResetSheetOpen ? (
         <div
           ref={resetSheetOverlayRef}
           role="dialog"
           aria-modal="true"
           onClick={requestCloseResetSheet}
-          onPointerMoveCapture={(event) => {
-            if (!resetSheetGestureRef.current.dragging) return
-            event.preventDefault()
-            event.stopPropagation()
-          }}
-          onTouchMoveCapture={(event) => {
-            event.preventDefault()
-          }}
           style={{
             position: "fixed",
             inset: 0,
@@ -716,7 +834,6 @@ const SettingsScreen: React.FC<Props> = ({
             zIndex: 220,
             opacity: resetSheetClosing ? 0 : 1,
             transition: "opacity 180ms ease-out",
-            touchAction: "none",
             overscrollBehaviorY: "none",
             overscrollBehavior: "contain",
           }}
@@ -726,8 +843,9 @@ const SettingsScreen: React.FC<Props> = ({
             onClick={(event) => event.stopPropagation()}
             onPointerDown={handleResetSheetPointerDown}
             onPointerMove={handleResetSheetPointerMove}
-            onPointerUp={handleResetSheetPointerUp}
+            onPointerUp={handleResetSheetPointerEnd}
             onPointerCancel={handleResetSheetPointerCancel}
+            onClickCapture={handleResetSheetClickCapture}
             onTransitionEnd={(event) => {
               if (event.propertyName !== "transform") return
               if (!resetSheetClosing) return
@@ -752,7 +870,7 @@ const SettingsScreen: React.FC<Props> = ({
                   ? `translateY(${resetSheetDragOffset}px)`
                   : "translateY(0)",
               transition: resetSheetDragOffset > 0 && !resetSheetClosing ? "none" : "transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1)",
-              touchAction: "none",
+              touchAction: "pan-y",
               overscrollBehaviorY: "contain",
             }}
           >
