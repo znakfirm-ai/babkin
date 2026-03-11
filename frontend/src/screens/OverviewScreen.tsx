@@ -2484,6 +2484,16 @@ function OverviewScreen({
     }
   }, [closeTxSheet, onReturnToIncomeReport, onReturnToReport, returnToIncomeReport, returnToReport])
 
+  const closeGoalDetailsToGoalsList = useCallback(() => {
+    setIsGoalCompleteSheetOpen(false)
+    setGoalSearch("")
+    setGoalError(null)
+    setDetailGoalId(null)
+    setDetailDebtorId(null)
+    setDetailTitle("")
+    setIsGoalsListOpen(true)
+  }, [])
+
   const openEditAccountFromDetails = useCallback(
     (accountId: string) => {
       openEditAccountSheet(accountId, "page")
@@ -2503,6 +2513,21 @@ function OverviewScreen({
       openEditCategorySheet(categoryId, title, "page")
     },
     [openEditCategorySheet],
+  )
+
+  const openEditGoalFromDetails = useCallback(
+    (goalId: string, title: string) => {
+      setPendingGoalCreate(false)
+      setPendingOpenGoalsList(false)
+      setIsGoalSheetOpen(false)
+      setIsGoalCompleteSheetOpen(false)
+      setDetailGoalId(null)
+      setDetailTitle("")
+      setGoalSearch("")
+      setIsGoalsListOpen(false)
+      setPendingGoalEdit({ id: goalId, title })
+    },
+    [],
   )
 
   const openTransferFromAccountDetails = useCallback(() => {
@@ -4205,7 +4230,10 @@ function TransactionsPanel({
   const isIncomeSourceDetailPage = Boolean(
     detailIncomeSourceId && !detailAccountId && !detailCategoryId && !detailGoalId && !detailDebtorId,
   )
-  const isDetailPageOverlay = isAccountDetailPage || isIncomeSourceDetailPage || isCategoryDetailPage
+  const isGoalDetailPage = Boolean(
+    detailGoalId && !detailAccountId && !detailCategoryId && !detailIncomeSourceId && !detailDebtorId,
+  )
+  const isDetailPageOverlay = isAccountDetailPage || isIncomeSourceDetailPage || isCategoryDetailPage || isGoalDetailPage
   const isAccountSheetPage = accountSheetPresentation === "page"
   const isCategorySheetPage = categorySheetPresentation === "page"
   const isIncomeSourceSheetPage = incomeSourceSheetPresentation === "page"
@@ -4336,6 +4364,8 @@ function TransactionsPanel({
               ? "income-source-detail"
               : isCategoryDetailPage
               ? "category-detail"
+              : isGoalDetailPage
+              ? "goal-detail"
               : undefined
           }
           style={{
@@ -4451,10 +4481,26 @@ function TransactionsPanel({
                   >
                     + Редактировать
                   </button>
+                ) : detailGoal ? (
+                  <button
+                    type="button"
+                    onClick={() => openEditGoalFromDetails(detailGoal.id, detailGoal.name)}
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      borderRadius: 10,
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      color: "#0f172a",
+                      fontWeight: 600,
+                    }}
+                  >
+                    + Редактировать
+                  </button>
                 ) : null}
                 <button
                   type="button"
-                  onClick={closeDetails}
+                  onClick={detailGoal ? closeGoalDetailsToGoalsList : closeDetails}
                   style={{
                     border: "1px solid #e5e7eb",
                     background: "#fff",
@@ -5631,92 +5677,6 @@ function TransactionsPanel({
                       )
                     }}
                   />
-
-                  <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (detailGoalId) {
-                          setPendingGoalCreate(false)
-                          setPendingOpenGoalsList(false)
-                          setIsGoalSheetOpen(false)
-                          closeDetails()
-                          setPendingGoalEdit({ id: detailGoalId, title: detailGoal.name })
-                        }
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: "12px 14px",
-                        borderRadius: 12,
-                        border: "1px solid #e5e7eb",
-                        background: "#fff",
-                        color: "#0f172a",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Редактировать
-                    </button>
-                    {isGoalCompleteSheetOpen ? (
-                      <div style={{ display: "grid", gap: 10 }}>
-                        <div style={{ fontSize: 14, color: "#0f172a", opacity: 0.75 }}>
-                          Цель будет перемещена в архив. Накопления вернутся на исходный счет.
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                          <button
-                            type="button"
-                            onClick={() => setIsGoalCompleteSheetOpen(false)}
-                            disabled={isGoalCompleteRunning}
-                            style={{
-                              padding: "10px 12px",
-                              borderRadius: 10,
-                              border: "1px solid #e5e7eb",
-                              background: "#fff",
-                              color: "#0f172a",
-                              fontWeight: 600,
-                              cursor: isGoalCompleteRunning ? "not-allowed" : "pointer",
-                            }}
-                          >
-                            Отмена
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isGoalCompleteRunning}
-                            onClick={() => void handleArchiveGoalFromDetails()}
-                            style={{
-                              padding: "10px 12px",
-                              borderRadius: 10,
-                              border: "1px solid #0f172a",
-                              background: isGoalCompleteRunning ? "#e5e7eb" : "#0f172a",
-                              color: isGoalCompleteRunning ? "#6b7280" : "#fff",
-                              fontWeight: 700,
-                              cursor: isGoalCompleteRunning ? "not-allowed" : "pointer",
-                            }}
-                          >
-                            {isGoalCompleteRunning ? "Закрываем…" : "Закрыть цель"}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsGoalCompleteSheetOpen(true)
-                        }}
-                        style={{
-                          padding: "12px 14px",
-                          borderRadius: 12,
-                          border: "1px solid #0f172a",
-                          background: "#0f172a",
-                          color: "#fff",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Закрыть цель
-                      </button>
-                    )}
-                  </div>
                 </div>
               ) : null}
             {detailAccountId && (!searchFocused && !accountSearch) && (
@@ -5778,6 +5738,77 @@ function TransactionsPanel({
                 Добавить операцию
               </button>
             )}
+            {detailGoal && (isGoalCompleteSheetOpen ? (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  marginTop: 12,
+                  marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+                }}
+              >
+                <div style={{ fontSize: 14, color: "#0f172a", opacity: 0.75 }}>
+                  Цель будет перемещена в архив. Накопления вернутся на исходный счет.
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsGoalCompleteSheetOpen(false)}
+                    disabled={isGoalCompleteRunning}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      color: "#0f172a",
+                      fontWeight: 600,
+                      cursor: isGoalCompleteRunning ? "not-allowed" : "pointer",
+                      width: "100%",
+                    }}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isGoalCompleteRunning}
+                    onClick={() => void handleArchiveGoalFromDetails()}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #0f172a",
+                      background: isGoalCompleteRunning ? "#e5e7eb" : "#0f172a",
+                      color: isGoalCompleteRunning ? "#6b7280" : "#fff",
+                      fontWeight: 700,
+                      cursor: isGoalCompleteRunning ? "not-allowed" : "pointer",
+                      width: "100%",
+                    }}
+                  >
+                    {isGoalCompleteRunning ? "Закрываем…" : "Закрыть цель"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsGoalCompleteSheetOpen(true)
+                }}
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "1px solid #0f172a",
+                  background: "#0f172a",
+                  color: "#fff",
+                  fontWeight: 700,
+                  marginTop: 12,
+                  marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+                  cursor: "pointer",
+                }}
+              >
+                Закрыть цель
+              </button>
+            ))}
           </div>
         </div>
         </div>
