@@ -121,6 +121,13 @@ type DraftSemanticHints = {
 
 type PickerKind = "acc" | "cat" | "src" | "from" | "to" | "ws"
 
+type InlineKeyboardButton = {
+  text: string
+  callback_data?: string
+  url?: string
+  web_app?: { url: string }
+}
+
 type WorkspaceOption = {
   id: string
   name: string
@@ -1128,7 +1135,7 @@ const buildPickerRows = (
 }
 
 const buildReviewKeyboard = (type: DraftType) => {
-  const rows: Array<Array<{ text: string; callback_data?: string; url?: string }>> = []
+  const rows: InlineKeyboardButton[][] = []
 
   if (type === "transfer") {
     rows.push([
@@ -1185,7 +1192,7 @@ const buildDateKeyboard = (openAppUrl: string) => ({
       { text: "Сегодня", callback_data: "bot:set:date:today" },
       { text: "Вчера", callback_data: "bot:set:date:yesterday" },
     ],
-    [{ text: "Открыть в приложении", url: openAppUrl }],
+    [buildOpenAppButton(openAppUrl)],
     [
       { text: "Назад", callback_data: "bot:back:review" },
       { text: "Отмена", callback_data: "bot:cancel" },
@@ -1217,7 +1224,7 @@ const buildUnfinishedKeyboard = () => ({
 
 const buildResultKeyboard = (openAppUrl: string) => ({
   inline_keyboard: [
-    [{ text: "Открыть в приложении", url: openAppUrl }],
+    [buildOpenAppButton(openAppUrl)],
   ],
 })
 
@@ -1343,6 +1350,21 @@ const buildMiniAppDeepLink = (
     return baseUrl
   }
 }
+
+const shouldUseWebAppButton = (openAppUrl: string): boolean => {
+  try {
+    const parsedUrl = new URL(openAppUrl)
+    if (parsedUrl.protocol !== "https:") return false
+    return parsedUrl.hostname !== "t.me"
+  } catch {
+    return false
+  }
+}
+
+const buildOpenAppButton = (openAppUrl: string): InlineKeyboardButton =>
+  shouldUseWebAppButton(openAppUrl)
+    ? { text: "Открыть в приложении", web_app: { url: openAppUrl } }
+    : { text: "Открыть в приложении", url: openAppUrl }
 
 const resolveDraftTarget = (
   draft: bot_operation_drafts,
@@ -2285,6 +2307,10 @@ async function saveDraft(
       targetId: target.targetId,
       transactionId: createdTransaction.id,
     })
+    const openButtonMode = shouldUseWebAppButton(deepLink) ? "web_app" : "url"
+    fastify.log.info(
+      `[bot:save] open-app button mode=${openButtonMode} targetType=${target.targetType} workspaceId=${updatedDraft.workspace_id} transactionId=${createdTransaction.id}`,
+    )
 
     await upsertDraftLiveMessage(fastify, {
       session,
