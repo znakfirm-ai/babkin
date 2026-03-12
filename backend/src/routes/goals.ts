@@ -352,7 +352,13 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
       return reply.status(400).send({ error: "Bad Request", reason: "missing_goal_id" })
     }
 
-    const body = request.body as { accountId?: string; amount?: number; date?: string; note?: string | null }
+    const body = request.body as {
+      accountId?: string
+      amount?: number
+      date?: string
+      description?: string | null
+      note?: string | null
+    }
     if (!body.accountId) {
       return reply.status(400).send({ error: "Bad Request", reason: "missing_account_id" })
     }
@@ -379,6 +385,7 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
     }
 
     const amountDec = new Prisma.Decimal(amt)
+    const description = body.description?.trim() || body.note?.trim() || null
 
     const updatedGoal = await prisma.$transaction(async (tx) => {
       await tx.accounts.update({
@@ -404,7 +411,7 @@ export async function goalsRoutes(fastify: FastifyInstance, _opts: FastifyPlugin
           category_id: null,
           income_source_id: null,
           goal_id: goal.id,
-          note: body.note?.trim() || null,
+          note: description,
         },
       })
 

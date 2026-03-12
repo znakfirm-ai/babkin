@@ -191,6 +191,26 @@ const AmountDateRow: React.FC<{
   </div>
 )
 
+const DescriptionField: React.FC<{ value: string; onChange: (value: string) => void }> = ({ value, onChange }) => (
+  <label style={{ display: "grid", gap: 6, width: "100%" }}>
+    <span style={{ fontSize: 13, color: "#4b5563" }}>Описание</span>
+    <input
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder="Например, стоматолог"
+      style={{
+        width: "100%",
+        padding: 12,
+        borderRadius: 12,
+        border: "1px solid #e5e7eb",
+        fontSize: 15,
+        outline: "none",
+        boxShadow: "none",
+      }}
+    />
+  </label>
+)
+
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 type QuickAddPickerKey =
   | "expense-account"
@@ -256,6 +276,7 @@ export const QuickAddScreen: React.FC<Props> = ({
   const [selectedPayableDebtorId, setSelectedPayableDebtorId] = useState<string | null>(null)
   const [transferDate, setTransferDate] = useState(() => getTodayLocalDate())
   const [amount, setAmount] = useState("")
+  const [description, setDescription] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isAmountFocused, setIsAmountFocused] = useState(false)
   const [expensePicker, setExpensePicker] = useState<QuickAddPickerKey | null>(null)
@@ -345,11 +366,12 @@ export const QuickAddScreen: React.FC<Props> = ({
         tab: activeTab,
         amount,
         date: transferDate,
+        description,
       },
       isSubmitting: isRunning,
     })
     setDiagnosticsPendingFlag("quickAddSubmitting", isRunning)
-  }, [activeTab, amount, isRunning, transferDate])
+  }, [activeTab, amount, description, isRunning, transferDate])
 
   useEffect(() => {
     logDiagnosticsFormFieldChange("quick-add", "amount", amount)
@@ -358,6 +380,10 @@ export const QuickAddScreen: React.FC<Props> = ({
   useEffect(() => {
     logDiagnosticsFormFieldChange("quick-add", "date", transferDate)
   }, [transferDate])
+
+  useEffect(() => {
+    logDiagnosticsFormFieldChange("quick-add", "description", description)
+  }, [description])
 
   useEffect(() => {
     logDiagnosticEvent("form.open", {
@@ -887,6 +913,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     }
     updateDiagnosticsAction(actionId, "validation.success")
     setError(null)
+    const descriptionValue = description.trim() || null
     try {
       updateDiagnosticsAction(actionId, "submit.start")
       await createTransaction(token, {
@@ -895,6 +922,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         accountId: selectedAccountId,
         categoryId: selectedCategoryId,
         happenedAt: `${transferDate}T00:00:00.000Z`,
+        description: descriptionValue,
       })
       const accountsData = await getAccounts(token)
       setAccounts(
@@ -930,6 +958,8 @@ export const QuickAddScreen: React.FC<Props> = ({
           debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
           createdByUserId: t.createdByUserId ?? null,
           createdByName: t.createdByName ?? null,
+          description: t.description ?? t.note ?? undefined,
+          comment: t.description ?? t.note ?? undefined,
         })),
       )
       onSaved?.()
@@ -940,7 +970,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       finishDiagnosticsAction(actionId, "fail")
     }
     })
-  }, [activeTab, amount, isRunning, onSaved, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
+  }, [activeTab, amount, description, isRunning, onSaved, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token, transferDate])
 
   const openExpensePicker = useCallback((picker: QuickAddPickerKey) => {
     if (expensePickerCloseTimerRef.current !== null) {
@@ -1114,6 +1144,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     }
     updateDiagnosticsAction(actionId, "validation.success")
     setError(null)
+    const descriptionValue = description.trim() || null
     try {
       updateDiagnosticsAction(actionId, "submit.start")
       await createTransaction(token, {
@@ -1122,6 +1153,7 @@ export const QuickAddScreen: React.FC<Props> = ({
         accountId: selectedAccountId,
         incomeSourceId: selectedIncomeSourceId,
         happenedAt: `${transferDate}T00:00:00.000Z`,
+        description: descriptionValue,
       })
       const accountsData = await getAccounts(token)
       setAccounts(
@@ -1157,11 +1189,14 @@ export const QuickAddScreen: React.FC<Props> = ({
           debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
           createdByUserId: t.createdByUserId ?? null,
           createdByName: t.createdByName ?? null,
+          description: t.description ?? t.note ?? undefined,
+          comment: t.description ?? t.note ?? undefined,
         })),
       )
       setSelectedIncomeSourceId(null)
       setSelectedAccountId(null)
       setAmount("")
+      setDescription("")
       onSaved?.()
       finishDiagnosticsAction(actionId, "success")
     } catch (err) {
@@ -1170,7 +1205,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       finishDiagnosticsAction(actionId, "fail")
     }
     })
-  }, [activeTab, amount, isRunning, onSaved, run, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
+  }, [activeTab, amount, description, isRunning, onSaved, run, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token, transferDate])
 
   const renderTile = (
     item: {
@@ -1426,6 +1461,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     }
     updateDiagnosticsAction(actionId, "validation.success")
     setError(null)
+    const descriptionValue = description.trim() || null
     try {
       updateDiagnosticsAction(actionId, "submit.start")
       if (transferTargetType === "account") {
@@ -1437,6 +1473,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           fromAccountId: fromId,
           toAccountId: toId,
           happenedAt: `${transferDate}T00:00:00.000Z`,
+          description: descriptionValue,
         })
       } else if (transferTargetType === "goal" && selectedGoalId && transferFromAccountId) {
         const fromId = transferFromAccountId as string
@@ -1444,6 +1481,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           accountId: fromId,
           amount: Math.round(amt * 100) / 100,
           date: `${transferDate}T00:00:00.000Z`,
+          description: descriptionValue,
         })
       } else if (transferTargetType === "debt" && selectedPayableDebtorId && transferFromAccountId) {
         await createTransaction(token, {
@@ -1452,6 +1490,7 @@ export const QuickAddScreen: React.FC<Props> = ({
           accountId: transferFromAccountId,
           debtorId: selectedPayableDebtorId,
           happenedAt: `${transferDate}T00:00:00.000Z`,
+          description: descriptionValue,
         })
       }
       const accountsData = await getAccounts(token)
@@ -1488,6 +1527,8 @@ export const QuickAddScreen: React.FC<Props> = ({
           debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
           createdByUserId: t.createdByUserId ?? null,
           createdByName: t.createdByName ?? null,
+          description: t.description ?? t.note ?? undefined,
+          comment: t.description ?? t.note ?? undefined,
         })),
       )
       if (transferTargetType === "goal") {
@@ -1495,6 +1536,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       } else if (transferTargetType === "debt") {
         await refetchDebtors()
       }
+      setDescription("")
       onSaved?.()
       finishDiagnosticsAction(actionId, "success")
     } catch (err) {
@@ -1519,6 +1561,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     transferFromAccountId,
     transferToAccountId,
     transferTargetType,
+    description,
   ])
 
   const expenseReady = selectedAccountId && selectedCategoryId && Number(amount.replace(",", ".")) > 0
@@ -1601,12 +1644,14 @@ export const QuickAddScreen: React.FC<Props> = ({
     }
     updateDiagnosticsAction(actionId, "validation.success")
     setError(null)
+    const descriptionValue = description.trim() || null
     try {
       updateDiagnosticsAction(actionId, "submit.start")
       await contributeGoal(token, selectedGoalId, {
         accountId: selectedAccountId,
         amount: Math.round(amt * 100) / 100,
         date: `${transferDate}T00:00:00.000Z`,
+        description: descriptionValue,
       })
       const accountsData = await getAccounts(token)
       setAccounts(
@@ -1642,9 +1687,12 @@ export const QuickAddScreen: React.FC<Props> = ({
           debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
           createdByUserId: t.createdByUserId ?? null,
           createdByName: t.createdByName ?? null,
+          description: t.description ?? t.note ?? undefined,
+          comment: t.description ?? t.note ?? undefined,
         })),
       )
       await ensureGoalsLoaded()
+      setDescription("")
       onSaved?.()
       finishDiagnosticsAction(actionId, "success")
     } catch (err) {
@@ -1653,7 +1701,7 @@ export const QuickAddScreen: React.FC<Props> = ({
       finishDiagnosticsAction(actionId, "fail")
     }
     })
-  }, [amount, isRunning, onSaved, run, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
+  }, [amount, description, isRunning, onSaved, run, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
 
   const submitDebt = useCallback(() => {
     if (isRunning) return
@@ -1703,6 +1751,7 @@ export const QuickAddScreen: React.FC<Props> = ({
 
       updateDiagnosticsAction(actionId, "validation.success")
       setError(null)
+      const descriptionValue = description.trim() || null
 
       try {
         updateDiagnosticsAction(actionId, "submit.start")
@@ -1713,6 +1762,7 @@ export const QuickAddScreen: React.FC<Props> = ({
             toAccountId: selectedDebtAccountId,
             debtorId: selectedReceivableDebtorId ?? null,
             happenedAt: `${transferDate}T00:00:00.000Z`,
+            description: descriptionValue,
           })
         } else {
           await createTransaction(token, {
@@ -1721,6 +1771,7 @@ export const QuickAddScreen: React.FC<Props> = ({
             accountId: selectedDebtAccountId,
             debtorId: selectedPayableDebtorId ?? null,
             happenedAt: `${transferDate}T00:00:00.000Z`,
+            description: descriptionValue,
           })
         }
 
@@ -1759,10 +1810,13 @@ export const QuickAddScreen: React.FC<Props> = ({
             debtorName: (t as { debtorName?: string | null }).debtorName ?? null,
             createdByUserId: t.createdByUserId ?? null,
             createdByName: t.createdByName ?? null,
+            description: t.description ?? t.note ?? undefined,
+            comment: t.description ?? t.note ?? undefined,
           })),
         )
 
         await refetchDebtors()
+        setDescription("")
         onSaved?.()
         finishDiagnosticsAction(actionId, "success")
       } catch (err) {
@@ -1785,6 +1839,7 @@ export const QuickAddScreen: React.FC<Props> = ({
     setTransactions,
     token,
     transferDate,
+    description,
   ])
 
   const handleActiveTabSubmit = useCallback(() => {
@@ -2283,6 +2338,8 @@ export const QuickAddScreen: React.FC<Props> = ({
               </div>
             ) : null}
 
+            <DescriptionField value={description} onChange={setDescription} />
+
             <button
               type="button"
               disabled={isRunning}
@@ -2356,6 +2413,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 renderEmptyChoiceTile("Счёт", () => openExpensePicker("income-account"))
               )}
             </div>
+            <DescriptionField value={description} onChange={setDescription} />
             <button
               type="button"
               disabled={isRunning}
@@ -2481,6 +2539,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 renderEmptyChoiceTile("Долг", () => openExpensePicker("transfer-debt"))
               )}
             </div>
+            <DescriptionField value={description} onChange={setDescription} />
             <button
               type="button"
               disabled={isRunning}
@@ -2606,6 +2665,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 renderEmptyChoiceTile("Кому", () => openExpensePicker("debt-payable-debtor"))
               )}
             </div>
+            <DescriptionField value={description} onChange={setDescription} />
             <button
               type="button"
               disabled={!activeTabReady || isRunning}
@@ -2676,6 +2736,7 @@ export const QuickAddScreen: React.FC<Props> = ({
                 renderEmptyChoiceTile("Цель", () => openExpensePicker("goal-target"))
               )}
             </div>
+            <DescriptionField value={description} onChange={setDescription} />
             <button
               type="button"
               disabled={!activeTabReady || isRunning}

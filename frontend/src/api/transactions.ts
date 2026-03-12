@@ -6,6 +6,7 @@ export type TransactionDto = {
   amount: number | string
   happenedAt: string
   createdAt?: string | null
+  description?: string | null
   note?: string | null
   accountId?: string | null
   accountName?: string | null
@@ -38,6 +39,7 @@ export type CreateTransactionBody = {
   goalId?: string | null
   debtorId?: string | null
   happenedAt?: string
+  description?: string | null
   note?: string | null
 }
 
@@ -59,13 +61,19 @@ export async function getTransactions(token: string): Promise<GetTransactionsRes
 }
 
 export async function createTransaction(token: string, body: CreateTransactionBody): Promise<void> {
+  const normalizedDescription = body.description ?? body.note ?? null
+  const requestBody: CreateTransactionBody = {
+    ...body,
+    description: normalizedDescription,
+    note: body.note ?? normalizedDescription,
+  }
   const res = await fetch("https://babkin.onrender.com/api/v1/transactions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(requestBody),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => "")

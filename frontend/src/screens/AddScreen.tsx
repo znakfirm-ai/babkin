@@ -309,6 +309,8 @@ function AddScreen() {
                   debtorName: t.debtorName ?? null,
                   createdByUserId: t.createdByUserId ?? null,
                   createdByName: t.createdByName ?? null,
+                  description: t.description ?? t.note ?? undefined,
+                  comment: t.description ?? t.note ?? undefined,
                 }))
                 setTransactions(mappedTx)
 

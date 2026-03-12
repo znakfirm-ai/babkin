@@ -324,6 +324,7 @@ async function goalsRoutes(fastify, _opts) {
             return reply.status(404).send({ error: "Not Found", reason: "account_not_found" });
         }
         const amountDec = new client_1.Prisma.Decimal(amt);
+        const description = body.description?.trim() || body.note?.trim() || null;
         const updatedGoal = await prisma_1.prisma.$transaction(async (tx) => {
             await tx.accounts.update({
                 where: { id: account.id },
@@ -346,7 +347,7 @@ async function goalsRoutes(fastify, _opts) {
                     category_id: null,
                     income_source_id: null,
                     goal_id: goal.id,
-                    note: body.note?.trim() || null,
+                    note: description,
                 },
             });
             return g;

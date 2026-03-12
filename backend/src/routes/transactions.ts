@@ -11,6 +11,7 @@ type TransactionResponse = {
   amount: number
   happenedAt: string
   createdAt: string
+  description: string | null
   note: string | null
   accountId: string | null
   accountName?: string | null
@@ -36,6 +37,7 @@ export type TransactionCreateInput = {
   toAccountId?: string
   amount?: number
   happenedAt?: string
+  description?: string
   note?: string
   incomeSourceId?: string
   goalId?: string | null
@@ -110,13 +112,15 @@ function resolveTransactionAuthorName(tx: any): string | null {
 }
 
 function mapTx(tx: any): TransactionResponse {
+  const description = tx.note ?? null
   return {
     id: tx.id,
     kind: tx.kind,
     amount: Number(tx.amount),
     happenedAt: tx.happened_at.toISOString(),
     createdAt: tx.created_at.toISOString(),
-    note: tx.note ?? null,
+    description,
+    note: description,
     accountId: tx.account_id ?? null,
     accountName: tx.account?.name ?? tx.from_account?.name ?? null,
     categoryId: tx.category_id ?? null,
@@ -151,6 +155,7 @@ export async function createWorkspaceTransaction(
 
   const amount = new Prisma.Decimal(body.amount)
   const happenedAt = body.happenedAt ? new Date(body.happenedAt) : new Date()
+  const resolvedDescription = body.description?.trim() || body.note?.trim() || null
   if (Number.isNaN(happenedAt.getTime())) {
     throw new CreateTransactionError(400, "invalid_date")
   }
@@ -220,7 +225,7 @@ export async function createWorkspaceTransaction(
           kind,
           amount,
           happened_at: happenedAt,
-          note: body.note ?? null,
+          note: resolvedDescription,
           account_id: account.id,
           category_id: body.categoryId ?? null,
           income_source_id: incomeSourceId,
@@ -259,7 +264,7 @@ export async function createWorkspaceTransaction(
           kind,
           amount,
           happened_at: happenedAt,
-          note: body.note ?? null,
+          note: resolvedDescription,
           account_id: null,
           from_account_id: null,
           to_account_id: to.id,
@@ -307,7 +312,7 @@ export async function createWorkspaceTransaction(
           kind,
           amount,
           happened_at: happenedAt,
-          note: body.note ?? null,
+          note: resolvedDescription,
           account_id: null,
           from_account_id: from.id,
           to_account_id: null,
@@ -349,7 +354,7 @@ export async function createWorkspaceTransaction(
         kind,
         amount,
         happened_at: happenedAt,
-        note: body.note ?? null,
+        note: resolvedDescription,
         from_account_id: from.id,
         to_account_id: to.id,
         debtor_id: null,

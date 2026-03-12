@@ -65,6 +65,7 @@ type BootstrapResponse = {
     amount: number
     happenedAt: string
     createdAt: string
+    description: string | null
     note: string | null
     accountId: string | null
     accountName: string | null
@@ -153,6 +154,7 @@ const mapTx = (tx: {
   debtor: { id: string; name: string } | null
   created_by: { id: string; first_name: string | null; username: string | null } | null
 }) => ({
+  description: tx.note ?? null,
   id: tx.id,
   kind: tx.kind,
   amount: Number(tx.amount),

@@ -1086,6 +1086,7 @@ function OverviewScreen({
   const debtorsListLastLoadedAtRef = useRef<{ receivable: number; payable: number }>({ receivable: 0, payable: 0 })
   const [editAmount, setEditAmount] = useState("")
   const [editDate, setEditDate] = useState("")
+  const [editDescription, setEditDescription] = useState("")
   const [isConfirmingCategoryDelete, setIsConfirmingCategoryDelete] = useState(false)
   const [isConfirmingIncomeSourceDelete, setIsConfirmingIncomeSourceDelete] = useState(false)
   const isDebtsReceivableMode = goalsListMode === "debtsReceivable"
@@ -1194,11 +1195,12 @@ function OverviewScreen({
               txId: txActionId,
               amount: editAmount,
               date: editDate,
+              description: editDescription,
             },
       isSubmitting: txLoading,
       dirty: txMode !== "none",
     })
-  }, [editAmount, editDate, txActionId, txLoading, txMode])
+  }, [editAmount, editDate, editDescription, txActionId, txLoading, txMode])
 
   useEffect(() => {
     if (txMode !== "none") {
@@ -1217,6 +1219,11 @@ function OverviewScreen({
     if (txMode === "none") return
     logDiagnosticsFormFieldChange("transaction-edit", "date", editDate)
   }, [editDate, txMode])
+
+  useEffect(() => {
+    if (txMode === "none") return
+    logDiagnosticsFormFieldChange("transaction-edit", "description", editDescription)
+  }, [editDescription, txMode])
   const hasGoalDuplicateNameError = isDuplicateNameError(goalError)
   const hasDebtorDuplicateNameError = isDuplicateNameError(debtorError)
   const hasGoalAmountRequiredError = isAmountRequiredError(goalError)
@@ -1619,6 +1626,8 @@ function OverviewScreen({
       debtorName: t.debtorName ?? null,
       createdByUserId: t.createdByUserId ?? null,
       createdByName: t.createdByName ?? null,
+      description: t.description ?? t.note ?? undefined,
+      comment: t.description ?? t.note ?? undefined,
     }))
     setTransactions(mapped)
   }, [setTransactions, token])
@@ -2882,6 +2891,7 @@ function OverviewScreen({
       setTxMode("edit")
       setEditAmount(String(tx.amount.amount))
       setEditDate(tx.date.slice(0, 10) || getTodayLocalDate())
+      setEditDescription(tx.description ?? tx.comment ?? "")
       logDiagnosticEvent("form.open", {
         formType: "transaction-edit",
         txId: id,
@@ -2901,6 +2911,7 @@ function OverviewScreen({
     setTxLoading(false)
     txSheetDragOffsetRef.current = 0
     setTxSheetDragOffset(0)
+    setEditDescription("")
     setIsTxDeleteConfirming(false)
     setDisabledTxHintId(null)
   }, [txActionId])
@@ -3346,9 +3357,9 @@ function OverviewScreen({
   }, [closeTxSheet, isDebtsMode, isDeleteTxRunning, refetchAccountsSeq, refetchDebtors, refetchGoals, refetchTransactions, runDeleteTx, transactions, txActionId, txLoading])
 
   const buildEditTransactionPayload = useCallback(
-    (original: Transaction, amount: number, date: string): { payload?: CreateTransactionBody; error?: string } => {
+    (original: Transaction, amount: number, date: string, descriptionText: string): { payload?: CreateTransactionBody; error?: string } => {
       const happenedAt = date ? `${date}T00:00:00.000Z` : original.date
-      const note = original.comment ?? null
+      const description = descriptionText.trim() || null
 
       if (original.type === "transfer") {
         if (original.goalId) {
@@ -3363,7 +3374,7 @@ function OverviewScreen({
               fromAccountId,
               goalId: original.goalId ?? null,
               happenedAt,
-              note,
+              description,
             },
           }
         }
@@ -3380,7 +3391,7 @@ function OverviewScreen({
               toAccountId,
               debtorId: original.debtorId ?? null,
               happenedAt,
-              note,
+              description,
             },
           }
         }
@@ -3396,7 +3407,7 @@ function OverviewScreen({
             fromAccountId,
             toAccountId: original.toAccountId,
             happenedAt,
-            note,
+            description,
           },
         }
       }
@@ -3412,7 +3423,7 @@ function OverviewScreen({
             accountId: original.accountId,
             incomeSourceId: original.incomeSourceId ?? null,
             happenedAt,
-            note,
+            description,
           },
         }
       }
@@ -3428,7 +3439,7 @@ function OverviewScreen({
           categoryId: original.categoryId ?? null,
           debtorId: original.debtorId ?? null,
           happenedAt,
-          note,
+          description,
         },
       }
     },
@@ -3470,7 +3481,7 @@ function OverviewScreen({
         return
       }
       const normalizedAmount = Math.round(num * 100) / 100
-      const { payload, error } = buildEditTransactionPayload(original, normalizedAmount, editDate)
+      const { payload, error } = buildEditTransactionPayload(original, normalizedAmount, editDate, editDescription)
       if (!payload) {
         setTxError(error ?? "Не удалось подготовить операцию")
         updateDiagnosticsAction(actionId, "validation.fail", { reason: "payload-build-failed", error: error ?? null })
@@ -3514,6 +3525,7 @@ function OverviewScreen({
     closeTxSheet,
     editAmount,
     editDate,
+    editDescription,
     isDebtsMode,
     isEditTxRunning,
     refetchAccountsSeq,
@@ -4565,6 +4577,53 @@ function TransactionsPanel({
           ))
         )}
       </div>
+    </div>
+  )
+}
+
+const getTransactionDescriptionText = (tx: Transaction) => {
+  const rawDescription = tx.description ?? tx.comment ?? ""
+  const normalized = rawDescription.trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+const TxTitleWithDescription: React.FC<{
+  title: string
+  tx: Transaction
+  titleFontSize: number
+  titleFontWeight: number
+}> = ({ title, tx, titleFontSize, titleFontWeight }) => {
+  const description = getTransactionDescriptionText(tx)
+
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 4, minWidth: 0, maxWidth: "100%" }}>
+      <span
+        style={{
+          minWidth: 0,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          fontWeight: titleFontWeight,
+          color: "#0f172a",
+          fontSize: titleFontSize,
+        }}
+      >
+        {title}
+      </span>
+      {description ? (
+        <span
+          style={{
+            color: "#64748b",
+            fontSize: 12,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "55%",
+          }}
+        >
+          ({description})
+        </span>
+      ) : null}
     </div>
   )
 }
@@ -5716,7 +5775,7 @@ function TransactionsPanel({
                           onClick={() => openAccountTxActions(tx)}
                         >
                           <div style={{ display: "grid", gap: 2 }}>
-                            <div style={{ fontWeight: 500, color: "#0f172a", fontSize: 14.5 }}>{txTitle}</div>
+                            <TxTitleWithDescription title={txTitle} tx={tx} titleFontSize={14.5} titleFontWeight={500} />
                             {creatorLabel ? (
                               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
                                 <span
@@ -5928,7 +5987,7 @@ function TransactionsPanel({
                             onClick={() => openTxActions(tx.id)}
                           >
                             <div style={{ display: "grid", gap: 2 }}>
-                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
+                              <TxTitleWithDescription title={displayAccountName} tx={tx} titleFontSize={15} titleFontWeight={600} />
                               {creatorLabel ? (
                                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
                                   <span
@@ -6140,7 +6199,7 @@ function TransactionsPanel({
                             onClick={() => openTxActions(tx.id)}
                           >
                             <div style={{ display: "grid", gap: 2 }}>
-                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayAccountName}</div>
+                              <TxTitleWithDescription title={displayAccountName} tx={tx} titleFontSize={15} titleFontWeight={600} />
                               {creatorLabel ? (
                                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
                                   <span
@@ -6355,7 +6414,7 @@ function TransactionsPanel({
                             onClick={() => openTxActions(tx.id)}
                           >
                             <div style={{ display: "grid", gap: 2 }}>
-                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
+                              <TxTitleWithDescription title={displayName} tx={tx} titleFontSize={15} titleFontWeight={600} />
                               {creatorLabel ? (
                                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
                                   <span
@@ -6566,7 +6625,7 @@ function TransactionsPanel({
                             onClick={() => openTxActions(tx.id)}
                           >
                             <div style={{ display: "grid", gap: 2 }}>
-                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{displayName}</div>
+                              <TxTitleWithDescription title={displayName} tx={tx} titleFontSize={15} titleFontWeight={600} />
                               {creatorLabel ? (
                                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#64748b" }}>
                                   <span
@@ -7786,6 +7845,16 @@ function TransactionsPanel({
                     type="date"
                     value={editDate}
                     onChange={(e) => setEditDate(e.target.value)}
+                    disabled={txLoading || isEditTxRunning}
+                    style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff" }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: 13, color: "#4b5563" }}>Описание</span>
+                  <input
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Например, стоматолог"
                     disabled={txLoading || isEditTxRunning}
                     style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff" }}
                   />

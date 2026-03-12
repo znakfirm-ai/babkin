@@ -75,8 +75,9 @@ export async function updateGoal(
 export async function contributeGoal(
   token: string,
   goalId: string,
-  body: { accountId: string; amount: number; date?: string; note?: string | null },
+  body: { accountId: string; amount: number; date?: string; description?: string | null; note?: string | null },
 ) {
+  const normalizedDescription = body.description ?? body.note ?? null
   const res = await fetch(`https://babkin.onrender.com/api/v1/goals/${goalId}/contribute`, {
     method: "POST",
     headers: {
@@ -87,7 +88,8 @@ export async function contributeGoal(
       accountId: body.accountId,
       amount: body.amount,
       date: body.date,
-      note: body.note ?? null,
+      description: normalizedDescription,
+      note: body.note ?? normalizedDescription,
     }),
   })
   if (!res.ok) {

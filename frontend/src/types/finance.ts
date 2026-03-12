@@ -85,5 +85,6 @@ export type Transaction = {
   // для transfer:
   toAccountId?: string
 
+  description?: string
   comment?: string
 }
