@@ -676,6 +676,8 @@ const Section: React.FC<{
 type OverviewScreenProps = {
   overviewError?: string | null
   onRetryOverview?: () => Promise<void> | void
+  externalAccountId?: string | null
+  onConsumeExternalAccount?: () => void
   externalCategoryId?: string | null
   onConsumeExternalCategory?: () => void
   returnToReport?: boolean
@@ -687,12 +689,24 @@ type OverviewScreenProps = {
   onOpenGoalsList?: () => void
   onOpenReceivables?: () => void
   onOpenPayables?: () => void
-  onOpenQuickAddTransfer?: () => void
-  onOpenQuickAddIncome?: (incomeSourceId: string | null) => void
-  onOpenQuickAddExpense?: (categoryId: string | null) => void
-  onOpenQuickAddGoal?: () => void
-  onOpenQuickAddDebtReceivable?: () => void
-  onOpenQuickAddDebtPayable?: () => void
+  onOpenQuickAddTransfer?: (context?: { kind: "account-detail"; accountId: string } | null) => void
+  onOpenQuickAddIncome?: (
+    incomeSourceId: string | null,
+    context?: { kind: "income-source-detail"; incomeSourceId: string } | null,
+  ) => void
+  onOpenQuickAddExpense?: (
+    categoryId: string | null,
+    context?: { kind: "category-detail"; categoryId: string } | null,
+  ) => void
+  onOpenQuickAddGoal?: (
+    context?: { kind: "goals-list"; mode: "goals" | "debtsReceivable" | "debtsPayable" } | null,
+  ) => void
+  onOpenQuickAddDebtReceivable?: (
+    context?: { kind: "goals-list"; mode: "goals" | "debtsReceivable" | "debtsPayable" } | null,
+  ) => void
+  onOpenQuickAddDebtPayable?: (
+    context?: { kind: "goals-list"; mode: "goals" | "debtsReceivable" | "debtsPayable" } | null,
+  ) => void
   autoOpenGoalsList?: boolean
   onConsumeAutoOpenGoalsList?: () => void
   autoOpenGoalCreate?: boolean
@@ -721,6 +735,8 @@ type OverviewScreenProps = {
 function OverviewScreen({
   overviewError = null,
   onRetryOverview,
+  externalAccountId,
+  onConsumeExternalAccount,
   externalCategoryId,
   onConsumeExternalCategory,
   returnToReport,
@@ -1598,6 +1614,15 @@ function OverviewScreen({
     onConsumeAutoOpenGoalCreate?.()
     autoOpenGoalCreateInFlightRef.current = false
   }, [autoOpenGoalCreate, isDebtsMode, onConsumeAutoOpenGoalCreate])
+
+  useLayoutEffect(() => {
+    if (externalAccountId) {
+      const account = accounts.find((item) => item.id === externalAccountId)
+      setDetailAccountId(externalAccountId)
+      setDetailTitle(account?.name ?? "Счет")
+      onConsumeExternalAccount?.()
+    }
+  }, [accounts, externalAccountId, onConsumeExternalAccount])
 
   useLayoutEffect(() => {
     if (externalCategoryId) {
@@ -3004,20 +3029,24 @@ function OverviewScreen({
   )
 
   const openTransferFromAccountDetails = useCallback(() => {
+    const accountId = detailAccountId
     closeDetails()
-    onOpenQuickAddTransfer?.()
-  }, [closeDetails, onOpenQuickAddTransfer])
+    onOpenQuickAddTransfer?.(accountId ? { kind: "account-detail", accountId } : null)
+  }, [closeDetails, detailAccountId, onOpenQuickAddTransfer])
 
   const openIncomeFromSourceDetails = useCallback(() => {
     const incomeSourceId = detailIncomeSourceId
     closeDetails()
-    onOpenQuickAddIncome?.(incomeSourceId)
+    onOpenQuickAddIncome?.(
+      incomeSourceId,
+      incomeSourceId ? { kind: "income-source-detail", incomeSourceId } : null,
+    )
   }, [closeDetails, detailIncomeSourceId, onOpenQuickAddIncome])
 
   const openExpenseFromCategoryDetails = useCallback(() => {
     const categoryId = detailCategoryId
     closeDetails()
-    onOpenQuickAddExpense?.(categoryId)
+    onOpenQuickAddExpense?.(categoryId, categoryId ? { kind: "category-detail", categoryId } : null)
   }, [closeDetails, detailCategoryId, onOpenQuickAddExpense])
 
   const openEditDebtorFromDetails = useCallback(
@@ -3477,17 +3506,17 @@ function OverviewScreen({
 
   const openGoalOperationFromGoalsList = useCallback(() => {
     closeGoalsList()
-    onOpenQuickAddGoal?.()
+    onOpenQuickAddGoal?.({ kind: "goals-list", mode: "goals" })
   }, [closeGoalsList, onOpenQuickAddGoal])
 
   const openReceivableDebtOperationFromGoalsList = useCallback(() => {
     closeGoalsList()
-    onOpenQuickAddDebtReceivable?.()
+    onOpenQuickAddDebtReceivable?.({ kind: "goals-list", mode: "debtsReceivable" })
   }, [closeGoalsList, onOpenQuickAddDebtReceivable])
 
   const openPayableDebtOperationFromGoalsList = useCallback(() => {
     closeGoalsList()
-    onOpenQuickAddDebtPayable?.()
+    onOpenQuickAddDebtPayable?.({ kind: "goals-list", mode: "debtsPayable" })
   }, [closeGoalsList, onOpenQuickAddDebtPayable])
 
   const closeDebtorSheet = useCallback(() => {

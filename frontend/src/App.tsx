@@ -57,6 +57,11 @@ type ScreenKey = NavItem | "report-summary" | "report-expenses-by-category" | "q
 type GoalsListMode = "goals" | "debtsReceivable" | "debtsPayable"
 type QuickAddTab = "expense" | "income" | "transfer" | "debt" | "goal"
 type QuickAddDebtAction = "receivable" | "payable"
+type QuickAddReturnContext =
+  | { kind: "account-detail"; accountId: string }
+  | { kind: "category-detail"; categoryId: string }
+  | { kind: "income-source-detail"; incomeSourceId: string }
+  | { kind: "goals-list"; mode: GoalsListMode }
 type QuickAddReturnPicker =
   | "expense-account"
   | "expense-category"
@@ -304,6 +309,7 @@ function App() {
     personal: "idle",
     family: "idle",
   })
+  const [pendingAccountOpenId, setPendingAccountOpenId] = useState<string | null>(null)
   const [pendingCategoryOpenId, setPendingCategoryOpenId] = useState<string | null>(null)
   const [pendingReturnToReport, setPendingReturnToReport] = useState(false)
   const [pendingReturnToCompareReport, setPendingReturnToCompareReport] = useState(false)
@@ -318,6 +324,7 @@ function App() {
   const [quickAddInitialIncomeSourceId, setQuickAddInitialIncomeSourceId] = useState<string | null>(null)
   const [quickAddInitialCategoryId, setQuickAddInitialCategoryId] = useState<string | null>(null)
   const [quickAddInitialDebtAction, setQuickAddInitialDebtAction] = useState<QuickAddDebtAction>("receivable")
+  const [quickAddReturnContext, setQuickAddReturnContext] = useState<QuickAddReturnContext | null>(null)
   const [quickAddReopenPicker, setQuickAddReopenPicker] = useState<QuickAddReturnPicker | null>(null)
   const [quickAddCreateReturnPicker, setQuickAddCreateReturnPicker] = useState<QuickAddReturnPicker | null>(null)
   const [autoOpenAccountCreate, setAutoOpenAccountCreate] = useState(false)
@@ -1598,11 +1605,13 @@ function App() {
       incomeSourceId: string | null = null,
       categoryId: string | null = null,
       debtAction: QuickAddDebtAction = "receivable",
+      returnContext: QuickAddReturnContext | null = null,
     ) => {
       setQuickAddInitialTab(tab)
       setQuickAddInitialIncomeSourceId(incomeSourceId)
       setQuickAddInitialCategoryId(categoryId)
       setQuickAddInitialDebtAction(debtAction)
+      setQuickAddReturnContext(returnContext)
       prevScreen.current = activeScreen
       setActiveNav("add")
       setActiveScreen("quick-add")
@@ -1619,6 +1628,7 @@ function App() {
     setQuickAddInitialIncomeSourceId(null)
     setQuickAddInitialCategoryId(null)
     setQuickAddInitialDebtAction(nextDebtAction)
+    setQuickAddReturnContext(null)
     setQuickAddReopenPicker(picker)
     setActiveNav("add")
     setActiveScreen("quick-add")
@@ -1714,6 +1724,8 @@ function App() {
             }}
             externalCategoryId={pendingCategoryOpenId}
             onConsumeExternalCategory={() => setPendingCategoryOpenId(null)}
+            externalAccountId={pendingAccountOpenId}
+            onConsumeExternalAccount={() => setPendingAccountOpenId(null)}
             returnToReport={pendingReturnToReport}
             onReturnToReport={() => {
               setPendingReturnToReport(false)
@@ -1754,23 +1766,23 @@ function App() {
               setActiveNav("overview")
               setActiveScreen("receivables")
             }}
-            onOpenQuickAddTransfer={() => {
-              openQuickAddScreen("transfer")
+            onOpenQuickAddTransfer={(returnContext) => {
+              openQuickAddScreen("transfer", null, null, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddIncome={(incomeSourceId) => {
-              openQuickAddScreen("income", incomeSourceId)
+            onOpenQuickAddIncome={(incomeSourceId, returnContext) => {
+              openQuickAddScreen("income", incomeSourceId, null, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddExpense={(categoryId) => {
-              openQuickAddScreen("expense", null, categoryId)
+            onOpenQuickAddExpense={(categoryId, returnContext) => {
+              openQuickAddScreen("expense", null, categoryId, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddGoal={() => {
-              openQuickAddScreen("goal")
+            onOpenQuickAddGoal={(returnContext) => {
+              openQuickAddScreen("goal", null, null, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddDebtReceivable={() => {
-              openQuickAddScreen("debt", null, null, "receivable")
+            onOpenQuickAddDebtReceivable={(returnContext) => {
+              openQuickAddScreen("debt", null, null, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddDebtPayable={() => {
-              openQuickAddScreen("debt", null, null, "payable")
+            onOpenQuickAddDebtPayable={(returnContext) => {
+              openQuickAddScreen("debt", null, null, "payable", returnContext ?? null)
             }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {
@@ -1817,6 +1829,8 @@ function App() {
             }}
             externalCategoryId={pendingCategoryOpenId}
             onConsumeExternalCategory={() => setPendingCategoryOpenId(null)}
+            externalAccountId={pendingAccountOpenId}
+            onConsumeExternalAccount={() => setPendingAccountOpenId(null)}
             returnToReport={pendingReturnToReport}
             onReturnToReport={() => {
               setPendingReturnToReport(false)
@@ -1857,23 +1871,23 @@ function App() {
               setActiveNav("overview")
               setActiveScreen("receivables")
             }}
-            onOpenQuickAddTransfer={() => {
-              openQuickAddScreen("transfer")
+            onOpenQuickAddTransfer={(returnContext) => {
+              openQuickAddScreen("transfer", null, null, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddIncome={(incomeSourceId) => {
-              openQuickAddScreen("income", incomeSourceId)
+            onOpenQuickAddIncome={(incomeSourceId, returnContext) => {
+              openQuickAddScreen("income", incomeSourceId, null, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddExpense={(categoryId) => {
-              openQuickAddScreen("expense", null, categoryId)
+            onOpenQuickAddExpense={(categoryId, returnContext) => {
+              openQuickAddScreen("expense", null, categoryId, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddGoal={() => {
-              openQuickAddScreen("goal")
+            onOpenQuickAddGoal={(returnContext) => {
+              openQuickAddScreen("goal", null, null, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddDebtReceivable={() => {
-              openQuickAddScreen("debt", null, null, "receivable")
+            onOpenQuickAddDebtReceivable={(returnContext) => {
+              openQuickAddScreen("debt", null, null, "receivable", returnContext ?? null)
             }}
-            onOpenQuickAddDebtPayable={() => {
-              openQuickAddScreen("debt", null, null, "payable")
+            onOpenQuickAddDebtPayable={(returnContext) => {
+              openQuickAddScreen("debt", null, null, "payable", returnContext ?? null)
             }}
             autoOpenGoalsList={autoOpenGoalsList}
             onConsumeAutoOpenGoalsList={() => {
@@ -1920,6 +1934,34 @@ function App() {
             initialDebtAction={quickAddInitialDebtAction}
             onClose={() => setActiveScreen(prevScreen.current ?? "overview")}
             onSaved={() => {
+              const returnContext = quickAddReturnContext
+              setQuickAddReturnContext(null)
+              if (returnContext) {
+                if (returnContext.kind === "account-detail") {
+                  setPendingAccountOpenId(returnContext.accountId)
+                  setActiveNav("overview")
+                  setActiveScreen("overview")
+                  return
+                }
+                if (returnContext.kind === "category-detail") {
+                  setPendingCategoryOpenId(returnContext.categoryId)
+                  setActiveNav("overview")
+                  setActiveScreen("overview")
+                  return
+                }
+                if (returnContext.kind === "income-source-detail") {
+                  setPendingIncomeSourceOpenId(returnContext.incomeSourceId)
+                  setActiveNav("overview")
+                  setActiveScreen("overview")
+                  return
+                }
+                setGoalsListMode(returnContext.mode)
+                setAutoOpenGoalsList(true)
+                setSkipGoalsListRefetch(false)
+                setActiveNav("overview")
+                setActiveScreen(returnContext.mode === "goals" ? "overview" : "receivables")
+                return
+              }
               prevScreen.current = "overview"
               setActiveNav("overview")
               setActiveScreen("overview")
