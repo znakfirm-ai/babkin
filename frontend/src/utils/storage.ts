@@ -1,5 +1,14 @@
 import type { Account, Category, Debtor, Goal, IncomeSource, Transaction } from "../types/finance"
 import { normalizeCurrency } from "./formatMoney"
+import {
+  captureDiagnosticsError,
+  logDiagnosticsStorageReadFail,
+  logDiagnosticsStorageReadStart,
+  logDiagnosticsStorageReadSuccess,
+  logDiagnosticsStorageWriteFail,
+  logDiagnosticsStorageWriteStart,
+  logDiagnosticsStorageWriteSuccess,
+} from "./diagnostics"
 
 const STORAGE_KEY = "finance_app_v1"
 
@@ -127,8 +136,19 @@ export function loadFromStorage(defaultState: AppState): AppState {
   const storage = getStorage()
   if (!storage) return cloneState(defaultState)
 
-  const raw = storage.getItem(STORAGE_KEY)
-  if (!raw) return cloneState(defaultState)
+  logDiagnosticsStorageReadStart(STORAGE_KEY)
+  let raw: string | null = null
+  try {
+    raw = storage.getItem(STORAGE_KEY)
+  } catch (error) {
+    logDiagnosticsStorageReadFail(STORAGE_KEY, error)
+    captureDiagnosticsError("persist.load.read", error)
+    return cloneState(defaultState)
+  }
+  if (!raw) {
+    logDiagnosticsStorageReadSuccess(STORAGE_KEY, 0)
+    return cloneState(defaultState)
+  }
 
   try {
     const parsed = JSON.parse(raw) as unknown
@@ -138,14 +158,18 @@ export function loadFromStorage(defaultState: AppState): AppState {
         debtors: [],
         currency: normalizeCurrency(parsed.currency),
       }
+      logDiagnosticsStorageReadSuccess(STORAGE_KEY, raw.length)
       return cloneState(normalized)
     }
 
     clearBrokenKey(storage)
+    logDiagnosticsStorageReadFail(STORAGE_KEY, "invalid_schema")
     console.warn("Persisted data invalid, reset to defaults")
     return cloneState(defaultState)
-  } catch {
+  } catch (error) {
     clearBrokenKey(storage)
+    logDiagnosticsStorageReadFail(STORAGE_KEY, error)
+    captureDiagnosticsError("persist.load.parse", error)
     console.warn("Persisted data invalid, reset to defaults")
     return cloneState(defaultState)
   }
@@ -157,8 +181,13 @@ export function saveToStorage(state: AppState) {
 
   try {
     const { debtors: _ignoredDebtors, ...persistableState } = state
-    storage.setItem(STORAGE_KEY, JSON.stringify(persistableState))
-  } catch {
+    const raw = JSON.stringify(persistableState)
+    logDiagnosticsStorageWriteStart(STORAGE_KEY, raw.length)
+    storage.setItem(STORAGE_KEY, raw)
+    logDiagnosticsStorageWriteSuccess(STORAGE_KEY, raw.length)
+  } catch (error) {
+    logDiagnosticsStorageWriteFail(STORAGE_KEY, null, error)
+    captureDiagnosticsError("persist.save.write", error)
     console.warn("Failed to save data to localStorage")
   }
 }

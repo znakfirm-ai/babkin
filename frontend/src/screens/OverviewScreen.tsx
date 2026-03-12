@@ -20,6 +20,19 @@ import { buildMonthlyTransactionMetrics, getLocalMonthPoint, isDateInMonthPoint 
 import { getTransactionErrorMessage } from "../utils/transactionErrorMessage"
 import { buildTransactionDaySections, sortTransactionsDesc } from "../utils/sortTransactions"
 import { registerDebugTimingsTap } from "../utils/debugTimings"
+import {
+  captureDiagnosticsError,
+  finishDiagnosticsAction,
+  logDiagnosticEvent,
+  logDiagnosticsFormFieldChange,
+  markDiagnosticsMount,
+  markDiagnosticsUnmount,
+  setDiagnosticsFormState,
+  setDiagnosticsPendingFlag,
+  setDiagnosticsUiState,
+  startDiagnosticsAction,
+  updateDiagnosticsAction,
+} from "../utils/diagnostics"
 import { PAGE_CLOSE_ACTION_BUTTON_STYLE } from "../shared/uiTokens"
 
 type TileType = "account" | "category" | "income-source" | "goal"
@@ -1085,6 +1098,125 @@ function OverviewScreen({
   const hasAccountDuplicateNameError = isDuplicateNameError(accountActionError)
   const hasCategoryDuplicateNameError = isDuplicateNameError(categorySaveError)
   const hasIncomeSourceDuplicateNameError = isDuplicateNameError(incomeSourceError)
+  const detailFlow = detailAccountId
+    ? "account-detail"
+    : detailCategoryId
+      ? "category-detail"
+      : detailIncomeSourceId
+        ? "income-source-detail"
+        : detailGoalId
+          ? "goal-detail"
+          : detailDebtorId
+            ? "debtor-detail"
+            : isGoalsListOpen
+              ? "goals-list"
+              : "overview"
+
+  useEffect(() => {
+    markDiagnosticsMount("overview-screen")
+    return () => {
+      markDiagnosticsUnmount("overview-screen")
+    }
+  }, [])
+
+  useEffect(() => {
+    const openSheets: string[] = []
+    if (txMode !== "none") openSheets.push("transaction-edit-sheet")
+    if (isAccountIconPickerOpen) openSheets.push("account-icon-picker")
+    if (isCategoryIconPickerOpen) openSheets.push("category-icon-picker")
+    if (isIncomeIconPickerOpen) openSheets.push("income-icon-picker")
+    if (isGoalIconPickerOpen) openSheets.push("goal-icon-picker")
+    if (isDebtorIconPickerOpen) openSheets.push("debtor-icon-picker")
+    if (isCustomSheetOpen) openSheets.push("period-custom-sheet")
+    if (isPeriodMenuOpen || isAccountPeriodMenuOpen) openSheets.push("period-picker")
+    if (isAccountSheetOpen) openSheets.push(accountSheetPresentation === "page" ? "account-page" : "account-sheet")
+    if (categorySheetMode) openSheets.push(categorySheetPresentation === "page" ? "category-page" : "category-sheet")
+    if (incomeSourceSheetMode) openSheets.push(incomeSourceSheetPresentation === "page" ? "income-source-page" : "income-source-sheet")
+    if (isGoalSheetOpen) openSheets.push(goalSheetPresentation === "page" ? "goal-page" : "goal-sheet")
+    if (isDebtorSheetOpen) openSheets.push(debtorSheetPresentation === "page" ? "debtor-page" : "debtor-sheet")
+
+    setDiagnosticsUiState({
+      screen: isDebtsMode ? "receivables" : "overview",
+      detailFlow,
+      openSheets,
+      datePickerOpen: Boolean(openPicker),
+      bottomNavHidden:
+        txMode !== "none" ||
+        accountSheetPresentation === "page" ||
+        categorySheetPresentation === "page" ||
+        incomeSourceSheetPresentation === "page" ||
+        goalSheetPresentation === "page" ||
+        debtorSheetPresentation === "page",
+    })
+  }, [
+    accountSheetPresentation,
+    categorySheetMode,
+    categorySheetPresentation,
+    debtorSheetPresentation,
+    detailAccountId,
+    detailCategoryId,
+    detailDebtorId,
+    detailFlow,
+    detailGoalId,
+    detailIncomeSourceId,
+    goalSheetPresentation,
+    incomeSourceSheetMode,
+    incomeSourceSheetPresentation,
+    isAccountIconPickerOpen,
+    isAccountPeriodMenuOpen,
+    isAccountSheetOpen,
+    isCategoryIconPickerOpen,
+    isCustomSheetOpen,
+    isDebtorIconPickerOpen,
+    isDebtorSheetOpen,
+    isDebtsMode,
+    isGoalIconPickerOpen,
+    isGoalSheetOpen,
+    isGoalsListOpen,
+    isIncomeIconPickerOpen,
+    isPeriodMenuOpen,
+    openPicker,
+    txMode,
+  ])
+
+  useEffect(() => {
+    setDiagnosticsPendingFlag("txEditSubmitting", txLoading)
+  }, [txLoading])
+
+  useEffect(() => {
+    setDiagnosticsFormState({
+      formType: txMode === "none" ? null : "transaction-edit",
+      mode: txMode === "none" ? null : "edit",
+      keyFields:
+        txMode === "none"
+          ? {}
+          : {
+              txId: txActionId,
+              amount: editAmount,
+              date: editDate,
+            },
+      isSubmitting: txLoading,
+      dirty: txMode !== "none",
+    })
+  }, [editAmount, editDate, txActionId, txLoading, txMode])
+
+  useEffect(() => {
+    if (txMode !== "none") {
+      logDiagnosticEvent("bottom-sheet.open", { name: "transaction-edit" })
+      return
+    }
+    logDiagnosticEvent("bottom-sheet.close", { name: "transaction-edit" })
+  }, [txMode])
+
+  useEffect(() => {
+    if (txMode === "none") return
+    logDiagnosticsFormFieldChange("transaction-edit", "amount", editAmount)
+  }, [editAmount, txMode])
+
+  useEffect(() => {
+    if (txMode === "none") return
+    logDiagnosticsFormFieldChange("transaction-edit", "date", editDate)
+  }, [editDate, txMode])
   const hasGoalDuplicateNameError = isDuplicateNameError(goalError)
   const hasDebtorDuplicateNameError = isDuplicateNameError(debtorError)
   const hasGoalAmountRequiredError = isAmountRequiredError(goalError)
@@ -2733,6 +2865,11 @@ function OverviewScreen({
       if (!tx) return
       if (isTxEditDisabled(tx)) {
         setDisabledTxHintId((current) => (current === id ? null : id))
+        logDiagnosticEvent("form.open.blocked", {
+          formType: "transaction-edit",
+          txId: id,
+          reason: "archived-or-missing-entity",
+        }, { level: "warn" })
         return
       }
       setTxError(null)
@@ -2745,11 +2882,19 @@ function OverviewScreen({
       setTxMode("edit")
       setEditAmount(String(tx.amount.amount))
       setEditDate(tx.date.slice(0, 10) || getTodayLocalDate())
+      logDiagnosticEvent("form.open", {
+        formType: "transaction-edit",
+        txId: id,
+      })
     },
     [isTxEditDisabled, transactions],
   )
 
   const closeTxSheet = useCallback(() => {
+    logDiagnosticEvent("form.close", {
+      formType: "transaction-edit",
+      txId: txActionId,
+    })
     setTxMode("none")
     setTxActionId(null)
     setTxError(null)
@@ -2758,7 +2903,7 @@ function OverviewScreen({
     setTxSheetDragOffset(0)
     setIsTxDeleteConfirming(false)
     setDisabledTxHintId(null)
-  }, [])
+  }, [txActionId])
 
   const handleTxSheetPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (txLoading) return
@@ -3074,19 +3219,46 @@ function OverviewScreen({
 
   const handleDeleteDebtorFromDetails = useCallback(() => {
     return runDebtorDelete(async () => {
-      if (!token || !detailDebtorId) return
+      const actionId = startDiagnosticsAction("debtor-close", {
+        sourceScreen: "receivables",
+        entityType: "debtor",
+        entityId: detailDebtorId,
+      })
+      if (!token || !detailDebtorId) {
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token-or-id" })
+        finishDiagnosticsAction(actionId, "fail")
+        return
+      }
       setIsConfirmingDebtorClose(false)
-      await updateDebtor(token, detailDebtorId, { status: "completed" })
-      await refetchDebtors()
-      closeDebtorDetailsToDebtsList()
+      updateDiagnosticsAction(actionId, "submit.start")
+      try {
+        await updateDebtor(token, detailDebtorId, { status: "completed" })
+        await refetchDebtors()
+        closeDebtorDetailsToDebtsList()
+        finishDiagnosticsAction(actionId, "success")
+      } catch (err) {
+        captureDiagnosticsError("debtor.close", err, { actionId })
+        finishDiagnosticsAction(actionId, "fail")
+        throw err
+      }
     })
   }, [closeDebtorDetailsToDebtsList, detailDebtorId, refetchDebtors, runDebtorDelete, token, updateDebtor])
 
   const handleArchiveGoalFromDetails = useCallback(() => {
     return runGoalComplete(async () => {
-      if (!token || !detailGoalId) return
+      const actionId = startDiagnosticsAction("goal-close", {
+        sourceScreen: "overview",
+        entityType: "goal",
+        entityId: detailGoalId,
+      })
+      if (!token || !detailGoalId) {
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token-or-id" })
+        finishDiagnosticsAction(actionId, "fail")
+        return
+      }
       try {
         setGoalError(null)
+        updateDiagnosticsAction(actionId, "submit.start")
         await completeGoal(token, detailGoalId)
         await refetchAccountsSeq()
         await refetchTransactions()
@@ -3094,12 +3266,16 @@ function OverviewScreen({
         setIsGoalCompleteSheetOpen(false)
         closeDetails()
         setPendingOpenGoalsList(true)
+        finishDiagnosticsAction(actionId, "success")
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
+          finishDiagnosticsAction(actionId, "cancel")
           return
         }
         const msg = err instanceof Error ? err.message : "Не удалось завершить цель"
         setGoalError(msg)
+        captureDiagnosticsError("goal.close", err, { actionId })
+        finishDiagnosticsAction(actionId, "fail")
       }
     })
   }, [
@@ -3116,18 +3292,34 @@ function OverviewScreen({
   const handleDeleteTx = useCallback(() => {
     if (txLoading || isDeleteTxRunning) return
     return runDeleteTx(async () => {
+    const actionId = startDiagnosticsAction("tx-delete", {
+      sourceScreen: isDebtsMode ? "receivables" : "overview",
+      entityType: "transaction",
+      entityId: txActionId,
+    })
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
     if (!token) {
       setTxError("Нет токена")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
-    if (!txActionId) return
+    if (!txActionId) {
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-transaction-id" })
+      finishDiagnosticsAction(actionId, "fail")
+      return
+    }
     const txAction = transactions.find((t) => t.id === txActionId)
     const needsGoalsRefresh = Boolean(txAction?.goalId)
     const needsDebtorsRefresh = Boolean(txAction?.debtorId)
+    updateDiagnosticsAction(actionId, "validation.success", {
+      needsGoalsRefresh,
+      needsDebtorsRefresh,
+    })
     setTxError(null)
     try {
       setTxLoading(true)
+      updateDiagnosticsAction(actionId, "submit.start")
       await deleteTransaction(token, txActionId)
       await refetchAccountsSeq()
       await refetchTransactions()
@@ -3138,16 +3330,20 @@ function OverviewScreen({
         await refetchDebtors()
       }
       closeTxSheet()
+      finishDiagnosticsAction(actionId, "success")
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
+        finishDiagnosticsAction(actionId, "cancel")
         return
       }
       setTxError(getTransactionErrorMessage(err, "Не удалось удалить операцию"))
+      captureDiagnosticsError("transaction.delete", err, { actionId })
+      finishDiagnosticsAction(actionId, "fail")
     } finally {
       setTxLoading(false)
     }
     })
-  }, [closeTxSheet, isDeleteTxRunning, refetchAccountsSeq, refetchDebtors, refetchGoals, refetchTransactions, runDeleteTx, transactions, txActionId, txLoading])
+  }, [closeTxSheet, isDebtsMode, isDeleteTxRunning, refetchAccountsSeq, refetchDebtors, refetchGoals, refetchTransactions, runDeleteTx, transactions, txActionId, txLoading])
 
   const buildEditTransactionPayload = useCallback(
     (original: Transaction, amount: number, date: string): { payload?: CreateTransactionBody; error?: string } => {
@@ -3242,32 +3438,53 @@ function OverviewScreen({
   const handleSaveEdit = useCallback(() => {
     if (txLoading || isEditTxRunning) return
     return runEditTx(async () => {
+      const actionId = startDiagnosticsAction("tx-edit-save", {
+        sourceScreen: isDebtsMode ? "receivables" : "overview",
+        entityType: "transaction",
+        entityId: txActionId,
+      })
       const token = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
       if (!token) {
         setTxError("Нет токена")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
-      if (!txActionId) return
+      if (!txActionId) {
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-transaction-id" })
+        finishDiagnosticsAction(actionId, "fail")
+        return
+      }
       const original = transactions.find((t) => t.id === txActionId)
       if (!original) {
         setTxError("Операция не найдена")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "transaction-not-found" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const num = Number(editAmount.replace(",", "."))
       if (!Number.isFinite(num) || num <= 0) {
         setTxError("Некорректная сумма")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "invalid-amount" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const normalizedAmount = Math.round(num * 100) / 100
       const { payload, error } = buildEditTransactionPayload(original, normalizedAmount, editDate)
       if (!payload) {
         setTxError(error ?? "Не удалось подготовить операцию")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "payload-build-failed", error: error ?? null })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
 
       setTxLoading(true)
       setTxError(null)
+      updateDiagnosticsAction(actionId, "validation.success", {
+        kind: payload.kind,
+      })
       try {
+        updateDiagnosticsAction(actionId, "submit.start")
         await deleteTransaction(token, txActionId)
         await createTransaction(token, payload)
         await refetchAccountsSeq()
@@ -3279,11 +3496,15 @@ function OverviewScreen({
           await refetchDebtors()
         }
         closeTxSheet()
+        finishDiagnosticsAction(actionId, "success")
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
+          finishDiagnosticsAction(actionId, "cancel")
           return
         }
         setTxError(getTransactionErrorMessage(err, "Не удалось сохранить"))
+        captureDiagnosticsError("transaction.edit-save", err, { actionId })
+        finishDiagnosticsAction(actionId, "fail")
       } finally {
         setTxLoading(false)
       }
@@ -3293,6 +3514,7 @@ function OverviewScreen({
     closeTxSheet,
     editAmount,
     editDate,
+    isDebtsMode,
     isEditTxRunning,
     refetchAccountsSeq,
     refetchDebtors,
@@ -3306,16 +3528,28 @@ function OverviewScreen({
 
   const handleSaveCategory = useCallback(() => {
     return runCategorySave(async () => {
+    const actionType = categorySheetMode === "create" ? "category-create" : "category-edit-save"
+    const actionId = startDiagnosticsAction(actionType, {
+      sourceScreen: isDebtsMode ? "receivables" : "overview",
+      entityType: "category",
+      entityId: editingCategoryId,
+    })
     if (!token) {
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     const trimmed = categoryName.trim()
     if (!trimmed) {
       setCategorySaveError("Введите название категории")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "empty-name" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     if (isEntityNameTooLong(trimmed, EXPENSE_CATEGORY_NAME_MAX_LENGTH)) {
       setCategorySaveError("Максимум 12 символов")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "name-too-long" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     const duplicateCategory = categories.some(
@@ -3327,6 +3561,8 @@ function OverviewScreen({
     )
     if (duplicateCategory) {
       setCategorySaveError("Такое название уже используется")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "duplicate-name" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     const budgetNumber = (() => {
@@ -3339,8 +3575,12 @@ function OverviewScreen({
     })()
     setCategorySaveError(null)
     setIsSavingCategory(true)
+    updateDiagnosticsAction(actionId, "validation.success")
     try {
       const isCreateMode = categorySheetMode === "create"
+      updateDiagnosticsAction(actionId, "submit.start", {
+        mode: categorySheetMode,
+      })
       if (categorySheetMode === "create") {
         await createCategory(token, { name: trimmed, kind: "expense", icon: categoryIcon ?? null, budget: budgetNumber })
       } else if (categorySheetMode === "edit" && editingCategoryId) {
@@ -3366,8 +3606,10 @@ function OverviewScreen({
       if (isCreateMode) {
         onCategoryCreated?.()
       }
+      finishDiagnosticsAction(actionId, "success")
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
+        finishDiagnosticsAction(actionId, "cancel")
         return
       }
       const msg = err instanceof Error ? err.message : "Не удалось сохранить. Попробуйте ещё раз."
@@ -3379,6 +3621,8 @@ function OverviewScreen({
       } else {
         setCategorySaveError(msg)
       }
+      captureDiagnosticsError("category.save", err, { actionId })
+      finishDiagnosticsAction(actionId, "fail")
     } finally {
       setIsSavingCategory(false)
     }
@@ -3390,6 +3634,7 @@ function OverviewScreen({
     categoryName,
     categorySheetMode,
     closeCategorySheet,
+    isDebtsMode,
     detailCategoryId,
     editingCategoryId,
     onCategoryCreated,
@@ -3400,17 +3645,29 @@ function OverviewScreen({
 
   const handleSaveIncomeSource = useCallback(() => {
     return runIncomeSave(async () => {
+      const actionType = incomeSourceSheetMode === "create" ? "income-source-create" : "income-source-edit-save"
+      const actionId = startDiagnosticsAction(actionType, {
+        sourceScreen: isDebtsMode ? "receivables" : "overview",
+        entityType: "income-source",
+        entityId: editingIncomeSourceId,
+      })
       if (!token) {
         setIncomeSourceError("Нет токена")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const trimmed = incomeSourceName.trim()
       if (!trimmed) {
         setIncomeSourceError("Введите название источника")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "empty-name" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       if (isEntityNameTooLong(trimmed, INCOME_SOURCE_NAME_MAX_LENGTH)) {
         setIncomeSourceError("Максимум 12 символов")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "name-too-long" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const duplicateIncomeSource = incomeSources.some(
@@ -3421,12 +3678,18 @@ function OverviewScreen({
       )
       if (duplicateIncomeSource) {
         setIncomeSourceError("Такое название уже используется")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "duplicate-name" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       setIsSavingIncomeSource(true)
       setIncomeSourceError(null)
+      updateDiagnosticsAction(actionId, "validation.success")
       try {
         const isCreateMode = incomeSourceSheetMode === "create"
+        updateDiagnosticsAction(actionId, "submit.start", {
+          mode: incomeSourceSheetMode,
+        })
         if (incomeSourceSheetMode === "create") {
           await createIncomeSource(token, trimmed, incomeSourceIcon ?? undefined)
         } else if (incomeSourceSheetMode === "edit" && editingIncomeSourceId) {
@@ -3451,6 +3714,7 @@ function OverviewScreen({
         if (isCreateMode) {
           onIncomeSourceCreated?.()
         }
+        finishDiagnosticsAction(actionId, "success")
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Ошибка"
         if (msg.includes("INCOME_SOURCE_NAME_EXISTS")) {
@@ -3460,6 +3724,8 @@ function OverviewScreen({
         } else {
           setIncomeSourceError(msg)
         }
+        captureDiagnosticsError("income-source.save", err, { actionId })
+        finishDiagnosticsAction(actionId, "fail")
       } finally {
         setIsSavingIncomeSource(false)
       }
@@ -3467,6 +3733,7 @@ function OverviewScreen({
   }, [
     closeIncomeSourceSheet,
     detailIncomeSourceId,
+    isDebtsMode,
     incomeSources,
     editingIncomeSourceId,
     incomeSourceName,
@@ -3576,17 +3843,29 @@ function OverviewScreen({
 
   const handleSaveDebtor = useCallback(() => {
     return runDebtorSave(async () => {
+      const actionType = debtorSheetMode === "edit" ? "debtor-edit-save" : "debtor-create"
+      const actionId = startDiagnosticsAction(actionType, {
+        sourceScreen: "receivables",
+        entityType: currentDebtorDirection === "receivable" ? "debtor-receivable" : "debtor-payable",
+        entityId: editingDebtorId,
+      })
       if (!token) {
         setDebtorError("Нет токена")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const trimmedName = debtorName.trim()
       if (!trimmedName) {
         setDebtorError("Введите имя должника")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "empty-name" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       if (isEntityNameTooLong(trimmedName, DEBTOR_NAME_MAX_LENGTH)) {
         setDebtorError("Максимум 20 символов")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "name-too-long" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const duplicateDebtor = debtors.some(
@@ -3598,82 +3877,95 @@ function OverviewScreen({
       )
       if (duplicateDebtor) {
         setDebtorError("Такое название уже используется")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "duplicate-name" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const returnAmount = Number(debtorReturnAmount.trim().replace(",", "."))
       if (!Number.isFinite(returnAmount) || returnAmount <= 0) {
         setDebtorError("Введите сумму")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "invalid-amount" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const normalizedReturnAmount = Math.round(returnAmount * 100) / 100
       setDebtorError(null)
-      if (debtorSheetMode === "edit" && editingDebtorId) {
-        await updateDebtor(token, editingDebtorId, {
-          name: trimmedName,
-          icon: debtorIcon ?? null,
-          issuedAt: debtorIssuedDate || getTodayLocalDate(),
-          principalAmount: normalizedReturnAmount,
-          dueAt: debtorReturnDate || null,
-          payoffAmount: normalizedReturnAmount,
-          status: "active",
-          direction: currentDebtorDirection,
-        })
-        setDebtors(
-          debtors.map((debtor) =>
-            debtor.id === editingDebtorId
-              ? {
-                  ...debtor,
-                  name: trimmedName,
-                  icon: debtorIcon ?? null,
-                  issuedDate: debtorIssuedDate || getTodayLocalDate(),
-                  loanAmount: normalizedReturnAmount,
-                  dueDate: debtorReturnDate || "",
-                  returnAmount: normalizedReturnAmount,
-                  payoffAmount: normalizedReturnAmount,
-                  status: "active",
-                  direction: currentDebtorDirection,
-                }
-              : debtor,
-          ),
-        )
-      } else {
-        await createDebtor(token, {
-          name: trimmedName,
-          icon: debtorIcon ?? null,
-          issuedAt: debtorIssuedDate || getTodayLocalDate(),
-          principalAmount: normalizedReturnAmount,
-          dueAt: debtorReturnDate || null,
-          payoffAmount: normalizedReturnAmount,
-          status: "active",
-          direction: currentDebtorDirection,
-        })
-      }
-      await refetchDebtors()
-      const nextDetailDebtorId = debtorSheetMode === "edit" ? editingDebtorId : null
-      const shouldReturnToDebtorDetail =
-        debtorSheetMode === "edit" &&
-        debtorSheetReturnTarget === "debtor-detail" &&
-        Boolean(debtorSheetReturnDebtorId || nextDetailDebtorId)
-      closeDebtorSheet()
-      if (shouldReturnToDebtorDetail) {
-        const targetDebtorId = debtorSheetReturnDebtorId ?? nextDetailDebtorId
-        if (targetDebtorId) {
-          setIsGoalsListOpen(false)
-          setDetailDebtorId(targetDebtorId)
-          setDetailTitle(trimmedName)
-          setDebtorSearch("")
-          return
+      updateDiagnosticsAction(actionId, "validation.success")
+      try {
+        if (debtorSheetMode === "edit" && editingDebtorId) {
+          updateDiagnosticsAction(actionId, "submit.start", { mode: "edit" })
+          await updateDebtor(token, editingDebtorId, {
+            name: trimmedName,
+            icon: debtorIcon ?? null,
+            issuedAt: debtorIssuedDate || getTodayLocalDate(),
+            principalAmount: normalizedReturnAmount,
+            dueAt: debtorReturnDate || null,
+            payoffAmount: normalizedReturnAmount,
+            status: "active",
+            direction: currentDebtorDirection,
+          })
+          setDebtors(
+            debtors.map((debtor) =>
+              debtor.id === editingDebtorId
+                ? {
+                    ...debtor,
+                    name: trimmedName,
+                    icon: debtorIcon ?? null,
+                    issuedDate: debtorIssuedDate || getTodayLocalDate(),
+                    loanAmount: normalizedReturnAmount,
+                    dueDate: debtorReturnDate || "",
+                    returnAmount: normalizedReturnAmount,
+                    payoffAmount: normalizedReturnAmount,
+                    status: "active",
+                    direction: currentDebtorDirection,
+                  }
+                : debtor,
+            ),
+          )
+        } else {
+          updateDiagnosticsAction(actionId, "submit.start", { mode: "create" })
+          await createDebtor(token, {
+            name: trimmedName,
+            icon: debtorIcon ?? null,
+            issuedAt: debtorIssuedDate || getTodayLocalDate(),
+            principalAmount: normalizedReturnAmount,
+            dueAt: debtorReturnDate || null,
+            payoffAmount: normalizedReturnAmount,
+            status: "active",
+            direction: currentDebtorDirection,
+          })
         }
-      }
-      setIsGoalsListOpen(true)
-    }).catch((err) => {
-      const msg = err instanceof Error ? err.message : "Не удалось сохранить"
-      if (msg.includes("DEBTOR_NAME_EXISTS")) {
-        setDebtorError("Такое название уже используется")
-      } else if (msg.includes("DEBTOR_NAME_TOO_LONG")) {
-        setDebtorError("Максимум 20 символов")
-      } else {
-        setDebtorError(msg)
+        await refetchDebtors()
+        const nextDetailDebtorId = debtorSheetMode === "edit" ? editingDebtorId : null
+        const shouldReturnToDebtorDetail =
+          debtorSheetMode === "edit" &&
+          debtorSheetReturnTarget === "debtor-detail" &&
+          Boolean(debtorSheetReturnDebtorId || nextDetailDebtorId)
+        closeDebtorSheet()
+        if (shouldReturnToDebtorDetail) {
+          const targetDebtorId = debtorSheetReturnDebtorId ?? nextDetailDebtorId
+          if (targetDebtorId) {
+            setIsGoalsListOpen(false)
+            setDetailDebtorId(targetDebtorId)
+            setDetailTitle(trimmedName)
+            setDebtorSearch("")
+            finishDiagnosticsAction(actionId, "success")
+            return
+          }
+        }
+        setIsGoalsListOpen(true)
+        finishDiagnosticsAction(actionId, "success")
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Не удалось сохранить"
+        if (msg.includes("DEBTOR_NAME_EXISTS")) {
+          setDebtorError("Такое название уже используется")
+        } else if (msg.includes("DEBTOR_NAME_TOO_LONG")) {
+          setDebtorError("Максимум 20 символов")
+        } else {
+          setDebtorError(msg)
+        }
+        captureDiagnosticsError("debtor.save", err, { actionId })
+        finishDiagnosticsAction(actionId, "fail")
       }
     })
   }, [
@@ -3710,14 +4002,28 @@ function OverviewScreen({
   }, [])
 
   const handleCreateGoal = useCallback(async () => {
-    if (!token) return
+    const actionType = goalSheetMode === "create" ? "goal-create" : "goal-edit-save"
+    const actionId = startDiagnosticsAction(actionType, {
+      sourceScreen: "overview",
+      entityType: "goal",
+      entityId: editingGoalId,
+    })
+    if (!token) {
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+      finishDiagnosticsAction(actionId, "fail")
+      return
+    }
     const trimmed = goalName.trim()
     if (!trimmed) {
       setGoalError("Введите название")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "empty-name" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     if (isEntityNameTooLong(trimmed, GOAL_NAME_MAX_LENGTH)) {
       setGoalError("Максимум 20 символов")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "name-too-long" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     const duplicateGoal = goals.some(
@@ -3728,17 +4034,25 @@ function OverviewScreen({
     )
     if (duplicateGoal) {
       setGoalError("Такое название уже используется")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "duplicate-name" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     const targetRaw = goalTarget.trim().replace(",", ".")
     const target = Number(targetRaw)
     if (!Number.isFinite(target) || target <= 0) {
       setGoalError("Введите сумму")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "invalid-target" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     setIsSavingGoal(true)
+    updateDiagnosticsAction(actionId, "validation.success")
     try {
       const isCreateMode = goalSheetMode === "create"
+      updateDiagnosticsAction(actionId, "submit.start", {
+        mode: goalSheetMode,
+      })
       const currentGoalIcon =
         goalIcon?.trim() ??
         (goalSheetMode === "edit" && editingGoalId ? goals.find((g) => g.id === editingGoalId)?.icon ?? null : null)
@@ -3766,6 +4080,7 @@ function OverviewScreen({
       if (isCreateMode) {
         onGoalCreated?.()
       }
+      finishDiagnosticsAction(actionId, "success")
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Не удалось создать цель"
       if (msg.includes("GOAL_NAME_EXISTS")) {
@@ -3775,6 +4090,8 @@ function OverviewScreen({
       } else {
         setGoalError(msg)
       }
+      captureDiagnosticsError("goal.save", err, { actionId })
+      finishDiagnosticsAction(actionId, "fail")
     } finally {
       setIsSavingGoal(false)
     }
@@ -3783,9 +4100,19 @@ function OverviewScreen({
   const handleDeleteCategory = useCallback(
     (id: string) =>
       runCategoryDelete(async () => {
-      if (!token) return
+      const actionId = startDiagnosticsAction("category-delete", {
+        sourceScreen: "overview",
+        entityType: "category",
+        entityId: id,
+      })
+      if (!token) {
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+        finishDiagnosticsAction(actionId, "fail")
+        return
+      }
       setDeletingCategoryId(id)
       try {
+        updateDiagnosticsAction(actionId, "submit.start")
         await deleteCategory(token, id)
         await refetchCategories()
         setDetailCategoryId(null)
@@ -3793,9 +4120,12 @@ function OverviewScreen({
         setIsGoalsListOpen(false)
         closeCategorySheet()
         onNavigateOverviewRoot?.()
+        finishDiagnosticsAction(actionId, "success")
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Не удалось архивировать категорию"
         setCategorySaveError(msg)
+        captureDiagnosticsError("category.delete", err, { actionId })
+        finishDiagnosticsAction(actionId, "fail")
       } finally {
         setDeletingCategoryId(null)
         setIsConfirmingCategoryDelete(false)
@@ -3807,9 +4137,19 @@ function OverviewScreen({
   const handleDeleteIncomeSource = useCallback(
     (id: string) =>
       runIncomeDelete(async () => {
-      if (!token) return
+      const actionId = startDiagnosticsAction("income-source-delete", {
+        sourceScreen: "overview",
+        entityType: "income-source",
+        entityId: id,
+      })
+      if (!token) {
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+        finishDiagnosticsAction(actionId, "fail")
+        return
+      }
       setDeletingIncomeSourceId(id)
       try {
+        updateDiagnosticsAction(actionId, "submit.start")
         await deleteIncomeSource(token, id)
         await refetchIncomeSources()
         setDetailIncomeSourceId(null)
@@ -3817,9 +4157,12 @@ function OverviewScreen({
         setIsGoalsListOpen(false)
         closeIncomeSourceSheet()
         onNavigateOverviewRoot?.()
+        finishDiagnosticsAction(actionId, "success")
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Не удалось архивировать источник дохода"
         setIncomeSourceError(msg)
+        captureDiagnosticsError("income-source.delete", err, { actionId })
+        finishDiagnosticsAction(actionId, "fail")
       } finally {
         setDeletingIncomeSourceId(null)
         setIsConfirmingIncomeSourceDelete(false)
@@ -3908,15 +4251,29 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
 
   const handleSaveAccount = useCallback(() => {
     return runAccountFlight(async () => {
+      const actionType = editingAccountId ? "account-edit-save" : "account-create"
+      const actionId = startDiagnosticsAction(actionType, {
+        sourceScreen: "overview",
+        entityType: "account",
+        entityId: editingAccountId,
+      })
       const tokenLocal = typeof window !== "undefined" ? localStorage.getItem("auth_access_token") : null
-      if (!tokenLocal) return
+      if (!tokenLocal) {
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+        finishDiagnosticsAction(actionId, "fail")
+        return
+      }
       const trimmedName = name.trim()
       if (!trimmedName) {
         setAccountActionError("Введите название счёта")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "empty-name" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       if (isEntityNameTooLong(trimmedName, ACCOUNT_NAME_MAX_LENGTH)) {
         setAccountActionError("Максимум 12 символов")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "name-too-long" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const duplicateAccount = accounts.some(
@@ -3925,16 +4282,21 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
       )
       if (duplicateAccount) {
         setAccountActionError("Такое название уже используется")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "duplicate-name" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const parsed = Number(balance.trim().replace(",", "."))
       if (!Number.isFinite(parsed)) {
         setAccountActionError("Некорректный баланс")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "invalid-balance" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const balanceNumber = Math.round(parsed * 100) / 100
       try {
         setAccountActionError(null)
+        updateDiagnosticsAction(actionId, "validation.success")
         const isCreateMode = !editingAccountId
         const currentAccount = accounts.find((a) => a.id === editingAccountId)
         const currentBalance = currentAccount?.balance.amount
@@ -3945,6 +4307,10 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
           (trimmedName !== currentAccount?.name ||
             accountColor !== (currentAccount as { color?: string })?.color ||
             accountIcon !== (currentAccount as { icon?: string | null })?.icon)
+        updateDiagnosticsAction(actionId, "submit.start", {
+          mode: editingAccountId ? "edit" : "create",
+          updateOnlyMeta: Boolean(editingAccountId && needUpdateAccount),
+        })
 
         if (editingAccountId) {
           if (needUpdateAccount) {
@@ -3994,8 +4360,12 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
         if (isCreateMode) {
           onAccountCreated?.()
         }
+        finishDiagnosticsAction(actionId, "success")
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return
+        if (err instanceof DOMException && err.name === "AbortError") {
+          finishDiagnosticsAction(actionId, "cancel")
+          return
+        }
         const msg = err instanceof Error ? err.message : "Не удалось сохранить счёт"
         if (msg.includes("ACCOUNT_NAME_EXISTS")) {
           setAccountActionError("Такое название уже используется")
@@ -4004,6 +4374,8 @@ const incomeItems: CardItem[] = activeIncomeSources.map((src, idx) => ({
         } else {
           setAccountActionError(msg)
         }
+        captureDiagnosticsError("account.save", err, { actionId })
+        finishDiagnosticsAction(actionId, "fail")
       }
     })
   }, [

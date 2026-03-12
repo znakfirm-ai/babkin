@@ -16,6 +16,19 @@ import { GoalList } from "../components/GoalList"
 import { DebtorList } from "../components/DebtorList"
 import type { Debtor } from "../types/finance"
 import { PAGE_CLOSE_ACTION_BUTTON_STYLE } from "../shared/uiTokens"
+import {
+  captureDiagnosticsError,
+  finishDiagnosticsAction,
+  logDiagnosticEvent,
+  logDiagnosticsFormFieldChange,
+  markDiagnosticsMount,
+  markDiagnosticsUnmount,
+  setDiagnosticsFormState,
+  setDiagnosticsPendingFlag,
+  setDiagnosticsUiState,
+  startDiagnosticsAction,
+  updateDiagnosticsAction,
+} from "../utils/diagnostics"
 
 const getTodayLocalDate = () => {
   const now = new Date()
@@ -52,6 +65,7 @@ export const DateIconButton: React.FC<{ value: string; onChange: (val: string) =
   const pickerRef = useRef<HTMLInputElement | null>(null)
 
   const openDatePicker = useCallback(() => {
+    logDiagnosticEvent("date-picker.open", { source: "quick-add" })
     const input = pickerRef.current
     if (!input) return
     const pickerInput = input as HTMLInputElement & { showPicker?: () => void }
@@ -91,7 +105,10 @@ export const DateIconButton: React.FC<{ value: string; onChange: (val: string) =
         ref={pickerRef}
         type="date"
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          logDiagnosticEvent("date-picker.change", { source: "quick-add", value: event.target.value })
+          onChange(event.target.value)
+        }}
         style={{
           position: "absolute",
           inset: 0,
@@ -305,6 +322,51 @@ export const QuickAddScreen: React.FC<Props> = ({
   })
   const { run, isRunning } = useSingleFlight()
 
+  useEffect(() => {
+    markDiagnosticsMount("quick-add-screen")
+    setDiagnosticsUiState({
+      screen: "quick-add",
+      bottomNavHidden: true,
+    })
+    return () => {
+      setDiagnosticsUiState({
+        datePickerOpen: false,
+        openSheets: [],
+      })
+      markDiagnosticsUnmount("quick-add-screen")
+    }
+  }, [])
+
+  useEffect(() => {
+    setDiagnosticsFormState({
+      formType: "quick-add",
+      mode: "create",
+      keyFields: {
+        tab: activeTab,
+        amount,
+        date: transferDate,
+      },
+      isSubmitting: isRunning,
+    })
+    setDiagnosticsPendingFlag("quickAddSubmitting", isRunning)
+  }, [activeTab, amount, isRunning, transferDate])
+
+  useEffect(() => {
+    logDiagnosticsFormFieldChange("quick-add", "amount", amount)
+  }, [amount])
+
+  useEffect(() => {
+    logDiagnosticsFormFieldChange("quick-add", "date", transferDate)
+  }, [transferDate])
+
+  useEffect(() => {
+    logDiagnosticEvent("form.open", {
+      formType: "quick-add",
+      mode: "create",
+      tab: activeTab,
+    })
+  }, [activeTab])
+
   const expenseCategories = useMemo(
     () => categories.filter((category) => category.type === "expense" && !category.isArchived),
     [categories],
@@ -415,6 +477,19 @@ export const QuickAddScreen: React.FC<Props> = ({
     expensePickerGestureRef.current.tracking = false
     expensePickerGestureRef.current.draggingSheet = false
     expensePickerGestureRef.current.blockClick = false
+  }, [expensePicker])
+
+  useEffect(() => {
+    if (!expensePicker) {
+      logDiagnosticEvent("bottom-sheet.close", { name: "quick-add-picker" })
+      setDiagnosticsUiState({ openSheets: [] })
+      return
+    }
+    logDiagnosticEvent("bottom-sheet.open", {
+      name: "quick-add-picker",
+      picker: expensePicker,
+    })
+    setDiagnosticsUiState({ openSheets: [`quick-add-picker:${expensePicker}`] })
   }, [expensePicker])
 
   useEffect(() => {
@@ -784,21 +859,36 @@ export const QuickAddScreen: React.FC<Props> = ({
   const submitExpense = useCallback(() => {
     if (isRunning) return
     return run(async () => {
+    const actionId = startDiagnosticsAction("tx-create-expense", {
+      sourceScreen: "quick-add",
+      entityType: "transaction",
+      payload: {
+        tab: activeTab,
+      },
+    })
     if (!token) {
       setError("Нет токена")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     if (!selectedAccountId || !selectedCategoryId) {
       setError("Выберите счёт и категорию")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-account-or-category" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     const amt = Number(amount.replace(",", "."))
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Введите сумму")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "invalid-amount" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
+    updateDiagnosticsAction(actionId, "validation.success")
     setError(null)
     try {
+      updateDiagnosticsAction(actionId, "submit.start")
       await createTransaction(token, {
         kind: "expense",
         amount: Math.round(amt * 100) / 100,
@@ -843,11 +933,14 @@ export const QuickAddScreen: React.FC<Props> = ({
         })),
       )
       onSaved?.()
+      finishDiagnosticsAction(actionId, "success")
     } catch (err) {
       setError(getTransactionErrorMessage(err))
+      captureDiagnosticsError("quick-add.submit-expense", err, { actionId })
+      finishDiagnosticsAction(actionId, "fail")
     }
     })
-  }, [amount, isRunning, onSaved, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
+  }, [activeTab, amount, isRunning, onSaved, run, selectedAccountId, selectedCategoryId, setAccounts, setTransactions, token])
 
   const openExpensePicker = useCallback((picker: QuickAddPickerKey) => {
     if (expensePickerCloseTimerRef.current !== null) {
@@ -993,21 +1086,36 @@ export const QuickAddScreen: React.FC<Props> = ({
   const submitIncome = useCallback(() => {
     if (isRunning) return
     return run(async () => {
+    const actionId = startDiagnosticsAction("tx-create-income", {
+      sourceScreen: "quick-add",
+      entityType: "transaction",
+      payload: {
+        tab: activeTab,
+      },
+    })
     if (!token) {
       setError("Нет токена")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     if (!selectedIncomeSourceId || !selectedAccountId) {
       setError("Выберите источник и счёт")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-income-source-or-account" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     const amt = Number(amount.replace(",", "."))
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Введите сумму")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "invalid-amount" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
+    updateDiagnosticsAction(actionId, "validation.success")
     setError(null)
     try {
+      updateDiagnosticsAction(actionId, "submit.start")
       await createTransaction(token, {
         kind: "income",
         amount: Math.round(amt * 100) / 100,
@@ -1055,11 +1163,14 @@ export const QuickAddScreen: React.FC<Props> = ({
       setSelectedAccountId(null)
       setAmount("")
       onSaved?.()
+      finishDiagnosticsAction(actionId, "success")
     } catch (err) {
       setError(getTransactionErrorMessage(err))
+      captureDiagnosticsError("quick-add.submit-income", err, { actionId })
+      finishDiagnosticsAction(actionId, "fail")
     }
     })
-  }, [amount, isRunning, onSaved, run, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
+  }, [activeTab, amount, isRunning, onSaved, run, selectedAccountId, selectedIncomeSourceId, setAccounts, setTransactions, token])
 
   const renderTile = (
     item: {
@@ -1251,47 +1362,72 @@ export const QuickAddScreen: React.FC<Props> = ({
   const submitTransfer = useCallback(() => {
     if (isRunning) return
     return run(async () => {
+    const actionId = startDiagnosticsAction("tx-create-transfer", {
+      sourceScreen: "quick-add",
+      entityType: transferTargetType === "goal" ? "goal-contribution" : "transaction",
+      payload: {
+        targetType: transferTargetType,
+      },
+    })
     if (!token) {
       setError("Нет токена")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     const amt = Number(amount.replace(",", "."))
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Введите сумму")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "invalid-amount" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     if (transferTargetType === "account") {
       if (!transferFromAccountId || !transferToAccountId) {
         setError("Выберите счета")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-accounts" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       if (transferFromAccountId === transferToAccountId) {
         setError("Счета должны различаться")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "same-accounts" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
     }
     if (transferTargetType === "goal") {
       if (!transferFromAccountId) {
         setError("Выберите счёт")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-goal-account" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       if (!selectedGoalId) {
         setError("Выберите цель")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-goal" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
     }
     if (transferTargetType === "debt") {
       if (!transferFromAccountId) {
         setError("Выберите счёт")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-debt-account" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       if (!selectedPayableDebtorId) {
         setError("Выберите долг")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-debt" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
     }
+    updateDiagnosticsAction(actionId, "validation.success")
     setError(null)
     try {
+      updateDiagnosticsAction(actionId, "submit.start")
       if (transferTargetType === "account") {
         const fromId = transferFromAccountId as string
         const toId = transferToAccountId as string
@@ -1360,8 +1496,11 @@ export const QuickAddScreen: React.FC<Props> = ({
         await refetchDebtors()
       }
       onSaved?.()
+      finishDiagnosticsAction(actionId, "success")
     } catch (err) {
       setError(getTransactionErrorMessage(err))
+      captureDiagnosticsError("quick-add.submit-transfer", err, { actionId })
+      finishDiagnosticsAction(actionId, "fail")
     }
     })
   }, [
@@ -1430,25 +1569,40 @@ export const QuickAddScreen: React.FC<Props> = ({
   const submitGoal = useCallback(() => {
     if (isRunning) return
     return run(async () => {
+    const actionId = startDiagnosticsAction("goal-contribute", {
+      sourceScreen: "quick-add",
+      entityType: "goal",
+      entityId: selectedGoalId ?? null,
+    })
     if (!token) {
       setError("Нет токена")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     if (!selectedAccountId) {
       setError("Выберите счёт")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-account" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     if (!selectedGoalId) {
       setError("Выберите цель")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-goal" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
     const amt = Number(amount.replace(",", "."))
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Введите сумму")
+      updateDiagnosticsAction(actionId, "validation.fail", { reason: "invalid-amount" })
+      finishDiagnosticsAction(actionId, "fail")
       return
     }
+    updateDiagnosticsAction(actionId, "validation.success")
     setError(null)
     try {
+      updateDiagnosticsAction(actionId, "submit.start")
       await contributeGoal(token, selectedGoalId, {
         accountId: selectedAccountId,
         amount: Math.round(amt * 100) / 100,
@@ -1492,8 +1646,11 @@ export const QuickAddScreen: React.FC<Props> = ({
       )
       await ensureGoalsLoaded()
       onSaved?.()
+      finishDiagnosticsAction(actionId, "success")
     } catch (err) {
       setError(getTransactionErrorMessage(err))
+      captureDiagnosticsError("quick-add.submit-goal", err, { actionId })
+      finishDiagnosticsAction(actionId, "fail")
     }
     })
   }, [amount, isRunning, onSaved, run, selectedAccountId, selectedGoalId, setAccounts, setTransactions, token, transferDate])
@@ -1501,34 +1658,54 @@ export const QuickAddScreen: React.FC<Props> = ({
   const submitDebt = useCallback(() => {
     if (isRunning) return
     return run(async () => {
+      const actionId = startDiagnosticsAction("tx-create-debt", {
+        sourceScreen: "quick-add",
+        entityType: "debt",
+        payload: {
+          debtAction,
+          debtorId: debtAction === "receivable" ? selectedReceivableDebtorId : selectedPayableDebtorId,
+        },
+      })
       if (!token) {
         setError("Нет токена")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "no-token" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
       const amt = Number(amount.replace(",", "."))
       if (!Number.isFinite(amt) || amt <= 0) {
         setError("Введите сумму")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "invalid-amount" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
 
       if (!selectedDebtAccountId) {
         setError("Выберите счёт")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-account" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
 
       if (debtAction === "receivable") {
         if (!selectedReceivableDebtorId) {
           setError("Выберите должника")
+          updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-receivable-debtor" })
+          finishDiagnosticsAction(actionId, "fail")
           return
         }
       } else if (!selectedPayableDebtorId) {
         setError("Выберите долг")
+        updateDiagnosticsAction(actionId, "validation.fail", { reason: "missing-payable-debtor" })
+        finishDiagnosticsAction(actionId, "fail")
         return
       }
 
+      updateDiagnosticsAction(actionId, "validation.success")
       setError(null)
 
       try {
+        updateDiagnosticsAction(actionId, "submit.start")
         if (debtAction === "receivable") {
           await createTransaction(token, {
             kind: "transfer",
@@ -1587,8 +1764,11 @@ export const QuickAddScreen: React.FC<Props> = ({
 
         await refetchDebtors()
         onSaved?.()
+        finishDiagnosticsAction(actionId, "success")
       } catch (err) {
         setError(getTransactionErrorMessage(err))
+        captureDiagnosticsError("quick-add.submit-debt", err, { actionId })
+        finishDiagnosticsAction(actionId, "fail")
       }
     })
   }, [

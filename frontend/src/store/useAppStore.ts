@@ -2,6 +2,7 @@ import { useState } from "react"
 import type { Account, Category, Debtor, Goal, IncomeSource, Transaction } from "../types/finance"
 import { loadFromStorage, saveToStorage } from "../utils/storage"
 import { normalizeCurrency } from "../utils/formatMoney"
+import { logDiagnosticEvent } from "../utils/diagnostics"
 
 function uid() {
   return Math.random().toString(36).slice(2, 10)
@@ -68,6 +69,11 @@ export function useAppStore() {
     }
 
     saveToStorage(state)
+    logDiagnosticEvent("store.mutation", {
+      scope: "transactions",
+      operation: "add",
+      totalTransactions: state.transactions.length,
+    })
 
     forceUpdate((x) => x + 1)
   }
@@ -96,47 +102,87 @@ export function useAppStore() {
 
     state.transactions.splice(idx, 1)
     saveToStorage(state)
+    logDiagnosticEvent("store.mutation", {
+      scope: "transactions",
+      operation: "remove",
+      totalTransactions: state.transactions.length,
+    })
     forceUpdate((x) => x + 1)
   }
 
   function setAccounts(accounts: Account[]) {
     state.accounts = accounts.map((a) => ({ ...a, balance: { ...a.balance } }))
     saveToStorage(state)
+    logDiagnosticEvent("store.mutation", {
+      scope: "accounts",
+      operation: "replace",
+      totalAccounts: state.accounts.length,
+    })
     forceUpdate((x) => x + 1)
   }
 
   function setTransactions(transactions: Transaction[]) {
     state.transactions = transactions.map((t) => ({ ...t, amount: { ...t.amount } }))
     saveToStorage(state)
+    logDiagnosticEvent("store.mutation", {
+      scope: "transactions",
+      operation: "replace",
+      totalTransactions: state.transactions.length,
+    })
     forceUpdate((x) => x + 1)
   }
 
   function setCategories(categories: Category[]) {
     state.categories = categories.map((c) => ({ ...c }))
     saveToStorage(state)
+    logDiagnosticEvent("store.mutation", {
+      scope: "categories",
+      operation: "replace",
+      totalCategories: state.categories.length,
+    })
     forceUpdate((x) => x + 1)
   }
 
   function setIncomeSources(next: IncomeSource[]) {
     state.incomeSources = next.map((s) => ({ ...s }))
     saveToStorage(state)
+    logDiagnosticEvent("store.mutation", {
+      scope: "incomeSources",
+      operation: "replace",
+      totalIncomeSources: state.incomeSources.length,
+    })
     forceUpdate((x) => x + 1)
   }
 
   function setGoals(next: Goal[]) {
     state.goals = next.map((g) => ({ ...g }))
     saveToStorage(state)
+    logDiagnosticEvent("store.mutation", {
+      scope: "goals",
+      operation: "replace",
+      totalGoals: state.goals.length,
+    })
     forceUpdate((x) => x + 1)
   }
 
   function setDebtors(next: Debtor[]) {
     state.debtors = next.map((d) => ({ ...d }))
+    logDiagnosticEvent("store.mutation", {
+      scope: "debtors",
+      operation: "replace",
+      totalDebtors: state.debtors.length,
+    })
     forceUpdate((x) => x + 1)
   }
 
   function setCurrency(currency: string) {
     state.currency = normalizeCurrency(currency)
     saveToStorage(state)
+    logDiagnosticEvent("store.mutation", {
+      scope: "currency",
+      operation: "set",
+      currency: state.currency,
+    })
     forceUpdate((x) => x + 1)
   }
 

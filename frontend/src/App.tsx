@@ -11,6 +11,14 @@ import DebugTimingsOverlay from "./components/DebugTimingsOverlay"
 import DebugScrollOverlay from "./components/DebugScrollOverlay"
 import CenteredLoader from "./components/CenteredLoader"
 import { markTimingStage, timedFetch } from "./utils/debugTimings"
+import {
+  captureDiagnosticsError,
+  installDiagnosticsWindowObservers,
+  logDiagnosticEvent,
+  markDiagnosticsRefetch,
+  setDiagnosticsPendingFlag,
+  setDiagnosticsUiState,
+} from "./utils/diagnostics"
 import HomeScreen from "./screens/HomeScreen"
 import OverviewScreen from "./screens/OverviewScreen"
 import AddScreen from "./screens/AddScreen"
@@ -204,6 +212,11 @@ class AppErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState>
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     // eslint-disable-next-line no-console
     console.error("App crashed", error, info)
+    captureDiagnosticsError("react.error-boundary", error, {
+      payload: {
+        componentStack: info.componentStack,
+      },
+    })
   }
 
   render() {
@@ -356,6 +369,7 @@ function App() {
   const appSettleDoneRef = useRef(false)
   const initInFlightRef = useRef(false)
   const appStartMarkedRef = useRef(false)
+  const diagnosticsScreenRef = useRef<ScreenKey | null>(null)
 
   interface TelegramWebApp {
     ready(): void
@@ -365,9 +379,19 @@ function App() {
   }
 
   useEffect(() => {
+    logDiagnosticEvent("app.mount")
+    const cleanupObservers = installDiagnosticsWindowObservers()
+    return () => {
+      logDiagnosticEvent("app.unmount")
+      cleanupObservers()
+    }
+  }, [])
+
+  useEffect(() => {
     if (appStartMarkedRef.current) return
     markTimingStage("appStart")
     appStartMarkedRef.current = true
+    logDiagnosticEvent("app.session.start.marked")
   }, [])
 
   useEffect(() => {
@@ -558,12 +582,25 @@ function App() {
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
-      if (event.error instanceof Error) setGlobalError(event.error)
+      if (event.error instanceof Error) {
+        setGlobalError(event.error)
+        captureDiagnosticsError("window.error", event.error)
+        return
+      }
+      if (event.message) {
+        captureDiagnosticsError("window.error", new Error(event.message))
+      }
     }
     const handleRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason
-      if (reason instanceof Error) setGlobalError(reason)
-      else setGlobalError(new Error(typeof reason === "string" ? reason : "Unhandled rejection"))
+      if (reason instanceof Error) {
+        setGlobalError(reason)
+        captureDiagnosticsError("window.unhandledrejection", reason)
+        return
+      }
+      const normalized = new Error(typeof reason === "string" ? reason : "Unhandled rejection")
+      setGlobalError(normalized)
+      captureDiagnosticsError("window.unhandledrejection", normalized)
     }
     window.addEventListener("error", handleError)
     window.addEventListener("unhandledrejection", handleRejection)
@@ -617,6 +654,30 @@ function App() {
   }, [])
   const activeOverviewUiPhase = overviewUiPhaseBySpaceKey[appActiveSpaceKey]
   const isOverviewScreenActive = activeScreen === "overview" || activeScreen === "receivables"
+
+  useEffect(() => {
+    const previous = diagnosticsScreenRef.current
+    if (previous !== activeScreen) {
+      logDiagnosticEvent("navigation.screen.change", {
+        from: previous,
+        to: activeScreen,
+      })
+      diagnosticsScreenRef.current = activeScreen
+    }
+    setDiagnosticsUiState({
+      screen: activeScreen,
+      navigationState: activeNav,
+      bottomNavHidden: activeScreen === "quick-add",
+    })
+  }, [activeNav, activeScreen])
+
+  useEffect(() => {
+    setDiagnosticsPendingFlag("appLoading", appLoading)
+  }, [appLoading])
+
+  useEffect(() => {
+    setDiagnosticsPendingFlag("appSettling", appSettling)
+  }, [appSettling])
 
   const isStaleOverviewReload = useCallback((spaceKey: SpaceKey, requestId?: number) => {
     if (requestId !== undefined && workspaceSwitchRequestRef.current !== requestId) return true
@@ -761,6 +822,7 @@ function App() {
       setAppLoading(true)
       setAppSettling(true)
       setAppInitError(null)
+      logDiagnosticEvent("init.waiting.telegram")
       return
     }
     if (!isTelegram && inviteCodeFromPathname) {
@@ -768,6 +830,7 @@ function App() {
       setAppLoading(false)
       setAppSettling(false)
       setAppInitError(null)
+      logDiagnosticEvent("init.skip.browser-invite", { inviteCodeFromPathname })
       return
     }
 
@@ -796,6 +859,10 @@ function App() {
 
     initInFlightRef.current = true
     markTimingStage("initBegin")
+    logDiagnosticEvent("init.start", {
+      isTelegram,
+      hasInvite: Boolean(pendingJoinInviteCode),
+    })
     setAppLoading(true)
     setAppSettling(true)
     appSettleDoneRef.current = false
@@ -830,18 +897,22 @@ function App() {
 
       initDone.current = true
       setAppLoading(false)
+      logDiagnosticEvent("init.success")
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         setAppLoading(false)
         setAppSettling(false)
+        logDiagnosticEvent("init.abort")
         return
       }
       setAppInitError(err instanceof Error ? err.message : "Init error")
+      captureDiagnosticsError("init.failure", err)
       setAppLoading(false)
       setAppSettling(false)
     } finally {
       initInFlightRef.current = false
       markTimingStage("initEnd")
+      logDiagnosticEvent("init.end")
     }
   }, [inviteCodeFromPathname, isTelegram, isTelegramInitReady, pendingJoinInviteCode, refreshWorkspacesAndBootstrap])
 
@@ -856,17 +927,20 @@ function App() {
       const targetSpaceKey = options?.spaceKey ?? activeSpaceKeyRef.current
       const requestId = options?.requestId
       const markLoading = options?.markLoading ?? true
+      markDiagnosticsRefetch("overview-reload", targetSpaceKey)
       if (overviewInFlightBySpaceRef.current[targetSpaceKey]) return false
       if (!appToken) {
         setOverviewError("Нет токена")
         setOverviewStatus(targetSpaceKey, "error")
         setOverviewUiPhase(targetSpaceKey, "error")
+        logDiagnosticEvent("overview.reload.no-token", { targetSpaceKey }, { level: "warn" })
         return false
       }
       if (!appActiveWorkspace) {
         setOverviewError("Нет активного рабочего пространства")
         setOverviewStatus(targetSpaceKey, "error")
         setOverviewUiPhase(targetSpaceKey, "error")
+        logDiagnosticEvent("overview.reload.no-workspace", { targetSpaceKey }, { level: "warn" })
         return false
       }
       overviewInFlightBySpaceRef.current[targetSpaceKey] = true
@@ -988,6 +1062,7 @@ function App() {
         setOverviewStatus(targetSpaceKey, "success")
         setOverviewUiPhase(targetSpaceKey, "ready")
         setOverviewError(null)
+        logDiagnosticEvent("overview.reload.success", { targetSpaceKey })
         return true
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return false
@@ -997,6 +1072,11 @@ function App() {
         setOverviewStatus(targetSpaceKey, "error")
         setOverviewUiPhase(targetSpaceKey, "error")
         setOverviewError("Ошибка загрузки данных")
+        captureDiagnosticsError("overview.reload.failure", err, {
+          payload: {
+            targetSpaceKey,
+          },
+        })
         return false
       } finally {
         overviewInFlightBySpaceRef.current[targetSpaceKey] = false

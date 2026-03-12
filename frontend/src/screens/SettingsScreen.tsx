@@ -1,8 +1,19 @@
-import React, { useCallback, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAppStore } from "../store/useAppStore"
 import { isDebugTimingsStorageEnabled, setDebugTimingsStorageEnabled } from "../utils/debugTimings"
 import { CURRENCIES, normalizeCurrency } from "../utils/formatMoney"
 import { buildSharedWorkspaceInviteUrl } from "../utils/sharedInviteLink"
+import {
+  clearDiagnosticsCrashSnapshot,
+  clearDiagnosticsLogs,
+  copyDiagnosticsReport,
+  getDiagnosticsRecentEvents,
+  hasDiagnosticsCrashSnapshot,
+  isDiagnosticsUnlocked,
+  logDiagnosticEvent,
+  registerDiagnosticsUnlockTap,
+  setDiagnosticsUiState,
+} from "../utils/diagnostics"
 import { PAGE_CLOSE_ACTION_BUTTON_STYLE } from "../shared/uiTokens"
 
 type SharedWorkspaceInvite = {
@@ -20,7 +31,7 @@ type SharedWorkspaceMember = {
   telegramUserId: string
 }
 
-type SettingsPage = "root" | "currency" | "reset" | "shared-access" | "member-remove"
+type SettingsPage = "root" | "currency" | "reset" | "shared-access" | "member-remove" | "diagnostics"
 
 type Props = {
   onOpenCategories?: () => void
@@ -56,6 +67,7 @@ const copyText = async (value: string) => {
 }
 
 const SHARED_INVITE_MESSAGE = "Давай вместе вести бюджет 👇"
+const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "0.0.0"
 
 const SettingsScreen: React.FC<Props> = ({
   onOpenCategories,
@@ -88,6 +100,11 @@ const SettingsScreen: React.FC<Props> = ({
   const [sharedMembersError, setSharedMembersError] = useState<string | null>(null)
   const [sharedMembersNotice, setSharedMembersNotice] = useState<string | null>(null)
   const [memberToRemove, setMemberToRemove] = useState<SharedWorkspaceMember | null>(null)
+  const [diagnosticsUnlocked, setDiagnosticsUnlockedState] = useState(() => isDiagnosticsUnlocked())
+  const [diagnosticsNotice, setDiagnosticsNotice] = useState<string | null>(null)
+  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null)
+  const [showDiagnosticsEvents, setShowDiagnosticsEvents] = useState(false)
+  const [diagnosticsEventsText, setDiagnosticsEventsText] = useState("")
   const resetSheetOverlayRef = useRef<HTMLDivElement | null>(null)
   const resetSheetRef = useRef<HTMLDivElement | null>(null)
   const resetSheetContentRef = useRef<HTMLDivElement | null>(null)
@@ -119,6 +136,29 @@ const SettingsScreen: React.FC<Props> = ({
   const [resetSheetDragOffset, setResetSheetDragOffset] = useState(0)
   const [resetSheetClosing, setResetSheetClosing] = useState(false)
   const isResetSheetOpen = activePage === "reset" && resetStep !== 0
+
+  useEffect(() => {
+    const openSheets: string[] = []
+    if (activePage === "currency") openSheets.push("settings-currency-page")
+    if (activePage === "shared-access") openSheets.push("settings-shared-access-page")
+    if (activePage === "member-remove") openSheets.push("settings-member-remove-page")
+    if (isResetSheetOpen) openSheets.push("settings-reset-sheet")
+    if (activePage === "diagnostics") openSheets.push("settings-diagnostics-page")
+    setDiagnosticsUiState({
+      screen: "settings",
+      detailFlow: activePage,
+      openSheets,
+      bottomNavHidden: activePage !== "root",
+    })
+  }, [activePage, isResetSheetOpen])
+
+  useEffect(() => {
+    if (isResetSheetOpen) {
+      logDiagnosticEvent("bottom-sheet.open", { name: "settings-reset-sheet", step: resetStep })
+      return
+    }
+    logDiagnosticEvent("bottom-sheet.close", { name: "settings-reset-sheet" })
+  }, [isResetSheetOpen, resetStep])
 
   const handleToggleDebugTimings = useCallback(() => {
     const nextValue = !debugTimingsEnabled
@@ -284,6 +324,70 @@ const SettingsScreen: React.FC<Props> = ({
     setResetSheetDragOffset(0)
     setResetSheetClosing(false)
   }, [isResetWorkspaceRunning])
+
+  const openDiagnosticsPage = useCallback(() => {
+    setDiagnosticsError(null)
+    setDiagnosticsNotice(null)
+    setShowDiagnosticsEvents(false)
+    setDiagnosticsEventsText("")
+    setActivePage("diagnostics")
+    logDiagnosticEvent("diagnostics.page.open")
+  }, [])
+
+  const closeDiagnosticsPage = useCallback(() => {
+    setShowDiagnosticsEvents(false)
+    setDiagnosticsEventsText("")
+    setDiagnosticsNotice(null)
+    setDiagnosticsError(null)
+    setActivePage("root")
+  }, [])
+
+  const handleDiagnosticsVersionTap = useCallback(() => {
+    const unlocked = registerDiagnosticsUnlockTap(5, 1500)
+    if (!unlocked) return
+    setDiagnosticsUnlockedState(true)
+    setDiagnosticsNotice("Диагностика включена")
+    setDiagnosticsError(null)
+    logDiagnosticEvent("diagnostics.unlocked")
+  }, [])
+
+  const handleCopyDiagnosticsReport = useCallback(async () => {
+    setDiagnosticsError(null)
+    setDiagnosticsNotice(null)
+    try {
+      await copyDiagnosticsReport()
+      setDiagnosticsNotice("Debug report скопирован")
+    } catch {
+      setDiagnosticsError("Не удалось скопировать debug report")
+    }
+  }, [])
+
+  const handleToggleDiagnosticsEvents = useCallback(() => {
+    if (showDiagnosticsEvents) {
+      setShowDiagnosticsEvents(false)
+      setDiagnosticsEventsText("")
+      return
+    }
+    const timeline = getDiagnosticsRecentEvents(100)
+      .map((event) => `${event.isoTime} ${event.level.toUpperCase()} ${event.type}${event.actionId ? ` [${event.actionId}]` : ""}`)
+      .join("\n")
+    setDiagnosticsEventsText(timeline)
+    setShowDiagnosticsEvents(true)
+  }, [showDiagnosticsEvents])
+
+  const handleClearDiagnosticsLogs = useCallback(() => {
+    clearDiagnosticsLogs()
+    setDiagnosticsEventsText("")
+    setShowDiagnosticsEvents(false)
+    setDiagnosticsNotice("Логи очищены")
+    setDiagnosticsError(null)
+  }, [])
+
+  const handleClearCrashSnapshot = useCallback(() => {
+    clearDiagnosticsCrashSnapshot()
+    setDiagnosticsNotice("Снимок последнего сбоя удален")
+    setDiagnosticsError(null)
+  }, [])
 
   const requestCloseResetSheet = useCallback(() => {
     if (!isResetSheetOpen || resetSheetClosing || isResetWorkspaceRunning) return
@@ -688,7 +792,35 @@ const SettingsScreen: React.FC<Props> = ({
               <span style={chevronStyle}>›</span>
             </button>
           ) : null}
+
+          {diagnosticsUnlocked ? (
+            <button type="button" onClick={openDiagnosticsPage} style={listCardStyle}>
+              <span style={listTitleStyle}>Диагностика</span>
+              <span style={listSubtitleStyle}>
+                {hasDiagnosticsCrashSnapshot() ? "Найден снимок последнего сбоя" : "Скрытый debug report для анализа Load failed"}
+              </span>
+              <span style={chevronStyle}>›</span>
+            </button>
+          ) : null}
         </div>
+
+        <button
+          type="button"
+          onClick={handleDiagnosticsVersionTap}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: "#94a3b8",
+            fontSize: 12,
+            textAlign: "center",
+            padding: "8px 0",
+            cursor: "pointer",
+          }}
+          aria-label="Версия приложения"
+        >
+          Версия {APP_VERSION}
+        </button>
+        {diagnosticsNotice && activePage === "root" ? <div style={{ fontSize: 12, color: "#0369a1", textAlign: "center" }}>{diagnosticsNotice}</div> : null}
       </div>
 
       {activePage === "currency" ? (
@@ -1254,6 +1386,119 @@ const SettingsScreen: React.FC<Props> = ({
                     {isSharedMemberRemoving ? "Удаляем..." : "Удалить"}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {activePage === "diagnostics" ? (
+        <div role="dialog" aria-modal="true" style={pageOverlayStyle}>
+          <div style={pageSurfaceStyle}>
+            <div style={pageHeaderStyle}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Диагностика</div>
+              <button type="button" onClick={closeDiagnosticsPage} style={pageCloseButtonStyle}>
+                Закрыть
+              </button>
+            </div>
+            <div style={pageBodyStyle}>
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", padding: 12, display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Сервисный режим</div>
+                <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.35 }}>
+                  {hasDiagnosticsCrashSnapshot()
+                    ? "Найден сохраненный снимок последнего сбоя. Скопируйте отчет и отправьте его в поддержку."
+                    : "Скопируйте отчет после воспроизведения проблемы или сразу после повторного запуска mini app."}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyDiagnosticsReport}
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #0f172a",
+                    background: "#0f172a",
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Скопировать debug report
+                </button>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={handleToggleDiagnosticsEvents}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      color: "#0f172a",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {showDiagnosticsEvents ? "Скрыть события" : "Показать события"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearDiagnosticsLogs}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: "#fff",
+                      color: "#0f172a",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Очистить логи
+                  </button>
+                </div>
+                {hasDiagnosticsCrashSnapshot() ? (
+                  <button
+                    type="button"
+                    onClick={handleClearCrashSnapshot}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #fecaca",
+                      background: "#fff",
+                      color: "#b91c1c",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Удалить снимок сбоя
+                  </button>
+                ) : null}
+                {showDiagnosticsEvents ? (
+                  <pre
+                    style={{
+                      margin: 0,
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      background: "#f8fafc",
+                      padding: 10,
+                      maxHeight: 220,
+                      overflow: "auto",
+                      whiteSpace: "pre-wrap",
+                      fontSize: 11,
+                      lineHeight: 1.35,
+                      color: "#334155",
+                    }}
+                  >
+                    {diagnosticsEventsText || "События не найдены"}
+                  </pre>
+                ) : null}
+                {diagnosticsNotice ? <div style={{ fontSize: 13, color: "#0369a1" }}>{diagnosticsNotice}</div> : null}
+                {diagnosticsError ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{diagnosticsError}</div> : null}
               </div>
             </div>
           </div>
