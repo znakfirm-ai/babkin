@@ -100,6 +100,25 @@ type DraftPayload = {
 
 type DraftType = "expense" | "income" | "transfer" | "unknown"
 
+type DraftLookupMemory = {
+  signature: string
+  tokens: string[]
+  type: DraftType
+  fromEntityId: string | null
+  toEntityId: string | null
+  categoryId: string | null
+  incomeSourceId: string | null
+}
+
+type DraftSemanticHints = {
+  signature: string
+  tokens: string[]
+  explicitType: DraftType | null
+  explicitAccountId: string | null
+  explicitCategoryId: string | null
+  explicitIncomeSourceId: string | null
+}
+
 type PickerKind = "acc" | "cat" | "src" | "from" | "to" | "ws"
 
 type WorkspaceOption = {
@@ -147,6 +166,50 @@ const operationTypeLabels: Record<DraftType, string> = {
   transfer: "Перевод",
   unknown: "Не выбран",
 }
+
+const semanticStopWords = new Set([
+  "на",
+  "в",
+  "из",
+  "по",
+  "к",
+  "и",
+  "или",
+  "за",
+  "через",
+  "для",
+  "со",
+  "с",
+  "от",
+  "до",
+  "про",
+  "под",
+  "без",
+  "во",
+  "при",
+  "это",
+  "мне",
+  "мой",
+  "моя",
+  "мой",
+  "руб",
+  "рублей",
+  "р",
+  "рф",
+  "коп",
+  "копеек",
+  "сегодня",
+  "вчера",
+  "позавчера",
+  "счета",
+  "счет",
+  "счёт",
+  "категория",
+  "источник",
+  "доход",
+  "расход",
+  "перевод",
+])
 
 const toStringId = (value: number | string | null | undefined): string | null => {
   if (typeof value === "number" && Number.isFinite(value)) return String(value)
@@ -655,6 +718,373 @@ const mapParsedToDraftShape = (
     happenedAt,
     description: source.note?.trim() ? source.note.trim() : null,
     confidence: Number.isFinite(Number(source.confidence)) ? Number(source.confidence) : null,
+  }
+}
+
+const normalizeSemanticText = (value: string): string =>
+  value
+    .toLocaleLowerCase("ru-RU")
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+const extractSemanticTokens = (value: string): string[] => {
+  const normalized = normalizeSemanticText(value)
+  if (!normalized) return []
+  const unique = new Set<string>()
+  normalized.split(" ").forEach((token) => {
+    if (!token) return
+    if (/^\d+(?:[.,]\d+)?[кk]?$/u.test(token)) return
+    if (token.length < 2) return
+    if (semanticStopWords.has(token)) return
+    unique.add(token)
+  })
+  return Array.from(unique).sort()
+}
+
+const calculateTokenSimilarity = (first: string[], second: string[]): number => {
+  if (first.length === 0 || second.length === 0) return 0
+  const firstSet = new Set(first)
+  const secondSet = new Set(second)
+  let intersection = 0
+  firstSet.forEach((token) => {
+    if (secondSet.has(token)) intersection += 1
+  })
+  const union = new Set([...firstSet, ...secondSet]).size
+  if (union === 0) return 0
+  return intersection / union
+}
+
+const detectDraftTypeFromText = (text: string): DraftType | null => {
+  if (/(перевод|перевести|перекин|между счетами|со счета|на счет|→|->)/iu.test(text)) return "transfer"
+  if (/(доход|зарплат|преми|кэшб|кешб|поступил|получил|пришло|аванс)/iu.test(text)) return "income"
+  if (/(расход|потрат|купил|оплат|трат|списал)/iu.test(text)) return "expense"
+  return null
+}
+
+const resolveEntityCandidateByText = (
+  sourceText: string,
+  sourceTokens: string[],
+  items: Array<{ id: string; name: string }>,
+): { id: string; score: number } | null => {
+  const normalizedSource = normalizeSemanticText(sourceText)
+  let best: { id: string; score: number } | null = null
+  items.forEach((item) => {
+    const normalizedName = normalizeSemanticText(item.name)
+    if (!normalizedName) return
+    const nameTokens = extractSemanticTokens(item.name)
+    if (nameTokens.length === 0) return
+    const containsFullName = normalizedSource.includes(normalizedName)
+    const tokenScore = calculateTokenSimilarity(sourceTokens, nameTokens)
+    const score = containsFullName ? 1 : tokenScore
+    if (!best || score > best.score) {
+      best = { id: item.id, score }
+    }
+  })
+  return best
+}
+
+const buildDraftSemanticHints = (
+  sourceText: string,
+  context: OperationContext,
+): DraftSemanticHints => {
+  const tokens = extractSemanticTokens(sourceText)
+  const signature = tokens.join("|")
+  const explicitAccount = resolveEntityCandidateByText(sourceText, tokens, context.accounts)
+  const explicitCategory = resolveEntityCandidateByText(
+    sourceText,
+    tokens,
+    context.categories
+      .filter((item) => item.kind === "expense")
+      .map((item) => ({ id: item.id, name: item.name })),
+  )
+  const explicitIncomeSource = resolveEntityCandidateByText(sourceText, tokens, context.incomeSources)
+
+  return {
+    signature,
+    tokens,
+    explicitType: detectDraftTypeFromText(sourceText),
+    explicitAccountId: explicitAccount && explicitAccount.score >= 0.95 ? explicitAccount.id : null,
+    explicitCategoryId: explicitCategory && explicitCategory.score >= 0.95 ? explicitCategory.id : null,
+    explicitIncomeSourceId: explicitIncomeSource && explicitIncomeSource.score >= 0.95 ? explicitIncomeSource.id : null,
+  }
+}
+
+const parseDraftLookupMemory = (value: Prisma.JsonValue | null): DraftLookupMemory | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const raw = value as Record<string, unknown>
+  const signature = typeof raw.signature === "string" ? raw.signature.trim() : ""
+  const tokensRaw = Array.isArray(raw.tokens) ? raw.tokens : []
+  const tokens = tokensRaw
+    .map((token) => (typeof token === "string" ? token.trim() : ""))
+    .filter((token) => token.length > 0)
+  const type = parseDraftType(typeof raw.type === "string" ? raw.type : null)
+  const fromEntityId = toStringId(typeof raw.fromEntityId === "string" ? raw.fromEntityId : null)
+  const toEntityId = toStringId(typeof raw.toEntityId === "string" ? raw.toEntityId : null)
+  const categoryId = toStringId(typeof raw.categoryId === "string" ? raw.categoryId : null)
+  const incomeSourceId = toStringId(typeof raw.incomeSourceId === "string" ? raw.incomeSourceId : null)
+  if (!signature && tokens.length === 0) return null
+  return {
+    signature,
+    tokens,
+    type,
+    fromEntityId,
+    toEntityId,
+    categoryId,
+    incomeSourceId,
+  }
+}
+
+const serializeDraftLookupMemory = (lookup: DraftLookupMemory): Prisma.JsonObject => ({
+  signature: lookup.signature,
+  tokens: lookup.tokens,
+  type: lookup.type,
+  fromEntityId: lookup.fromEntityId,
+  toEntityId: lookup.toEntityId,
+  categoryId: lookup.categoryId,
+  incomeSourceId: lookup.incomeSourceId,
+})
+
+const normalizeLookupFromDraft = (draft: {
+  lookup_json: Prisma.JsonValue | null
+  source_raw: string | null
+  type: string | null
+  from_entity_id: string | null
+  to_entity_id: string | null
+  category_id: string | null
+  income_source_id: string | null
+}): DraftLookupMemory | null => {
+  const parsedLookup = parseDraftLookupMemory(draft.lookup_json)
+  if (parsedLookup) return parsedLookup
+  const tokens = extractSemanticTokens(draft.source_raw ?? "")
+  if (tokens.length === 0) return null
+  return {
+    signature: tokens.join("|"),
+    tokens,
+    type: parseDraftType(draft.type),
+    fromEntityId: draft.from_entity_id ?? null,
+    toEntityId: draft.to_entity_id ?? null,
+    categoryId: draft.category_id ?? null,
+    incomeSourceId: draft.income_source_id ?? null,
+  }
+}
+
+const loadDraftMemoryHint = async (
+  userId: string,
+  workspaceId: string,
+  hints: DraftSemanticHints,
+): Promise<DraftLookupMemory | null> => {
+  if (!hints.signature && hints.tokens.length === 0) return null
+
+  const historyDrafts = await prisma.bot_operation_drafts.findMany({
+    where: {
+      user_id: userId,
+      workspace_id: workspaceId,
+      status: BotOperationDraftStatus.applied,
+    },
+    select: {
+      lookup_json: true,
+      source_raw: true,
+      type: true,
+      from_entity_id: true,
+      to_entity_id: true,
+      category_id: true,
+      income_source_id: true,
+      updated_at: true,
+    },
+    orderBy: { updated_at: "desc" },
+    take: 120,
+  })
+
+  let bestScore = 0
+  let bestLookup: DraftLookupMemory | null = null
+  historyDrafts.forEach((draft) => {
+    const lookup = normalizeLookupFromDraft(draft)
+    if (!lookup) return
+    const score =
+      hints.signature && lookup.signature === hints.signature
+        ? 1
+        : calculateTokenSimilarity(hints.tokens, lookup.tokens)
+    if (score < 0.52) return
+    if (score > bestScore) {
+      bestScore = score
+      bestLookup = lookup
+    }
+  })
+
+  return bestLookup
+}
+
+const loadTransactionHistoryHint = async (
+  userId: string,
+  workspaceId: string,
+  hints: DraftSemanticHints,
+): Promise<DraftLookupMemory | null> => {
+  if (hints.tokens.length === 0) return null
+  const recentTransactions = await prisma.transactions.findMany({
+    where: {
+      workspace_id: workspaceId,
+      created_by_user_id: userId,
+    },
+    select: {
+      kind: true,
+      note: true,
+      account_id: true,
+      from_account_id: true,
+      to_account_id: true,
+      category_id: true,
+      income_source_id: true,
+      account: { select: { name: true } },
+      from_account: { select: { name: true } },
+      to_account: { select: { name: true } },
+      category: { select: { name: true } },
+      income_source: { select: { name: true } },
+    },
+    orderBy: { created_at: "desc" },
+    take: 120,
+  })
+
+  let bestScore = 0
+  let bestLookup: DraftLookupMemory | null = null
+  recentTransactions.forEach((transaction) => {
+    const type: DraftType =
+      transaction.kind === "income" ? "income" : transaction.kind === "expense" ? "expense" : "transfer"
+    const referenceTokens = extractSemanticTokens(
+      [transaction.note, transaction.category?.name, transaction.income_source?.name, transaction.account?.name, transaction.from_account?.name, transaction.to_account?.name]
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .join(" "),
+    )
+    const score = calculateTokenSimilarity(hints.tokens, referenceTokens)
+    if (score < 0.5) return
+    const lookup: DraftLookupMemory = {
+      signature: referenceTokens.join("|"),
+      tokens: referenceTokens,
+      type,
+      fromEntityId: transaction.account_id ?? transaction.from_account_id ?? null,
+      toEntityId: transaction.to_account_id ?? null,
+      categoryId: transaction.category_id ?? null,
+      incomeSourceId: transaction.income_source_id ?? null,
+    }
+    if (score > bestScore) {
+      bestScore = score
+      bestLookup = lookup
+    }
+  })
+
+  return bestLookup
+}
+
+const resolveSemanticEntityId = (
+  sourceText: string,
+  sourceTokens: string[],
+  items: Array<{ id: string; name: string }>,
+): string | null => {
+  const match = resolveEntityCandidateByText(sourceText, sourceTokens, items)
+  if (!match || match.score < 0.52) return null
+  return match.id
+}
+
+const applyDraftPrefillHints = (
+  sourceText: string,
+  mapped: {
+    type: DraftType
+    amount: number | null
+    fromEntityId: string | null
+    toEntityId: string | null
+    categoryId: string | null
+    incomeSourceId: string | null
+    happenedAt: Date
+    description: string | null
+    confidence: number | null
+  },
+  context: OperationContext,
+  hints: DraftSemanticHints,
+  memoryHint: DraftLookupMemory | null,
+  transactionHint: DraftLookupMemory | null,
+) => {
+  const accountIds = new Set(context.accounts.map((account) => account.id))
+  const categoryIds = new Set(context.categories.filter((category) => category.kind === "expense").map((category) => category.id))
+  const incomeSourceIds = new Set(context.incomeSources.map((source) => source.id))
+  const firstAccountId = context.accounts[0]?.id ?? null
+
+  const semanticAccountId = resolveSemanticEntityId(sourceText, hints.tokens, context.accounts)
+  const semanticCategoryId = resolveSemanticEntityId(
+    sourceText,
+    hints.tokens,
+    context.categories
+      .filter((item) => item.kind === "expense")
+      .map((item) => ({ id: item.id, name: item.name })),
+  )
+  const semanticIncomeSourceId = resolveSemanticEntityId(sourceText, hints.tokens, context.incomeSources)
+
+  const nextType =
+    mapped.type !== "unknown"
+      ? mapped.type
+      : hints.explicitType ?? memoryHint?.type ?? transactionHint?.type ?? "unknown"
+
+  let nextFromEntityId =
+    hints.explicitAccountId ??
+    mapped.fromEntityId ??
+    semanticAccountId ??
+    memoryHint?.fromEntityId ??
+    transactionHint?.fromEntityId ??
+    firstAccountId
+
+  if (!nextFromEntityId || !accountIds.has(nextFromEntityId)) {
+    nextFromEntityId = firstAccountId
+  }
+
+  let nextToEntityId =
+    mapped.toEntityId ??
+    memoryHint?.toEntityId ??
+    transactionHint?.toEntityId ??
+    null
+  if (nextToEntityId && !accountIds.has(nextToEntityId)) {
+    nextToEntityId = null
+  }
+
+  if (nextType === "transfer" && nextToEntityId === nextFromEntityId) {
+    nextToEntityId = context.accounts.find((account) => account.id !== nextFromEntityId)?.id ?? null
+  }
+
+  let nextCategoryId =
+    hints.explicitCategoryId ??
+    mapped.categoryId ??
+    semanticCategoryId ??
+    memoryHint?.categoryId ??
+    transactionHint?.categoryId ??
+    null
+  if (nextCategoryId && !categoryIds.has(nextCategoryId)) {
+    nextCategoryId = null
+  }
+
+  let nextIncomeSourceId =
+    hints.explicitIncomeSourceId ??
+    mapped.incomeSourceId ??
+    semanticIncomeSourceId ??
+    memoryHint?.incomeSourceId ??
+    transactionHint?.incomeSourceId ??
+    null
+  if (nextIncomeSourceId && !incomeSourceIds.has(nextIncomeSourceId)) {
+    nextIncomeSourceId = null
+  }
+
+  const confidence = Math.max(
+    mapped.confidence ?? 0,
+    hints.explicitAccountId || hints.explicitCategoryId || hints.explicitIncomeSourceId ? 0.86 : 0,
+    memoryHint ? 0.72 : 0,
+    transactionHint ? 0.66 : 0,
+  )
+
+  return {
+    ...mapped,
+    type: nextType,
+    fromEntityId: nextFromEntityId,
+    toEntityId: nextToEntityId,
+    categoryId: nextCategoryId,
+    incomeSourceId: nextIncomeSourceId,
+    confidence,
   }
 }
 
@@ -1384,6 +1814,7 @@ async function processCaptureInput(
   }
 
   let parsed: ParsedOperation
+  const semanticHints = buildDraftSemanticHints(parsedTextResult.normalizedText, context)
   try {
     parsed = await parseOperationFromText(parsedTextResult.normalizedText, context)
   } catch (error) {
@@ -1415,6 +1846,28 @@ async function processCaptureInput(
   }
 
   const mapped = mapParsedToDraftShape(parsed)
+  const [memoryHint, transactionHint] = await Promise.all([
+    loadDraftMemoryHint(user.id, workspaceId, semanticHints),
+    loadTransactionHistoryHint(user.id, workspaceId, semanticHints),
+  ])
+  const resolvedMapped = applyDraftPrefillHints(
+    parsedTextResult.normalizedText,
+    mapped,
+    context,
+    semanticHints,
+    memoryHint,
+    transactionHint,
+  )
+
+  const draftLookup: DraftLookupMemory = {
+    signature: semanticHints.signature,
+    tokens: semanticHints.tokens,
+    type: resolvedMapped.type,
+    fromEntityId: resolvedMapped.fromEntityId,
+    toEntityId: resolvedMapped.toEntityId,
+    categoryId: resolvedMapped.categoryId,
+    incomeSourceId: resolvedMapped.incomeSourceId,
+  }
   let draft: bot_operation_drafts
   try {
     draft = await prisma.bot_operation_drafts.create({
@@ -1422,21 +1875,22 @@ async function processCaptureInput(
         user_id: user.id,
         workspace_id: workspaceId,
         session_id: session.id,
-        type: mapped.type,
-        amount: mapped.amount !== null ? new Prisma.Decimal(mapped.amount) : null,
-        from_entity_id: mapped.fromEntityId,
-        to_entity_id: mapped.toEntityId,
-        category_id: mapped.categoryId,
-        income_source_id: mapped.incomeSourceId,
-        happened_at: mapped.happenedAt,
-        description: mapped.description,
+        type: resolvedMapped.type,
+        amount: resolvedMapped.amount !== null ? new Prisma.Decimal(resolvedMapped.amount) : null,
+        from_entity_id: resolvedMapped.fromEntityId,
+        to_entity_id: resolvedMapped.toEntityId,
+        category_id: resolvedMapped.categoryId,
+        income_source_id: resolvedMapped.incomeSourceId,
+        happened_at: resolvedMapped.happenedAt,
+        description: resolvedMapped.description,
         source_type: mapSourceType(input.kind),
         source_raw: parsedTextResult.normalizedText.slice(0, 4000),
-        parsed_confidence: mapped.confidence,
+        parsed_confidence: resolvedMapped.confidence,
         status: BotOperationDraftStatus.pending_review,
         chat_id: chatId,
         source_message_id: input.sourceMessageId,
         live_message_id: processingMessageId,
+        lookup_json: serializeDraftLookupMemory(draftLookup),
         payload_json: serializeDraftPayload({ transientUserMessageIds: [] }),
       },
     })
@@ -1787,9 +2241,37 @@ async function saveDraft(
       }, session.user_id)
     }
 
+    const finalLookup = normalizeLookupFromDraft({
+      lookup_json: savingDraft.lookup_json,
+      source_raw: savingDraft.source_raw,
+      type: savingDraft.type,
+      from_entity_id: savingDraft.from_entity_id,
+      to_entity_id: savingDraft.to_entity_id,
+      category_id: savingDraft.category_id,
+      income_source_id: savingDraft.income_source_id,
+    }) ?? {
+      signature: "",
+      tokens: [],
+      type: parseDraftType(savingDraft.type),
+      fromEntityId: savingDraft.from_entity_id ?? null,
+      toEntityId: savingDraft.to_entity_id ?? null,
+      categoryId: savingDraft.category_id ?? null,
+      incomeSourceId: savingDraft.income_source_id ?? null,
+    }
+
     const updatedDraft = await prisma.bot_operation_drafts.update({
       where: { id: draft.id },
-      data: { status: BotOperationDraftStatus.applied },
+      data: {
+        status: BotOperationDraftStatus.applied,
+        lookup_json: serializeDraftLookupMemory({
+          ...finalLookup,
+          type: parseDraftType(savingDraft.type),
+          fromEntityId: savingDraft.from_entity_id ?? null,
+          toEntityId: savingDraft.to_entity_id ?? null,
+          categoryId: savingDraft.category_id ?? null,
+          incomeSourceId: savingDraft.income_source_id ?? null,
+        }),
+      },
     })
 
     await cleanupDraftMessages(fastify, updatedDraft)

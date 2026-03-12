@@ -94,11 +94,19 @@ type CompareReportState = {
   listMode: "income" | "expense"
   historyOffset: number
 }
+type DeepLinkTargetType = "category" | "incomeSource" | "account" | "debtor" | "goal"
+type BotDeepLinkIntent = {
+  workspaceId: string
+  targetType: DeepLinkTargetType
+  targetId: string
+  transactionId: string
+}
 
 const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
 const WORKSPACE_NAME_LIMIT = 32
 const INVITE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,128}$/
 const INVITE_STARTAPP_PREFIX = "join_"
+const BOT_DEEP_LINK_TARGET_TYPES = new Set<DeepLinkTargetType>(["category", "incomeSource", "account", "debtor", "goal"])
 
 type TelegramInitDataUnsafe = {
   start_param?: unknown
@@ -194,6 +202,94 @@ const resolveLaunchInviteCode = (): string | null => {
   }
 
   return null
+}
+
+const normalizeDeepLinkParam = (value: string | null | undefined): string | null => {
+  if (!value) return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+const parseDeepLinkIntentFromParams = (params: URLSearchParams): BotDeepLinkIntent | null => {
+  const workspaceId = normalizeDeepLinkParam(params.get("workspaceId"))
+  const targetTypeRaw = normalizeDeepLinkParam(params.get("targetType"))
+  const targetId = normalizeDeepLinkParam(params.get("targetId"))
+  const transactionId = normalizeDeepLinkParam(params.get("transactionId"))
+
+  if (!workspaceId || !targetTypeRaw || !targetId || !transactionId) return null
+  if (!BOT_DEEP_LINK_TARGET_TYPES.has(targetTypeRaw as DeepLinkTargetType)) return null
+
+  return {
+    workspaceId,
+    targetType: targetTypeRaw as DeepLinkTargetType,
+    targetId,
+    transactionId,
+  }
+}
+
+const parsePackedIntent = (value: string | null | undefined): BotDeepLinkIntent | null => {
+  if (!value) return null
+  const raw = value.trim()
+  if (!raw || raw.startsWith(INVITE_STARTAPP_PREFIX)) return null
+  const cleaned = raw.startsWith("?") ? raw.slice(1) : raw
+  if (!cleaned.includes("=")) return null
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(cleaned)
+    } catch {
+      return cleaned
+    }
+  })()
+  return parseDeepLinkIntentFromParams(new URLSearchParams(decoded))
+}
+
+const resolveLaunchBotDeepLinkIntent = (): BotDeepLinkIntent | null => {
+  if (typeof window === "undefined") return null
+  const searchParams = new URLSearchParams(window.location.search)
+  const direct = parseDeepLinkIntentFromParams(searchParams)
+  if (direct) return direct
+
+  const packedFromSearch =
+    parsePackedIntent(searchParams.get("startapp")) ??
+    parsePackedIntent(searchParams.get("start")) ??
+    parsePackedIntent(searchParams.get("tgWebAppStartParam"))
+  if (packedFromSearch) return packedFromSearch
+
+  const initDataRaw = window.Telegram?.WebApp?.initData
+  if (typeof initDataRaw === "string" && initDataRaw.length > 0) {
+    const initDataParams = new URLSearchParams(initDataRaw)
+    const packedFromInitData = parsePackedIntent(initDataParams.get("start_param"))
+    if (packedFromInitData) return packedFromInitData
+  }
+
+  const initDataUnsafe = window.Telegram?.WebApp?.initDataUnsafe as TelegramInitDataUnsafe | undefined
+  if (typeof initDataUnsafe?.start_param === "string") {
+    return parsePackedIntent(initDataUnsafe.start_param)
+  }
+
+  return null
+}
+
+const getBotDeepLinkIntentKey = (intent: BotDeepLinkIntent | null): string | null => {
+  if (!intent) return null
+  return `${intent.workspaceId}:${intent.targetType}:${intent.targetId}:${intent.transactionId}`
+}
+
+const clearDeepLinkParamsFromUrl = () => {
+  if (typeof window === "undefined") return
+  const url = new URL(window.location.href)
+  const keys = ["workspaceId", "targetType", "targetId", "transactionId"]
+  let changed = false
+  keys.forEach((key) => {
+    if (url.searchParams.has(key)) {
+      url.searchParams.delete(key)
+      changed = true
+    }
+  })
+  if (!changed) return
+  const nextSearch = url.searchParams.toString()
+  const nextUrl = `${url.pathname}${nextSearch ? `?${nextSearch}` : ""}${url.hash}`
+  window.history.replaceState({}, "", nextUrl)
 }
 
 type ErrorBoundaryProps = { children: React.ReactNode; externalError: Error | null; onClearExternalError: () => void }
@@ -324,6 +420,9 @@ function App() {
   })
   const [pendingAccountOpenId, setPendingAccountOpenId] = useState<string | null>(null)
   const [pendingCategoryOpenId, setPendingCategoryOpenId] = useState<string | null>(null)
+  const [pendingGoalOpenId, setPendingGoalOpenId] = useState<string | null>(null)
+  const [pendingDebtorOpenId, setPendingDebtorOpenId] = useState<string | null>(null)
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null)
   const [pendingReturnToReport, setPendingReturnToReport] = useState(false)
   const [pendingReturnToCompareReport, setPendingReturnToCompareReport] = useState(false)
   const [autoOpenExpensesSheet, setAutoOpenExpensesSheet] = useState(false)
@@ -355,10 +454,15 @@ function App() {
   } | null>(null)
   const [savedCompareReportState, setSavedCompareReportState] = useState<CompareReportState | null>(null)
   const [pendingJoinInviteCode, setPendingJoinInviteCode] = useState<string | null>(() => resolveLaunchInviteCode())
+  const [pendingBotDeepLinkIntent, setPendingBotDeepLinkIntent] = useState<BotDeepLinkIntent | null>(() =>
+    resolveLaunchBotDeepLinkIntent(),
+  )
   const [inviteJoinError, setInviteJoinError] = useState<string | null>(null)
   const [inviteJoinNotice, setInviteJoinNotice] = useState<string | null>(null)
   const handledLaunchInviteCodeRef = useRef<string | null>(pendingJoinInviteCode)
-  const { setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
+  const handledBotDeepLinkIntentRef = useRef<string | null>(null)
+  const botDeepLinkInFlightRef = useRef(false)
+  const { debtors, setAccounts, setCategories, setIncomeSources, setTransactions, setGoals, setDebtors } = useAppStore()
   const { run: runWorkspaceMetaSave, isRunning: isWorkspaceMetaSaveRunning } = useSingleFlight()
   const { run: runWorkspaceReset, isRunning: isWorkspaceResetRunning } = useSingleFlight()
   const { run: runWorkspaceInviteRegenerate, isRunning: isWorkspaceInviteRegenerating } = useSingleFlight()
@@ -639,6 +743,31 @@ function App() {
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [isTelegram])
+
+  useEffect(() => {
+    const syncDeepLinkIntentFromLaunch = () => {
+      const intent = resolveLaunchBotDeepLinkIntent()
+      if (!intent) return
+      const intentKey = getBotDeepLinkIntentKey(intent)
+      if (!intentKey || handledBotDeepLinkIntentRef.current === intentKey) return
+      setPendingBotDeepLinkIntent((prev) => {
+        if (getBotDeepLinkIntentKey(prev) === intentKey) return prev
+        return intent
+      })
+    }
+
+    syncDeepLinkIntentFromLaunch()
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return
+      syncDeepLinkIntentFromLaunch()
+    }
+    window.addEventListener("focus", syncDeepLinkIntentFromLaunch)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => {
+      window.removeEventListener("focus", syncDeepLinkIntentFromLaunch)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [])
 
   const setOverviewStatus = useCallback((spaceKey: SpaceKey, status: BannerLoadStatus) => {
     setOverviewStatusBySpaceKey((prev) => {
@@ -1639,6 +1768,92 @@ function App() {
     [closeWorkspaceModal, ensureOverviewReady, overviewAppliedSpaceKey, setOverviewStatus, setOverviewUiPhase],
   )
 
+  useEffect(() => {
+    if (!pendingBotDeepLinkIntent) return
+    if (botDeepLinkInFlightRef.current) return
+    if (!appToken || appLoading || appSettling || isSwitchingWorkspace) return
+    if (appWorkspaces.length === 0) return
+
+    const intentKey = getBotDeepLinkIntentKey(pendingBotDeepLinkIntent)
+    if (!intentKey) {
+      setPendingBotDeepLinkIntent(null)
+      return
+    }
+    if (handledBotDeepLinkIntentRef.current === intentKey) {
+      setPendingBotDeepLinkIntent(null)
+      return
+    }
+
+    botDeepLinkInFlightRef.current = true
+    void (async () => {
+      const targetWorkspace = appWorkspaces.find((workspace) => workspace.id === pendingBotDeepLinkIntent.workspaceId) ?? null
+      if (!targetWorkspace) {
+        logDiagnosticEvent("deep-link.skip.missing-workspace", { intent: pendingBotDeepLinkIntent }, { level: "warn" })
+        handledBotDeepLinkIntentRef.current = intentKey
+        setPendingBotDeepLinkIntent(null)
+        clearDeepLinkParamsFromUrl()
+        return
+      }
+
+      if (appActiveWorkspace?.id !== targetWorkspace.id) {
+        await setActiveWorkspaceRemote(targetWorkspace, appToken)
+      }
+
+      const targetDebtorDirection =
+        pendingBotDeepLinkIntent.targetType === "debtor"
+          ? (debtors.find((debtor) => debtor.id === pendingBotDeepLinkIntent.targetId)?.direction ?? "receivable")
+          : null
+
+      setPendingAccountOpenId(null)
+      setPendingCategoryOpenId(null)
+      setPendingIncomeSourceOpenId(null)
+      setPendingGoalOpenId(null)
+      setPendingDebtorOpenId(null)
+
+      if (pendingBotDeepLinkIntent.targetType === "account") {
+        setPendingAccountOpenId(pendingBotDeepLinkIntent.targetId)
+        setActiveScreen("overview")
+      } else if (pendingBotDeepLinkIntent.targetType === "category") {
+        setPendingCategoryOpenId(pendingBotDeepLinkIntent.targetId)
+        setActiveScreen("overview")
+      } else if (pendingBotDeepLinkIntent.targetType === "incomeSource") {
+        setPendingIncomeSourceOpenId(pendingBotDeepLinkIntent.targetId)
+        setActiveScreen("overview")
+      } else if (pendingBotDeepLinkIntent.targetType === "goal") {
+        setGoalsListMode("goals")
+        setPendingGoalOpenId(pendingBotDeepLinkIntent.targetId)
+        setActiveScreen("overview")
+      } else if (pendingBotDeepLinkIntent.targetType === "debtor") {
+        setGoalsListMode(targetDebtorDirection === "payable" ? "debtsPayable" : "debtsReceivable")
+        setPendingDebtorOpenId(pendingBotDeepLinkIntent.targetId)
+        setActiveScreen("receivables")
+      }
+
+      setPendingTransactionOpenId(pendingBotDeepLinkIntent.transactionId)
+      setActiveNav("overview")
+      handledBotDeepLinkIntentRef.current = intentKey
+      logDiagnosticEvent("deep-link.applied", { intent: pendingBotDeepLinkIntent })
+      setPendingBotDeepLinkIntent(null)
+      clearDeepLinkParamsFromUrl()
+    })()
+      .catch((error) => {
+        captureDiagnosticsError("deep-link.apply.failure", error, { payload: { intent: pendingBotDeepLinkIntent } })
+      })
+      .finally(() => {
+        botDeepLinkInFlightRef.current = false
+      })
+  }, [
+    appActiveWorkspace?.id,
+    appLoading,
+    appSettling,
+    appToken,
+    appWorkspaces,
+    debtors,
+    isSwitchingWorkspace,
+    pendingBotDeepLinkIntent,
+    setActiveWorkspaceRemote,
+  ])
+
   const createFamilyWorkspace = useCallback(async () => {
     if (!appToken) return
     try {
@@ -1824,6 +2039,12 @@ function App() {
             }}
             externalIncomeSourceId={pendingIncomeSourceOpenId}
             onConsumeExternalIncomeSource={() => setPendingIncomeSourceOpenId(null)}
+            externalGoalId={pendingGoalOpenId}
+            onConsumeExternalGoal={() => setPendingGoalOpenId(null)}
+            externalDebtorId={pendingDebtorOpenId}
+            onConsumeExternalDebtor={() => setPendingDebtorOpenId(null)}
+            externalTransactionId={pendingTransactionOpenId}
+            onConsumeExternalTransaction={() => setPendingTransactionOpenId(null)}
             returnToIncomeReport={pendingReturnToIncomeReport}
             onReturnToIncomeReport={() => {
               setPendingReturnToIncomeReport(false)
@@ -1929,6 +2150,12 @@ function App() {
             }}
             externalIncomeSourceId={pendingIncomeSourceOpenId}
             onConsumeExternalIncomeSource={() => setPendingIncomeSourceOpenId(null)}
+            externalGoalId={pendingGoalOpenId}
+            onConsumeExternalGoal={() => setPendingGoalOpenId(null)}
+            externalDebtorId={pendingDebtorOpenId}
+            onConsumeExternalDebtor={() => setPendingDebtorOpenId(null)}
+            externalTransactionId={pendingTransactionOpenId}
+            onConsumeExternalTransaction={() => setPendingTransactionOpenId(null)}
             returnToIncomeReport={pendingReturnToIncomeReport}
             onReturnToIncomeReport={() => {
               setPendingReturnToIncomeReport(false)

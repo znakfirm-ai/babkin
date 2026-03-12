@@ -697,6 +697,12 @@ type OverviewScreenProps = {
   onReturnToReport?: () => void
   externalIncomeSourceId?: string | null
   onConsumeExternalIncomeSource?: () => void
+  externalGoalId?: string | null
+  onConsumeExternalGoal?: () => void
+  externalDebtorId?: string | null
+  onConsumeExternalDebtor?: () => void
+  externalTransactionId?: string | null
+  onConsumeExternalTransaction?: () => void
   returnToIncomeReport?: boolean
   onReturnToIncomeReport?: () => void
   onOpenGoalsList?: () => void
@@ -756,6 +762,12 @@ function OverviewScreen({
   onReturnToReport,
   externalIncomeSourceId,
   onConsumeExternalIncomeSource,
+  externalGoalId,
+  onConsumeExternalGoal,
+  externalDebtorId,
+  onConsumeExternalDebtor,
+  externalTransactionId,
+  onConsumeExternalTransaction,
   returnToIncomeReport,
   onReturnToIncomeReport,
   onOpenGoalsList,
@@ -1041,6 +1053,7 @@ function OverviewScreen({
     startY: 0,
   })
   const [txActionId, setTxActionId] = useState<string | null>(null)
+  const [highlightTransactionId, setHighlightTransactionId] = useState<string | null>(null)
   const [searchFocused, setSearchFocused] = useState(false)
   const [txMode, setTxMode] = useState<"none" | "edit">("none")
   const [txError, setTxError] = useState<string | null>(null)
@@ -1051,6 +1064,8 @@ function OverviewScreen({
   const txSheetDragOffsetRef = useRef(0)
   const txSheetRef = useRef<HTMLDivElement | null>(null)
   const txSheetContentRef = useRef<HTMLDivElement | null>(null)
+  const highlightedTransactionRef = useRef<HTMLDivElement | null>(null)
+  const highlightedTransactionScrolledRef = useRef<string | null>(null)
   const txSheetGestureRef = useRef<{
     pointerId: number | null
     startX: number
@@ -1782,6 +1797,45 @@ function OverviewScreen({
       onConsumeExternalIncomeSource?.()
     }
   }, [externalIncomeSourceId, incomeSources, onConsumeExternalIncomeSource])
+
+  useLayoutEffect(() => {
+    if (!externalGoalId) return
+    const goal = goals.find((item) => item.id === externalGoalId)
+    setDetailAccountId(null)
+    setDetailCategoryId(null)
+    setDetailIncomeSourceId(null)
+    setDetailDebtorId(null)
+    setDetailGoalId(externalGoalId)
+    setDetailTitle(goal?.name ?? "Цель")
+    onConsumeExternalGoal?.()
+  }, [externalGoalId, goals, onConsumeExternalGoal])
+
+  useLayoutEffect(() => {
+    if (!externalDebtorId) return
+    const debtor = debtors.find((item) => item.id === externalDebtorId)
+    setDetailAccountId(null)
+    setDetailCategoryId(null)
+    setDetailIncomeSourceId(null)
+    setDetailGoalId(null)
+    setDetailDebtorId(externalDebtorId)
+    setDetailTitle(debtor?.name ?? "Долг")
+    onConsumeExternalDebtor?.()
+  }, [debtors, externalDebtorId, onConsumeExternalDebtor])
+
+  useEffect(() => {
+    if (!externalTransactionId) return
+    setHighlightTransactionId(externalTransactionId)
+    highlightedTransactionScrolledRef.current = null
+    onConsumeExternalTransaction?.()
+  }, [externalTransactionId, onConsumeExternalTransaction])
+
+  useEffect(() => {
+    const highlightedTransactionElement = highlightedTransactionRef.current
+    if (!highlightTransactionId || !highlightedTransactionElement) return
+    if (highlightedTransactionScrolledRef.current === highlightTransactionId) return
+    highlightedTransactionElement.scrollIntoView({ behavior: "smooth", block: "center" })
+    highlightedTransactionScrolledRef.current = highlightTransactionId
+  }, [detailAccountId, detailCategoryId, detailDebtorId, detailGoalId, detailIncomeSourceId, highlightTransactionId])
 
   useEffect(() => {
     if (!isDebtsPayableMode || !isDebtorSheetOpen) return
@@ -4531,6 +4585,10 @@ const txRowDisabledStyle = {
   cursor: "not-allowed",
 } as const
 
+const txRowDeepLinkHighlightStyle = {
+  animation: "overview-tx-deeplink-highlight 1.6s ease-out 1",
+} as const
+
 const txDisabledHintStyle = {
   border: "1px solid #e5e7eb",
   borderRadius: 10,
@@ -4627,6 +4685,22 @@ const TxTitleWithDescription: React.FC<{
     </div>
   )
 }
+  const getTxRowStyle = useCallback(
+    (txId: string, isTxDisabled: boolean) => ({
+      ...txRowStyle,
+      ...(isTxDisabled ? txRowDisabledStyle : null),
+      ...(highlightTransactionId === txId ? txRowDeepLinkHighlightStyle : null),
+    }),
+    [highlightTransactionId],
+  )
+  const getTxRowRef = useCallback(
+    (txId: string) =>
+      (node: HTMLDivElement | null) => {
+        if (highlightTransactionId !== txId) return
+        highlightedTransactionRef.current = node
+      },
+    [highlightTransactionId],
+  )
   const getTxAccountName = useCallback(
     (tx: Transaction) => tx.accountName ?? (tx.accountId ? accountNameById.get(tx.accountId) ?? "Счёт" : "Счёт"),
     [accountNameById],
@@ -5770,8 +5844,9 @@ const TxTitleWithDescription: React.FC<{
                     return (
                       <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                         <div
+                          ref={getTxRowRef(tx.id)}
                           data-disabled-tx-row-id={tx.id}
-                          style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                          style={getTxRowStyle(tx.id, isTxDisabled)}
                           onClick={() => openAccountTxActions(tx)}
                         >
                           <div style={{ display: "grid", gap: 2 }}>
@@ -5982,8 +6057,9 @@ const TxTitleWithDescription: React.FC<{
                       return (
                         <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                           <div
+                            ref={getTxRowRef(tx.id)}
                             data-disabled-tx-row-id={tx.id}
-                            style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                            style={getTxRowStyle(tx.id, isTxDisabled)}
                             onClick={() => openTxActions(tx.id)}
                           >
                             <div style={{ display: "grid", gap: 2 }}>
@@ -6194,8 +6270,9 @@ const TxTitleWithDescription: React.FC<{
                       return (
                         <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                           <div
+                            ref={getTxRowRef(tx.id)}
                             data-disabled-tx-row-id={tx.id}
-                            style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                            style={getTxRowStyle(tx.id, isTxDisabled)}
                             onClick={() => openTxActions(tx.id)}
                           >
                             <div style={{ display: "grid", gap: 2 }}>
@@ -6409,8 +6486,9 @@ const TxTitleWithDescription: React.FC<{
                       return (
                         <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                           <div
+                            ref={getTxRowRef(tx.id)}
                             data-disabled-tx-row-id={tx.id}
-                            style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                            style={getTxRowStyle(tx.id, isTxDisabled)}
                             onClick={() => openTxActions(tx.id)}
                           >
                             <div style={{ display: "grid", gap: 2 }}>
@@ -6620,8 +6698,9 @@ const TxTitleWithDescription: React.FC<{
                       return (
                         <div key={tx.id} style={{ display: "grid", gap: 6, marginTop: idx === 0 ? 0 : 6 }}>
                           <div
+                            ref={getTxRowRef(tx.id)}
                             data-disabled-tx-row-id={tx.id}
-                            style={{ ...txRowStyle, ...(isTxDisabled ? txRowDisabledStyle : null) }}
+                            style={getTxRowStyle(tx.id, isTxDisabled)}
                             onClick={() => openTxActions(tx.id)}
                           >
                             <div style={{ display: "grid", gap: 2 }}>

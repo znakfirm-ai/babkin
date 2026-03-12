@@ -164,3 +164,16 @@
 .overview-section__list {
   gap: 12px;
 }
+
+@keyframes overview-tx-deeplink-highlight {
+  0% {
+    background: #dbeafe;
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.28) inset;
+  }
+  100% {
+    background: #f8fafc;
+    border-color: rgba(226, 232, 240, 0.7);
+    box-shadow: none;
+  }
+}
