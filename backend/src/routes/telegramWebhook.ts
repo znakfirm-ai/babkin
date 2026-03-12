@@ -111,6 +111,8 @@ type BotOperationContext = OperationContext & {
   workspaceLabel: string
 }
 
+type CreatedTransaction = Awaited<ReturnType<typeof createWorkspaceTransaction>>
+
 const ACTIVE_DRAFT_STATUSES: BotOperationDraftStatus[] = [
   BotOperationDraftStatus.pending_review,
   BotOperationDraftStatus.awaiting_field_input,
@@ -391,6 +393,7 @@ async function sendTelegramMessage(
   chatId: string,
   text: string,
   replyMarkup?: Record<string, unknown>,
+  parseMode?: "HTML",
 ): Promise<number | null> {
   const payload: Record<string, unknown> = {
     chat_id: chatId,
@@ -399,6 +402,9 @@ async function sendTelegramMessage(
   }
   if (replyMarkup) {
     payload.reply_markup = replyMarkup
+  }
+  if (parseMode) {
+    payload.parse_mode = parseMode
   }
   const result = await callTelegramApi<TelegramSendMessageResult>(fastify, "sendMessage", payload)
   return typeof result?.message_id === "number" ? result.message_id : null
@@ -410,6 +416,7 @@ async function editTelegramMessage(
   messageId: number,
   text: string,
   replyMarkup?: Record<string, unknown>,
+  parseMode?: "HTML",
 ): Promise<boolean> {
   const payload: Record<string, unknown> = {
     chat_id: chatId,
@@ -419,6 +426,9 @@ async function editTelegramMessage(
   }
   if (replyMarkup) {
     payload.reply_markup = replyMarkup
+  }
+  if (parseMode) {
+    payload.parse_mode = parseMode
   }
   const result = await callTelegramApi<TelegramSendMessageResult>(fastify, "editMessageText", payload)
   return result !== null
@@ -687,42 +697,40 @@ const buildPickerRows = (
   return rows
 }
 
-const buildReviewKeyboard = (type: DraftType, openAppUrl: string) => {
+const buildReviewKeyboard = (type: DraftType) => {
   const rows: Array<Array<{ text: string; callback_data?: string; url?: string }>> = []
-
-  rows.push([{ text: "Сохранить", callback_data: "bot:save" }])
-  rows.push([
-    { text: "Тип", callback_data: "bot:pick:type" },
-    { text: "Сумма", callback_data: "bot:edit:amount" },
-  ])
-  rows.push([{ text: "Аккаунт", callback_data: "bot:pick:workspace" }])
 
   if (type === "transfer") {
     rows.push([
-      { text: "Откуда", callback_data: "bot:pick:from" },
-      { text: "Куда", callback_data: "bot:pick:to" },
+      { text: "💳 Откуда", callback_data: "bot:pick:from" },
+      { text: "🏦 Куда", callback_data: "bot:pick:to" },
+      { text: "📅 Дата", callback_data: "bot:pick:date" },
     ])
   } else if (type === "income") {
     rows.push([
-      { text: "Счёт", callback_data: "bot:pick:acc" },
-      { text: "Источник", callback_data: "bot:pick:src" },
+      { text: "💳 Счёт", callback_data: "bot:pick:acc" },
+      { text: "📂 Источник", callback_data: "bot:pick:src" },
+      { text: "📅 Дата", callback_data: "bot:pick:date" },
     ])
   } else {
     rows.push([
-      { text: "Счёт", callback_data: "bot:pick:acc" },
-      { text: "Категория", callback_data: "bot:pick:cat" },
+      { text: "💳 Счёт", callback_data: "bot:pick:acc" },
+      { text: "📂 Категория", callback_data: "bot:pick:cat" },
+      { text: "📅 Дата", callback_data: "bot:pick:date" },
     ])
   }
 
   rows.push([
-    { text: "Дата", callback_data: "bot:pick:date" },
-    { text: "Описание", callback_data: "bot:edit:description" },
+    { text: "📝 Описание", callback_data: "bot:edit:description" },
+    { text: "🗂️ Аккаунт", callback_data: "bot:pick:workspace" },
+  ])
+  rows.push([
+    { text: "🔁 Тип", callback_data: "bot:pick:type" },
+    { text: "💰 Сумма", callback_data: "bot:edit:amount" },
   ])
 
-  rows.push([
-    { text: "Открыть приложение", url: openAppUrl },
-    { text: "Отмена", callback_data: "bot:cancel" },
-  ])
+  rows.push([{ text: "✅ Сохранить", callback_data: "bot:save" }])
+  rows.push([{ text: "❌ Отмена", callback_data: "bot:cancel" }])
 
   return { inline_keyboard: rows }
 }
@@ -779,12 +787,7 @@ const buildUnfinishedKeyboard = () => ({
 
 const buildResultKeyboard = (openAppUrl: string) => ({
   inline_keyboard: [
-    [{ text: "Ещё операцию", callback_data: "bot:new" }],
-    [
-      { text: "Голос", callback_data: "bot:new:voice" },
-      { text: "Фото чека", callback_data: "bot:new:receipt" },
-    ],
-    [{ text: "Открыть приложение", url: openAppUrl }],
+    [{ text: "Открыть в приложении", url: openAppUrl }],
   ],
 })
 
@@ -858,6 +861,99 @@ async function loadUserWorkspaces(userId: string): Promise<WorkspaceOption[]> {
   }))
 }
 
+const RU_MONTHS = [
+  "января",
+  "февраля",
+  "марта",
+  "апреля",
+  "мая",
+  "июня",
+  "июля",
+  "августа",
+  "сентября",
+  "октября",
+  "ноября",
+  "декабря",
+] as const
+
+const formatDateLongRu = (value: Date): string => {
+  const day = value.getDate()
+  const month = RU_MONTHS[value.getMonth()] ?? ""
+  const year = value.getFullYear()
+  return `${day} ${month} ${year}`
+}
+
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+
+const resolveOperationIcon = (type: DraftType): string => {
+  if (type === "income") return "↗️"
+  if (type === "transfer") return "↔️"
+  return "↘️"
+}
+
+const buildMiniAppDeepLink = (
+  baseUrl: string,
+  params: Record<string, string | null>,
+): string => {
+  try {
+    const url = new URL(baseUrl)
+    for (const [key, value] of Object.entries(params)) {
+      if (value && value.trim().length > 0) {
+        url.searchParams.set(key, value)
+      }
+    }
+    return url.toString()
+  } catch {
+    return baseUrl
+  }
+}
+
+const resolveDraftTarget = (
+  draft: bot_operation_drafts,
+): { targetType: string; targetId: string | null } => {
+  const rawType = (draft.type ?? "").trim()
+  if (rawType === "income") {
+    return {
+      targetType: "incomeSource",
+      targetId: draft.income_source_id ?? null,
+    }
+  }
+  if (rawType === "transfer") {
+    return {
+      targetType: "account",
+      targetId: draft.to_entity_id ?? null,
+    }
+  }
+  if (rawType === "debt_received") {
+    return {
+      targetType: "debtor",
+      targetId: draft.from_entity_id ?? draft.to_entity_id ?? null,
+    }
+  }
+  if (rawType === "debt_paid") {
+    return {
+      targetType: "debtor",
+      targetId: draft.to_entity_id ?? draft.from_entity_id ?? null,
+    }
+  }
+  if (rawType === "goal_topup") {
+    return {
+      targetType: "goal",
+      targetId: draft.to_entity_id ?? null,
+    }
+  }
+  return {
+    targetType: "category",
+    targetId: draft.category_id ?? null,
+  }
+}
+
 const resolveAccountName = (context: OperationContext, accountId: string | null): string => {
   if (!accountId) return "—"
   return context.accounts.find((item) => item.id === accountId)?.name ?? "—"
@@ -880,50 +976,56 @@ const buildDraftReviewText = (
 ): string => {
   const type = parseDraftType(draft.type)
   const amount = parseAmount(draft.amount)
+  const icon = resolveOperationIcon(type)
+  const amountLabel = formatAmountWithCurrency(amount, context.accounts[0]?.currency ?? "RUB")
+  const accountLabel = resolveAccountName(context, draft.from_entity_id)
+  const categoryOrSourceLabel = type === "income"
+    ? resolveSourceName(context, draft.income_source_id)
+    : resolveCategoryName(context, draft.category_id)
+  const detailLabel = type === "income" ? "Источник" : "Категория"
+  const transferToLabel = resolveAccountName(context, draft.to_entity_id)
+  const dateLabel = draft.happened_at ? formatDateLongRu(draft.happened_at) : "—"
+  const descriptionLabel = draft.description?.trim() ? draft.description.trim() : "—"
 
-  const lines: string[] = ["Черновик операции"]
-
-  lines.push(`Тип: ${operationTypeLabels[type]}`)
-  lines.push(`Сумма: ${formatAmountWithCurrency(amount, context.accounts[0]?.currency ?? "RUB")}`)
-  lines.push(`Аккаунт: ${workspaceLabel}`)
+  const lines: string[] = [
+    "Проверь, пожалуйста:",
+    "",
+    `${icon} ${operationTypeLabels[type]} · <b>${escapeHtml(amountLabel)}</b>`,
+    `↳ 🗂️ Аккаунт · <b>${escapeHtml(workspaceLabel)}</b>`,
+    "",
+  ]
 
   if (type === "transfer") {
-    lines.push(`Откуда: ${resolveAccountName(context, draft.from_entity_id)}`)
-    lines.push(`Куда: ${resolveAccountName(context, draft.to_entity_id)}`)
-  } else if (type === "income") {
-    lines.push(`Счёт: ${resolveAccountName(context, draft.from_entity_id)}`)
-    lines.push(`Источник: ${resolveSourceName(context, draft.income_source_id)}`)
+    lines.push(`💳 Откуда · <b>${escapeHtml(accountLabel)}</b>`)
+    lines.push(`🏦 Куда · <b>${escapeHtml(transferToLabel)}</b>`)
   } else {
-    lines.push(`Счёт: ${resolveAccountName(context, draft.from_entity_id)}`)
-    lines.push(`Категория: ${resolveCategoryName(context, draft.category_id)}`)
+    lines.push(`💳 Счёт · <b>${escapeHtml(accountLabel)}</b>`)
+    lines.push(`📂 ${detailLabel} · <b>${escapeHtml(categoryOrSourceLabel)}</b>`)
   }
 
-  lines.push(`Дата: ${draft.happened_at ? formatDateDMY(draft.happened_at) : "—"}`)
-  lines.push(`Описание: ${draft.description?.trim() ? draft.description.trim() : "—"}`)
-
-  if (type === "unknown") {
-    lines.push("\nВыбери тип операции, чтобы продолжить.")
-  }
+  lines.push(`📅 Дата · <b>${escapeHtml(dateLabel)}</b>`)
+  lines.push(`📝 Описание · <b>${escapeHtml(descriptionLabel)}</b>`)
 
   return lines.join("\n")
 }
 
-const buildSavedSummaryText = (draft: bot_operation_drafts, context: OperationContext): string => {
+const buildSavedSummaryText = (draft: bot_operation_drafts, context: BotOperationContext): string => {
   const type = parseDraftType(draft.type)
-  const amount = parseAmount(draft.amount) ?? 0
-  const amountLabel = Math.abs(amount).toLocaleString("ru-RU")
+  const icon = resolveOperationIcon(type)
+  const amount = parseAmount(draft.amount)
   const currency = context.accounts.find((item) => item.id === draft.from_entity_id)?.currency ?? context.accounts[0]?.currency ?? "RUB"
-  const sign = currencySignMap[currency] ?? currency
+  const amountLabel = formatAmountWithCurrency(amount, currency)
 
-  if (type === "income") {
-    return `✓ Сохранено\n+${amountLabel} ${sign} · ${resolveSourceName(context, draft.income_source_id)} · ${resolveAccountName(context, draft.from_entity_id)}`
-  }
+  const fromLabel = type === "income"
+    ? resolveSourceName(context, draft.income_source_id)
+    : resolveAccountName(context, draft.from_entity_id)
+  const toLabel = type === "income"
+    ? resolveAccountName(context, draft.from_entity_id)
+    : type === "transfer"
+      ? resolveAccountName(context, draft.to_entity_id)
+      : resolveCategoryName(context, draft.category_id)
 
-  if (type === "transfer") {
-    return `✓ Сохранено\n−${amountLabel} ${sign} · ${resolveAccountName(context, draft.from_entity_id)} → ${resolveAccountName(context, draft.to_entity_id)}`
-  }
-
-  return `✓ Сохранено\n−${amountLabel} ${sign} · ${resolveCategoryName(context, draft.category_id)} · ${resolveAccountName(context, draft.from_entity_id)}`
+  return `${icon} <b>${escapeHtml(amountLabel)}</b> · ${escapeHtml(fromLabel)} → ${escapeHtml(toLabel)}\n↳ 🗂️ ${escapeHtml(context.workspaceLabel)}`
 }
 
 const canSaveDraft = (draft: bot_operation_drafts): { ok: true } | { ok: false; missing: string } => {
@@ -962,14 +1064,15 @@ async function upsertDraftLiveMessage(
     chatId: string
     text: string
     keyboard?: Record<string, unknown>
+    parseMode?: "HTML"
   },
 ): Promise<number | null> {
-  const { draft, chatId, text, keyboard } = params
+  const { draft, chatId, text, keyboard, parseMode } = params
   let session = params.session
 
   const candidateMessageId = draft.live_message_id ?? session.active_message_id ?? null
   if (candidateMessageId) {
-    const edited = await editTelegramMessage(fastify, chatId, candidateMessageId, text, keyboard)
+    const edited = await editTelegramMessage(fastify, chatId, candidateMessageId, text, keyboard, parseMode)
     if (edited) {
       if (draft.live_message_id !== candidateMessageId) {
         await prisma.bot_operation_drafts.update({
@@ -987,7 +1090,7 @@ async function upsertDraftLiveMessage(
     }
   }
 
-  const createdMessageId = await sendTelegramMessage(fastify, chatId, text, keyboard)
+  const createdMessageId = await sendTelegramMessage(fastify, chatId, text, keyboard, parseMode)
   if (!createdMessageId) return null
 
   await prisma.bot_operation_drafts.update({
@@ -1012,7 +1115,7 @@ async function renderDraftReview(
   const context = await loadOperationContext(draft.workspace_id)
   const type = parseDraftType(draft.type)
   const text = buildDraftReviewText(draft, context, context.workspaceLabel)
-  const keyboard = buildReviewKeyboard(type, openAppUrl)
+  const keyboard = buildReviewKeyboard(type)
 
   await upsertDraftLiveMessage(fastify, {
     session,
@@ -1020,6 +1123,7 @@ async function renderDraftReview(
     chatId: draft.chat_id,
     text,
     keyboard,
+    parseMode: "HTML",
   })
 
   await prisma.bot_sessions.update({
@@ -1521,7 +1625,7 @@ async function renderPicker(
         draft,
         chatId: draft.chat_id,
         text: "Для перевода выбери поля «Откуда» и «Куда».",
-        keyboard: buildReviewKeyboard(type, openAppUrl),
+        keyboard: buildReviewKeyboard(type),
       })
       return
     }
@@ -1565,7 +1669,7 @@ async function renderPicker(
       draft,
       chatId: draft.chat_id,
       text: "Список пуст. Открой приложение, чтобы добавить нужные элементы.",
-      keyboard: buildReviewKeyboard(type, openAppUrl),
+      keyboard: buildReviewKeyboard(type),
     })
     return
   }
@@ -1605,7 +1709,7 @@ async function saveDraft(
       draft,
       chatId: draft.chat_id,
       text: `Не хватает поля: ${validation.missing}.`,
-      keyboard: buildReviewKeyboard(parseDraftType(draft.type), openAppUrl),
+      keyboard: buildReviewKeyboard(parseDraftType(draft.type)),
     })
     return
   }
@@ -1652,9 +1756,10 @@ async function saveDraft(
     const type = parseDraftType(savingDraft.type)
     const amount = parseAmount(savingDraft.amount) ?? 0
     const happenedAt = (savingDraft.happened_at ?? startOfToday()).toISOString()
+    let createdTransaction: CreatedTransaction
 
     if (type === "expense") {
-      await createWorkspaceTransaction(savingDraft.workspace_id, {
+      createdTransaction = await createWorkspaceTransaction(savingDraft.workspace_id, {
         kind: "expense",
         amount,
         accountId: savingDraft.from_entity_id ?? undefined,
@@ -1663,7 +1768,7 @@ async function saveDraft(
         description: savingDraft.description ?? undefined,
       }, session.user_id)
     } else if (type === "income") {
-      await createWorkspaceTransaction(savingDraft.workspace_id, {
+      createdTransaction = await createWorkspaceTransaction(savingDraft.workspace_id, {
         kind: "income",
         amount,
         accountId: savingDraft.from_entity_id ?? undefined,
@@ -1672,7 +1777,7 @@ async function saveDraft(
         description: savingDraft.description ?? undefined,
       }, session.user_id)
     } else {
-      await createWorkspaceTransaction(savingDraft.workspace_id, {
+      createdTransaction = await createWorkspaceTransaction(savingDraft.workspace_id, {
         kind: "transfer",
         amount,
         fromAccountId: savingDraft.from_entity_id ?? undefined,
@@ -1681,6 +1786,46 @@ async function saveDraft(
         description: savingDraft.description ?? undefined,
       }, session.user_id)
     }
+
+    const updatedDraft = await prisma.bot_operation_drafts.update({
+      where: { id: draft.id },
+      data: { status: BotOperationDraftStatus.applied },
+    })
+
+    await cleanupDraftMessages(fastify, updatedDraft)
+
+    const context = await loadOperationContext(updatedDraft.workspace_id)
+    const summaryText = buildSavedSummaryText(updatedDraft, context)
+    const target = resolveDraftTarget(updatedDraft)
+    const deepLink = buildMiniAppDeepLink(openAppUrl, {
+      workspaceId: updatedDraft.workspace_id,
+      targetType: target.targetType,
+      targetId: target.targetId,
+      transactionId: createdTransaction.id,
+    })
+
+    await upsertDraftLiveMessage(fastify, {
+      session,
+      draft: updatedDraft,
+      chatId: updatedDraft.chat_id,
+      text: summaryText,
+      keyboard: buildResultKeyboard(deepLink),
+      parseMode: "HTML",
+    })
+
+    await prisma.bot_sessions.update({
+      where: { id: session.id },
+      data: {
+        active_draft_id: null,
+        mode: BotSessionMode.idle,
+        awaiting_input_type: null,
+        pending_input_json: Prisma.JsonNull,
+        active_message_id: null,
+      },
+    })
+
+    await maybePromptPaywall(fastify, userState, updatedDraft.chat_id)
+    return
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     fastify.log.error(`[bot:save] failed: ${message}`)
@@ -1704,36 +1849,6 @@ async function saveDraft(
     })
     return
   }
-
-  const updatedDraft = await prisma.bot_operation_drafts.update({
-    where: { id: draft.id },
-    data: { status: BotOperationDraftStatus.applied },
-  })
-
-  await cleanupDraftMessages(fastify, updatedDraft)
-
-  const context = await loadOperationContext(updatedDraft.workspace_id)
-  const summaryText = buildSavedSummaryText(updatedDraft, context)
-  await upsertDraftLiveMessage(fastify, {
-    session,
-    draft: updatedDraft,
-    chatId: updatedDraft.chat_id,
-    text: summaryText,
-    keyboard: buildResultKeyboard(openAppUrl),
-  })
-
-  await prisma.bot_sessions.update({
-    where: { id: session.id },
-    data: {
-      active_draft_id: null,
-      mode: BotSessionMode.idle,
-      awaiting_input_type: null,
-      pending_input_json: Prisma.JsonNull,
-      active_message_id: null,
-    },
-  })
-
-  await maybePromptPaywall(fastify, userState, updatedDraft.chat_id)
 }
 
 async function processPendingInputIfExists(
