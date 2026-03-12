@@ -100,7 +100,16 @@ type DraftPayload = {
 
 type DraftType = "expense" | "income" | "transfer" | "unknown"
 
-type PickerKind = "acc" | "cat" | "src" | "from" | "to"
+type PickerKind = "acc" | "cat" | "src" | "from" | "to" | "ws"
+
+type WorkspaceOption = {
+  id: string
+  name: string
+}
+
+type BotOperationContext = OperationContext & {
+  workspaceLabel: string
+}
 
 const ACTIVE_DRAFT_STATUSES: BotOperationDraftStatus[] = [
   BotOperationDraftStatus.pending_review,
@@ -522,8 +531,12 @@ async function ensureBotSession(userId: string): Promise<bot_sessions> {
   })
 }
 
-async function loadOperationContext(workspaceId: string): Promise<OperationContext> {
-  const [accounts, categories, incomeSources] = await Promise.all([
+async function loadOperationContext(workspaceId: string): Promise<BotOperationContext> {
+  const [workspace, accounts, categories, incomeSources] = await Promise.all([
+    prisma.workspaces.findUnique({
+      where: { id: workspaceId },
+      select: { name: true, type: true },
+    }),
     prisma.accounts.findMany({
       where: { workspace_id: workspaceId, is_archived: false, archived_at: null },
       select: { id: true, name: true, currency: true },
@@ -547,6 +560,7 @@ async function loadOperationContext(workspaceId: string): Promise<OperationConte
     incomeSources,
     goals: [],
     debtors: [],
+    workspaceLabel: workspace ? resolveWorkspaceDisplayName(workspace) : "Личное",
   }
 }
 
@@ -681,6 +695,7 @@ const buildReviewKeyboard = (type: DraftType, openAppUrl: string) => {
     { text: "Тип", callback_data: "bot:pick:type" },
     { text: "Сумма", callback_data: "bot:edit:amount" },
   ])
+  rows.push([{ text: "Аккаунт", callback_data: "bot:pick:workspace" }])
 
   if (type === "transfer") {
     rows.push([
@@ -819,6 +834,30 @@ const buildHowItWorksText = () =>
     "4) Подробности и аналитика — в mini app.",
   ].join("\n")
 
+const resolveWorkspaceDisplayName = (workspace: { name: string | null; type: "personal" | "family" }): string => {
+  const normalized = workspace.name?.trim()
+  if (normalized && normalized.length > 0) return normalized
+  if (workspace.type === "family") return "Семейный бюджет"
+  return "Личное"
+}
+
+async function loadUserWorkspaces(userId: string): Promise<WorkspaceOption[]> {
+  const memberships = await prisma.workspace_members.findMany({
+    where: { user_id: userId },
+    select: {
+      workspaces: {
+        select: { id: true, name: true, type: true },
+      },
+    },
+    orderBy: { workspaces: { created_at: "asc" } },
+  })
+
+  return memberships.map((membership) => ({
+    id: membership.workspaces.id,
+    name: resolveWorkspaceDisplayName(membership.workspaces),
+  }))
+}
+
 const resolveAccountName = (context: OperationContext, accountId: string | null): string => {
   if (!accountId) return "—"
   return context.accounts.find((item) => item.id === accountId)?.name ?? "—"
@@ -837,6 +876,7 @@ const resolveSourceName = (context: OperationContext, sourceId: string | null): 
 const buildDraftReviewText = (
   draft: bot_operation_drafts,
   context: OperationContext,
+  workspaceLabel: string,
 ): string => {
   const type = parseDraftType(draft.type)
   const amount = parseAmount(draft.amount)
@@ -845,6 +885,7 @@ const buildDraftReviewText = (
 
   lines.push(`Тип: ${operationTypeLabels[type]}`)
   lines.push(`Сумма: ${formatAmountWithCurrency(amount, context.accounts[0]?.currency ?? "RUB")}`)
+  lines.push(`Аккаунт: ${workspaceLabel}`)
 
   if (type === "transfer") {
     lines.push(`Откуда: ${resolveAccountName(context, draft.from_entity_id)}`)
@@ -970,7 +1011,7 @@ async function renderDraftReview(
 ): Promise<void> {
   const context = await loadOperationContext(draft.workspace_id)
   const type = parseDraftType(draft.type)
-  const text = buildDraftReviewText(draft, context)
+  const text = buildDraftReviewText(draft, context, context.workspaceLabel)
   const keyboard = buildReviewKeyboard(type, openAppUrl)
 
   await upsertDraftLiveMessage(fastify, {
@@ -1437,6 +1478,11 @@ async function renderPicker(
   const type = parseDraftType(draft.type)
   let items: Array<{ id: string; name: string }> = []
   let title = ""
+
+  if (kind === "ws") {
+    items = await loadUserWorkspaces(session.user_id)
+    title = "Выбери аккаунт"
+  }
 
   if (kind === "cat") {
     if (type !== "expense") {
@@ -1920,6 +1966,10 @@ async function handleDraftCallback(
     await renderPicker(fastify, { session, draft, kind: "acc", offset: 0, openAppUrl })
     return
   }
+  if (data === "bot:pick:workspace") {
+    await renderPicker(fastify, { session, draft, kind: "ws", offset: 0, openAppUrl })
+    return
+  }
 
   if (data === "bot:pick:cat") {
     await renderPicker(fastify, { session, draft, kind: "cat", offset: 0, openAppUrl })
@@ -2048,6 +2098,25 @@ async function handleDraftCallback(
       const updatedDraft = await prisma.bot_operation_drafts.update({
         where: { id: draft.id },
         data: { to_entity_id: selected.id },
+      })
+      await renderDraftReview(fastify, session, updatedDraft, openAppUrl)
+      return
+    }
+
+    if (kindRaw === "ws") {
+      const workspaceOptions = await loadUserWorkspaces(session.user_id)
+      const selected = workspaceOptions[index]
+      if (!selected) return
+
+      const updatedDraft = await prisma.bot_operation_drafts.update({
+        where: { id: draft.id },
+        data: {
+          workspace_id: selected.id,
+          from_entity_id: null,
+          to_entity_id: null,
+          category_id: null,
+          income_source_id: null,
+        },
       })
       await renderDraftReview(fastify, session, updatedDraft, openAppUrl)
       return
