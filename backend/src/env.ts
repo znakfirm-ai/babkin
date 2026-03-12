@@ -7,6 +7,8 @@ const baseSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   BOT_TOKEN: z.string().optional(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+  MINI_APP_URL: z.string().url().optional(),
+  BOT_PAYWALL_URL: z.string().url().optional(),
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   PORT: z.coerce.number().int().positive().default(3001),
   NODE_ENV: z.string().default("development"),

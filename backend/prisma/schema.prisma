@@ -41,6 +41,45 @@ enum DebtorDirection {
   PAYABLE
 }
 
+enum BotUserStage {
+  NEW_USER
+  TRIAL_FREE_USAGE
+  TRIAL_PAYWALL
+  TRIAL_LIMITED
+  ACTIVE_PAID
+}
+
+enum BotSessionMode {
+  idle
+  processing_input
+  draft_review
+  awaiting_field_input
+  awaiting_choice
+  saving
+  saved_result
+  unfinished_draft_block
+  capture_error
+  save_error
+}
+
+enum BotOperationDraftStatus {
+  pending_review
+  awaiting_field_input
+  awaiting_choice
+  saving
+  saved
+  applied
+  cancelled
+  failed
+  superseded
+}
+
+enum BotOperationSourceType {
+  text
+  voice
+  receipt
+}
+
 model income_sources {
   id           String   @id @default(uuid())
   workspace_id String
@@ -71,6 +110,9 @@ model users {
   workspace_members                           workspace_members[]
   workspace_invites                           workspace_invites[] @relation("workspace_invites_created_by_user_id")
   transactions_created                        transactions[] @relation("transactions_created_by_user_id")
+  bot_user_state                              bot_user_states?
+  bot_session                                 bot_sessions?
+  bot_operation_drafts                        bot_operation_drafts[]
 
   @@index([telegram_user_id])
 }
@@ -93,6 +135,7 @@ model workspaces {
   income_sources                             income_sources[]
   goals                                       goals[]
   debtors                                     debtors[]
+  bot_operation_drafts                        bot_operation_drafts[]
 
   @@index([created_by_user_id])
 }
@@ -251,6 +294,71 @@ model debtors {
   @@index([workspace_id])
   @@index([workspace_id, status])
   @@index([workspace_id, direction])
+}
+
+model bot_user_states {
+  user_id                      String       @id
+  stage                        BotUserStage @default(NEW_USER)
+  successful_operations_count  Int          @default(0)
+  paywall_prompted_at          DateTime?
+  created_at                   DateTime     @default(now())
+  updated_at                   DateTime     @updatedAt
+
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([stage])
+}
+
+model bot_sessions {
+  id                  String         @id @default(uuid())
+  user_id             String         @unique
+  mode                BotSessionMode @default(idle)
+  active_draft_id     String?
+  active_message_id   Int?
+  awaiting_input_type String?
+  pending_input_json  Json?
+  created_at          DateTime       @default(now())
+  updated_at          DateTime       @updatedAt
+
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  drafts bot_operation_drafts[]
+
+  @@index([updated_at])
+}
+
+model bot_operation_drafts {
+  id               String                   @id @default(uuid())
+  user_id          String
+  workspace_id     String
+  session_id       String?
+  type             String?
+  amount           Decimal?                 @db.Decimal(18, 2)
+  from_entity_id   String?
+  to_entity_id     String?
+  category_id      String?
+  income_source_id String?
+  happened_at      DateTime?
+  description      String?
+  source_type      BotOperationSourceType
+  source_raw       String?
+  parsed_confidence Float?
+  status           BotOperationDraftStatus  @default(pending_review)
+  chat_id          String
+  source_message_id Int?
+  live_message_id  Int?
+  lookup_json      Json?
+  payload_json     Json?
+  created_at       DateTime                 @default(now())
+  updated_at       DateTime                 @updatedAt
+
+  users      users       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  workspaces workspaces  @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  sessions   bot_sessions? @relation(fields: [session_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id, status])
+  @@index([workspace_id])
+  @@index([session_id])
+  @@index([chat_id])
 }
 
 enum CategoryKind {
