@@ -96,7 +96,6 @@ type PendingCaptureInput = {
 
 type DraftPayload = {
   transientUserMessageIds: number[]
-  onboardingHintMessageId: number | null
 }
 
 type DraftType = "expense" | "income" | "transfer" | "debt_received" | "debt_paid" | "goal_topup" | "unknown"
@@ -390,41 +389,29 @@ const toPendingCaptureInputJson = (input: CaptureSourceInput): Prisma.JsonObject
 
 const parseDraftPayload = (value: Prisma.JsonValue | null): DraftPayload => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { transientUserMessageIds: [], onboardingHintMessageId: null }
+    return { transientUserMessageIds: [] }
   }
   const raw = value as Record<string, unknown>
   const idsRaw = raw.transientUserMessageIds
   if (!Array.isArray(idsRaw)) {
-    return { transientUserMessageIds: [], onboardingHintMessageId: null }
+    return { transientUserMessageIds: [] }
   }
   const transientUserMessageIds = idsRaw
     .map((item) => (typeof item === "number" && Number.isFinite(item) ? item : null))
     .filter((item): item is number => item !== null)
-  const onboardingHintMessageIdRaw = raw.onboardingHintMessageId
-  const onboardingHintMessageId =
-    typeof onboardingHintMessageIdRaw === "number" && Number.isFinite(onboardingHintMessageIdRaw)
-      ? onboardingHintMessageIdRaw
-      : null
-  return { transientUserMessageIds, onboardingHintMessageId }
+  return { transientUserMessageIds }
 }
 
 const serializeDraftPayload = (payload: DraftPayload): Prisma.JsonObject => ({
   transientUserMessageIds: payload.transientUserMessageIds,
-  onboardingHintMessageId: payload.onboardingHintMessageId,
 })
 
 const withTransientMessage = (payload: DraftPayload, messageId: number): DraftPayload => {
   if (payload.transientUserMessageIds.includes(messageId)) return payload
   return {
     transientUserMessageIds: [...payload.transientUserMessageIds, messageId],
-    onboardingHintMessageId: payload.onboardingHintMessageId,
   }
 }
-
-const withOnboardingHintMessage = (payload: DraftPayload, messageId: number | null): DraftPayload => ({
-  transientUserMessageIds: payload.transientUserMessageIds,
-  onboardingHintMessageId: messageId,
-})
 
 const buildReceiptParseText = (receipt: ReceiptExtract): string => {
   const segments: string[] = ["Чек"]
@@ -1655,13 +1642,10 @@ const buildOnboardingStartKeyboard = () => ({
   ],
 })
 
-const buildOnboardingDraftHintText = () => "Нажмите «Сохранить», чтобы записать операцию."
 const buildOnboardingAfterFirstSaveText = () =>
   ["Отлично! Первая операция записана 👍", "Теперь попробуем добавить доход.", "Скажите или напишите:", "", "Зарплата 80 000"].join(
     "\n",
   )
-
-const isOnboardingActive = (userState: bot_user_states) => userState.successful_operations_count < 2
 
 const resolveOnboardingSampleText = (sampleKey: string): string | null => {
   if (sampleKey === "taxi") return "Такси 500"
@@ -2131,9 +2115,6 @@ async function cleanupCancelledDraftMessages(
   payload.transientUserMessageIds.forEach((messageId) => {
     messageIds.add(messageId)
   })
-  if (typeof payload.onboardingHintMessageId === "number") {
-    messageIds.add(payload.onboardingHintMessageId)
-  }
   extraMessageIds.forEach((messageId) => {
     if (typeof messageId === "number" && Number.isFinite(messageId)) {
       messageIds.add(messageId)
@@ -2170,9 +2151,6 @@ async function cleanupDraftMessages(
 
   for (const messageId of payload.transientUserMessageIds) {
     await deleteTelegramMessage(fastify, draft.chat_id, messageId)
-  }
-  if (typeof payload.onboardingHintMessageId === "number") {
-    await deleteTelegramMessage(fastify, draft.chat_id, payload.onboardingHintMessageId)
   }
 }
 
@@ -2457,7 +2435,7 @@ async function processCaptureInput(
         source_message_id: input.sourceMessageId,
         live_message_id: processingMessageId,
         lookup_json: serializeDraftLookupMemory(draftLookup),
-        payload_json: serializeDraftPayload({ transientUserMessageIds: [], onboardingHintMessageId: null }),
+        payload_json: serializeDraftPayload({ transientUserMessageIds: [] }),
       },
     })
   } catch (error) {
@@ -2513,18 +2491,6 @@ async function processCaptureInput(
   })
 
   await renderDraftReview(fastify, session, draft, openAppUrl)
-
-  if (isOnboardingActive(userState)) {
-    const hintMessageId = await sendTelegramMessage(fastify, chatId, buildOnboardingDraftHintText())
-    if (typeof hintMessageId === "number") {
-      const currentPayload = parseDraftPayload(draft.payload_json)
-      const nextPayload = withOnboardingHintMessage(currentPayload, hintMessageId)
-      await prisma.bot_operation_drafts.update({
-        where: { id: draft.id },
-        data: { payload_json: serializeDraftPayload(nextPayload) },
-      })
-    }
-  }
 
   if (userState.stage === BotUserStage.TRIAL_PAYWALL) {
     await prisma.bot_user_states.update({
