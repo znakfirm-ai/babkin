@@ -94,6 +94,10 @@ type PendingCaptureInput = {
   sourceMessageId?: number | null
 }
 
+type OnboardingSessionState = {
+  completedSaves: number
+}
+
 type DraftPayload = {
   transientUserMessageIds: number[]
 }
@@ -331,9 +335,31 @@ const parseEditedAmount = (input: string): number | null => {
   return value
 }
 
-const parsePendingCaptureInput = (value: Prisma.JsonValue | null): PendingCaptureInput | null => {
+const parseOnboardingSessionState = (value: Prisma.JsonValue | null): OnboardingSessionState | null => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const raw = value as Record<string, unknown>
+  const onboardingRaw = raw.onboardingSession
+  if (!onboardingRaw || typeof onboardingRaw !== "object" || Array.isArray(onboardingRaw)) return null
+  const onboardingObj = onboardingRaw as Record<string, unknown>
+  const completedSavesRaw = onboardingObj.completedSaves
+  if (typeof completedSavesRaw !== "number" || !Number.isFinite(completedSavesRaw) || completedSavesRaw < 0) return null
+  return { completedSaves: Math.floor(completedSavesRaw) }
+}
+
+const unwrapPendingCaptureInputValue = (value: Prisma.JsonValue | null): Prisma.JsonValue | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value
+  const raw = value as Record<string, unknown>
+  const wrappedPending = raw.pendingCaptureInput
+  if (wrappedPending && typeof wrappedPending === "object" && !Array.isArray(wrappedPending)) {
+    return wrappedPending as Prisma.JsonValue
+  }
+  return value
+}
+
+const parsePendingCaptureInput = (value: Prisma.JsonValue | null): PendingCaptureInput | null => {
+  const unwrappedValue = unwrapPendingCaptureInputValue(value)
+  if (!unwrappedValue || typeof unwrappedValue !== "object" || Array.isArray(unwrappedValue)) return null
+  const raw = unwrappedValue as Record<string, unknown>
   const kindRaw = typeof raw.kind === "string" ? raw.kind : null
   if (kindRaw !== "text" && kindRaw !== "voice" && kindRaw !== "receipt") return null
 
@@ -362,7 +388,7 @@ const parsePendingCaptureInput = (value: Prisma.JsonValue | null): PendingCaptur
   return { kind: "receipt", fileId, sourceMessageId }
 }
 
-const toPendingCaptureInputJson = (input: CaptureSourceInput): Prisma.JsonObject => {
+const toPendingCaptureInputJson = (input: CaptureSourceInput | PendingCaptureInput): Prisma.JsonObject => {
   if (input.kind === "text") {
     return {
       kind: input.kind,
@@ -385,6 +411,26 @@ const toPendingCaptureInputJson = (input: CaptureSourceInput): Prisma.JsonObject
     fileId: input.fileId,
     sourceMessageId: input.sourceMessageId,
   }
+}
+
+const buildSessionPendingInputJson = (
+  onboardingSession: OnboardingSessionState | null,
+  pendingCaptureInput: CaptureSourceInput | PendingCaptureInput | null,
+)=> {
+  if (!onboardingSession && !pendingCaptureInput) {
+    return Prisma.JsonNull
+  }
+
+  const result: Prisma.JsonObject = {}
+  if (onboardingSession) {
+    result.onboardingSession = {
+      completedSaves: onboardingSession.completedSaves,
+    }
+  }
+  if (pendingCaptureInput) {
+    result.pendingCaptureInput = toPendingCaptureInputJson(pendingCaptureInput)
+  }
+  return result
 }
 
 const parseDraftPayload = (value: Prisma.JsonValue | null): DraftPayload => {
@@ -2081,6 +2127,7 @@ async function renderUnfinishedDraftBlock(
 }
 
 async function cancelDraft(session: bot_sessions, draft: bot_operation_drafts): Promise<void> {
+  const onboardingSession = parseOnboardingSessionState(session.pending_input_json)
   await prisma.$transaction([
     prisma.bot_operation_drafts.update({
       where: { id: draft.id },
@@ -2092,7 +2139,7 @@ async function cancelDraft(session: bot_sessions, draft: bot_operation_drafts): 
         active_draft_id: null,
         mode: BotSessionMode.idle,
         awaiting_input_type: null,
-        pending_input_json: Prisma.JsonNull,
+        pending_input_json: buildSessionPendingInputJson(onboardingSession, null),
         active_message_id: null,
       },
     }),
@@ -2255,6 +2302,39 @@ async function ensureSingleActiveDraft(userId: string): Promise<void> {
   })
 }
 
+<<<<<<< Updated upstream
+=======
+async function resetBotSessionForStart(userId: string): Promise<void> {
+  await prisma.$transaction([
+    prisma.bot_operation_drafts.updateMany({
+      where: {
+        user_id: userId,
+        status: { in: ACTIVE_DRAFT_STATUSES },
+      },
+      data: { status: BotOperationDraftStatus.superseded },
+    }),
+    prisma.bot_sessions.upsert({
+      where: { user_id: userId },
+      create: {
+        user_id: userId,
+        mode: BotSessionMode.idle,
+        active_draft_id: null,
+        active_message_id: null,
+        awaiting_input_type: null,
+        pending_input_json: buildSessionPendingInputJson({ completedSaves: 0 }, null),
+      },
+      update: {
+        mode: BotSessionMode.idle,
+        active_draft_id: null,
+        active_message_id: null,
+        awaiting_input_type: null,
+        pending_input_json: buildSessionPendingInputJson({ completedSaves: 0 }, null),
+      },
+    }),
+  ])
+}
+
+>>>>>>> Stashed changes
 async function processCaptureInput(
   fastify: FastifyInstance,
   params: {
@@ -2271,6 +2351,7 @@ async function processCaptureInput(
   const initialUserState = await ensureBotUserState(user.id)
   let userState = await reconcileSuccessfulOperationsCount(user.id, initialUserState)
   let session = await ensureBotSession(user.id)
+  const onboardingSession = parseOnboardingSessionState(session.pending_input_json)
 
   const workspaceId = await ensureWorkspaceForUser(user.id)
   if (userState.stage === BotUserStage.NEW_USER) {
@@ -2286,7 +2367,7 @@ async function processCaptureInput(
       where: { id: session.id },
       data: {
         mode: BotSessionMode.unfinished_draft_block,
-        pending_input_json: toPendingCaptureInputJson(input),
+        pending_input_json: buildSessionPendingInputJson(onboardingSession, input),
       },
     })
     await renderUnfinishedDraftBlock(fastify, session, activeDraft)
@@ -2314,7 +2395,7 @@ async function processCaptureInput(
       mode: BotSessionMode.processing_input,
       active_draft_id: null,
       awaiting_input_type: null,
-      pending_input_json: Prisma.JsonNull,
+      pending_input_json: buildSessionPendingInputJson(onboardingSession, null),
       active_message_id: processingMessageId ?? session.active_message_id,
     },
   })
@@ -2446,7 +2527,7 @@ async function processCaptureInput(
           where: { id: session.id },
           data: {
             mode: BotSessionMode.unfinished_draft_block,
-            pending_input_json: toPendingCaptureInputJson(input),
+            pending_input_json: buildSessionPendingInputJson(onboardingSession, input),
             active_draft_id: blockedDraft.id,
           },
         })
@@ -2485,7 +2566,7 @@ async function processCaptureInput(
       active_draft_id: draft.id,
       mode: BotSessionMode.draft_review,
       awaiting_input_type: null,
-      pending_input_json: Prisma.JsonNull,
+      pending_input_json: buildSessionPendingInputJson(onboardingSession, null),
       active_message_id: processingMessageId ?? session.active_message_id,
     },
   })
@@ -2715,6 +2796,7 @@ async function saveDraft(
   },
 ): Promise<void> {
   const { session, draft, userState } = params
+  const onboardingSession = parseOnboardingSessionState(session.pending_input_json)
   const validation = canSaveDraft(draft)
   const openAppUrl = await resolveMiniAppUrl()
 
@@ -2899,19 +2981,26 @@ async function saveDraft(
       parseMode: "HTML",
     })
 
+    const nextOnboardingSession =
+      onboardingSession
+        ? onboardingSession.completedSaves + 1 >= 2
+          ? null
+          : { completedSaves: onboardingSession.completedSaves + 1 }
+        : null
+
     await prisma.bot_sessions.update({
       where: { id: session.id },
       data: {
         active_draft_id: null,
         mode: BotSessionMode.idle,
         awaiting_input_type: null,
-        pending_input_json: Prisma.JsonNull,
+        pending_input_json: buildSessionPendingInputJson(nextOnboardingSession, null),
         active_message_id: null,
       },
     })
 
-    const successfulOperationsCount = await maybePromptPaywall(fastify, userState, updatedDraft.chat_id)
-    if (successfulOperationsCount === 1) {
+    await maybePromptPaywall(fastify, userState, updatedDraft.chat_id)
+    if (onboardingSession && onboardingSession.completedSaves === 0) {
       await sendTelegramMessage(fastify, updatedDraft.chat_id, buildOnboardingAfterFirstSaveText())
     }
     return
