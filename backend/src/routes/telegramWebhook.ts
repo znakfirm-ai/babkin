@@ -652,6 +652,24 @@ async function ensureBotUserState(userId: string): Promise<bot_user_states> {
   })
 }
 
+async function reconcileSuccessfulOperationsCount(userId: string, userState: bot_user_states): Promise<bot_user_states> {
+  const actualSuccessfulCount = await prisma.bot_operation_drafts.count({
+    where: {
+      user_id: userId,
+      status: BotOperationDraftStatus.applied,
+    },
+  })
+
+  if (actualSuccessfulCount === userState.successful_operations_count) {
+    return userState
+  }
+
+  return prisma.bot_user_states.update({
+    where: { user_id: userId },
+    data: { successful_operations_count: actualSuccessfulCount },
+  })
+}
+
 async function ensureBotSession(userId: string): Promise<bot_sessions> {
   return prisma.bot_sessions.upsert({
     where: { user_id: userId },
@@ -3422,7 +3440,8 @@ async function handleStartCommand(fastify: FastifyInstance, message: TelegramMes
     firstName: message.from?.first_name,
     username: message.from?.username,
   })
-  const userState = await ensureBotUserState(user.id)
+  const initialUserState = await ensureBotUserState(user.id)
+  const userState = await reconcileSuccessfulOperationsCount(user.id, initialUserState)
 
   const openAppUrl = await resolveMiniAppUrl()
   if (isOnboardingActive(userState)) {
