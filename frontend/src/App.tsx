@@ -106,6 +106,7 @@ const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
 const WORKSPACE_NAME_LIMIT = 32
 const INVITE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,128}$/
 const INVITE_STARTAPP_PREFIX = "join_"
+const BOT_DEEP_LINK_STARTAPP_PREFIX = "dl1_"
 const BOT_DEEP_LINK_TARGET_TYPES = new Set<DeepLinkTargetType>(["category", "incomeSource", "account", "debtor", "goal"])
 
 type TelegramInitDataUnsafe = {
@@ -227,10 +228,55 @@ const parseDeepLinkIntentFromParams = (params: URLSearchParams): BotDeepLinkInte
   }
 }
 
+const decodeBase64UrlUtf8 = (encoded: string): string | null => {
+  if (!encoded) return null
+  try {
+    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/")
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")
+    const binary = atob(padded)
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    return new TextDecoder().decode(bytes)
+  } catch {
+    return null
+  }
+}
+
+const parsePackedDeepLinkPayload = (value: string): BotDeepLinkIntent | null => {
+  if (!value.startsWith(BOT_DEEP_LINK_STARTAPP_PREFIX)) return null
+  const encoded = value.slice(BOT_DEEP_LINK_STARTAPP_PREFIX.length).trim()
+  const decoded = decodeBase64UrlUtf8(encoded)
+  if (!decoded) return null
+
+  try {
+    const raw = JSON.parse(decoded) as {
+      w?: unknown
+      t?: unknown
+      i?: unknown
+      x?: unknown
+    }
+    const workspaceId = normalizeDeepLinkParam(typeof raw.w === "string" ? raw.w : null)
+    const targetType = normalizeDeepLinkParam(typeof raw.t === "string" ? raw.t : null)
+    const targetId = normalizeDeepLinkParam(typeof raw.i === "string" ? raw.i : null)
+    const transactionId = normalizeDeepLinkParam(typeof raw.x === "string" ? raw.x : null)
+    if (!workspaceId || !targetType || !targetId || !transactionId) return null
+    if (!BOT_DEEP_LINK_TARGET_TYPES.has(targetType as DeepLinkTargetType)) return null
+    return {
+      workspaceId,
+      targetType: targetType as DeepLinkTargetType,
+      targetId,
+      transactionId,
+    }
+  } catch {
+    return null
+  }
+}
+
 const parsePackedIntent = (value: string | null | undefined): BotDeepLinkIntent | null => {
   if (!value) return null
   const raw = value.trim()
   if (!raw || raw.startsWith(INVITE_STARTAPP_PREFIX)) return null
+  const packedPayloadIntent = parsePackedDeepLinkPayload(raw)
+  if (packedPayloadIntent) return packedPayloadIntent
   const cleaned = raw.startsWith("?") ? raw.slice(1) : raw
   if (!cleaned.includes("=")) return null
   const decoded = (() => {

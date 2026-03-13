@@ -174,6 +174,9 @@ const operationTypeLabels: Record<DraftType, string> = {
   unknown: "Не выбран",
 }
 
+const TELEGRAM_STARTAPP_PREFIX = "dl1_"
+const TELEGRAM_STARTAPP_MAX_LENGTH = 512
+
 const semanticStopWords = new Set([
   "на",
   "в",
@@ -412,7 +415,8 @@ const resolveMiniAppUrl = async (): Promise<string> => {
   if (env.MINI_APP_URL) return env.MINI_APP_URL
   const username = await resolveTelegramBotUsername()
   if (username) {
-    return `https://t.me/${username}/app`
+    // Use Telegram main mini app link base; concrete context goes through startapp payload.
+    return `https://t.me/${username}`
   }
   return "https://t.me"
 }
@@ -1340,11 +1344,38 @@ const buildMiniAppDeepLink = (
 ): string => {
   try {
     const url = new URL(baseUrl)
-    for (const [key, value] of Object.entries(params)) {
-      if (value && value.trim().length > 0) {
-        url.searchParams.set(key, value)
+    const normalizedEntries = Object.entries(params).filter(
+      ([, value]) => typeof value === "string" && value.trim().length > 0,
+    ) as Array<[string, string]>
+
+    // Telegram mini app links should pass context via startapp, not custom top-level query keys.
+    if (url.hostname === "t.me") {
+      const rawPayload = JSON.stringify({
+        w: params.workspaceId?.trim() ?? null,
+        t: params.targetType?.trim() ?? null,
+        i: params.targetId?.trim() ?? null,
+        x: params.transactionId?.trim() ?? null,
+      })
+      const encodedPayload = Buffer.from(rawPayload, "utf8")
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "")
+      const payload = `${TELEGRAM_STARTAPP_PREFIX}${encodedPayload}`
+      if (payload.length > 0) {
+        if (payload.length <= TELEGRAM_STARTAPP_MAX_LENGTH) {
+          url.searchParams.set("startapp", payload)
+        }
       }
+      ;["workspaceId", "targetType", "targetId", "transactionId"].forEach((key) => {
+        url.searchParams.delete(key)
+      })
+      return url.toString()
     }
+
+    normalizedEntries.forEach(([key, value]) => {
+      url.searchParams.set(key, value.trim())
+    })
     return url.toString()
   } catch {
     return baseUrl
