@@ -1,5 +1,4 @@
 import { FastifyInstance, FastifyPluginOptions } from "fastify"
-import { Prisma } from "@prisma/client"
 import { prisma } from "../db/prisma"
 import { env } from "../env"
 
@@ -21,31 +20,6 @@ const normalizeTelegramUserId = (value: string | undefined) => {
 }
 
 export async function devToolsRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
-  fastify.post("/dev/reset-me", async (request, reply) => {
-    if (env.NODE_ENV === "production") {
-      return reply.status(404).send({ error: "Not Found" })
-    }
-
-    const query = (request.query ?? {}) as { telegram_id?: string }
-    const telegramUserId = normalizeTelegramUserId(query.telegram_id)
-    if (!telegramUserId) {
-      return reply.status(400).send({ error: "Bad Request", reason: "missing_telegram_id" })
-    }
-
-    try {
-      await prisma.users.delete({
-        where: { telegram_user_id: telegramUserId },
-      })
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-        return reply.send({ ok: true })
-      }
-      throw error
-    }
-
-    return reply.send({ ok: true })
-  })
-
   fastify.post("/dev/delete-user-by-telegram-id", async (request, reply) => {
     if (env.NODE_ENV === "production") {
       return reply.status(404).send({ error: "Not Found" })
@@ -148,3 +122,4 @@ export async function devToolsRoutes(fastify: FastifyInstance, _opts: FastifyPlu
     }
   })
 }
+
