@@ -1692,8 +1692,7 @@ const buildOnboardingAfterFirstSaveText = () =>
   [
     "<b>Отлично! Первая операция записана 👍</b>",
     "Теперь попробуем добавить доход.",
-    "<b>Скажите или напишите:</b>",
-    "<i>Зарплата 80 000</i>",
+    "<b>Скажите или напишите:</b>\n<i>Зарплата 80 000</i>",
   ].join("\n\n")
 
 const resolveOnboardingSampleText = (sampleKey: string): string | null => {
