@@ -1639,12 +1639,10 @@ const buildCapturePromptText = () => "Отправь текст, голос ил
 
 const buildOnboardingStartText = () =>
   [
-    "Покажу, как это работает — это займёт пару секунд.",
+    "<b>Покажу, как это работает — это займёт пару секунд.</b>",
     "Без регистраций, сразу к делу.",
-    "Нажмите любую тестовую кнопку",
-    "или напишите любой расход сами 👇",
-    "(операция ниже — просто пример)",
-    "[ONBOARDING_V2]",
+    "<b>Нажмите любую тестовую кнопку\nили напишите любой расход сами 👇</b>",
+    "<i>(операция ниже — просто пример)</i>",
   ].join("\n\n")
 
 const buildOnboardingStartKeyboard = () => ({
@@ -3443,7 +3441,7 @@ async function handleStartCommand(fastify: FastifyInstance, message: TelegramMes
   })
   const initialUserState = await ensureBotUserState(user.id)
   await reconcileSuccessfulOperationsCount(user.id, initialUserState)
-  await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard())
+  await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard(), "HTML")
 }
 
 export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
