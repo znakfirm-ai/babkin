@@ -1689,9 +1689,12 @@ const buildOnboardingStartKeyboard = () => ({
 })
 
 const buildOnboardingAfterFirstSaveText = () =>
-  ["Отлично! Первая операция записана 👍", "Теперь попробуем добавить доход.", "Скажите или напишите:", "", "Зарплата 80 000"].join(
-    "\n",
-  )
+  [
+    "<b>Отлично! Первая операция записана 👍</b>",
+    "Теперь попробуем добавить доход.",
+    "<b>Скажите или напишите:</b>",
+    "<i>Зарплата 80 000</i>",
+  ].join("\n\n")
 
 const resolveOnboardingSampleText = (sampleKey: string): string | null => {
   if (sampleKey === "taxi") return "Такси 500"
@@ -2997,7 +3000,7 @@ async function saveDraft(
 
     await maybePromptPaywall(fastify, userState, updatedDraft.chat_id)
     if (onboardingSession && onboardingSession.completedSaves === 0) {
-      await sendTelegramMessage(fastify, updatedDraft.chat_id, buildOnboardingAfterFirstSaveText())
+      await sendTelegramMessage(fastify, updatedDraft.chat_id, buildOnboardingAfterFirstSaveText(), undefined, "HTML")
     }
     return
   } catch (error) {
