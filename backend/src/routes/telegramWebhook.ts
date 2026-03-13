@@ -96,6 +96,7 @@ type PendingCaptureInput = {
 
 type DraftPayload = {
   transientUserMessageIds: number[]
+  onboardingHintMessageId: number | null
 }
 
 type DraftType = "expense" | "income" | "transfer" | "debt_received" | "debt_paid" | "goal_topup" | "unknown"
@@ -389,29 +390,41 @@ const toPendingCaptureInputJson = (input: CaptureSourceInput): Prisma.JsonObject
 
 const parseDraftPayload = (value: Prisma.JsonValue | null): DraftPayload => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { transientUserMessageIds: [] }
+    return { transientUserMessageIds: [], onboardingHintMessageId: null }
   }
   const raw = value as Record<string, unknown>
   const idsRaw = raw.transientUserMessageIds
   if (!Array.isArray(idsRaw)) {
-    return { transientUserMessageIds: [] }
+    return { transientUserMessageIds: [], onboardingHintMessageId: null }
   }
   const transientUserMessageIds = idsRaw
     .map((item) => (typeof item === "number" && Number.isFinite(item) ? item : null))
     .filter((item): item is number => item !== null)
-  return { transientUserMessageIds }
+  const onboardingHintMessageIdRaw = raw.onboardingHintMessageId
+  const onboardingHintMessageId =
+    typeof onboardingHintMessageIdRaw === "number" && Number.isFinite(onboardingHintMessageIdRaw)
+      ? onboardingHintMessageIdRaw
+      : null
+  return { transientUserMessageIds, onboardingHintMessageId }
 }
 
 const serializeDraftPayload = (payload: DraftPayload): Prisma.JsonObject => ({
   transientUserMessageIds: payload.transientUserMessageIds,
+  onboardingHintMessageId: payload.onboardingHintMessageId,
 })
 
 const withTransientMessage = (payload: DraftPayload, messageId: number): DraftPayload => {
   if (payload.transientUserMessageIds.includes(messageId)) return payload
   return {
     transientUserMessageIds: [...payload.transientUserMessageIds, messageId],
+    onboardingHintMessageId: payload.onboardingHintMessageId,
   }
 }
+
+const withOnboardingHintMessage = (payload: DraftPayload, messageId: number | null): DraftPayload => ({
+  transientUserMessageIds: payload.transientUserMessageIds,
+  onboardingHintMessageId: messageId,
+})
 
 const buildReceiptParseText = (receipt: ReceiptExtract): string => {
   const segments: string[] = ["Чек"]
@@ -1606,6 +1619,40 @@ const buildPaywallKeyboard = (paywallUrl: string, openAppUrl: string) => ({
 
 const buildCapturePromptText = () => "Отправь текст, голос или фото чека — я соберу черновик операции."
 
+const buildOnboardingStartText = () =>
+  [
+    "Покажу, как это работает — это займёт пару секунд.",
+    "Без регистраций, сразу к делу.",
+    "Нажмите любую тестовую кнопку",
+    "или напишите любой расход сами 👇",
+    "(операция ниже — просто пример)",
+  ].join("\n\n")
+
+const buildOnboardingStartKeyboard = () => ({
+  inline_keyboard: [
+    [
+      { text: "🚕 Такси 500", callback_data: "bot:onboard:sample:taxi" },
+      { text: "🍔 Еда 350", callback_data: "bot:onboard:sample:food" },
+    ],
+    [{ text: "🛍 Маркетплейсы 1200", callback_data: "bot:onboard:sample:market" }],
+  ],
+})
+
+const buildOnboardingDraftHintText = () => "Нажмите «Сохранить», чтобы записать операцию."
+const buildOnboardingAfterFirstSaveText = () =>
+  ["Отлично! Первая операция записана 👍", "Теперь попробуем добавить доход.", "Скажите или напишите:", "", "Зарплата 80 000"].join(
+    "\n",
+  )
+
+const isOnboardingActive = (userState: bot_user_states) => userState.successful_operations_count < 2
+
+const resolveOnboardingSampleText = (sampleKey: string): string | null => {
+  if (sampleKey === "taxi") return "Такси 500"
+  if (sampleKey === "food") return "Еда 350"
+  if (sampleKey === "market") return "Маркетплейсы 1200"
+  return null
+}
+
 const buildStartText = () =>
   [
     "Я помогу вести финансы голосом, текстом и по фото чеков.",
@@ -2067,6 +2114,9 @@ async function cleanupCancelledDraftMessages(
   payload.transientUserMessageIds.forEach((messageId) => {
     messageIds.add(messageId)
   })
+  if (typeof payload.onboardingHintMessageId === "number") {
+    messageIds.add(payload.onboardingHintMessageId)
+  }
   extraMessageIds.forEach((messageId) => {
     if (typeof messageId === "number" && Number.isFinite(messageId)) {
       messageIds.add(messageId)
@@ -2104,13 +2154,16 @@ async function cleanupDraftMessages(
   for (const messageId of payload.transientUserMessageIds) {
     await deleteTelegramMessage(fastify, draft.chat_id, messageId)
   }
+  if (typeof payload.onboardingHintMessageId === "number") {
+    await deleteTelegramMessage(fastify, draft.chat_id, payload.onboardingHintMessageId)
+  }
 }
 
 async function maybePromptPaywall(
   fastify: FastifyInstance,
   userState: bot_user_states,
   chatId: string,
-): Promise<void> {
+): Promise<number> {
   const nextCount = userState.successful_operations_count + 1
   const shouldPrompt =
     nextCount >= 3 &&
@@ -2126,7 +2179,7 @@ async function maybePromptPaywall(
     },
   })
 
-  if (!shouldPrompt) return
+  if (!shouldPrompt) return nextCount
 
   const openAppUrl = await resolveMiniAppUrl()
   const paywallUrl = await resolvePaywallUrl()
@@ -2141,6 +2194,7 @@ async function maybePromptPaywall(
     where: { user_id: updatedState.user_id },
     data: { stage: BotUserStage.TRIAL_PAYWALL },
   })
+  return nextCount
 }
 
 async function setDraftAmount(
@@ -2385,7 +2439,7 @@ async function processCaptureInput(
         source_message_id: input.sourceMessageId,
         live_message_id: processingMessageId,
         lookup_json: serializeDraftLookupMemory(draftLookup),
-        payload_json: serializeDraftPayload({ transientUserMessageIds: [] }),
+        payload_json: serializeDraftPayload({ transientUserMessageIds: [], onboardingHintMessageId: null }),
       },
     })
   } catch (error) {
@@ -2441,6 +2495,18 @@ async function processCaptureInput(
   })
 
   await renderDraftReview(fastify, session, draft, openAppUrl)
+
+  if (isOnboardingActive(userState)) {
+    const hintMessageId = await sendTelegramMessage(fastify, chatId, buildOnboardingDraftHintText())
+    if (typeof hintMessageId === "number") {
+      const currentPayload = parseDraftPayload(draft.payload_json)
+      const nextPayload = withOnboardingHintMessage(currentPayload, hintMessageId)
+      await prisma.bot_operation_drafts.update({
+        where: { id: draft.id },
+        data: { payload_json: serializeDraftPayload(nextPayload) },
+      })
+    }
+  }
 
   if (userState.stage === BotUserStage.TRIAL_PAYWALL) {
     await prisma.bot_user_states.update({
@@ -2860,7 +2926,10 @@ async function saveDraft(
       },
     })
 
-    await maybePromptPaywall(fastify, userState, updatedDraft.chat_id)
+    const successfulOperationsCount = await maybePromptPaywall(fastify, userState, updatedDraft.chat_id)
+    if (successfulOperationsCount === 1) {
+      await sendTelegramMessage(fastify, updatedDraft.chat_id, buildOnboardingAfterFirstSaveText())
+    }
     return
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -2969,6 +3038,24 @@ async function handleDraftCallback(
 
   if (data === "bot:start:how") {
     await sendTelegramMessage(fastify, callbackChatId, buildHowItWorksText(), buildHowItWorksKeyboard(openAppUrl))
+    return
+  }
+
+  if (data.startsWith("bot:onboard:sample:")) {
+    const sampleKey = data.slice("bot:onboard:sample:".length)
+    const sampleText = resolveOnboardingSampleText(sampleKey)
+    if (!sampleText) return
+    await processCaptureInput(fastify, {
+      telegramUserId: callbackUserId,
+      firstName: callbackQuery.from?.first_name,
+      username: callbackQuery.from?.username,
+      chatId: callbackChatId,
+      input: {
+        kind: "text",
+        text: sampleText,
+        sourceMessageId: null,
+      },
+    })
     return
   }
 
@@ -3330,13 +3417,18 @@ async function handleStartCommand(fastify: FastifyInstance, message: TelegramMes
   const telegramUserId = toStringId(message.from?.id)
   if (!chatId || !telegramUserId) return
 
-  await upsertTelegramUser({
+  const user = await upsertTelegramUser({
     telegramUserId,
     firstName: message.from?.first_name,
     username: message.from?.username,
   })
+  const userState = await ensureBotUserState(user.id)
 
   const openAppUrl = await resolveMiniAppUrl()
+  if (isOnboardingActive(userState)) {
+    await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard())
+    return
+  }
   await sendTelegramMessage(fastify, chatId, buildStartText(), buildStartKeyboard(openAppUrl))
 }
 
