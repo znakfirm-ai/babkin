@@ -98,7 +98,7 @@ type DraftPayload = {
   transientUserMessageIds: number[]
 }
 
-type DraftType = "expense" | "income" | "transfer" | "unknown"
+type DraftType = "expense" | "income" | "transfer" | "debt_received" | "debt_paid" | "goal_topup" | "unknown"
 
 type DraftLookupMemory = {
   signature: string
@@ -117,6 +117,21 @@ type DraftSemanticHints = {
   explicitAccountId: string | null
   explicitCategoryId: string | null
   explicitIncomeSourceId: string | null
+  explicitReceivableDebtorId: string | null
+  explicitPayableDebtorId: string | null
+  explicitGoalId: string | null
+}
+
+type DraftShape = {
+  type: DraftType
+  amount: number | null
+  fromEntityId: string | null
+  toEntityId: string | null
+  categoryId: string | null
+  incomeSourceId: string | null
+  happenedAt: Date
+  description: string | null
+  confidence: number | null
 }
 
 type PickerKind = "acc" | "cat" | "src" | "from" | "to" | "ws"
@@ -171,6 +186,9 @@ const operationTypeLabels: Record<DraftType, string> = {
   expense: "Расход",
   income: "Доход",
   transfer: "Перевод",
+  debt_received: "Мне должны",
+  debt_paid: "Я должен",
+  goal_topup: "Цель",
   unknown: "Не выбран",
 }
 
@@ -219,6 +237,11 @@ const semanticStopWords = new Set([
   "доход",
   "расход",
   "перевод",
+  "долг",
+  "долга",
+  "долги",
+  "цель",
+  "цели",
 ])
 
 const toStringId = (value: number | string | null | undefined): string | null => {
@@ -233,7 +256,16 @@ const toSafeText = (value: string | null | undefined): string | null => {
 }
 
 const parseDraftType = (value: string | null | undefined): DraftType => {
-  if (value === "expense" || value === "income" || value === "transfer") return value
+  if (
+    value === "expense" ||
+    value === "income" ||
+    value === "transfer" ||
+    value === "debt_received" ||
+    value === "debt_paid" ||
+    value === "goal_topup"
+  ) {
+    return value
+  }
   return "unknown"
 }
 
@@ -616,7 +648,7 @@ async function ensureBotSession(userId: string): Promise<bot_sessions> {
 }
 
 async function loadOperationContext(workspaceId: string): Promise<BotOperationContext> {
-  const [workspace, accounts, categories, incomeSources] = await Promise.all([
+  const [workspace, accounts, categories, incomeSources, goals, debtors] = await Promise.all([
     prisma.workspaces.findUnique({
       where: { id: workspaceId },
       select: { name: true, type: true },
@@ -636,14 +668,28 @@ async function loadOperationContext(workspaceId: string): Promise<BotOperationCo
       select: { id: true, name: true },
       orderBy: { sort_order: "asc" },
     }),
+    prisma.goals.findMany({
+      where: { workspace_id: workspaceId, status: "active" },
+      select: { id: true, name: true },
+      orderBy: [{ sort_order: "asc" }, { created_at: "asc" }],
+    }),
+    prisma.debtors.findMany({
+      where: { workspace_id: workspaceId, status: "active" },
+      select: { id: true, name: true, direction: true },
+      orderBy: [{ direction: "asc" }, { sort_order: "asc" }, { created_at: "asc" }],
+    }),
   ])
 
   return {
     accounts,
     categories,
     incomeSources,
-    goals: [],
-    debtors: [],
+    goals,
+    debtors: debtors.map((debtor) => ({
+      id: debtor.id,
+      name: debtor.name,
+      direction: debtor.direction === "PAYABLE" ? "payable" : "receivable",
+    })),
     workspaceLabel: workspace ? resolveWorkspaceDisplayName(workspace) : "Личное",
   }
 }
@@ -693,21 +739,16 @@ const mapSourceType = (inputKind: CaptureSourceInput["kind"]): BotOperationSourc
 
 const mapParsedToDraftShape = (
   parsed: ParsedOperation,
-): {
-  type: DraftType
-  amount: number | null
-  fromEntityId: string | null
-  toEntityId: string | null
-  categoryId: string | null
-  incomeSourceId: string | null
-  happenedAt: Date
-  description: string | null
-  confidence: number | null
-} => {
+): DraftShape => {
   const source = parsed.ok ? parsed.data : parsed.partial ?? {}
 
   const resolvedType: DraftType =
-    source.type === "expense" || source.type === "income" || source.type === "transfer"
+    source.type === "expense" ||
+    source.type === "income" ||
+    source.type === "transfer" ||
+    source.type === "debt_received" ||
+    source.type === "debt_paid" ||
+    source.type === "goal_topup"
       ? source.type
       : "unknown"
 
@@ -722,8 +763,18 @@ const mapParsedToDraftShape = (
   return {
     type: resolvedType,
     amount: source.amount && Number.isFinite(source.amount) ? source.amount : null,
-    fromEntityId: source.accountId ?? null,
-    toEntityId: source.toAccountId ?? null,
+    fromEntityId:
+      resolvedType === "debt_received"
+        ? source.debtorId ?? null
+        : source.accountId ?? null,
+    toEntityId:
+      resolvedType === "debt_received"
+        ? source.accountId ?? null
+        : resolvedType === "debt_paid"
+          ? source.debtorId ?? null
+          : resolvedType === "goal_topup"
+            ? source.goalId ?? null
+            : source.toAccountId ?? null,
     categoryId: source.categoryId ?? null,
     incomeSourceId: source.incomeSourceId ?? null,
     happenedAt,
@@ -768,6 +819,13 @@ const calculateTokenSimilarity = (first: string[], second: string[]): number => 
 }
 
 const detectDraftTypeFromText = (text: string): DraftType | null => {
+  if (/(на\s+цель|в\s+цель|цель|пополнить\s+цель|отложил|отложила|откладываю)/iu.test(text)) return "goal_topup"
+  if (/(отдал|отдала|погасил|погасила|вернул\s+долг\s+к|вернула\s+долг\s+к|вернул\s+к|вернула\s+к)/iu.test(text)) {
+    return "debt_paid"
+  }
+  if (/(возврат\s+долга\s+от|долг\s+от|вернула|вернул|возврат\s+от|вернула\s+долг|вернул\s+долг)/iu.test(text)) {
+    return "debt_received"
+  }
   if (/(перевод|перевести|перекин|между счетами|со счета|на счет|→|->)/iu.test(text)) return "transfer"
   if (/(доход|зарплат|преми|кэшб|кешб|поступил|получил|пришло|аванс)/iu.test(text)) return "income"
   if (/(расход|потрат|купил|оплат|трат|списал)/iu.test(text)) return "expense"
@@ -796,6 +854,111 @@ const resolveEntityCandidateByText = (
   return best
 }
 
+const extractDraftDescriptionCandidate = (sourceText: string, snippetsToStrip: string[]): string | null => {
+  let cleaned = sourceText
+  cleaned = cleaned.replace(/\b\d+(?:[.,]\d+)?\s*(?:к|кк|₽|р|руб(?:\.|лей|ля|ль)?)?\b/giu, " ")
+  cleaned = cleaned.replace(
+    /\b(возврат|долг|долга|долги|вернул|вернула|отдал|отдала|погасил|погасила|пополнить|пополнил|пополнила|цель|на|в|к)\b/giu,
+    " ",
+  )
+  snippetsToStrip.forEach((snippet) => {
+    const normalized = snippet.trim()
+    if (!normalized) return
+    cleaned = cleaned.replace(new RegExp(normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu"), " ")
+  })
+  cleaned = cleaned.replace(/\s+/g, " ").trim().replace(/^[-,:;.\s]+|[-,:;.\s]+$/g, "")
+  return cleaned.length >= 3 ? cleaned.slice(0, 300) : null
+}
+
+const resolveEarlyDebtGoalDraft = (sourceText: string, context: OperationContext): DraftShape | null => {
+  const tokens = extractSemanticTokens(sourceText)
+  if (tokens.length === 0) return null
+
+  const accountCandidate = resolveEntityCandidateByText(sourceText, tokens, context.accounts)
+  const defaultAccountId = accountCandidate?.score && accountCandidate.score >= 0.9
+    ? accountCandidate.id
+    : context.accounts[0]?.id ?? null
+  const amount = parseEditedAmount(sourceText)
+  const happenedAt = startOfToday()
+
+  const payableDebtorCandidate = resolveEntityCandidateByText(
+    sourceText,
+    tokens,
+    context.debtors
+      .filter((debtor) => debtor.direction === "payable")
+      .map((debtor) => ({ id: debtor.id, name: debtor.name })),
+  )
+  const receivableDebtorCandidate = resolveEntityCandidateByText(
+    sourceText,
+    tokens,
+    context.debtors
+      .filter((debtor) => debtor.direction !== "payable")
+      .map((debtor) => ({ id: debtor.id, name: debtor.name })),
+  )
+  const goalCandidate = resolveEntityCandidateByText(sourceText, tokens, context.goals)
+
+  const payableDebtorId = payableDebtorCandidate && payableDebtorCandidate.score >= 0.72 ? payableDebtorCandidate.id : null
+  const receivableDebtorId =
+    receivableDebtorCandidate && receivableDebtorCandidate.score >= 0.72 ? receivableDebtorCandidate.id : null
+  const goalId = goalCandidate && goalCandidate.score >= 0.72 ? goalCandidate.id : null
+
+  const hasGoalIntent = /(цел[ьи]|на\s+цель|в\s+цель|пополн(ить|ю|ил|ила)|отложил|отложила|откладываю)/iu.test(sourceText)
+  const hasDebtPaidIntent = /(отдал|отдала|погасил|погасила|вернул\s+долг\s+к|вернула\s+долг\s+к|вернул\s+к|вернула\s+к)/iu.test(
+    sourceText,
+  )
+  const hasDebtReceivedIntent = /(возврат(\s+долга)?\s+от|долг\s+от|вернула|вернул|вернули)/iu.test(sourceText)
+
+  if (hasGoalIntent && goalId) {
+    return {
+      type: "goal_topup",
+      amount,
+      fromEntityId: defaultAccountId,
+      toEntityId: goalId,
+      categoryId: null,
+      incomeSourceId: null,
+      happenedAt,
+      description: extractDraftDescriptionCandidate(sourceText, [context.goals.find((goal) => goal.id === goalId)?.name ?? ""]),
+      confidence: 0.9,
+    }
+  }
+
+  if (hasDebtPaidIntent && payableDebtorId) {
+    return {
+      type: "debt_paid",
+      amount,
+      fromEntityId: defaultAccountId,
+      toEntityId: payableDebtorId,
+      categoryId: null,
+      incomeSourceId: null,
+      happenedAt,
+      description: extractDraftDescriptionCandidate(
+        sourceText,
+        [context.debtors.find((debtor) => debtor.id === payableDebtorId)?.name ?? ""],
+      ),
+      confidence: 0.88,
+    }
+  }
+
+  if (hasDebtReceivedIntent && receivableDebtorId) {
+    return {
+      type: "debt_received",
+      amount,
+      fromEntityId: receivableDebtorId,
+      toEntityId: defaultAccountId,
+      categoryId: null,
+      incomeSourceId: null,
+      happenedAt,
+      description: extractDraftDescriptionCandidate(
+        sourceText,
+        [context.debtors.find((debtor) => debtor.id === receivableDebtorId)?.name ?? ""],
+      ),
+      confidence: 0.88,
+    }
+  }
+
+  return null
+}
+
 const buildDraftSemanticHints = (
   sourceText: string,
   context: OperationContext,
@@ -811,6 +974,21 @@ const buildDraftSemanticHints = (
       .map((item) => ({ id: item.id, name: item.name })),
   )
   const explicitIncomeSource = resolveEntityCandidateByText(sourceText, tokens, context.incomeSources)
+  const explicitReceivableDebtor = resolveEntityCandidateByText(
+    sourceText,
+    tokens,
+    context.debtors
+      .filter((debtor) => debtor.direction !== "payable")
+      .map((debtor) => ({ id: debtor.id, name: debtor.name })),
+  )
+  const explicitPayableDebtor = resolveEntityCandidateByText(
+    sourceText,
+    tokens,
+    context.debtors
+      .filter((debtor) => debtor.direction !== "receivable")
+      .map((debtor) => ({ id: debtor.id, name: debtor.name })),
+  )
+  const explicitGoal = resolveEntityCandidateByText(sourceText, tokens, context.goals)
 
   return {
     signature,
@@ -819,6 +997,11 @@ const buildDraftSemanticHints = (
     explicitAccountId: explicitAccount && explicitAccount.score >= 0.95 ? explicitAccount.id : null,
     explicitCategoryId: explicitCategory && explicitCategory.score >= 0.95 ? explicitCategory.id : null,
     explicitIncomeSourceId: explicitIncomeSource && explicitIncomeSource.score >= 0.95 ? explicitIncomeSource.id : null,
+    explicitReceivableDebtorId:
+      explicitReceivableDebtor && explicitReceivableDebtor.score >= 0.95 ? explicitReceivableDebtor.id : null,
+    explicitPayableDebtorId:
+      explicitPayableDebtor && explicitPayableDebtor.score >= 0.95 ? explicitPayableDebtor.id : null,
+    explicitGoalId: explicitGoal && explicitGoal.score >= 0.95 ? explicitGoal.id : null,
   }
 }
 
@@ -946,11 +1129,15 @@ const loadTransactionHistoryHint = async (
       to_account_id: true,
       category_id: true,
       income_source_id: true,
+      goal_id: true,
+      debtor_id: true,
       account: { select: { name: true } },
       from_account: { select: { name: true } },
       to_account: { select: { name: true } },
       category: { select: { name: true } },
       income_source: { select: { name: true } },
+      goal: { select: { name: true } },
+      debtor: { select: { name: true, direction: true } },
     },
     orderBy: { created_at: "desc" },
     take: 120,
@@ -959,10 +1146,27 @@ const loadTransactionHistoryHint = async (
   let bestScore = 0
   let bestLookup: DraftLookupMemory | null = null
   recentTransactions.forEach((transaction) => {
-    const type: DraftType =
-      transaction.kind === "income" ? "income" : transaction.kind === "expense" ? "expense" : "transfer"
+    const type: DraftType = (() => {
+      if (transaction.kind === "income") return "income"
+      if (transaction.kind === "expense") {
+        if (transaction.debtor_id && transaction.debtor?.direction === "PAYABLE") return "debt_paid"
+        return "expense"
+      }
+      if (transaction.goal_id) return "goal_topup"
+      if (transaction.debtor_id && transaction.debtor?.direction === "RECEIVABLE") return "debt_received"
+      return "transfer"
+    })()
     const referenceTokens = extractSemanticTokens(
-      [transaction.note, transaction.category?.name, transaction.income_source?.name, transaction.account?.name, transaction.from_account?.name, transaction.to_account?.name]
+      [
+        transaction.note,
+        transaction.category?.name,
+        transaction.income_source?.name,
+        transaction.goal?.name,
+        transaction.debtor?.name,
+        transaction.account?.name,
+        transaction.from_account?.name,
+        transaction.to_account?.name,
+      ]
         .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
         .join(" "),
     )
@@ -972,10 +1176,20 @@ const loadTransactionHistoryHint = async (
       signature: referenceTokens.join("|"),
       tokens: referenceTokens,
       type,
-      fromEntityId: transaction.account_id ?? transaction.from_account_id ?? null,
-      toEntityId: transaction.to_account_id ?? null,
-      categoryId: transaction.category_id ?? null,
-      incomeSourceId: transaction.income_source_id ?? null,
+      fromEntityId:
+        type === "debt_received"
+          ? transaction.debtor_id ?? null
+          : transaction.account_id ?? transaction.from_account_id ?? null,
+      toEntityId:
+        type === "goal_topup"
+          ? transaction.goal_id ?? null
+          : type === "debt_paid"
+            ? transaction.debtor_id ?? null
+            : type === "debt_received"
+              ? transaction.to_account_id ?? null
+              : transaction.to_account_id ?? null,
+      categoryId: type === "expense" ? transaction.category_id ?? null : null,
+      incomeSourceId: type === "income" ? transaction.income_source_id ?? null : null,
     }
     if (score > bestScore) {
       bestScore = score
@@ -998,17 +1212,7 @@ const resolveSemanticEntityId = (
 
 const applyDraftPrefillHints = (
   sourceText: string,
-  mapped: {
-    type: DraftType
-    amount: number | null
-    fromEntityId: string | null
-    toEntityId: string | null
-    categoryId: string | null
-    incomeSourceId: string | null
-    happenedAt: Date
-    description: string | null
-    confidence: number | null
-  },
+  mapped: DraftShape,
   context: OperationContext,
   hints: DraftSemanticHints,
   memoryHint: DraftLookupMemory | null,
@@ -1017,7 +1221,21 @@ const applyDraftPrefillHints = (
   const accountIds = new Set(context.accounts.map((account) => account.id))
   const categoryIds = new Set(context.categories.filter((category) => category.kind === "expense").map((category) => category.id))
   const incomeSourceIds = new Set(context.incomeSources.map((source) => source.id))
+  const receivableDebtorIds = new Set(
+    context.debtors
+      .filter((debtor) => debtor.direction !== "payable")
+      .map((debtor) => debtor.id),
+  )
+  const payableDebtorIds = new Set(
+    context.debtors
+      .filter((debtor) => debtor.direction !== "receivable")
+      .map((debtor) => debtor.id),
+  )
+  const goalIds = new Set(context.goals.map((goal) => goal.id))
   const firstAccountId = context.accounts[0]?.id ?? null
+  const firstReceivableDebtorId = context.debtors.find((debtor) => debtor.direction !== "payable")?.id ?? null
+  const firstPayableDebtorId = context.debtors.find((debtor) => debtor.direction !== "receivable")?.id ?? null
+  const firstGoalId = context.goals[0]?.id ?? null
 
   const semanticAccountId = resolveSemanticEntityId(sourceText, hints.tokens, context.accounts)
   const semanticCategoryId = resolveSemanticEntityId(
@@ -1028,62 +1246,161 @@ const applyDraftPrefillHints = (
       .map((item) => ({ id: item.id, name: item.name })),
   )
   const semanticIncomeSourceId = resolveSemanticEntityId(sourceText, hints.tokens, context.incomeSources)
+  const semanticReceivableDebtorId = resolveSemanticEntityId(
+    sourceText,
+    hints.tokens,
+    context.debtors
+      .filter((debtor) => debtor.direction !== "payable")
+      .map((debtor) => ({ id: debtor.id, name: debtor.name })),
+  )
+  const semanticPayableDebtorId = resolveSemanticEntityId(
+    sourceText,
+    hints.tokens,
+    context.debtors
+      .filter((debtor) => debtor.direction !== "receivable")
+      .map((debtor) => ({ id: debtor.id, name: debtor.name })),
+  )
+  const semanticGoalId = resolveSemanticEntityId(sourceText, hints.tokens, context.goals)
 
   const nextType =
     mapped.type !== "unknown"
       ? mapped.type
       : hints.explicitType ?? memoryHint?.type ?? transactionHint?.type ?? "unknown"
 
-  let nextFromEntityId =
-    hints.explicitAccountId ??
-    mapped.fromEntityId ??
-    semanticAccountId ??
-    memoryHint?.fromEntityId ??
-    transactionHint?.fromEntityId ??
-    firstAccountId
+  let nextFromEntityId: string | null = null
+  let nextToEntityId: string | null = null
+  let nextCategoryId: string | null = null
+  let nextIncomeSourceId: string | null = null
 
-  if (!nextFromEntityId || !accountIds.has(nextFromEntityId)) {
-    nextFromEntityId = firstAccountId
-  }
+  if (nextType === "income") {
+    nextFromEntityId =
+      hints.explicitAccountId ??
+      mapped.fromEntityId ??
+      semanticAccountId ??
+      memoryHint?.fromEntityId ??
+      transactionHint?.fromEntityId ??
+      firstAccountId
+    if (!nextFromEntityId || !accountIds.has(nextFromEntityId)) nextFromEntityId = firstAccountId
 
-  let nextToEntityId =
-    mapped.toEntityId ??
-    memoryHint?.toEntityId ??
-    transactionHint?.toEntityId ??
-    null
-  if (nextToEntityId && !accountIds.has(nextToEntityId)) {
-    nextToEntityId = null
-  }
+    nextIncomeSourceId =
+      hints.explicitIncomeSourceId ??
+      mapped.incomeSourceId ??
+      semanticIncomeSourceId ??
+      memoryHint?.incomeSourceId ??
+      transactionHint?.incomeSourceId ??
+      null
+    if (nextIncomeSourceId && !incomeSourceIds.has(nextIncomeSourceId)) nextIncomeSourceId = null
+  } else if (nextType === "expense") {
+    nextFromEntityId =
+      hints.explicitAccountId ??
+      mapped.fromEntityId ??
+      semanticAccountId ??
+      memoryHint?.fromEntityId ??
+      transactionHint?.fromEntityId ??
+      firstAccountId
+    if (!nextFromEntityId || !accountIds.has(nextFromEntityId)) nextFromEntityId = firstAccountId
 
-  if (nextType === "transfer" && nextToEntityId === nextFromEntityId) {
-    nextToEntityId = context.accounts.find((account) => account.id !== nextFromEntityId)?.id ?? null
-  }
+    nextCategoryId =
+      hints.explicitCategoryId ??
+      mapped.categoryId ??
+      semanticCategoryId ??
+      memoryHint?.categoryId ??
+      transactionHint?.categoryId ??
+      null
+    if (nextCategoryId && !categoryIds.has(nextCategoryId)) nextCategoryId = null
+  } else if (nextType === "transfer") {
+    nextFromEntityId =
+      hints.explicitAccountId ??
+      mapped.fromEntityId ??
+      semanticAccountId ??
+      memoryHint?.fromEntityId ??
+      transactionHint?.fromEntityId ??
+      firstAccountId
+    if (!nextFromEntityId || !accountIds.has(nextFromEntityId)) nextFromEntityId = firstAccountId
 
-  let nextCategoryId =
-    hints.explicitCategoryId ??
-    mapped.categoryId ??
-    semanticCategoryId ??
-    memoryHint?.categoryId ??
-    transactionHint?.categoryId ??
-    null
-  if (nextCategoryId && !categoryIds.has(nextCategoryId)) {
-    nextCategoryId = null
-  }
+    nextToEntityId = mapped.toEntityId ?? memoryHint?.toEntityId ?? transactionHint?.toEntityId ?? null
+    if (nextToEntityId && !accountIds.has(nextToEntityId)) nextToEntityId = null
+    if (nextToEntityId === nextFromEntityId) {
+      nextToEntityId = context.accounts.find((account) => account.id !== nextFromEntityId)?.id ?? null
+    }
+  } else if (nextType === "debt_received") {
+    nextFromEntityId =
+      hints.explicitReceivableDebtorId ??
+      mapped.fromEntityId ??
+      semanticReceivableDebtorId ??
+      memoryHint?.fromEntityId ??
+      transactionHint?.fromEntityId ??
+      firstReceivableDebtorId
+    if (!nextFromEntityId || !receivableDebtorIds.has(nextFromEntityId)) nextFromEntityId = firstReceivableDebtorId
 
-  let nextIncomeSourceId =
-    hints.explicitIncomeSourceId ??
-    mapped.incomeSourceId ??
-    semanticIncomeSourceId ??
-    memoryHint?.incomeSourceId ??
-    transactionHint?.incomeSourceId ??
-    null
-  if (nextIncomeSourceId && !incomeSourceIds.has(nextIncomeSourceId)) {
-    nextIncomeSourceId = null
+    nextToEntityId =
+      hints.explicitAccountId ??
+      mapped.toEntityId ??
+      semanticAccountId ??
+      memoryHint?.toEntityId ??
+      transactionHint?.toEntityId ??
+      firstAccountId
+    if (!nextToEntityId || !accountIds.has(nextToEntityId)) nextToEntityId = firstAccountId
+  } else if (nextType === "debt_paid") {
+    nextFromEntityId =
+      hints.explicitAccountId ??
+      mapped.fromEntityId ??
+      semanticAccountId ??
+      memoryHint?.fromEntityId ??
+      transactionHint?.fromEntityId ??
+      firstAccountId
+    if (!nextFromEntityId || !accountIds.has(nextFromEntityId)) nextFromEntityId = firstAccountId
+
+    nextToEntityId =
+      hints.explicitPayableDebtorId ??
+      mapped.toEntityId ??
+      semanticPayableDebtorId ??
+      memoryHint?.toEntityId ??
+      transactionHint?.toEntityId ??
+      firstPayableDebtorId
+    if (!nextToEntityId || !payableDebtorIds.has(nextToEntityId)) nextToEntityId = firstPayableDebtorId
+  } else if (nextType === "goal_topup") {
+    nextFromEntityId =
+      hints.explicitAccountId ??
+      mapped.fromEntityId ??
+      semanticAccountId ??
+      memoryHint?.fromEntityId ??
+      transactionHint?.fromEntityId ??
+      firstAccountId
+    if (!nextFromEntityId || !accountIds.has(nextFromEntityId)) nextFromEntityId = firstAccountId
+
+    nextToEntityId =
+      hints.explicitGoalId ??
+      mapped.toEntityId ??
+      semanticGoalId ??
+      memoryHint?.toEntityId ??
+      transactionHint?.toEntityId ??
+      firstGoalId
+    if (!nextToEntityId || !goalIds.has(nextToEntityId)) nextToEntityId = firstGoalId
+  } else {
+    nextFromEntityId =
+      hints.explicitAccountId ??
+      mapped.fromEntityId ??
+      semanticAccountId ??
+      memoryHint?.fromEntityId ??
+      transactionHint?.fromEntityId ??
+      firstAccountId
+    if (nextFromEntityId && !accountIds.has(nextFromEntityId)) nextFromEntityId = firstAccountId
+    nextToEntityId = mapped.toEntityId ?? null
+    nextCategoryId = mapped.categoryId ?? null
+    nextIncomeSourceId = mapped.incomeSourceId ?? null
   }
 
   const confidence = Math.max(
     mapped.confidence ?? 0,
-    hints.explicitAccountId || hints.explicitCategoryId || hints.explicitIncomeSourceId ? 0.86 : 0,
+    hints.explicitAccountId ||
+      hints.explicitCategoryId ||
+      hints.explicitIncomeSourceId ||
+      hints.explicitReceivableDebtorId ||
+      hints.explicitPayableDebtorId ||
+      hints.explicitGoalId
+      ? 0.86
+      : 0,
     memoryHint ? 0.72 : 0,
     transactionHint ? 0.66 : 0,
   )
@@ -1153,6 +1470,24 @@ const buildReviewKeyboard = (type: DraftType) => {
       { text: "📂 Источник", callback_data: "bot:pick:src" },
       { text: "📅 Дата", callback_data: "bot:pick:date" },
     ])
+  } else if (type === "debt_received") {
+    rows.push([
+      { text: "👤 Откуда", callback_data: "bot:pick:from" },
+      { text: "💳 Куда", callback_data: "bot:pick:to" },
+      { text: "📅 Дата", callback_data: "bot:pick:date" },
+    ])
+  } else if (type === "debt_paid") {
+    rows.push([
+      { text: "💳 Откуда", callback_data: "bot:pick:from" },
+      { text: "👤 Куда", callback_data: "bot:pick:to" },
+      { text: "📅 Дата", callback_data: "bot:pick:date" },
+    ])
+  } else if (type === "goal_topup") {
+    rows.push([
+      { text: "💳 Откуда", callback_data: "bot:pick:from" },
+      { text: "🎯 Куда", callback_data: "bot:pick:to" },
+      { text: "📅 Дата", callback_data: "bot:pick:date" },
+    ])
   } else {
     rows.push([
       { text: "💳 Счёт", callback_data: "bot:pick:acc" },
@@ -1179,9 +1514,16 @@ const buildReviewKeyboard = (type: DraftType) => {
 const buildTypeKeyboard = () => ({
   inline_keyboard: [
     [
-      { text: "Расход", callback_data: "bot:set:type:expense" },
-      { text: "Доход", callback_data: "bot:set:type:income" },
-      { text: "Перевод", callback_data: "bot:set:type:transfer" },
+      { text: "↘️ Расход", callback_data: "bot:set:type:expense" },
+      { text: "↗️ Доход", callback_data: "bot:set:type:income" },
+    ],
+    [
+      { text: "↔️ Перевод", callback_data: "bot:set:type:transfer" },
+      { text: "⬅️ Мне должны", callback_data: "bot:set:type:debt_received" },
+    ],
+    [
+      { text: "➡️ Я должен", callback_data: "bot:set:type:debt_paid" },
+      { text: "🎯 Цель", callback_data: "bot:set:type:goal_topup" },
     ],
     [
       { text: "Назад", callback_data: "bot:back:review" },
@@ -1333,6 +1675,9 @@ const escapeHtml = (value: string): string =>
     .replace(/'/g, "&#39;")
 
 const resolveOperationIcon = (type: DraftType): string => {
+  if (type === "debt_received") return "⬅️"
+  if (type === "debt_paid") return "➡️"
+  if (type === "goal_topup") return "🎯"
   if (type === "income") return "↗️"
   if (type === "transfer") return "↔️"
   return "↘️"
@@ -1452,6 +1797,16 @@ const resolveSourceName = (context: OperationContext, sourceId: string | null): 
   return context.incomeSources.find((item) => item.id === sourceId)?.name ?? "—"
 }
 
+const resolveDebtorName = (context: OperationContext, debtorId: string | null): string => {
+  if (!debtorId) return "—"
+  return context.debtors.find((item) => item.id === debtorId)?.name ?? "—"
+}
+
+const resolveGoalName = (context: OperationContext, goalId: string | null): string => {
+  if (!goalId) return "—"
+  return context.goals.find((item) => item.id === goalId)?.name ?? "—"
+}
+
 const buildDraftReviewText = (
   draft: bot_operation_drafts,
   context: OperationContext,
@@ -1467,6 +1822,9 @@ const buildDraftReviewText = (
     : resolveCategoryName(context, draft.category_id)
   const detailLabel = type === "income" ? "Источник" : "Категория"
   const transferToLabel = resolveAccountName(context, draft.to_entity_id)
+  const debtFromLabel = resolveDebtorName(context, draft.from_entity_id)
+  const debtToLabel = resolveDebtorName(context, draft.to_entity_id)
+  const goalLabel = resolveGoalName(context, draft.to_entity_id)
   const dateLabel = draft.happened_at ? formatDateLongRu(draft.happened_at) : "—"
   const descriptionLabel = draft.description?.trim() ? draft.description.trim() : "—"
 
@@ -1481,6 +1839,15 @@ const buildDraftReviewText = (
   if (type === "transfer") {
     lines.push(`💳 Откуда · <b>${escapeHtml(accountLabel)}</b>`)
     lines.push(`🏦 Куда · <b>${escapeHtml(transferToLabel)}</b>`)
+  } else if (type === "debt_received") {
+    lines.push(`👤 Откуда · <b>${escapeHtml(debtFromLabel)}</b>`)
+    lines.push(`💳 Куда · <b>${escapeHtml(transferToLabel)}</b>`)
+  } else if (type === "debt_paid") {
+    lines.push(`💳 Откуда · <b>${escapeHtml(accountLabel)}</b>`)
+    lines.push(`👤 Куда · <b>${escapeHtml(debtToLabel)}</b>`)
+  } else if (type === "goal_topup") {
+    lines.push(`💳 Откуда · <b>${escapeHtml(accountLabel)}</b>`)
+    lines.push(`🎯 Куда · <b>${escapeHtml(goalLabel)}</b>`)
   } else {
     lines.push(`💳 Счёт · <b>${escapeHtml(accountLabel)}</b>`)
     lines.push(`📂 ${detailLabel} · <b>${escapeHtml(categoryOrSourceLabel)}</b>`)
@@ -1496,17 +1863,25 @@ const buildSavedSummaryText = (draft: bot_operation_drafts, context: BotOperatio
   const type = parseDraftType(draft.type)
   const icon = resolveOperationIcon(type)
   const amount = parseAmount(draft.amount)
-  const currency = context.accounts.find((item) => item.id === draft.from_entity_id)?.currency ?? context.accounts[0]?.currency ?? "RUB"
+  const currency = context.accounts.find((item) => item.id === draft.from_entity_id || item.id === draft.to_entity_id)?.currency ?? context.accounts[0]?.currency ?? "RUB"
   const amountLabel = formatAmountWithCurrency(amount, currency)
 
-  const fromLabel = type === "income"
-    ? resolveSourceName(context, draft.income_source_id)
-    : resolveAccountName(context, draft.from_entity_id)
-  const toLabel = type === "income"
-    ? resolveAccountName(context, draft.from_entity_id)
-    : type === "transfer"
-      ? resolveAccountName(context, draft.to_entity_id)
-      : resolveCategoryName(context, draft.category_id)
+  const fromLabel =
+    type === "income"
+      ? resolveSourceName(context, draft.income_source_id)
+      : type === "debt_received"
+        ? resolveDebtorName(context, draft.from_entity_id)
+        : resolveAccountName(context, draft.from_entity_id)
+  const toLabel =
+    type === "income"
+      ? resolveAccountName(context, draft.from_entity_id)
+      : type === "transfer" || type === "debt_received"
+        ? resolveAccountName(context, draft.to_entity_id)
+        : type === "debt_paid"
+          ? resolveDebtorName(context, draft.to_entity_id)
+          : type === "goal_topup"
+            ? resolveGoalName(context, draft.to_entity_id)
+            : resolveCategoryName(context, draft.category_id)
 
   return `${icon} <b>${escapeHtml(amountLabel)}</b> · ${escapeHtml(fromLabel)} → ${escapeHtml(toLabel)}\n↳ 🗂️ ${escapeHtml(context.workspaceLabel)}`
 }
@@ -1527,6 +1902,24 @@ const canSaveDraft = (draft: bot_operation_drafts): { ok: true } | { ok: false; 
   if (type === "income") {
     if (!draft.from_entity_id) return { ok: false, missing: "счёт" }
     if (!draft.income_source_id) return { ok: false, missing: "источник" }
+    return { ok: true }
+  }
+
+  if (type === "debt_received") {
+    if (!draft.from_entity_id) return { ok: false, missing: "должник" }
+    if (!draft.to_entity_id) return { ok: false, missing: "счёт" }
+    return { ok: true }
+  }
+
+  if (type === "debt_paid") {
+    if (!draft.from_entity_id) return { ok: false, missing: "счёт" }
+    if (!draft.to_entity_id) return { ok: false, missing: "кредитор" }
+    return { ok: true }
+  }
+
+  if (type === "goal_topup") {
+    if (!draft.from_entity_id) return { ok: false, missing: "счёт" }
+    if (!draft.to_entity_id) return { ok: false, missing: "цель" }
     return { ok: true }
   }
 
@@ -1866,39 +2259,46 @@ async function processCaptureInput(
     return
   }
 
-  let parsed: ParsedOperation
   const semanticHints = buildDraftSemanticHints(parsedTextResult.normalizedText, context)
-  try {
-    parsed = await parseOperationFromText(parsedTextResult.normalizedText, context)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    fastify.log.error(`[bot:capture] model parse error: ${message}`)
+  const earlyIntentMapped = resolveEarlyDebtGoalDraft(parsedTextResult.normalizedText, context)
+  let mapped: DraftShape
+  if (earlyIntentMapped) {
+    mapped = earlyIntentMapped
+  } else {
+    let parsed: ParsedOperation
+    try {
+      parsed = await parseOperationFromText(parsedTextResult.normalizedText, context)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      fastify.log.error(`[bot:capture] model parse error: ${message}`)
 
-    if (processingMessageId) {
-      await editTelegramMessage(
-        fastify,
-        chatId,
-        processingMessageId,
-        "Не удалось распознать операцию. Попробуй ещё раз или открой приложение.",
-        buildRetryKeyboard(openAppUrl),
-      )
-    } else {
-      await sendTelegramMessage(
-        fastify,
-        chatId,
-        "Не удалось распознать операцию. Попробуй ещё раз или открой приложение.",
-        buildRetryKeyboard(openAppUrl),
-      )
+      if (processingMessageId) {
+        await editTelegramMessage(
+          fastify,
+          chatId,
+          processingMessageId,
+          "Не удалось распознать операцию. Попробуй ещё раз или открой приложение.",
+          buildRetryKeyboard(openAppUrl),
+        )
+      } else {
+        await sendTelegramMessage(
+          fastify,
+          chatId,
+          "Не удалось распознать операцию. Попробуй ещё раз или открой приложение.",
+          buildRetryKeyboard(openAppUrl),
+        )
+      }
+
+      await prisma.bot_sessions.update({
+        where: { id: session.id },
+        data: { mode: BotSessionMode.capture_error, active_message_id: processingMessageId ?? null },
+      })
+      return
     }
 
-    await prisma.bot_sessions.update({
-      where: { id: session.id },
-      data: { mode: BotSessionMode.capture_error, active_message_id: processingMessageId ?? null },
-    })
-    return
+    mapped = mapParsedToDraftShape(parsed)
   }
 
-  const mapped = mapParsedToDraftShape(parsed)
   const [memoryHint, transactionHint] = await Promise.all([
     loadDraftMemoryHint(user.id, workspaceId, semanticHints),
     loadTransactionHistoryHint(user.id, workspaceId, semanticHints),
@@ -2126,12 +2526,12 @@ async function renderPicker(
   }
 
   if (kind === "acc") {
-    if (type === "transfer") {
+    if (type === "transfer" || type === "debt_received" || type === "debt_paid" || type === "goal_topup") {
       await upsertDraftLiveMessage(fastify, {
         session,
         draft,
         chatId: draft.chat_id,
-        text: "Для перевода выбери поля «Откуда» и «Куда».",
+        text: "Для этого типа выбери поля «Откуда» и «Куда».",
         keyboard: buildReviewKeyboard(type),
       })
       return
@@ -2141,33 +2541,50 @@ async function renderPicker(
   }
 
   if (kind === "from") {
-    if (type !== "transfer") {
+    if (type !== "transfer" && type !== "debt_received" && type !== "debt_paid" && type !== "goal_topup") {
       await upsertDraftLiveMessage(fastify, {
         session,
         draft,
         chatId: draft.chat_id,
-        text: "Сначала выбери тип операции: перевод.",
+        text: "Сначала выбери подходящий тип операции.",
         keyboard: buildTypeKeyboard(),
       })
       return
     }
-    items = context.accounts
-    title = "Выбери счёт «Откуда»"
+    if (type === "debt_received") {
+      items = context.debtors
+        .filter((debtor) => debtor.direction !== "payable")
+        .map((debtor) => ({ id: debtor.id, name: debtor.name }))
+      title = "Выбери должника «Откуда»"
+    } else {
+      items = context.accounts
+      title = "Выбери счёт «Откуда»"
+    }
   }
 
   if (kind === "to") {
-    if (type !== "transfer") {
+    if (type !== "transfer" && type !== "debt_received" && type !== "debt_paid" && type !== "goal_topup") {
       await upsertDraftLiveMessage(fastify, {
         session,
         draft,
         chatId: draft.chat_id,
-        text: "Сначала выбери тип операции: перевод.",
+        text: "Сначала выбери подходящий тип операции.",
         keyboard: buildTypeKeyboard(),
       })
       return
     }
-    items = context.accounts
-    title = "Выбери счёт «Куда»"
+    if (type === "debt_paid") {
+      items = context.debtors
+        .filter((debtor) => debtor.direction !== "receivable")
+        .map((debtor) => ({ id: debtor.id, name: debtor.name }))
+      title = "Выбери кредитора «Куда»"
+    } else if (type === "goal_topup") {
+      items = context.goals
+      title = "Выбери цель «Куда»"
+    } else {
+      items = context.accounts
+      title = "Выбери счёт «Куда»"
+    }
   }
 
   if (items.length === 0) {
@@ -2283,6 +2700,45 @@ async function saveDraft(
         happenedAt,
         description: savingDraft.description ?? undefined,
       }, session.user_id)
+    } else if (type === "debt_received") {
+      createdTransaction = await createWorkspaceTransaction(
+        savingDraft.workspace_id,
+        {
+          kind: "transfer",
+          amount,
+          toAccountId: savingDraft.to_entity_id ?? undefined,
+          debtorId: savingDraft.from_entity_id ?? undefined,
+          happenedAt,
+          description: savingDraft.description ?? undefined,
+        },
+        session.user_id,
+      )
+    } else if (type === "debt_paid") {
+      createdTransaction = await createWorkspaceTransaction(
+        savingDraft.workspace_id,
+        {
+          kind: "expense",
+          amount,
+          accountId: savingDraft.from_entity_id ?? undefined,
+          debtorId: savingDraft.to_entity_id ?? undefined,
+          happenedAt,
+          description: savingDraft.description ?? undefined,
+        },
+        session.user_id,
+      )
+    } else if (type === "goal_topup") {
+      createdTransaction = await createWorkspaceTransaction(
+        savingDraft.workspace_id,
+        {
+          kind: "transfer",
+          amount,
+          fromAccountId: savingDraft.from_entity_id ?? undefined,
+          goalId: savingDraft.to_entity_id ?? undefined,
+          happenedAt,
+          description: savingDraft.description ?? undefined,
+        },
+        session.user_id,
+      )
     } else {
       createdTransaction = await createWorkspaceTransaction(savingDraft.workspace_id, {
         kind: "transfer",
@@ -2653,11 +3109,45 @@ async function handleDraftCallback(
   if (data.startsWith("bot:set:type:")) {
     const nextTypeRaw = data.slice("bot:set:type:".length)
     const nextType: DraftType =
-      nextTypeRaw === "expense" || nextTypeRaw === "income" || nextTypeRaw === "transfer"
+      nextTypeRaw === "expense" ||
+      nextTypeRaw === "income" ||
+      nextTypeRaw === "transfer" ||
+      nextTypeRaw === "debt_received" ||
+      nextTypeRaw === "debt_paid" ||
+      nextTypeRaw === "goal_topup"
         ? nextTypeRaw
         : "unknown"
 
     if (nextType === "unknown") return
+
+    const context = await loadOperationContext(draft.workspace_id)
+    const accountIds = new Set(context.accounts.map((item) => item.id))
+    const receivableDebtorIds = new Set(
+      context.debtors.filter((item) => item.direction !== "payable").map((item) => item.id),
+    )
+    const payableDebtorIds = new Set(
+      context.debtors.filter((item) => item.direction !== "receivable").map((item) => item.id),
+    )
+    const goalIds = new Set(context.goals.map((item) => item.id))
+
+    let nextFromEntityId = draft.from_entity_id
+    let nextToEntityId = draft.to_entity_id
+    if (nextType === "expense" || nextType === "income") {
+      nextFromEntityId = nextFromEntityId && accountIds.has(nextFromEntityId) ? nextFromEntityId : null
+      nextToEntityId = null
+    } else if (nextType === "transfer") {
+      nextFromEntityId = nextFromEntityId && accountIds.has(nextFromEntityId) ? nextFromEntityId : null
+      nextToEntityId = nextToEntityId && accountIds.has(nextToEntityId) ? nextToEntityId : null
+    } else if (nextType === "debt_received") {
+      nextFromEntityId = nextFromEntityId && receivableDebtorIds.has(nextFromEntityId) ? nextFromEntityId : null
+      nextToEntityId = nextToEntityId && accountIds.has(nextToEntityId) ? nextToEntityId : null
+    } else if (nextType === "debt_paid") {
+      nextFromEntityId = nextFromEntityId && accountIds.has(nextFromEntityId) ? nextFromEntityId : null
+      nextToEntityId = nextToEntityId && payableDebtorIds.has(nextToEntityId) ? nextToEntityId : null
+    } else if (nextType === "goal_topup") {
+      nextFromEntityId = nextFromEntityId && accountIds.has(nextFromEntityId) ? nextFromEntityId : null
+      nextToEntityId = nextToEntityId && goalIds.has(nextToEntityId) ? nextToEntityId : null
+    }
 
     const updatedDraft = await prisma.bot_operation_drafts.update({
       where: { id: draft.id },
@@ -2665,7 +3155,8 @@ async function handleDraftCallback(
         type: nextType,
         category_id: nextType === "expense" ? draft.category_id : null,
         income_source_id: nextType === "income" ? draft.income_source_id : null,
-        to_entity_id: nextType === "transfer" ? draft.to_entity_id : null,
+        from_entity_id: nextFromEntityId,
+        to_entity_id: nextToEntityId,
       },
     })
 
@@ -2736,7 +3227,14 @@ async function handleDraftCallback(
     }
 
     if (kindRaw === "from") {
-      const selected = context.accounts[index]
+      const type = parseDraftType(draft.type)
+      const options =
+        type === "debt_received"
+          ? context.debtors
+              .filter((debtor) => debtor.direction !== "payable")
+              .map((debtor) => ({ id: debtor.id, name: debtor.name }))
+          : context.accounts
+      const selected = options[index]
       if (!selected) return
       const updatedDraft = await prisma.bot_operation_drafts.update({
         where: { id: draft.id },
@@ -2747,7 +3245,16 @@ async function handleDraftCallback(
     }
 
     if (kindRaw === "to") {
-      const selected = context.accounts[index]
+      const type = parseDraftType(draft.type)
+      const options =
+        type === "debt_paid"
+          ? context.debtors
+              .filter((debtor) => debtor.direction !== "receivable")
+              .map((debtor) => ({ id: debtor.id, name: debtor.name }))
+          : type === "goal_topup"
+            ? context.goals
+            : context.accounts
+      const selected = options[index]
       if (!selected) return
       const updatedDraft = await prisma.bot_operation_drafts.update({
         where: { id: draft.id },
