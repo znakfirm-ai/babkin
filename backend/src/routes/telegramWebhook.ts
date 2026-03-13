@@ -2045,9 +2045,50 @@ async function cancelDraft(session: bot_sessions, draft: bot_operation_drafts): 
         mode: BotSessionMode.idle,
         awaiting_input_type: null,
         pending_input_json: Prisma.JsonNull,
+        active_message_id: null,
       },
     }),
   ])
+}
+
+async function cleanupCancelledDraftMessages(
+  fastify: FastifyInstance,
+  draft: bot_operation_drafts,
+  extraMessageIds: Array<number | null | undefined> = [],
+): Promise<void> {
+  const payload = parseDraftPayload(draft.payload_json)
+  const messageIds = new Set<number>()
+  if (typeof draft.source_message_id === "number") {
+    messageIds.add(draft.source_message_id)
+  }
+  if (typeof draft.live_message_id === "number") {
+    messageIds.add(draft.live_message_id)
+  }
+  payload.transientUserMessageIds.forEach((messageId) => {
+    messageIds.add(messageId)
+  })
+  extraMessageIds.forEach((messageId) => {
+    if (typeof messageId === "number" && Number.isFinite(messageId)) {
+      messageIds.add(messageId)
+    }
+  })
+
+  for (const messageId of messageIds) {
+    await deleteTelegramMessage(fastify, draft.chat_id, messageId)
+  }
+}
+
+async function sendEphemeralMessage(
+  fastify: FastifyInstance,
+  chatId: string,
+  text: string,
+  ttlMs = 4000,
+): Promise<void> {
+  const messageId = await sendTelegramMessage(fastify, chatId, text)
+  if (typeof messageId !== "number") return
+  setTimeout(() => {
+    void deleteTelegramMessage(fastify, chatId, messageId)
+  }, ttlMs)
 }
 
 async function cleanupDraftMessages(
@@ -2854,9 +2895,10 @@ async function processPendingInputIfExists(
     firstName?: string | null
     username?: string | null
     chatId: string
+    pendingInputOverride?: PendingCaptureInput | null
   },
 ): Promise<void> {
-  const pending = parsePendingCaptureInput(params.session.pending_input_json)
+  const pending = params.pendingInputOverride ?? parsePendingCaptureInput(params.session.pending_input_json)
   if (!pending) {
     await sendTelegramMessage(fastify, params.chatId, buildCapturePromptText())
     return
@@ -2904,6 +2946,10 @@ async function handleDraftCallback(
 
   const callbackUserId = toStringId(callbackQuery.from?.id)
   const callbackChatId = toStringId(callbackQuery.message?.chat?.id)
+  const callbackMessageId =
+    typeof callbackQuery.message?.message_id === "number" && Number.isFinite(callbackQuery.message.message_id)
+      ? callbackQuery.message.message_id
+      : null
   if (!callbackUserId || !callbackChatId) return
 
   const user = await upsertTelegramUser({
@@ -2963,35 +3009,29 @@ async function handleDraftCallback(
 
   if (data === "bot:unfinished:cancel") {
     await cancelDraft(session, draft)
-    await upsertDraftLiveMessage(fastify, {
-      session,
-      draft,
-      chatId: draft.chat_id,
-      text: "Черновик отменён.",
-    })
+    await cleanupCancelledDraftMessages(fastify, draft, [callbackMessageId])
+    await sendEphemeralMessage(fastify, callbackChatId, "Отменил, можете добавлять новую операцию ✍️")
     return
   }
 
   if (data === "bot:unfinished:new") {
+    const pendingInput = parsePendingCaptureInput(session.pending_input_json)
     await cancelDraft(session, draft)
+    await cleanupCancelledDraftMessages(fastify, draft, [callbackMessageId])
     await processPendingInputIfExists(fastify, {
       session,
       telegramUserId: callbackUserId,
       firstName: callbackQuery.from?.first_name,
       username: callbackQuery.from?.username,
       chatId: callbackChatId,
+      pendingInputOverride: pendingInput,
     })
     return
   }
 
   if (data === "bot:cancel") {
     await cancelDraft(session, draft)
-    await upsertDraftLiveMessage(fastify, {
-      session,
-      draft,
-      chatId: draft.chat_id,
-      text: "Черновик отменён.",
-    })
+    await cleanupCancelledDraftMessages(fastify, draft, [callbackMessageId])
     return
   }
 
