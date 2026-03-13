@@ -2290,7 +2290,8 @@ async function processCaptureInput(
   const { telegramUserId, firstName, username, chatId, input } = params
 
   const user = await upsertTelegramUser({ telegramUserId, firstName, username })
-  let userState = await ensureBotUserState(user.id)
+  const initialUserState = await ensureBotUserState(user.id)
+  let userState = await reconcileSuccessfulOperationsCount(user.id, initialUserState)
   let session = await ensureBotSession(user.id)
 
   const workspaceId = await ensureWorkspaceForUser(user.id)
@@ -3440,8 +3441,14 @@ async function handleStartCommand(fastify: FastifyInstance, message: TelegramMes
     username: message.from?.username,
   })
   const initialUserState = await ensureBotUserState(user.id)
-  await reconcileSuccessfulOperationsCount(user.id, initialUserState)
-  await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard(), "HTML")
+  const userState = await reconcileSuccessfulOperationsCount(user.id, initialUserState)
+  if (isOnboardingActive(userState)) {
+    await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard(), "HTML")
+    return
+  }
+
+  const openAppUrl = await resolveMiniAppUrl()
+  await sendTelegramMessage(fastify, chatId, buildStartText(), buildStartKeyboard(openAppUrl))
 }
 
 export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
