@@ -1644,6 +1644,7 @@ const buildOnboardingStartText = () =>
     "Нажмите любую тестовую кнопку",
     "или напишите любой расход сами 👇",
     "(операция ниже — просто пример)",
+    "[ONBOARDING_V2]",
   ].join("\n\n")
 
 const buildOnboardingStartKeyboard = () => ({
@@ -3441,14 +3442,8 @@ async function handleStartCommand(fastify: FastifyInstance, message: TelegramMes
     username: message.from?.username,
   })
   const initialUserState = await ensureBotUserState(user.id)
-  const userState = await reconcileSuccessfulOperationsCount(user.id, initialUserState)
-
-  const openAppUrl = await resolveMiniAppUrl()
-  if (isOnboardingActive(userState)) {
-    await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard())
-    return
-  }
-  await sendTelegramMessage(fastify, chatId, buildStartText(), buildStartKeyboard(openAppUrl))
+  await reconcileSuccessfulOperationsCount(user.id, initialUserState)
+  await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard())
 }
 
 export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
