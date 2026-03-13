@@ -3440,15 +3440,8 @@ async function handleStartCommand(fastify: FastifyInstance, message: TelegramMes
     firstName: message.from?.first_name,
     username: message.from?.username,
   })
-  const initialUserState = await ensureBotUserState(user.id)
-  const userState = await reconcileSuccessfulOperationsCount(user.id, initialUserState)
-  if (isOnboardingActive(userState)) {
-    await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard(), "HTML")
-    return
-  }
-
-  const openAppUrl = await resolveMiniAppUrl()
-  await sendTelegramMessage(fastify, chatId, buildStartText(), buildStartKeyboard(openAppUrl))
+  await ensureBotUserState(user.id)
+  await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard(), "HTML")
 }
 
 export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
