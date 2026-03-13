@@ -1632,11 +1632,21 @@ const buildUnfinishedKeyboard = () => ({
   ],
 })
 
-const buildResultKeyboard = (openAppUrl: string) => ({
-  inline_keyboard: [
-    [buildOpenAppButton(openAppUrl)],
-  ],
-})
+const buildResultKeyboard = (
+  openAppUrl: string,
+  options?: {
+    appButtonText?: string
+    trialUrl?: string | null
+  },
+) => {
+  const row: InlineKeyboardButton[] = [buildOpenAppButton(openAppUrl, options?.appButtonText ?? "Открыть в приложении")]
+  if (options?.trialUrl) {
+    row.push({ text: "⭐ Пробный за 1 ₽", url: options.trialUrl })
+  }
+  return {
+    inline_keyboard: [row],
+  }
+}
 
 const buildStartKeyboard = (openAppUrl: string) => ({
   inline_keyboard: [
@@ -1662,7 +1672,7 @@ const buildRetryKeyboard = (openAppUrl: string) => ({
 
 const buildPaywallKeyboard = (paywallUrl: string, openAppUrl: string) => ({
   inline_keyboard: [
-    [{ text: "Открыть пробный доступ 1 ₽", url: paywallUrl }],
+    [{ text: "⭐ Пробный за 1 ₽", url: paywallUrl }],
     [{ text: "Открыть приложение", url: openAppUrl }],
     [{ text: "Позже", callback_data: "bot:paywall:later" }],
   ],
@@ -1693,6 +1703,23 @@ const buildOnboardingAfterFirstSaveText = () =>
     "<b>Отлично! Первая операция записана 👍</b>",
     "Теперь попробуем добавить доход.",
     "<b>Скажите или напишите:</b>\n<i>Зарплата 80 000</i>",
+  ].join("\n\n")
+
+const buildOnboardingAfterSecondSaveTrialText = () =>
+  [
+    "Отлично 👍 Вы уже разобрались, как работает бот.",
+    "Посмотрите приложение — там:",
+    [
+      "• аналитика расходов",
+      "• категории и счета",
+      "• цели и долги",
+      "• отчеты и графики",
+      "• совместный доступ",
+      "• AI-советник по финансам",
+    ].join("\n"),
+    "Откройте приложение и посмотрите, как всё устроено.",
+    "⬅️ Потом вернитесь в чат — здесь можно включить полный доступ.",
+    "⭐ 3 дня за 1 ₽",
   ].join("\n\n")
 
 const resolveOnboardingSampleText = (sampleKey: string): string | null => {
@@ -1833,10 +1860,10 @@ const shouldUseWebAppButton = (openAppUrl: string): boolean => {
   }
 }
 
-const buildOpenAppButton = (openAppUrl: string): InlineKeyboardButton =>
+const buildOpenAppButton = (openAppUrl: string, text = "Открыть в приложении"): InlineKeyboardButton =>
   shouldUseWebAppButton(openAppUrl)
-    ? { text: "Открыть в приложении", web_app: { url: openAppUrl } }
-    : { text: "Открыть в приложении", url: openAppUrl }
+    ? { text, web_app: { url: openAppUrl } }
+    : { text, url: openAppUrl }
 
 const resolveDraftTarget = (
   draft: bot_operation_drafts,
@@ -2203,6 +2230,10 @@ async function cleanupDraftMessages(
   }
 }
 
+const canStartTrial = (userState: bot_user_states): boolean =>
+  (userState.stage === BotUserStage.NEW_USER || userState.stage === BotUserStage.TRIAL_FREE_USAGE) &&
+  !userState.paywall_prompted_at
+
 async function maybePromptPaywall(
   fastify: FastifyInstance,
   userState: bot_user_states,
@@ -2230,7 +2261,7 @@ async function maybePromptPaywall(
   await sendTelegramMessage(
     fastify,
     chatId,
-    "Ты уже записал несколько операций. Чтобы продолжить тест бота и приложения без ограничений — открой пробный доступ на 7 дней за 1 ₽.",
+    "Ты уже записал несколько операций. Чтобы продолжить тест бота и приложения без ограничений — открой пробный доступ на 3 дня за 1 ₽.",
     buildPaywallKeyboard(paywallUrl, openAppUrl),
   )
 
@@ -2965,6 +2996,9 @@ async function saveDraft(
       targetId: target.targetId,
       transactionId: createdTransaction.id,
     })
+    const isOnboardingFirstOrSecondSave = Boolean(onboardingSession && onboardingSession.completedSaves < 2)
+    const shouldShowOnboardingTrialButton = isOnboardingFirstOrSecondSave && canStartTrial(userState)
+    const onboardingTrialUrl = shouldShowOnboardingTrialButton ? await resolvePaywallUrl() : null
     const openButtonMode = shouldUseWebAppButton(deepLink) ? "web_app" : "url"
     fastify.log.info(
       `[bot:save] open-app button mode=${openButtonMode} targetType=${target.targetType} workspaceId=${updatedDraft.workspace_id} transactionId=${createdTransaction.id}`,
@@ -2975,7 +3009,15 @@ async function saveDraft(
       draft: updatedDraft,
       chatId: updatedDraft.chat_id,
       text: summaryText,
-      keyboard: buildResultKeyboard(deepLink),
+      keyboard: buildResultKeyboard(
+        deepLink,
+        isOnboardingFirstOrSecondSave
+          ? {
+              appButtonText: "📊 Посмотреть приложение",
+              trialUrl: onboardingTrialUrl,
+            }
+          : undefined,
+      ),
       parseMode: "HTML",
     })
 
@@ -3000,6 +3042,17 @@ async function saveDraft(
     await maybePromptPaywall(fastify, userState, updatedDraft.chat_id)
     if (onboardingSession && onboardingSession.completedSaves === 0) {
       await sendTelegramMessage(fastify, updatedDraft.chat_id, buildOnboardingAfterFirstSaveText(), undefined, "HTML")
+    }
+    if (onboardingSession && onboardingSession.completedSaves === 1 && shouldShowOnboardingTrialButton) {
+      await sendTelegramMessage(
+        fastify,
+        updatedDraft.chat_id,
+        buildOnboardingAfterSecondSaveTrialText(),
+        buildResultKeyboard(deepLink, {
+          appButtonText: "📊 Посмотреть приложение",
+          trialUrl: onboardingTrialUrl,
+        }),
+      )
     }
     return
   } catch (error) {
