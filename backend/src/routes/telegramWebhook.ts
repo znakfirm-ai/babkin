@@ -2302,39 +2302,35 @@ async function ensureSingleActiveDraft(userId: string): Promise<void> {
   })
 }
 
-<<<<<<< Updated upstream
-=======
-async function resetBotSessionForStart(userId: string): Promise<void> {
-  await prisma.$transaction([
-    prisma.bot_operation_drafts.updateMany({
-      where: {
-        user_id: userId,
-        status: { in: ACTIVE_DRAFT_STATUSES },
-      },
-      data: { status: BotOperationDraftStatus.superseded },
-    }),
-    prisma.bot_sessions.upsert({
-      where: { user_id: userId },
-      create: {
-        user_id: userId,
-        mode: BotSessionMode.idle,
-        active_draft_id: null,
-        active_message_id: null,
-        awaiting_input_type: null,
-        pending_input_json: buildSessionPendingInputJson({ completedSaves: 0 }, null),
-      },
-      update: {
-        mode: BotSessionMode.idle,
-        active_draft_id: null,
-        active_message_id: null,
-        awaiting_input_type: null,
-        pending_input_json: buildSessionPendingInputJson({ completedSaves: 0 }, null),
-      },
-    }),
-  ])
-}
+async function markOnboardingSessionStarted(userId: string): Promise<void> {
+  const activeDraft = await prisma.bot_operation_drafts.findFirst({
+    where: {
+      user_id: userId,
+      status: { in: ACTIVE_DRAFT_STATUSES },
+    },
+    select: { id: true },
+  })
+  if (activeDraft) {
+    return
+  }
 
->>>>>>> Stashed changes
+  const existingSession = await prisma.bot_sessions.findUnique({
+    where: { user_id: userId },
+    select: { pending_input_json: true },
+  })
+  const pendingCaptureInput = parsePendingCaptureInput(existingSession?.pending_input_json ?? null)
+
+  await prisma.bot_sessions.upsert({
+    where: { user_id: userId },
+    create: {
+      user_id: userId,
+      pending_input_json: buildSessionPendingInputJson({ completedSaves: 0 }, pendingCaptureInput),
+    },
+    update: {
+      pending_input_json: buildSessionPendingInputJson({ completedSaves: 0 }, pendingCaptureInput),
+    },
+  })
+}
 async function processCaptureInput(
   fastify: FastifyInstance,
   params: {
@@ -3496,6 +3492,7 @@ async function handleStartCommand(fastify: FastifyInstance, message: TelegramMes
     username: message.from?.username,
   })
   await ensureBotUserState(user.id)
+  await markOnboardingSessionStarted(user.id)
   await sendTelegramMessage(fastify, chatId, buildOnboardingStartText(), buildOnboardingStartKeyboard(), "HTML")
 }
 
