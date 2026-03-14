@@ -10,6 +10,7 @@ export type YookassaCreatePaymentInput = {
   metadata: Record<string, string>
   paymentMethodId?: string | null
   savePaymentMethod: boolean
+  customerEmail?: string | null
 }
 
 export type YookassaPaymentObject = {
@@ -46,6 +47,36 @@ const ensureYookassaCredentials = () => {
   return { shopId, secretKey }
 }
 
+const resolveReceiptEmail = (value: string | null | undefined): string => {
+  const trimmed = value?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed : "trial@babkin.finance"
+}
+
+const buildReceipt = (input: YookassaCreatePaymentInput) => {
+  const isTrial = input.metadata.type === "trial"
+  const amountValue = isTrial ? "1.00" : normalizeRubAmount(input.amountValueRub)
+  const description = isTrial ? "Babkin Finance trial" : input.description
+
+  return {
+    customer: {
+      email: resolveReceiptEmail(input.customerEmail),
+    },
+    items: [
+      {
+        description,
+        quantity: "1.00",
+        amount: {
+          value: amountValue,
+          currency: "RUB",
+        },
+        vat_code: 1,
+        payment_mode: "full_payment",
+        payment_subject: "service",
+      },
+    ],
+  }
+}
+
 const mapCreatePaymentBody = (input: YookassaCreatePaymentInput) => ({
   amount: {
     value: normalizeRubAmount(input.amountValueRub),
@@ -63,6 +94,7 @@ const mapCreatePaymentBody = (input: YookassaCreatePaymentInput) => ({
   payment_method_data: input.paymentMethodId ? undefined : { type: "bank_card" },
   payment_method_id: input.paymentMethodId ?? undefined,
   metadata: input.metadata,
+  receipt: buildReceipt(input),
 })
 
 export const createYookassaPayment = async (
