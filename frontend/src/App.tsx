@@ -105,7 +105,10 @@ type BotDeepLinkTargetIntent = {
 type BotDeepLinkOverviewIntent = {
   kind: "overview"
 }
-type BotDeepLinkIntent = BotDeepLinkTargetIntent | BotDeepLinkOverviewIntent
+type BotDeepLinkHomeIntent = {
+  kind: "home"
+}
+type BotDeepLinkIntent = BotDeepLinkTargetIntent | BotDeepLinkOverviewIntent | BotDeepLinkHomeIntent
 
 const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
 const WORKSPACE_NAME_LIMIT = 32
@@ -183,7 +186,14 @@ const isNonInviteStartParam = (value: string | null | undefined): boolean => {
   const botView = params.get("botView")?.trim().toLowerCase() ?? ""
   const intent = params.get("intent")?.trim().toLowerCase() ?? ""
   const view = params.get("view")?.trim().toLowerCase() ?? ""
-  return botView === "overview" || intent === "overview" || view === "overview"
+  return (
+    botView === "overview" ||
+    intent === "overview" ||
+    view === "overview" ||
+    botView === "home" ||
+    intent === "home" ||
+    view === "home"
+  )
 }
 
 const resolveInviteCodeFromPathname = (value: string | null | undefined): string | null => {
@@ -254,6 +264,10 @@ const parseDeepLinkIntentFromParams = (params: URLSearchParams): BotDeepLinkInte
   const botView = normalizeDeepLinkParam(params.get("botView"))
   const intent = normalizeDeepLinkParam(params.get("intent"))
   const view = normalizeDeepLinkParam(params.get("view"))
+  const hasHomeIntent = botView?.toLowerCase() === "home" || intent?.toLowerCase() === "home" || view?.toLowerCase() === "home"
+  if (hasHomeIntent) {
+    return { kind: "home" }
+  }
   const hasOverviewIntent =
     botView?.toLowerCase() === "overview" || intent?.toLowerCase() === "overview" || view?.toLowerCase() === "overview"
   if (hasOverviewIntent) {
@@ -305,6 +319,9 @@ const parsePackedDeepLinkPayload = (value: string): BotDeepLinkIntent | null => 
       v?: unknown
     }
     const viewIntent = normalizeDeepLinkParam(typeof raw.v === "string" ? raw.v : null)
+    if (viewIntent?.toLowerCase() === "home") {
+      return { kind: "home" }
+    }
     if (viewIntent?.toLowerCase() === "overview") {
       return { kind: "overview" }
     }
@@ -374,6 +391,7 @@ const resolveLaunchBotDeepLinkIntent = (): BotDeepLinkIntent | null => {
 
 const getBotDeepLinkIntentKey = (intent: BotDeepLinkIntent | null): string | null => {
   if (!intent) return null
+  if (intent.kind === "home") return "home"
   if (intent.kind === "overview") return "overview"
   return `${intent.workspaceId}:${intent.targetType}:${intent.targetId}:${intent.transactionId}`
 }
@@ -1889,6 +1907,22 @@ function App() {
 
     botDeepLinkInFlightRef.current = true
     void (async () => {
+      if (pendingBotDeepLinkIntent.kind === "home") {
+        setPendingAccountOpenId(null)
+        setPendingCategoryOpenId(null)
+        setPendingIncomeSourceOpenId(null)
+        setPendingGoalOpenId(null)
+        setPendingDebtorOpenId(null)
+        setPendingTransactionOpenId(null)
+        setActiveNav("home")
+        setActiveScreen("home")
+        handledBotDeepLinkIntentRef.current = intentKey
+        logDiagnosticEvent("deep-link.applied", { intent: pendingBotDeepLinkIntent })
+        setPendingBotDeepLinkIntent(null)
+        clearDeepLinkParamsFromUrl()
+        return
+      }
+
       if (pendingBotDeepLinkIntent.kind === "overview") {
         setPendingAccountOpenId(null)
         setPendingCategoryOpenId(null)

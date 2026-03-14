@@ -1880,6 +1880,30 @@ const buildMiniAppOverviewLink = (baseUrl: string): string => {
   }
 }
 
+const buildMiniAppHomeLink = (baseUrl: string): string => {
+  try {
+    const url = new URL(baseUrl)
+    if (url.hostname === "t.me") {
+      const rawPayload = JSON.stringify({ v: "home" })
+      const encodedPayload = Buffer.from(rawPayload, "utf8")
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "")
+      const payload = `${TELEGRAM_STARTAPP_PREFIX}${encodedPayload}`
+      if (payload.length > 0 && payload.length <= TELEGRAM_STARTAPP_MAX_LENGTH) {
+        url.searchParams.set("startapp", payload)
+      }
+      return url.toString()
+    }
+
+    url.searchParams.set("botView", "home")
+    return url.toString()
+  } catch {
+    return baseUrl
+  }
+}
+
 const shouldUseWebAppButton = (openAppUrl: string): boolean => {
   try {
     const parsedUrl = new URL(openAppUrl)
@@ -3079,11 +3103,14 @@ async function saveDraft(
       await sendTelegramMessage(fastify, updatedDraft.chat_id, buildOnboardingAfterFirstSaveText(), undefined, "HTML")
     }
     if (onboardingSession && onboardingSession.completedSaves === 1 && shouldShowOnboardingTrialButton) {
+      const onboardingTrialMessageOpenAppLink = shouldOpenOverviewForOnboarding
+        ? buildMiniAppHomeLink(openAppUrl)
+        : deepLink
       await sendTelegramMessage(
         fastify,
         updatedDraft.chat_id,
         buildOnboardingAfterSecondSaveTrialText(),
-        buildResultKeyboard(onboardingOpenAppLink, {
+        buildResultKeyboard(onboardingTrialMessageOpenAppLink, {
           appButtonText: "📊 Посмотреть приложение",
           trialUrl: onboardingTrialUrl,
         }),
