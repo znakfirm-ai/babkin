@@ -4,6 +4,7 @@ import {
   BotOperationSourceType,
   BotSessionMode,
   BotUserStage,
+  SubscriptionPlanCode,
   Prisma,
   bot_operation_drafts,
   bot_sessions,
@@ -18,6 +19,13 @@ import { parseOperationFromText, type OperationContext, type OperationDraftResol
 import { extractReceiptFromImage, type ReceiptExtract } from "../utils/openaiReceiptExtract"
 import { downloadTelegramFileAsBuffer } from "../utils/telegramFiles"
 import { resolveTelegramBotUsername } from "../utils/telegramBotUsername"
+import { getSubscriptionPlanConfig } from "../config/subscriptionPlans"
+import {
+  createTrialCheckout,
+  getUserAccessStatus,
+  runSubscriptionMaintenanceTick,
+  syncBotUserStateWithSubscriptionAccess,
+} from "../services/subscriptions"
 
 type TelegramPhotoSize = {
   file_id?: string | null
@@ -497,11 +505,6 @@ const resolveMiniAppUrl = async (): Promise<string> => {
     return `https://t.me/${username}`
   }
   return "https://t.me"
-}
-
-const resolvePaywallUrl = async (): Promise<string> => {
-  if (env.BOT_PAYWALL_URL) return env.BOT_PAYWALL_URL
-  return resolveMiniAppUrl()
 }
 
 async function callTelegramApi<T>(
@@ -1636,15 +1639,15 @@ const buildResultKeyboard = (
   openAppUrl: string,
   options?: {
     appButtonText?: string
-    trialUrl?: string | null
+    showTrialButton?: boolean
   },
 ) => {
   const appButton = buildOpenAppButton(openAppUrl, options?.appButtonText ?? "Открыть в приложении")
-  if (options?.trialUrl) {
+  if (options?.showTrialButton) {
     return {
       inline_keyboard: [
         [appButton],
-        [{ text: "⭐ Пробный за 1 ₽", url: options.trialUrl }],
+        [{ text: "⭐ Пробный за 1 ₽", callback_data: "bot:trial:start" }],
       ],
     }
   }
@@ -1675,9 +1678,9 @@ const buildRetryKeyboard = (openAppUrl: string) => ({
   ],
 })
 
-const buildPaywallKeyboard = (paywallUrl: string, openAppUrl: string) => ({
+const buildPaywallKeyboard = (openAppUrl: string) => ({
   inline_keyboard: [
-    [{ text: "⭐ Пробный за 1 ₽", url: paywallUrl }],
+    [{ text: "⭐ Пробный за 1 ₽", callback_data: "bot:trial:start" }],
     [{ text: "Открыть приложение", url: openAppUrl }],
     [{ text: "Позже", callback_data: "bot:paywall:later" }],
   ],
@@ -1726,6 +1729,40 @@ const buildOnboardingAfterSecondSaveTrialText = () =>
     "⬅️ Потом вернитесь в чат — здесь можно включить полный доступ.",
     "⭐ 3 дня за 1 ₽",
   ].join("\n\n")
+
+const buildTrialPlanSelectionText = () =>
+  [
+    "Выберите тариф для пробного периода.",
+    "👤 Личный доступ\n(290 ₽ / месяц)",
+    "👥 Личный + совместный\nдля семьи или малого бизнеса\n(490 ₽ / месяц)",
+    "⭐ Пробный период — 3 дня за 1 ₽",
+    "После окончания пробного периода начнёт действовать\nподписка по выбранному тарифу.",
+    "Можно отменить в любой момент.\nМы напомним перед списанием.",
+  ].join("\n\n")
+
+const buildTrialPlanSelectionKeyboard = () => ({
+  inline_keyboard: [
+    [{ text: "👤 Личный доступ", callback_data: "bot:trial:plan:personal_monthly" }],
+    [{ text: "👥 Личный + совместный", callback_data: "bot:trial:plan:personal_shared_monthly" }],
+  ],
+})
+
+const buildTrialPlanConfirmationText = (planCode: SubscriptionPlanCode): string => {
+  const plan = getSubscriptionPlanConfig(planCode)
+  return [
+    "Вы выбрали:",
+    `${plan.icon} ${plan.title}`,
+    "Пробный период — 3 дня за 1 ₽",
+    `После окончания пробного периода\nначнёт действовать подписка\n${plan.recurringPriceRub} ₽ / месяц.`,
+  ].join("\n\n")
+}
+
+const buildTrialPlanConfirmationKeyboard = (confirmationUrl: string) => ({
+  inline_keyboard: [
+    [{ text: "💳 Перейти к оплате", url: confirmationUrl }],
+    [{ text: "⬅️ Назад", callback_data: "bot:trial:plans" }],
+  ],
+})
 
 const resolveOnboardingSampleText = (sampleKey: string): string | null => {
   // Include the target category cue for taxi sample so category prefill is deterministic on clean users.
@@ -2284,20 +2321,19 @@ async function cleanupDraftMessages(
   }
 }
 
-const canStartTrial = (userState: bot_user_states): boolean =>
-  (userState.stage === BotUserStage.NEW_USER || userState.stage === BotUserStage.TRIAL_FREE_USAGE) &&
-  !userState.paywall_prompted_at
-
-const hasActiveAppAccess = (userState: bot_user_states): boolean => userState.stage === BotUserStage.ACTIVE_PAID
-
 async function maybePromptPaywall(
   fastify: FastifyInstance,
   userState: bot_user_states,
+  userId: string,
   chatId: string,
 ): Promise<number> {
+  const access = await getUserAccessStatus(userId)
+  await syncBotUserStateWithSubscriptionAccess(userId, access)
   const nextCount = userState.successful_operations_count + 1
   const shouldPrompt =
     nextCount >= 3 &&
+    access.canStartTrial &&
+    !access.hasPersonalAccess &&
     !userState.paywall_prompted_at &&
     (userState.stage === BotUserStage.NEW_USER || userState.stage === BotUserStage.TRIAL_FREE_USAGE)
 
@@ -2313,12 +2349,11 @@ async function maybePromptPaywall(
   if (!shouldPrompt) return nextCount
 
   const openAppUrl = await resolveMiniAppUrl()
-  const paywallUrl = await resolvePaywallUrl()
   await sendTelegramMessage(
     fastify,
     chatId,
     "Ты уже записал несколько операций. Чтобы продолжить тест бота и приложения без ограничений — открой пробный доступ на 3 дня за 1 ₽.",
-    buildPaywallKeyboard(paywallUrl, openAppUrl),
+    buildPaywallKeyboard(openAppUrl),
   )
 
   await prisma.bot_user_states.update({
@@ -2420,6 +2455,45 @@ async function markOnboardingSessionStarted(userId: string): Promise<void> {
     },
   })
 }
+
+const parseSubscriptionPlanCode = (value: string): SubscriptionPlanCode | null => {
+  if (value === "personal_monthly" || value === "personal_shared_monthly") return value
+  return null
+}
+
+async function renderTrialPlanSelector(
+  fastify: FastifyInstance,
+  chatId: string,
+  messageId: number | null,
+): Promise<void> {
+  if (typeof messageId === "number") {
+    const edited = await editTelegramMessage(
+      fastify,
+      chatId,
+      messageId,
+      buildTrialPlanSelectionText(),
+      buildTrialPlanSelectionKeyboard(),
+    )
+    if (edited) return
+  }
+  await sendTelegramMessage(fastify, chatId, buildTrialPlanSelectionText(), buildTrialPlanSelectionKeyboard())
+}
+
+async function renderTrialPlanConfirmation(
+  fastify: FastifyInstance,
+  chatId: string,
+  messageId: number | null,
+  planCode: SubscriptionPlanCode,
+  confirmationUrl: string,
+): Promise<void> {
+  const text = buildTrialPlanConfirmationText(planCode)
+  const keyboard = buildTrialPlanConfirmationKeyboard(confirmationUrl)
+  if (typeof messageId === "number") {
+    const edited = await editTelegramMessage(fastify, chatId, messageId, text, keyboard)
+    if (edited) return
+  }
+  await sendTelegramMessage(fastify, chatId, text, keyboard)
+}
 async function processCaptureInput(
   fastify: FastifyInstance,
   params: {
@@ -2433,13 +2507,15 @@ async function processCaptureInput(
   const { telegramUserId, firstName, username, chatId, input } = params
 
   const user = await upsertTelegramUser({ telegramUserId, firstName, username })
-  const initialUserState = await ensureBotUserState(user.id)
-  let userState = await reconcileSuccessfulOperationsCount(user.id, initialUserState)
+  await ensureBotUserState(user.id)
+  const accessStatus = await getUserAccessStatus(user.id)
+  await syncBotUserStateWithSubscriptionAccess(user.id, accessStatus)
+  let userState = await reconcileSuccessfulOperationsCount(user.id, await ensureBotUserState(user.id))
   let session = await ensureBotSession(user.id)
   const onboardingSession = parseOnboardingSessionState(session.pending_input_json)
 
   const workspaceId = await ensureWorkspaceForUser(user.id)
-  if (userState.stage === BotUserStage.NEW_USER) {
+  if (!accessStatus.hasPersonalAccess && userState.stage === BotUserStage.NEW_USER) {
     userState = await prisma.bot_user_states.update({
       where: { user_id: user.id },
       data: { stage: BotUserStage.TRIAL_FREE_USAGE },
@@ -3043,6 +3119,8 @@ async function saveDraft(
 
     await cleanupDraftMessages(fastify, updatedDraft)
 
+    const accessStatus = await getUserAccessStatus(session.user_id)
+    await syncBotUserStateWithSubscriptionAccess(session.user_id, accessStatus)
     const context = await loadOperationContext(updatedDraft.workspace_id)
     const summaryText = buildSavedSummaryText(updatedDraft, context)
     const target = resolveDraftTarget(updatedDraft)
@@ -3053,10 +3131,9 @@ async function saveDraft(
       transactionId: createdTransaction.id,
     })
     const isOnboardingFirstOrSecondSave = Boolean(onboardingSession && onboardingSession.completedSaves < 2)
-    const shouldOpenOverviewForOnboarding = isOnboardingFirstOrSecondSave && !hasActiveAppAccess(userState)
+    const shouldOpenOverviewForOnboarding = isOnboardingFirstOrSecondSave && !accessStatus.hasPersonalAccess
     const onboardingOpenAppLink = shouldOpenOverviewForOnboarding ? buildMiniAppOverviewLink(openAppUrl) : deepLink
-    const shouldShowOnboardingTrialButton = isOnboardingFirstOrSecondSave && canStartTrial(userState)
-    const onboardingTrialUrl = shouldShowOnboardingTrialButton ? await resolvePaywallUrl() : null
+    const shouldShowOnboardingTrialButton = isOnboardingFirstOrSecondSave && accessStatus.canStartTrial
     const resultOpenAppLink = isOnboardingFirstOrSecondSave ? onboardingOpenAppLink : deepLink
     const openButtonMode = shouldUseWebAppButton(resultOpenAppLink) ? "web_app" : "url"
     fastify.log.info(
@@ -3073,7 +3150,7 @@ async function saveDraft(
         isOnboardingFirstOrSecondSave
           ? {
               appButtonText: "📊 Посмотреть приложение",
-              trialUrl: onboardingTrialUrl,
+              showTrialButton: shouldShowOnboardingTrialButton,
             }
           : undefined,
       ),
@@ -3098,7 +3175,7 @@ async function saveDraft(
       },
     })
 
-    await maybePromptPaywall(fastify, userState, updatedDraft.chat_id)
+    await maybePromptPaywall(fastify, userState, session.user_id, updatedDraft.chat_id)
     if (onboardingSession && onboardingSession.completedSaves === 0) {
       await sendTelegramMessage(fastify, updatedDraft.chat_id, buildOnboardingAfterFirstSaveText(), undefined, "HTML")
     }
@@ -3112,7 +3189,7 @@ async function saveDraft(
         buildOnboardingAfterSecondSaveTrialText(),
         buildResultKeyboard(onboardingTrialMessageOpenAppLink, {
           appButtonText: "📊 Посмотреть приложение",
-          trialUrl: onboardingTrialUrl,
+          showTrialButton: true,
         }),
       )
     }
@@ -3213,6 +3290,9 @@ async function handleDraftCallback(
     username: callbackQuery.from?.username,
   })
   const session = await ensureBotSession(user.id)
+  await ensureBotUserState(user.id)
+  const accessStatus = await getUserAccessStatus(user.id)
+  await syncBotUserStateWithSubscriptionAccess(user.id, accessStatus)
   let userState = await ensureBotUserState(user.id)
 
   const openAppUrl = await resolveMiniAppUrl()
@@ -3266,6 +3346,61 @@ async function handleDraftCallback(
       data: { stage: BotUserStage.TRIAL_LIMITED },
     })
     await sendTelegramMessage(fastify, callbackChatId, "Ок, продолжим без оплаты. Когда будешь готов — кнопка всегда в меню.")
+    return
+  }
+
+  if (data === "bot:trial:start" || data === "bot:trial:plans") {
+    const trialAccess = await getUserAccessStatus(user.id)
+    if (!trialAccess.canStartTrial) {
+      await sendTelegramMessage(fastify, callbackChatId, "Пробный период уже недоступен для этого аккаунта.")
+      return
+    }
+    await renderTrialPlanSelector(fastify, callbackChatId, callbackMessageId)
+    return
+  }
+
+  if (data.startsWith("bot:trial:plan:")) {
+    const trialAccess = await getUserAccessStatus(user.id)
+    if (!trialAccess.canStartTrial) {
+      await sendTelegramMessage(fastify, callbackChatId, "Пробный период уже недоступен для этого аккаунта.")
+      return
+    }
+
+    const rawPlanCode = data.slice("bot:trial:plan:".length)
+    const planCode = parseSubscriptionPlanCode(rawPlanCode)
+    if (!planCode) return
+    const workspaceId = user.active_workspace_id ?? (await ensureWorkspaceForUser(user.id))
+
+    try {
+      const checkout = await createTrialCheckout({
+        userId: user.id,
+        telegramUserId: callbackUserId,
+        workspaceId,
+        planCode,
+      })
+      userState = await prisma.bot_user_states.update({
+        where: { user_id: user.id },
+        data: {
+          stage: BotUserStage.TRIAL_PAYWALL,
+          paywall_prompted_at: userState.paywall_prompted_at ?? new Date(),
+        },
+      })
+      await renderTrialPlanConfirmation(
+        fastify,
+        callbackChatId,
+        callbackMessageId,
+        checkout.planCode,
+        checkout.confirmationUrl,
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      fastify.log.error(`[bot:trial] create checkout failed: ${message}`)
+      await sendTelegramMessage(
+        fastify,
+        callbackChatId,
+        "Не удалось подготовить оплату. Попробуйте снова чуть позже.",
+      )
+    }
     return
   }
 
@@ -3615,6 +3750,11 @@ async function handleStartCommand(fastify: FastifyInstance, message: TelegramMes
 
 export async function telegramWebhookRoutes(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   fastify.post("/telegram/webhook", async (request, reply) => {
+    void runSubscriptionMaintenanceTick(fastify).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error)
+      fastify.log.error(`[subscriptions] maintenance tick failed: ${message}`)
+    })
+
     const update = request.body as TelegramUpdate
 
     const callbackQuery = update?.callback_query ?? null

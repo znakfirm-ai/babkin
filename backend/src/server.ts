@@ -16,6 +16,7 @@ import { bootstrapRoutes } from "./routes/bootstrap"
 import { runOpenAITest } from "./utils/openaiTest"
 import { telegramWebhookRoutes } from "./routes/telegramWebhook"
 import { devToolsRoutes } from "./routes/devTools"
+import { yookassaWebhookRoutes } from "./routes/yookassaWebhook"
 
 const fastify = Fastify({
   logger: true,
@@ -62,6 +63,7 @@ fastify.register(transactionsRoutes, { prefix: "/api/v1" })
 fastify.register(analyticsRoutes, { prefix: "/api/v1" })
 fastify.register(telegramWebhookRoutes, { prefix: "/api/v1" })
 fastify.register(devToolsRoutes, { prefix: "/api/v1" })
+fastify.register(yookassaWebhookRoutes, { prefix: "/api" })
 
 const port = Number(process.env.PORT) || env.PORT
 

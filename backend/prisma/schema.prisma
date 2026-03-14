@@ -113,6 +113,8 @@ model users {
   bot_user_state                              bot_user_states?
   bot_session                                 bot_sessions?
   bot_operation_drafts                        bot_operation_drafts[]
+  subscriptions                               subscriptions[]
+  payments                                    payments[]
 
   @@index([telegram_user_id])
 }
@@ -136,6 +138,8 @@ model workspaces {
   goals                                       goals[]
   debtors                                     debtors[]
   bot_operation_drafts                        bot_operation_drafts[]
+  subscriptions                               subscriptions[]
+  payments                                    payments[]
 
   @@index([created_by_user_id])
 }
@@ -361,7 +365,122 @@ model bot_operation_drafts {
   @@index([chat_id])
 }
 
+model subscriptions {
+  id                         String               @id @default(uuid())
+  user_id                    String
+  workspace_id               String?
+  plan_code                  SubscriptionPlanCode
+  status                     SubscriptionStatus
+  provider                   PaymentProvider
+  provider_customer_id       String?
+  provider_payment_method_id String?
+  trial_started_at           DateTime?
+  trial_ends_at              DateTime?
+  current_period_starts_at   DateTime?
+  current_period_ends_at     DateTime?
+  cancel_at_period_end       Boolean              @default(false)
+  cancelled_at               DateTime?
+  ended_at                   DateTime?
+  next_renewal_at            DateTime?
+  reminder_sent_at           DateTime?
+  created_at                 DateTime             @default(now())
+  updated_at                 DateTime             @updatedAt
+
+  users       users               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  workspaces  workspaces?         @relation(fields: [workspace_id], references: [id], onDelete: SetNull)
+  payments    payments[]
+  events      subscription_events[]
+
+  @@index([user_id])
+  @@index([status])
+  @@index([next_renewal_at])
+}
+
+model payments {
+  id                         String               @id @default(uuid())
+  subscription_id            String
+  user_id                    String
+  workspace_id               String?
+  provider                   PaymentProvider
+  provider_payment_id        String               @unique
+  provider_idempotence_key   String?              @unique
+  type                       PaymentType
+  status                     PaymentStatus
+  amount_value               Decimal              @db.Decimal(18, 2)
+  amount_currency            String
+  plan_code                  SubscriptionPlanCode
+  is_trial                   Boolean              @default(false)
+  provider_payment_method_id String?
+  raw_payload_json           Json?
+  paid_at                    DateTime?
+  created_at                 DateTime             @default(now())
+  updated_at                 DateTime             @updatedAt
+
+  subscriptions subscriptions @relation(fields: [subscription_id], references: [id], onDelete: Cascade)
+  users         users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  workspaces    workspaces?   @relation(fields: [workspace_id], references: [id], onDelete: SetNull)
+
+  @@index([subscription_id])
+  @@index([user_id])
+  @@index([status])
+}
+
+model subscription_events {
+  id              String                @id @default(uuid())
+  subscription_id String
+  event_type      SubscriptionEventType
+  payload_json    Json?
+  created_at      DateTime              @default(now())
+
+  subscriptions subscriptions @relation(fields: [subscription_id], references: [id], onDelete: Cascade)
+
+  @@index([subscription_id, created_at])
+}
+
 enum CategoryKind {
   income
   expense
+}
+
+enum SubscriptionPlanCode {
+  personal_monthly
+  personal_shared_monthly
+}
+
+enum SubscriptionStatus {
+  pending_initial_payment
+  trialing
+  active
+  past_due
+  cancelled
+  expired
+}
+
+enum PaymentProvider {
+  yookassa
+}
+
+enum PaymentType {
+  trial
+  recurring
+  one_time
+}
+
+enum PaymentStatus {
+  pending
+  waiting_for_capture
+  succeeded
+  canceled
+  failed
+}
+
+enum SubscriptionEventType {
+  trial_payment_created
+  trial_payment_succeeded
+  trial_activated
+  recurring_payment_created
+  recurring_payment_succeeded
+  recurring_payment_failed
+  subscription_cancelled
+  subscription_expired
 }
