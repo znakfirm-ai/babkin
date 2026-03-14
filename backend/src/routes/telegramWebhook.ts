@@ -1728,7 +1728,8 @@ const buildOnboardingAfterSecondSaveTrialText = () =>
   ].join("\n\n")
 
 const resolveOnboardingSampleText = (sampleKey: string): string | null => {
-  if (sampleKey === "taxi") return "Такси 500"
+  // Include the target category cue for taxi sample so category prefill is deterministic on clean users.
+  if (sampleKey === "taxi") return "Транспорт такси 500"
   if (sampleKey === "food") return "Еда 350"
   if (sampleKey === "market") return "Маркетплейсы 1200"
   return null
