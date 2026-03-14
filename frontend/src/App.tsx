@@ -95,12 +95,17 @@ type CompareReportState = {
   historyOffset: number
 }
 type DeepLinkTargetType = "category" | "incomeSource" | "account" | "debtor" | "goal"
-type BotDeepLinkIntent = {
+type BotDeepLinkTargetIntent = {
+  kind: "target"
   workspaceId: string
   targetType: DeepLinkTargetType
   targetId: string
   transactionId: string
 }
+type BotDeepLinkOverviewIntent = {
+  kind: "overview"
+}
+type BotDeepLinkIntent = BotDeepLinkTargetIntent | BotDeepLinkOverviewIntent
 
 const ACTIVE_SPACE_KEY_STORAGE = "activeSpaceKey"
 const WORKSPACE_NAME_LIMIT = 32
@@ -160,6 +165,27 @@ const normalizeInviteCodeFromStartParam = (value: string | null | undefined): st
   return normalizeInviteCode(trimmed.slice(INVITE_STARTAPP_PREFIX.length))
 }
 
+const isNonInviteStartParam = (value: string | null | undefined): boolean => {
+  if (!value) return false
+  const trimmed = value.trim()
+  if (!trimmed) return false
+  if (trimmed.startsWith(BOT_DEEP_LINK_STARTAPP_PREFIX)) return true
+  const cleaned = trimmed.startsWith("?") ? trimmed.slice(1) : trimmed
+  if (!cleaned.includes("=")) return false
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(cleaned)
+    } catch {
+      return cleaned
+    }
+  })()
+  const params = new URLSearchParams(decoded)
+  const botView = params.get("botView")?.trim().toLowerCase() ?? ""
+  const intent = params.get("intent")?.trim().toLowerCase() ?? ""
+  const view = params.get("view")?.trim().toLowerCase() ?? ""
+  return botView === "overview" || intent === "overview" || view === "overview"
+}
+
 const resolveInviteCodeFromPathname = (value: string | null | undefined): string | null => {
   if (!value) return null
   const match = value.match(/^\/i\/([^/?#]+)/i)
@@ -180,25 +206,38 @@ const resolveLaunchInviteCode = (): string | null => {
   const directInviteCode = normalizeInviteCode(searchParams.get("invite"))
   if (directInviteCode) return directInviteCode
 
-  const inviteFromStartApp = normalizeInviteCodeFromStartParam(searchParams.get("startapp")) ?? normalizeInviteCode(searchParams.get("startapp"))
+  const startAppRaw = searchParams.get("startapp")
+  const inviteFromStartApp = isNonInviteStartParam(startAppRaw)
+    ? null
+    : normalizeInviteCodeFromStartParam(startAppRaw) ?? normalizeInviteCode(startAppRaw)
   if (inviteFromStartApp) return inviteFromStartApp
 
-  const inviteFromStart = normalizeInviteCodeFromStartParam(searchParams.get("start")) ?? normalizeInviteCode(searchParams.get("start"))
+  const startRaw = searchParams.get("start")
+  const inviteFromStart = isNonInviteStartParam(startRaw)
+    ? null
+    : normalizeInviteCodeFromStartParam(startRaw) ?? normalizeInviteCode(startRaw)
   if (inviteFromStart) return inviteFromStart
 
+  const tgStartRaw = searchParams.get("tgWebAppStartParam")
   const inviteFromTelegramStartParam =
-    normalizeInviteCodeFromStartParam(searchParams.get("tgWebAppStartParam")) ?? normalizeInviteCode(searchParams.get("tgWebAppStartParam"))
+    isNonInviteStartParam(tgStartRaw)
+      ? null
+      : normalizeInviteCodeFromStartParam(tgStartRaw) ?? normalizeInviteCode(tgStartRaw)
   if (inviteFromTelegramStartParam) return inviteFromTelegramStartParam
 
   const initDataRaw = window.Telegram?.WebApp?.initData
   if (typeof initDataRaw === "string" && initDataRaw.length > 0) {
     const initDataParams = new URLSearchParams(initDataRaw)
-    const inviteFromInitData = normalizeInviteCodeFromStartParam(initDataParams.get("start_param")) ?? normalizeInviteCode(initDataParams.get("start_param"))
+    const startParamRaw = initDataParams.get("start_param")
+    const inviteFromInitData = isNonInviteStartParam(startParamRaw)
+      ? null
+      : normalizeInviteCodeFromStartParam(startParamRaw) ?? normalizeInviteCode(startParamRaw)
     if (inviteFromInitData) return inviteFromInitData
   }
 
   const initDataUnsafe = window.Telegram?.WebApp?.initDataUnsafe as TelegramInitDataUnsafe | undefined
   if (typeof initDataUnsafe?.start_param === "string") {
+    if (isNonInviteStartParam(initDataUnsafe.start_param)) return null
     return normalizeInviteCodeFromStartParam(initDataUnsafe.start_param) ?? normalizeInviteCode(initDataUnsafe.start_param)
   }
 
@@ -212,6 +251,15 @@ const normalizeDeepLinkParam = (value: string | null | undefined): string | null
 }
 
 const parseDeepLinkIntentFromParams = (params: URLSearchParams): BotDeepLinkIntent | null => {
+  const botView = normalizeDeepLinkParam(params.get("botView"))
+  const intent = normalizeDeepLinkParam(params.get("intent"))
+  const view = normalizeDeepLinkParam(params.get("view"))
+  const hasOverviewIntent =
+    botView?.toLowerCase() === "overview" || intent?.toLowerCase() === "overview" || view?.toLowerCase() === "overview"
+  if (hasOverviewIntent) {
+    return { kind: "overview" }
+  }
+
   const workspaceId = normalizeDeepLinkParam(params.get("workspaceId"))
   const targetTypeRaw = normalizeDeepLinkParam(params.get("targetType"))
   const targetId = normalizeDeepLinkParam(params.get("targetId"))
@@ -221,6 +269,7 @@ const parseDeepLinkIntentFromParams = (params: URLSearchParams): BotDeepLinkInte
   if (!BOT_DEEP_LINK_TARGET_TYPES.has(targetTypeRaw as DeepLinkTargetType)) return null
 
   return {
+    kind: "target",
     workspaceId,
     targetType: targetTypeRaw as DeepLinkTargetType,
     targetId,
@@ -253,7 +302,13 @@ const parsePackedDeepLinkPayload = (value: string): BotDeepLinkIntent | null => 
       t?: unknown
       i?: unknown
       x?: unknown
+      v?: unknown
     }
+    const viewIntent = normalizeDeepLinkParam(typeof raw.v === "string" ? raw.v : null)
+    if (viewIntent?.toLowerCase() === "overview") {
+      return { kind: "overview" }
+    }
+
     const workspaceId = normalizeDeepLinkParam(typeof raw.w === "string" ? raw.w : null)
     const targetType = normalizeDeepLinkParam(typeof raw.t === "string" ? raw.t : null)
     const targetId = normalizeDeepLinkParam(typeof raw.i === "string" ? raw.i : null)
@@ -261,6 +316,7 @@ const parsePackedDeepLinkPayload = (value: string): BotDeepLinkIntent | null => 
     if (!workspaceId || !targetType || !targetId || !transactionId) return null
     if (!BOT_DEEP_LINK_TARGET_TYPES.has(targetType as DeepLinkTargetType)) return null
     return {
+      kind: "target",
       workspaceId,
       targetType: targetType as DeepLinkTargetType,
       targetId,
@@ -318,13 +374,14 @@ const resolveLaunchBotDeepLinkIntent = (): BotDeepLinkIntent | null => {
 
 const getBotDeepLinkIntentKey = (intent: BotDeepLinkIntent | null): string | null => {
   if (!intent) return null
+  if (intent.kind === "overview") return "overview"
   return `${intent.workspaceId}:${intent.targetType}:${intent.targetId}:${intent.transactionId}`
 }
 
 const clearDeepLinkParamsFromUrl = () => {
   if (typeof window === "undefined") return
   const url = new URL(window.location.href)
-  const keys = ["workspaceId", "targetType", "targetId", "transactionId"]
+  const keys = ["workspaceId", "targetType", "targetId", "transactionId", "botView", "intent", "view"]
   let changed = false
   keys.forEach((key) => {
     if (url.searchParams.has(key)) {
@@ -1832,6 +1889,22 @@ function App() {
 
     botDeepLinkInFlightRef.current = true
     void (async () => {
+      if (pendingBotDeepLinkIntent.kind === "overview") {
+        setPendingAccountOpenId(null)
+        setPendingCategoryOpenId(null)
+        setPendingIncomeSourceOpenId(null)
+        setPendingGoalOpenId(null)
+        setPendingDebtorOpenId(null)
+        setPendingTransactionOpenId(null)
+        setActiveNav("overview")
+        setActiveScreen("overview")
+        handledBotDeepLinkIntentRef.current = intentKey
+        logDiagnosticEvent("deep-link.applied", { intent: pendingBotDeepLinkIntent })
+        setPendingBotDeepLinkIntent(null)
+        clearDeepLinkParamsFromUrl()
+        return
+      }
+
       const targetWorkspace = appWorkspaces.find((workspace) => workspace.id === pendingBotDeepLinkIntent.workspaceId) ?? null
       if (!targetWorkspace) {
         logDiagnosticEvent("deep-link.skip.missing-workspace", { intent: pendingBotDeepLinkIntent }, { level: "warn" })

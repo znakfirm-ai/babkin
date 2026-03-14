@@ -1856,6 +1856,30 @@ const buildMiniAppDeepLink = (
   }
 }
 
+const buildMiniAppOverviewLink = (baseUrl: string): string => {
+  try {
+    const url = new URL(baseUrl)
+    if (url.hostname === "t.me") {
+      const rawPayload = JSON.stringify({ v: "overview" })
+      const encodedPayload = Buffer.from(rawPayload, "utf8")
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "")
+      const payload = `${TELEGRAM_STARTAPP_PREFIX}${encodedPayload}`
+      if (payload.length > 0 && payload.length <= TELEGRAM_STARTAPP_MAX_LENGTH) {
+        url.searchParams.set("startapp", payload)
+      }
+      return url.toString()
+    }
+
+    url.searchParams.set("botView", "overview")
+    return url.toString()
+  } catch {
+    return baseUrl
+  }
+}
+
 const shouldUseWebAppButton = (openAppUrl: string): boolean => {
   try {
     const parsedUrl = new URL(openAppUrl)
@@ -3006,14 +3030,7 @@ async function saveDraft(
     })
     const isOnboardingFirstOrSecondSave = Boolean(onboardingSession && onboardingSession.completedSaves < 2)
     const shouldOpenOverviewForOnboarding = isOnboardingFirstOrSecondSave && !hasActiveAppAccess(userState)
-    const onboardingOpenAppLink = shouldOpenOverviewForOnboarding
-      ? buildMiniAppDeepLink(openAppUrl, {
-          workspaceId: updatedDraft.workspace_id,
-          targetType: null,
-          targetId: null,
-          transactionId: null,
-        })
-      : deepLink
+    const onboardingOpenAppLink = shouldOpenOverviewForOnboarding ? buildMiniAppOverviewLink(openAppUrl) : deepLink
     const shouldShowOnboardingTrialButton = isOnboardingFirstOrSecondSave && canStartTrial(userState)
     const onboardingTrialUrl = shouldShowOnboardingTrialButton ? await resolvePaywallUrl() : null
     const resultOpenAppLink = isOnboardingFirstOrSecondSave ? onboardingOpenAppLink : deepLink
