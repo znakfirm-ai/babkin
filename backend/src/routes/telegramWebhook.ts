@@ -1639,12 +1639,17 @@ const buildResultKeyboard = (
     trialUrl?: string | null
   },
 ) => {
-  const row: InlineKeyboardButton[] = [buildOpenAppButton(openAppUrl, options?.appButtonText ?? "Открыть в приложении")]
+  const appButton = buildOpenAppButton(openAppUrl, options?.appButtonText ?? "Открыть в приложении")
   if (options?.trialUrl) {
-    row.push({ text: "⭐ Пробный за 1 ₽", url: options.trialUrl })
+    return {
+      inline_keyboard: [
+        [appButton],
+        [{ text: "⭐ Пробный за 1 ₽", url: options.trialUrl }],
+      ],
+    }
   }
   return {
-    inline_keyboard: [row],
+    inline_keyboard: [[appButton]],
   }
 }
 
@@ -2233,6 +2238,8 @@ async function cleanupDraftMessages(
 const canStartTrial = (userState: bot_user_states): boolean =>
   (userState.stage === BotUserStage.NEW_USER || userState.stage === BotUserStage.TRIAL_FREE_USAGE) &&
   !userState.paywall_prompted_at
+
+const hasActiveAppAccess = (userState: bot_user_states): boolean => userState.stage === BotUserStage.ACTIVE_PAID
 
 async function maybePromptPaywall(
   fastify: FastifyInstance,
@@ -2997,9 +3004,19 @@ async function saveDraft(
       transactionId: createdTransaction.id,
     })
     const isOnboardingFirstOrSecondSave = Boolean(onboardingSession && onboardingSession.completedSaves < 2)
+    const shouldOpenOverviewForOnboarding = isOnboardingFirstOrSecondSave && !hasActiveAppAccess(userState)
+    const onboardingOpenAppLink = shouldOpenOverviewForOnboarding
+      ? buildMiniAppDeepLink(openAppUrl, {
+          workspaceId: updatedDraft.workspace_id,
+          targetType: null,
+          targetId: null,
+          transactionId: null,
+        })
+      : deepLink
     const shouldShowOnboardingTrialButton = isOnboardingFirstOrSecondSave && canStartTrial(userState)
     const onboardingTrialUrl = shouldShowOnboardingTrialButton ? await resolvePaywallUrl() : null
-    const openButtonMode = shouldUseWebAppButton(deepLink) ? "web_app" : "url"
+    const resultOpenAppLink = isOnboardingFirstOrSecondSave ? onboardingOpenAppLink : deepLink
+    const openButtonMode = shouldUseWebAppButton(resultOpenAppLink) ? "web_app" : "url"
     fastify.log.info(
       `[bot:save] open-app button mode=${openButtonMode} targetType=${target.targetType} workspaceId=${updatedDraft.workspace_id} transactionId=${createdTransaction.id}`,
     )
@@ -3010,7 +3027,7 @@ async function saveDraft(
       chatId: updatedDraft.chat_id,
       text: summaryText,
       keyboard: buildResultKeyboard(
-        deepLink,
+        resultOpenAppLink,
         isOnboardingFirstOrSecondSave
           ? {
               appButtonText: "📊 Посмотреть приложение",
@@ -3048,7 +3065,7 @@ async function saveDraft(
         fastify,
         updatedDraft.chat_id,
         buildOnboardingAfterSecondSaveTrialText(),
-        buildResultKeyboard(deepLink, {
+        buildResultKeyboard(onboardingOpenAppLink, {
           appButtonText: "📊 Посмотреть приложение",
           trialUrl: onboardingTrialUrl,
         }),
